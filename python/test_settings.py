@@ -10,7 +10,7 @@ Every test gets its own fresh temp SQLite DB, deleted immediately after
 import os
 import tempfile
 import traceback
-from datetime import date
+from datetime import date, datetime
 
 from alembic import command
 from alembic.config import Config
@@ -161,11 +161,17 @@ def test_idle_stop_setting_changes_real_timer_behavior():
         from database.repository import ProjectRepository
         project_repo = ProjectRepository(f.db)
         project = project_repo.get("proj1")
-        project.running_since = _time.time() - 3600  # stale by an hour
+        stale_start = _time.time() - 3600  # stale by an hour
+        project.running_since = stale_start
         project_repo.save(project)
 
         stop_project(project_repo, project)  # idle_limit_secs not passed -> self-resolves from settings
-        activity = project_repo.get_activity("proj1", str(date.today()))
+        # Reads whichever calendar day the credited span actually landed
+        # on, not "today" — a stale start an hour in the past can
+        # (correctly) land on the previous day if this test itself runs
+        # within the first hour after midnight.
+        credit_day = str(datetime.fromtimestamp(stale_start).date())
+        activity = project_repo.get_activity("proj1", credit_day)
         check(
             "stop_project self-resolves the configured 5-minute idle limit, not the 15-minute default",
             activity is not None and abs(activity.secs - 5 * 60) < 2,

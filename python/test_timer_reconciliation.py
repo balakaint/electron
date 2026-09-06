@@ -14,7 +14,7 @@ import os
 import tempfile
 import time
 import traceback
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 fd, DB_PATH = tempfile.mkstemp(suffix=".db")
 os.close(fd)
@@ -64,11 +64,18 @@ def test_idle_cap_on_stop():
     engine.toggle_timer("proj1")  # stop
 
     p = repo.get("proj1")
-    today_secs = engine.secs_today("proj1")
+    # Reads whichever calendar day the credited span actually landed on
+    # rather than assuming "today" — a stale start this close to
+    # midnight can (correctly, matching the day-split behavior tested
+    # below) land its credit on the PREVIOUS day if this test itself
+    # happens to run in the ~90 minutes after midnight.
+    credit_day = str(datetime.fromtimestamp(stale_start).date())
+    activity = repo.get_activity("proj1", credit_day)
+    credited_secs = activity.secs if activity is not None else 0.0
     check(
         "idle cap: stop after a stale running_since credits only IDLE_LIMIT_SECS",
-        abs(today_secs - IDLE_LIMIT_SECS) < 2,
-        f"got {today_secs}s, expected ~{IDLE_LIMIT_SECS}s",
+        abs(credited_secs - IDLE_LIMIT_SECS) < 2,
+        f"got {credited_secs}s, expected ~{IDLE_LIMIT_SECS}s",
     )
     check("idle cap: running_since cleared after stop", p.running_since is None)
     db.close()
@@ -106,7 +113,16 @@ def test_ticks_preserved_before_crash():
     reconcile_all_projects(repo)  # engine-startup reconciliation
     db.commit()
     engine = ProjectEngine(repo)
-    total = engine.secs_today("proj2")
+    # Summed over today AND yesterday rather than just secs_today(): the
+    # simulated window here spans over an hour, so if this test happens
+    # to run in the hour or so after midnight, the pre-crash ticks and
+    # the crash tail can legitimately land on different calendar days
+    # (correct day-split behavior, exercised deliberately below) — a
+    # today-only read would then undercount through no fault of the
+    # reconciliation logic itself.
+    yesterday = str(date.today() - timedelta(days=1))
+    prev_day_activity = repo.get_activity("proj2", yesterday)
+    total = engine.secs_today("proj2") + (prev_day_activity.secs if prev_day_activity else 0.0)
     db.close()
 
     # Expect: the healthy pre-crash ticks credited real elapsed (small, since

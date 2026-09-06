@@ -42,6 +42,138 @@ function getUserDataDir(): string {
   return dir;
 }
 
+// Matches legacy's startup exception handler: a crash here has to
+// leave a trace that outlives the process that hit it — a traceback
+// that only ever existed as pixels in a window the user didn't
+// screenshot is one they have to retype by hand to report. Written to
+// a file AND surfaced in a dialog, same as legacy writing to a file,
+// stderr, and a Tk window all at once.
+function writeCrashLog(details: string): string {
+  const logPath = path.join(app.getPath('userData'), 'startup-error.txt');
+  try {
+    fs.writeFileSync(logPath, `Habit OS startup error\n${new Date().toISOString()}\n\n${details}`);
+  } catch (err) {
+    console.error('failed to write crash log:', err);
+  }
+  return logPath;
+}
+
+function reportStartupCrash(details: string) {
+  console.error(details);
+  const logPath = writeCrashLog(details);
+  dialog.showErrorBox('Habit OS failed to start', `${details}\n\nSaved to:\n${logPath}`);
+}
+
+process.on('uncaughtException', (err) => {
+  reportStartupCrash(err.stack || String(err));
+  app.quit();
+});
+
+// ── Backup rotation + corrupt-file recovery ───────────────────────────
+// Matches legacy's _write_backup/load_data, adapted for a single
+// SQLite file instead of a JSON blob: the underlying risk shrinks (a
+// transactional file format doesn't corrupt from an ordinary partial
+// write the way naive JSON serialization can) but doesn't disappear
+// entirely — disk corruption and interrupted writes during non-WAL
+// operations are both still real — so the same daily-backup-with-
+// fallback-recovery safety net still earns its place.
+const BACKUP_KEEP = 14; // matches legacy's BACKUP_KEEP (days of history kept on disk)
+const SQLITE_MAGIC = 'SQLite format 3\0';
+
+function getBackupDir(): string {
+  const dir = path.join(app.getPath('userData'), 'backups');
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+// Local calendar date, not toISOString()'s UTC one — a backup taken at
+// 00:02 local time in a UTC+6 timezone would otherwise date-stamp
+// itself for the PREVIOUS day, same class of bug as any other
+// UTC-vs-local date mismatch. Matches legacy's date.today(), which
+// reads the local system clock.
+function localDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function backupPaths(): string[] {
+  try {
+    return fs
+      .readdirSync(getBackupDir())
+      .filter((n) => n.startsWith('backup-') && n.endsWith('.db'))
+      .sort()
+      .reverse()
+      .map((n) => path.join(getBackupDir(), n));
+  } catch {
+    return [];
+  }
+}
+
+function isValidSqliteFile(filePath: string): boolean {
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const buf = Buffer.alloc(16);
+    fs.readSync(fd, buf, 0, 16, 0);
+    fs.closeSync(fd);
+    return buf.toString('utf-8') === SQLITE_MAGIC;
+  } catch {
+    return false;
+  }
+}
+
+// Copies today's already-migrated, already-opened-successfully DB
+// aside — deliberately a copy of the file Python just proved it could
+// read, not a fresh serialization, so a bug that corrupted live state
+// can't get faithfully backed up as if it were good data. Runs once
+// per day; prunes on every call (not just the day's first) so a
+// long-running install doesn't grow the folder without limit.
+function rotateBackups(dbPath: string) {
+  try {
+    if (!fs.existsSync(dbPath)) return;
+    const dest = path.join(getBackupDir(), `backup-${localDateStr(new Date())}.db`);
+    if (!fs.existsSync(dest)) {
+      fs.copyFileSync(dbPath, dest);
+    }
+    for (const old of backupPaths().slice(BACKUP_KEEP)) {
+      try {
+        fs.unlinkSync(old);
+      } catch (err) {
+        console.error('backup prune failed:', old, err);
+      }
+    }
+  } catch (err) {
+    console.error('backup rotation failed:', err);
+  }
+}
+
+// Runs BEFORE the Python engine ever opens dbPath, since recovery here
+// means the file Python would have opened is already the right one by
+// the time it tries. Returns a notice to show once the window exists —
+// showing a dialog this early, before app.whenReady(), isn't reliable
+// on every platform.
+function recoverDatabaseIfNeeded(dbPath: string): string | null {
+  const backups = backupPaths();
+  if (!fs.existsSync(dbPath)) {
+    // Genuinely absent (fresh install) is not the same as missing
+    // (the file existed for a previous run that made backups) — matches
+    // legacy's load_data distinguishing the two by whether backups exist.
+    if (backups.length === 0) return null;
+    fs.copyFileSync(backups[0], dbPath);
+    return `Database file was missing — restored from ${path.basename(backups[0])}`;
+  }
+  if (isValidSqliteFile(dbPath)) return null;
+  const quarantinePath = `${dbPath}.corrupt-${Date.now()}`;
+  try {
+    fs.renameSync(dbPath, quarantinePath);
+  } catch (err) {
+    console.error('failed to quarantine corrupt database:', err);
+  }
+  if (backups.length === 0) {
+    return 'Database file was damaged and no backup could be found. Starting fresh — the damaged file was kept, not deleted.';
+  }
+  fs.copyFileSync(backups[0], dbPath);
+  return `Database file was damaged — restored from ${path.basename(backups[0])}`;
+}
+
 // Matches legacy's _setup_window / main-window geometry save, minus
 // the docking system that (deliberately) throws the saved X/width away
 // on every launch — a bare resizable window has no screen-edge to
@@ -80,10 +212,14 @@ function saveWindowState(win: BrowserWindow) {
   }
 }
 
+let pendingRecoveryNotice: string | null = null;
+
 function startPythonEngine(): Promise<void> {
   return new Promise((resolve, reject) => {
     const isDev = !app.isPackaged;
     const dbPath = path.join(getUserDataDir(), 'app.db');
+
+    pendingRecoveryNotice = recoverDatabaseIfNeeded(dbPath);
 
     const venvPython = path.join(__dirname, '../../python/.venv/bin/python');
     const command = isDev
@@ -98,26 +234,42 @@ function startPythonEngine(): Promise<void> {
     });
 
     let started = false;
+    let stderrLog = '';
     const onReady = (data: Buffer) => {
       const msg = data.toString();
       process.stdout.write(`[python] ${msg}`);
       if (!started && msg.includes('READY')) {
         started = true;
+        rotateBackups(dbPath);
         resolve();
       }
     };
 
     pythonProcess.stdout.on('data', onReady);
-    pythonProcess.stderr.on('data', (data) => process.stderr.write(`[python:err] ${data}`));
-    pythonProcess.on('error', reject);
+    pythonProcess.stderr.on('data', (data) => {
+      const text = data.toString();
+      stderrLog += text;
+      process.stderr.write(`[python:err] ${text}`);
+    });
+    pythonProcess.on('error', (err) => {
+      if (!started) reject(err);
+    });
     pythonProcess.on('exit', (code) => {
       console.error(`Python engine exited with code ${code}`);
+      // A crash BEFORE ever reaching READY means the app has no engine
+      // to talk to and never will — matches legacy's own startup
+      // exception handler, which treats "failed before the main loop
+      // opened" as fatal rather than something to quietly retry.
+      if (!started) {
+        reject(new Error(`Python engine exited with code ${code} before starting:\n\n${stderrLog}`));
+      }
     });
 
     // Fail-safe: don't hang forever if the READY marker is missed.
     setTimeout(() => {
       if (!started) {
         started = true;
+        rotateBackups(dbPath);
         resolve();
       }
     }, 5000);
@@ -293,8 +445,27 @@ ipcMain.handle('open-path', async (_, filePath: string) => {
 });
 
 app.whenReady().then(async () => {
-  await startPythonEngine();
+  try {
+    await startPythonEngine();
+  } catch (err) {
+    reportStartupCrash(err instanceof Error ? err.stack || err.message : String(err));
+    app.quit();
+    return;
+  }
   createWindow();
+
+  // A dialog this early (before the window exists) isn't reliable on
+  // every platform — shown here instead, once there's a real window to
+  // anchor it to. Matches legacy's own recovery dialog, which likewise
+  // fires 700ms after the main window opens rather than before it.
+  if (pendingRecoveryNotice && mainWindow) {
+    dialog.showMessageBox(mainWindow, {
+      type: 'warning',
+      title: 'Habit OS — data recovery',
+      message: pendingRecoveryNotice,
+      detail: `Backups are kept in:\n${getBackupDir()}`,
+    });
+  }
 
   // Registering the OS startup entry is a side effect of a stored
   // preference, not something the preference-setting UI is guaranteed
