@@ -83,6 +83,22 @@ npm run dev   # opens a real window; useless headless. Ctrl-C to quit.
 - **No `xvfb` needed here.** This is WSL with WSLg — a real X server
   already exists at `:0`. Don't `apt-get install xvfb`; it's not
   needed and the generic cold-container recipe over-assumes it.
+- **Vite's file watcher does not reliably fire for edits on `/mnt/c/...`
+  paths** (this whole repo lives there — it's a Windows drive mounted
+  into WSL over 9p/DrvFs, and chokidar's native watch can silently miss
+  changes written from a WSL-side process). Symptom: you edit a
+  `renderer/src` file, reload the page (even with a cache-busting query
+  string or `location.reload()`), and the DOM still reflects the *old*
+  code — e.g. a `<div onClick>` you just changed to a `<button>` still
+  shows up as a `DIV` in `document.querySelectorAll`. Confirm by
+  `curl`-ing the file straight from the dev server
+  (`curl -s http://localhost:5173/src/components/Foo.tsx | grep ...`)
+  and comparing against the source on disk — if they disagree, HMR
+  never saw the edit. Fix: kill and restart the `vite` process
+  (`pkill -f "node_modules/.bin/vite"`, then `nohup npx vite > /tmp/vite.log 2>&1 &`)
+  so it re-reads every file fresh on boot, then relaunch the driver.
+  Don't waste time on more reloads/cache-busting first — a stale Vite
+  process is the actual cause, not the browser.
 - **A locator built on an input's `value` attribute breaks the instant
   you `.fill()` that same input.** `page.locator('input[value="X"]')`
   re-resolves live on every action — after `.fill()` changes the
