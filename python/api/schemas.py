@@ -473,7 +473,7 @@ class SectionTitleSet(BaseModel):
     title: str  # blank resets to the default label, client-side
 
 
-ThemeT = Literal["focus", "warroom", "energy", "journey"]
+ThemeT = Literal["focus", "warroom", "energy", "corporate", "journey", "rize"]
 LangT = Literal["en", "bn"]
 
 

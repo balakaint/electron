@@ -12,9 +12,9 @@ and this doesn't touch tasks otherwise.
 
 from database.repository import TaskRepository
 
-# A reasonable subset of the legacy app's 6 named themes — matches
-# THEME_ORDER's cycle order, not every palette detail.
-THEMES = ("focus", "warroom", "energy", "journey")
+# All 6 of legacy's named themes, in its own THEME_ORDER — 'corporate'
+# is legacy's internal key for the theme it labels "EXECUTIVE".
+THEMES = ("focus", "warroom", "energy", "corporate", "journey", "rize")
 LANGS = ("en", "bn")
 
 _IDLE_MIN, _IDLE_MAX = 2, 120

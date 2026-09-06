@@ -55,7 +55,7 @@ _BA_TEXT_FIELDS = (
     "decision_why", "next_action", "next_deadline",
 )
 _GOAL_HORIZONS = ("yearly", "monthly", "weekly")
-_VALID_THEMES = ("focus", "warroom", "energy", "journey")
+_VALID_THEMES = ("focus", "warroom", "energy", "corporate", "journey", "rize")
 
 
 def _ms_id_counter(start: int):
