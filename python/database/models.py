@@ -154,6 +154,7 @@ class BusinessAnalysis(Base):
     next_action: Mapped[str] = mapped_column(String, default="")
     next_priority: Mapped[str] = mapped_column(String, default="")  # HIGH|MED|LOW|""
     next_deadline: Mapped[str] = mapped_column(String, default="")  # free text, not a real date
+    attach_path: Mapped[str] = mapped_column(String, default="")  # local path to a supporting Word/Excel/CSV file
 
 
 class DecisionLog(Base):

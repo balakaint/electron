@@ -247,6 +247,7 @@ class BusinessAnalysisUpdate(BaseModel):
     decision_why: str | None = None
     next_action: str | None = None
     next_deadline: str | None = None
+    attach_path: str | None = None
 
 
 class BusinessAnalysisOut(BaseModel):
@@ -270,6 +271,7 @@ class BusinessAnalysisOut(BaseModel):
     next_action: str
     next_priority: NextPriorityT
     next_deadline: str
+    attach_path: str
 
 
 class DecisionStatusSet(BaseModel):

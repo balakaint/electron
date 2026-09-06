@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -265,6 +265,32 @@ ipcMain.handle(
     return { ok: true, folder, filenames: files.map((f) => f.filename) };
   },
 );
+
+// Matches legacy's _ba_attach_pick/_ba_attach_open: the BA "attach a
+// Word/Excel/CSV file" control only ever stores a filesystem PATH, not
+// the file's contents — the renderer can't touch the filesystem
+// directly (same contextIsolation reasoning as export-save), so
+// picking a path and opening it with the OS's own default handler both
+// need a main-process round trip.
+ipcMain.handle('pick-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    title: 'Attach Word / Excel / CSV file',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Word & Excel', extensions: ['docx', 'doc', 'xlsx', 'xls', 'xlsm', 'csv'] },
+      { name: 'Word documents', extensions: ['docx', 'doc'] },
+      { name: 'Excel spreadsheets', extensions: ['xlsx', 'xls', 'xlsm'] },
+      { name: 'All files', extensions: ['*'] },
+    ],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  return result.filePaths[0];
+});
+
+ipcMain.handle('open-path', async (_, filePath: string) => {
+  const error = await shell.openPath(filePath);
+  return { ok: error === '', error: error || null };
+});
 
 app.whenReady().then(async () => {
   await startPythonEngine();

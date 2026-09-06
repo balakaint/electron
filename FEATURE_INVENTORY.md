@@ -194,7 +194,7 @@ chip (ProjectDashboard).
 | 115 | NEXT ACTION section (action/priority/deadline) | Done | 10372-10373, 11004-11060 |
 | 116 | PEOPLE (Circle) section embedded in the BA page | Done (same Circle feature as row 83-88, reused here) | 11062-11094 |
 | 117 | Legacy 15-box freeform grid (read-only archive) | Done | box fields referenced at 10573-10731 (dead per-box UI), data model per row 616-617 in chunk A |
-| 118 | Attach a Word/Excel/CSV file to the BA page | Not Started | 10490-10556 |
+| 118 | Attach a Word/Excel/CSV file to the BA page | Done — native file-picker + `shell.openPath` via two new main-process IPC channels (`pick-file`, `open-path`), same as legacy: stores a filesystem path only, click opens with the OS default handler, double-click detaches | 10490-10556 |
 | 119 | Old single-blob-to-per-field one-time migration (`ba_idea`→`ba_idea_business` etc.) | Done (handled once during import, no live migration needed since the port starts from the already-current field names) | 10392-10400 |
 
 ## L. Product Journey (6-stage timeline, per project)

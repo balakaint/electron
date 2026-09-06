@@ -96,12 +96,33 @@ export default function BusinessAnalysisCanvas({
   const togglePriority = (priority: NextPriority) =>
     businessAnalysisApi.setPriority(projectKey, priority).then(setBa);
 
+  const pickAttach = () =>
+    businessAnalysisApi.pickAttachFile().then((path) => {
+      if (path) save('attach_path', path);
+    });
+  const openAttach = () => businessAnalysisApi.openAttachFile(ba.attach_path);
+  const detachFile = () => save('attach_path', '');
+
   const nonEmptyBoxes = boxes.filter((b) => b.title.trim() || b.text.trim());
 
   return (
     <div style={{ maxWidth: 640 }}>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ flex: 1, fontSize: 15, fontWeight: 'bold' }}>Business Analysis</div>
+        {ba.attach_path ? (
+          <button
+            onClick={openAttach}
+            onDoubleClick={detachFile}
+            title="Click to open · double-click to detach"
+            style={{ fontSize: 11, marginRight: 8 }}
+          >
+            + {ba.attach_path.split(/[\\/]/).pop()?.slice(0, 24)}
+          </button>
+        ) : (
+          <button onClick={pickAttach} title="Link a supporting Word/Excel/CSV file" style={{ fontSize: 11, marginRight: 8 }}>
+            + Attach Word/Excel
+          </button>
+        )}
         <button onClick={onClose}>← Back</button>
       </div>
 

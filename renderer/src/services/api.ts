@@ -44,6 +44,8 @@ declare global {
       healthCheck: () => Promise<{ status: string }>;
       request: (method: string, path: string, body?: unknown) => Promise<unknown>;
       exportSave: (files: ExportFile[]) => Promise<ExportSaveResult>;
+      pickFile: () => Promise<string | null>;
+      openPath: (filePath: string) => Promise<{ ok: boolean; error: string | null }>;
     };
   }
 }
@@ -239,6 +241,7 @@ export interface BusinessAnalysis {
   next_action: string;
   next_priority: NextPriority;
   next_deadline: string;
+  attach_path: string;
 }
 
 export type BusinessAnalysisPatch = Partial<
@@ -271,6 +274,8 @@ export const businessAnalysisApi = {
   getLog: (key: ProjectKey) => req('GET', `/api/projects/${key}/analysis/log`) as Promise<DecisionLogEntry[]>,
   getLegacyBoxes: (key: ProjectKey) =>
     req('GET', `/api/projects/${key}/analysis/legacy-boxes`) as Promise<LegacyBox[]>,
+  pickAttachFile: () => window.api.pickFile(),
+  openAttachFile: (filePath: string) => window.api.openPath(filePath),
 };
 
 export const circleApi = {

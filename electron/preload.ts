@@ -6,4 +6,6 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('api-request', { method, path, body }),
   exportSave: (files: { filename: string; content: string }[]) =>
     ipcRenderer.invoke('export-save', { files }),
+  pickFile: () => ipcRenderer.invoke('pick-file'),
+  openPath: (filePath: string) => ipcRenderer.invoke('open-path', filePath),
 });
