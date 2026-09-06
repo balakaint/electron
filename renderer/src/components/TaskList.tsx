@@ -20,10 +20,12 @@ function formatSessionSpan(start: number, end: number | null): string {
   return `${formatClock(start)} – ${formatClock(end)} (${formatSecs(end - start)})`;
 }
 
+// Matches legacy exactly (task_tracker_v3_THEMES.py lines 9614-9620):
+// high=RED, med=YELLOW, low=CARD_BORDER.
 const URGENCY_COLOR: Record<Task['urgency'], string> = {
-  low: '#8a8a8a',
-  med: '#c8a24a',
-  high: '#c0392b',
+  low: 'var(--border)',
+  med: 'var(--warning)',
+  high: 'var(--danger)',
 };
 
 function todayIso(): string {
@@ -380,7 +382,7 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
                 display: 'flex',
                 flexDirection: 'column',
                 padding: '8px 0',
-                borderBottom: '1px solid rgba(128,128,128,0.2)',
+                borderBottom: '1px solid var(--border)',
                 opacity: t.done ? 0.5 : 1,
               }}
             >
@@ -400,7 +402,7 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
                 {t.done ? '✓' : '○'}
               </button>
 
-              <button onClick={() => setMit(t)} title="Most Important Task" style={{ color: t.mit ? '#c8a24a' : undefined }}>
+              <button onClick={() => setMit(t)} title="Most Important Task" style={{ color: t.mit ? 'var(--warning)' : undefined }}>
                 {t.mit ? '★' : '☆'}
               </button>
 
@@ -408,7 +410,7 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
                 <button
                   onClick={() => toggleStrike(t.id)}
                   title="Commit to today's 3"
-                  style={{ color: t.strike ? '#c0392b' : undefined }}
+                  style={{ color: t.strike ? 'var(--danger)' : undefined }}
                 >
                   {t.strike ? '◆' : '◇'}
                 </button>
@@ -454,7 +456,7 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
 
               {t.est > 0 && !t.done && (
                 t.secs > t.est * 60 ? (
-                  <span style={{ fontSize: 11, color: '#c0392b' }} title="Over the time-box">
+                  <span style={{ fontSize: 11, color: 'var(--danger)' }} title="Over the time-box">
                     ! {Math.floor(t.secs / 60)}m / ~{t.est}m
                   </span>
                 ) : (
@@ -516,7 +518,7 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
           }}
         >
           <div style={{ background: 'var(--surface)', borderRadius: 8, padding: 20, width: 320 }}>
-            <div style={{ fontSize: 15, fontWeight: 'bold', color: '#c8a24a', marginBottom: 4 }}>
+            <div style={{ fontSize: 15, fontWeight: 'bold', color: 'var(--warning)', marginBottom: 4 }}>
               ★ WHAT'S TODAY'S MIT?
             </div>
             <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 12 }}>One Most Important Task. Do it first.</div>

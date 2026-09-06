@@ -53,9 +53,9 @@ export default function OnboardingModal({ onDone }: { onDone: () => void }) {
     >
       <div
         style={{
-          background: 'var(--surface, #fff)',
-          color: 'var(--text, #111)',
-          border: '1px solid var(--border, #ccc)',
+          background: 'var(--surface)',
+          color: 'var(--text)',
+          border: '1px solid var(--border)',
           borderRadius: 10,
           padding: 28,
           width: 360,
@@ -74,7 +74,7 @@ export default function OnboardingModal({ onDone }: { onDone: () => void }) {
                 width: 7,
                 height: 7,
                 borderRadius: 4,
-                background: i === step ? 'var(--accent, #4f8cff)' : 'var(--border, #ccc)',
+                background: i === step ? 'var(--accent)' : 'var(--border)',
               }}
             />
           ))}

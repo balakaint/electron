@@ -24,9 +24,9 @@ export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: 'var(--surface, #fff)',
-          color: 'var(--text, #111)',
-          border: '1px solid var(--border, #ccc)',
+          background: 'var(--surface)',
+          color: 'var(--text)',
+          border: '1px solid var(--border)',
           borderRadius: 10,
           padding: 24,
           width: 320,

@@ -12,17 +12,20 @@ import {
 const DECISION_STATUSES: DecisionStatus[] = ['GO', 'VALIDATE', 'PIVOT', 'NO-GO'];
 const PRIORITIES: NextPriority[] = ['HIGH', 'MED', 'LOW'];
 
+// Matches legacy exactly (task_tracker_v3_THEMES.py lines 10763-10767,
+// 11019-11020) — a fixed palette reused unchanged across every theme,
+// unlike the rest of the app's theme-varying tokens (see themes.ts).
 const STATUS_COLOR: Record<string, string> = {
-  GO: '#2D6A4F',
-  VALIDATE: '#B08900',
-  PIVOT: '#B0590A',
-  'NO-GO': '#C0392B',
+  GO: 'var(--ba-go)',
+  VALIDATE: 'var(--ba-validate)',
+  PIVOT: 'var(--ba-pivot)',
+  'NO-GO': 'var(--ba-nogo)',
 };
 
 const PRIORITY_COLOR: Record<string, string> = {
-  HIGH: '#C0392B',
-  MED: '#B08900',
-  LOW: '#2D6A4F',
+  HIGH: 'var(--ba-nogo)',
+  MED: 'var(--ba-validate)',
+  LOW: 'var(--ba-neutral)',
 };
 
 function Field({
@@ -211,7 +214,7 @@ export default function BusinessAnalysisCanvas({
         <Section title="LEGACY NOTES (read-only)">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {nonEmptyBoxes.map((b) => (
-              <div key={b.box_index} style={{ border: '1px solid #8883', borderRadius: 4, padding: 8 }}>
+              <div key={b.box_index} style={{ border: '1px solid var(--border)', borderRadius: 4, padding: 8 }}>
                 {b.title && <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>{b.title}</div>}
                 <div style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{b.text}</div>
               </div>

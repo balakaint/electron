@@ -4,7 +4,7 @@ import { useAutoTimer } from '../useAutoTimer';
 
 function StatusDot({ status }: { status: string }) {
   const label = status === 'ok' ? '✓' : status === 'no' ? '✕' : '·';
-  const color = status === 'ok' ? '#2D6A4F' : status === 'no' ? '#B03A2E' : 'var(--text)';
+  const color = status === 'ok' ? 'var(--success)' : status === 'no' ? 'var(--danger)' : 'var(--text)';
   return (
     <span style={{ color, fontWeight: 'bold', width: 14, display: 'inline-block', textAlign: 'center' }}>
       {label}
@@ -60,7 +60,7 @@ function StageDetail({
           onBlur={() => (name.trim() !== stage.name || description !== stage.description) && onRename(name, description)}
           style={{ fontWeight: 'bold', fontSize: 15, border: 'none', background: 'transparent', color: 'var(--text)', flex: 1 }}
         />
-        {stage.done && <span style={{ color: '#2D6A4F', fontSize: 12 }}>✓ DONE</span>}
+        {stage.done && <span style={{ color: 'var(--success)', fontSize: 12 }}>✓ DONE</span>}
         {isCurrent && !stage.done && <span style={{ fontSize: 11, opacity: 0.7 }}>CURRENT</span>}
       </div>
       <textarea
@@ -294,7 +294,7 @@ export default function JourneyPanel() {
               fontSize: 12,
               borderColor: entry.project.accent_color,
               background: entry.project.key === projectKey ? entry.project.accent_color : 'transparent',
-              color: entry.project.key === projectKey ? '#fff' : 'var(--text)',
+              color: entry.project.key === projectKey ? 'var(--on-accent)' : 'var(--text)',
             }}
           >
             {entry.number}. {entry.project.name}
@@ -313,7 +313,7 @@ export default function JourneyPanel() {
           placeholder="Project name…"
           style={{ fontSize: 18, fontWeight: 'bold', border: 'none', background: 'transparent', color: 'var(--text)', flex: 1 }}
         />
-        {journey.launched && <span style={{ fontSize: 12, color: '#2D6A4F' }}>🚀 LAUNCHED</span>}
+        {journey.launched && <span style={{ fontSize: 12, color: 'var(--success)' }}>🚀 LAUNCHED</span>}
       </div>
       <input
         key={`${projectKey}-tagline`}

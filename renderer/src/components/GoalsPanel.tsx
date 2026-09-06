@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { Goal, GoalHorizon, GoalPanel, ProjectKey, ProjectOrderEntry, goalsApi, projectsApi } from '../services/api';
 
 const HORIZONS: { key: GoalHorizon; label: string; accent: string }[] = [
-  { key: 'yearly', label: 'YEARLY', accent: '#4f8cff' },
-  { key: 'monthly', label: 'MONTHLY', accent: '#B08900' },
-  { key: 'weekly', label: 'WEEKLY', accent: '#2D6A4F' },
+  { key: 'yearly', label: 'YEARLY', accent: 'var(--goal-yearly)' },
+  { key: 'monthly', label: 'MONTHLY', accent: 'var(--goal-monthly)' },
+  { key: 'weekly', label: 'WEEKLY', accent: 'var(--goal-weekly)' },
 ];
 
 function GoalCard({
@@ -71,7 +71,7 @@ function GoalCard({
         title={barTooltip}
         style={{ height: 4, background: 'var(--border)', borderRadius: 2, margin: '6px 0', overflow: 'hidden', cursor: 'default' }}
       >
-        <div style={{ width: `${barPct}%`, height: '100%', background: goal.done ? '#2D6A4F' : accent }} />
+        <div style={{ width: `${barPct}%`, height: '100%', background: goal.done ? 'var(--success)' : accent }} />
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, opacity: 0.6, marginBottom: 4 }}>
@@ -246,7 +246,7 @@ export default function GoalsPanel() {
               fontSize: 12,
               borderColor: entry.project.accent_color,
               background: entry.project.key === panel.project_key ? entry.project.accent_color : 'transparent',
-              color: entry.project.key === panel.project_key ? '#fff' : 'var(--text)',
+              color: entry.project.key === panel.project_key ? 'var(--on-accent)' : 'var(--text)',
             }}
           >
             {entry.number}. {entry.project.name}

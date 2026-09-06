@@ -147,7 +147,7 @@ function ProjectCard({
               width: 22,
               height: 22,
               borderRadius: 4,
-              border: '1px solid #8884',
+              border: '1px solid var(--border)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -181,7 +181,7 @@ function ProjectCard({
         ) : (
           <>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, fontSize: 12 }}>
-          <div style={{ flex: 1, height: 6, background: '#8882', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
             <div style={{ width: `${pct}%`, height: '100%', background: project.accent_color }} />
           </div>
           <span>{formatSecs(project.secs_today)} / {project.target_minutes}m</span>
@@ -198,7 +198,7 @@ function ProjectCard({
               style={{
                 width: 7,
                 height: 14,
-                background: a.worked ? project.accent_color : '#8883',
+                background: a.worked ? project.accent_color : 'var(--border)',
                 cursor: 'pointer',
               }}
             />
@@ -256,7 +256,7 @@ function ProjectCard({
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {people.map((p) => (
             <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '2px 0' }}>
-              <span style={{ width: 6, height: 6, borderRadius: 3, background: p.overdue ? '#c0392b' : '#2D6A4F' }} />
+              <span style={{ width: 6, height: 6, borderRadius: 3, background: p.overdue ? 'var(--danger)' : 'var(--success)' }} />
               <span style={{ flex: 1 }}>{p.name}</span>
               <span style={{ opacity: 0.6 }}>{p.gap_days === null ? 'never' : `${p.gap_days}d ago`}</span>
               <button

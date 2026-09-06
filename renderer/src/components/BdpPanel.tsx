@@ -5,16 +5,23 @@ const STATUSES: BdpStatus[] = ['IDEA', 'OPPORTUNITY', 'RESEARCH', 'PLAN', 'ACTIV
 const PRIORITIES: BdpPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
 const MARKETS = ['Bangladesh', 'USA', 'Global', 'Other'];
 
+// Matches legacy's _SC_LIGHT/_SC_DARK and _PRI_LIGHT/_PRI_DARK — a
+// light/dark split (not a per-theme one; see themes.ts's --bdp-* comment)
+// baked into the CSS vars themselves, so no "night" check is needed here.
 const STATUS_COLOR: Record<BdpStatus, string> = {
-  IDEA: '#5255EF',
-  OPPORTUNITY: '#117B38',
-  RESEARCH: '#0891B2',
-  PLAN: '#A15904',
-  ACTIVE: '#7C3AED',
-  HOLD: '#78716C',
-  DONE: '#64748B',
+  IDEA: 'var(--bdp-idea)',
+  OPPORTUNITY: 'var(--bdp-opportunity)',
+  RESEARCH: 'var(--bdp-research)',
+  PLAN: 'var(--bdp-plan)',
+  ACTIVE: 'var(--bdp-active)',
+  HOLD: 'var(--bdp-hold)',
+  DONE: 'var(--bdp-done)',
 };
-const PRIORITY_COLOR: Record<BdpPriority, string> = { HIGH: '#D02222', MEDIUM: '#A15904', LOW: '#64748B' };
+const PRIORITY_COLOR: Record<BdpPriority, string> = {
+  HIGH: 'var(--bdp-priority-high)',
+  MEDIUM: 'var(--bdp-priority-medium)',
+  LOW: 'var(--bdp-priority-low)',
+};
 
 function Chip({ label, color, onClick }: { label: string; color: string; onClick?: () => void }) {
   return (
@@ -85,7 +92,7 @@ function ChoiceRow<T extends string>({
             padding: '2px 8px',
             borderRadius: 10,
             border: 'none',
-            background: o === value ? colors[o] : 'var(--surface-2, #eee)',
+            background: o === value ? colors[o] : 'var(--surface-2)',
             color: o === value ? '#fff' : 'var(--text)',
             cursor: o === value ? 'default' : 'pointer',
           }}

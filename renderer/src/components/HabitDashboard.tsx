@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { DaySummary, Habit, HabitCategory, MonthlyReport, WeekScore, habitsApi } from '../services/api';
 
+// Matches legacy's own per-theme _VB dict for this screen exactly
+// (task_tracker_v3_THEMES.py lines 16660-16702) — see themes.ts's
+// --habit-* comment for why these differ from the app-wide tokens.
 const CATEGORIES: { key: HabitCategory; label: string; color: string }[] = [
-  { key: 'money', label: 'Money', color: '#185FA5' },
-  { key: 'health', label: 'Health', color: '#2D6A4F' },
-  { key: 'relation', label: 'Relation', color: '#8B5E1A' },
-  { key: 'mind', label: 'Mindset', color: '#5B21B6' },
+  { key: 'money', label: 'Money', color: 'var(--habit-money)' },
+  { key: 'health', label: 'Health', color: 'var(--habit-health)' },
+  { key: 'relation', label: 'Relation', color: 'var(--habit-relation)' },
+  { key: 'mind', label: 'Mindset', color: 'var(--habit-mind)' },
 ];
 
 function todayIso(): string {
@@ -22,7 +25,7 @@ function ScoreRing({ score }: { score: number }) {
   const r = 32;
   const circumference = 2 * Math.PI * r;
   const offset = circumference * (1 - Math.min(100, Math.max(0, score)) / 100);
-  const color = score >= 70 ? '#2D6A4F' : score >= 40 ? '#B08900' : '#C0392B';
+  const color = score >= 70 ? 'var(--habit-success)' : score >= 40 ? 'var(--habit-warning)' : 'var(--habit-danger)';
   return (
     <svg width={80} height={80} viewBox="0 0 80 80">
       <circle cx={40} cy={40} r={r} fill="none" stroke="var(--border)" strokeWidth={6} />
@@ -122,7 +125,7 @@ export default function HabitDashboard() {
             />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, opacity: 0.7, whiteSpace: 'nowrap', color: '#2D6A4F' }}>◈ TODAY'S WIN:</span>
+            <span style={{ fontSize: 11, opacity: 0.7, whiteSpace: 'nowrap', color: 'var(--habit-success)' }}>◈ TODAY'S WIN:</span>
             <input
               value={win}
               onChange={(e) => setWin(e.target.value)}
@@ -134,10 +137,10 @@ export default function HabitDashboard() {
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 20, fontWeight: 'bold', color: '#B08900' }}>🔥 {streak} days</div>
+          <div style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--habit-warning)' }}>🔥 {streak} days</div>
           <div style={{ fontSize: 10, opacity: 0.6 }}>STREAK</div>
           {alertText && (
-            <div style={{ fontSize: 11, marginTop: 4, color: alertText.startsWith('⚠') ? '#C0392B' : '#2D6A4F' }}>
+            <div style={{ fontSize: 11, marginTop: 4, color: alertText.startsWith('⚠') ? 'var(--habit-danger)' : 'var(--habit-success)' }}>
               {alertText}
             </div>
           )}
@@ -159,7 +162,7 @@ export default function HabitDashboard() {
                 style={{
                   width: 16,
                   height: Math.max(2, (w.pct / 100) * 40),
-                  background: '#2D6A4F',
+                  background: 'var(--habit-success)',
                   opacity: w.day === TODAY ? 1 : 0.5,
                 }}
               />
@@ -236,7 +239,7 @@ export default function HabitDashboard() {
               <span style={{ opacity: 0.6 }}>Avg Score:</span>
               <span style={{ fontWeight: 'bold' }}>{monthly.avg_score}/100</span>
               <span style={{ opacity: 0.6 }}>Streak:</span>
-              <span style={{ fontWeight: 'bold', color: '#B08900' }}>🔥 {monthly.streak} days</span>
+              <span style={{ fontWeight: 'bold', color: 'var(--habit-warning)' }}>🔥 {monthly.streak} days</span>
               <span style={{ opacity: 0.6 }}>Days Done:</span>
               <span style={{ fontWeight: 'bold' }}>{monthly.days_done}</span>
             </div>

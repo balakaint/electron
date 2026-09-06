@@ -161,7 +161,7 @@ export default function DeepWorkTrend() {
 
             <polyline points={rawPts} fill="none" stroke="var(--accent)" strokeOpacity={0.3} strokeWidth={1} />
 
-            {showZeros && zeros.map((i) => <circle key={i} cx={px(i)} cy={py(0)} r={1.5} fill="#c0392b" />)}
+            {showZeros && zeros.map((i) => <circle key={i} cx={px(i)} cy={py(0)} r={1.5} fill="var(--danger)" />)}
 
             {showAvg ? (
               <polyline points={avgPts} fill="none" stroke="var(--accent)" strokeWidth={2} />

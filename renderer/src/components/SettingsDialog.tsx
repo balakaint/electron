@@ -18,7 +18,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
           fontWeight: 'bold',
           letterSpacing: 0.5,
           opacity: 0.6,
-          borderBottom: '1px solid var(--border, #ccc)',
+          borderBottom: '1px solid var(--border)',
           paddingBottom: 4,
           marginBottom: 8,
         }}
@@ -47,8 +47,8 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
         width: 40,
         height: 22,
         borderRadius: 11,
-        border: '1px solid var(--border, #ccc)',
-        background: on ? 'var(--accent, #4f8cff)' : 'transparent',
+        border: '1px solid var(--border)',
+        background: on ? 'var(--accent)' : 'transparent',
         position: 'relative',
         cursor: 'pointer',
         padding: 0,
@@ -63,7 +63,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
           width: 18,
           height: 18,
           borderRadius: '50%',
-          background: on ? '#fff' : 'var(--text-muted, #888)',
+          background: on ? 'var(--on-accent)' : 'var(--text-muted)',
           transition: 'left 0.12s',
         }}
       />
@@ -147,9 +147,9 @@ export default function SettingsDialog({
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: 'var(--surface, #fff)',
-          color: 'var(--text, #111)',
-          border: '1px solid var(--border, #ccc)',
+          background: 'var(--surface)',
+          color: 'var(--text)',
+          border: '1px solid var(--border)',
           borderRadius: 10,
           padding: 24,
           width: 380,

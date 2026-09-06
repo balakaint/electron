@@ -3,11 +3,15 @@ import { Settings, settingsApi } from '../services/api';
 
 type PhaseKey = 'morning' | 'work' | 'evening' | 'sleep';
 
+// Matches legacy's _SEG_COLORS: a categorical palette independent of the
+// theme's own accent (see themes.ts's per-theme --phase-* comment) — 4
+// mutually distinct colors that still vary per theme, just not by the
+// accent-derivation rule the rest of the app's tokens follow.
 const PHASE_COLOR: Record<PhaseKey, string> = {
-  sleep: '#1E3A8A',
-  morning: '#0D9488',
-  work: '#D02222',
-  evening: '#EA8C1B',
+  sleep: 'var(--phase-sleep)',
+  morning: 'var(--phase-morning)',
+  work: 'var(--phase-work)',
+  evening: 'var(--phase-evening)',
 };
 
 const PHASE_LABEL: Record<PhaseKey, string> = {

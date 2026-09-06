@@ -41,8 +41,89 @@ export const THEME_LABELS: Record<Theme, string> = {
 // legacy accent is cyan but the port's is red), and copied verbatim from
 // legacy for corporate/rize, consistent with the "exact values" ask for
 // those two.
+//
+// --phase-sleep/morning/work/evening are a separate, CATEGORICAL group —
+// not accent-derived at all. DayPhaseBars.tsx needs 4 mutually distinct
+// colors regardless of theme (a red "Work" bar must stay visually
+// unrelated to whatever the theme's own accent is), and legacy already
+// has exactly this: a dedicated _SEG_COLORS dict, one 4-tuple per theme,
+// entirely separate from THEMES' GREEN/accent (task_tracker_v3_THEMES.py
+// line 1132). Copied verbatim for all 6 themes — these DO vary by theme
+// in legacy, just never according to the accent-derivation rule above.
+//
+// --goal-yearly/monthly/weekly are the same kind of categorical group,
+// for GoalsPanel.tsx's three horizon tabs — matches legacy's per-theme
+// SECTIONS tuples exactly (task_tracker_v3_THEMES.py lines 751-943,
+// e.g. focus: ("yearly", ..., "#2960E6", ...)).
+//
+// --ba-go/validate/pivot/nogo/neutral back the Business Analysis
+// canvas's decision-status (GO/VALIDATE/PIVOT/NO-GO) and next-action
+// priority (HIGH/MED/LOW) selectors — legacy hand-picks these ONCE
+// (_DECISION_OPTS / the HIGH·MED·LOW tuple, lines 10763-10767 and
+// 11019-11020) and reuses them unchanged across every theme, unlike
+// every other token above. HIGH reuses NO-GO's red and MED reuses
+// VALIDATE's orange in legacy too — not a coincidence introduced here.
+const BA_STATUS_COLORS = {
+  '--ba-go': '#2F9E44',
+  '--ba-validate': '#F08C00',
+  '--ba-pivot': '#4C6EF5',
+  '--ba-nogo': '#E03131',
+  '--ba-neutral': '#868E96',
+};
+
+// --bdp-* backs BdpPanel.tsx's status/priority chips (IDEA/OPPORTUNITY/
+// RESEARCH/PLAN/ACTIVE/HOLD/DONE, HIGH/MEDIUM/LOW). Unlike BA_STATUS_COLORS
+// above, legacy actually varies THIS palette — but only by a light/dark
+// split, not per-theme: `night = self._mode in ("warroom", "journey")`
+// picks _SC_DARK/_PRI_DARK for those two, _SC_LIGHT/_PRI_LIGHT for
+// everything else (task_tracker_v3_THEMES.py lines 12537-12548). Applied
+// here the same way: warroom/journey get the DARK set, the other 4 get
+// LIGHT — no new runtime logic needed, just which constant each theme's
+// palette spreads.
+const BDP_LIGHT = {
+  '--bdp-idea': '#5255EF',
+  '--bdp-opportunity': '#117B38',
+  '--bdp-research': '#0891B2',
+  '--bdp-plan': '#A15904',
+  '--bdp-active': '#7C3AED',
+  '--bdp-hold': '#78716C',
+  '--bdp-done': '#64748B',
+  '--bdp-priority-high': '#D02222',
+  '--bdp-priority-medium': '#A15904',
+  '--bdp-priority-low': '#64748B',
+};
+const BDP_DARK = {
+  '--bdp-idea': '#818CF8',
+  '--bdp-opportunity': '#4ADE80',
+  '--bdp-research': '#22D3EE',
+  '--bdp-plan': '#FBBF24',
+  '--bdp-active': '#A78BFA',
+  '--bdp-hold': '#A1A1AA',
+  '--bdp-done': '#94A3B8',
+  '--bdp-priority-high': '#F87171',
+  '--bdp-priority-medium': '#FBBF24',
+  '--bdp-priority-low': '#94A3B8',
+};
+
+// --habit-money/health/relation/mind/success/warning/danger back
+// HabitDashboard.tsx — legacy's own `_VB` dict (task_tracker_v3_THEMES.py
+// lines 16660-16702), a self-contained mini-palette for this one screen,
+// genuinely distinct PER THEME (not a light/dark split like BDP_LIGHT/
+// DARK above) and distinct from the app-wide --success/--warning/
+// --danger — e.g. warroom's habit "success" is cyan-teal (#00D4AA) while
+// its app-wide --success is green; both are legacy-correct for their
+// own screen, just not the same value.
 const PALETTES: Record<Theme, Record<string, string>> = {
   focus: {
+    ...BA_STATUS_COLORS,
+    ...BDP_LIGHT,
+    '--habit-money': '#185FA5',
+    '--habit-health': '#2D6A4F',
+    '--habit-relation': '#8B5E1A',
+    '--habit-mind': '#5B21B6',
+    '--habit-success': '#2D6A4F',
+    '--habit-warning': '#92400E',
+    '--habit-danger': '#9B2335',
     '--bg': '#0f1115',
     '--surface': '#171a21',
     '--surface-2': '#1d212b',
@@ -58,8 +139,24 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--on-accent': '#ffffff',
     '--header-accent': '#4f8cff',
     '--running-bg': '#16233f',
+    '--phase-sleep': '#1E3A8A',
+    '--phase-morning': '#0D9488',
+    '--phase-work': '#D02222',
+    '--phase-evening': '#EA8C1B',
+    '--goal-yearly': '#2960E6',
+    '--goal-monthly': '#6D28D9',
+    '--goal-weekly': '#0F766E',
   },
   warroom: {
+    ...BA_STATUS_COLORS,
+    ...BDP_DARK,
+    '--habit-money': '#58A6FF',
+    '--habit-health': '#00D4AA',
+    '--habit-relation': '#FFB800',
+    '--habit-mind': '#A855F7',
+    '--habit-success': '#00D4AA',
+    '--habit-warning': '#FFB800',
+    '--habit-danger': '#FF4D6D',
     '--bg': '#1a0e0e',
     '--surface': '#241414',
     '--surface-2': '#2c1717',
@@ -81,8 +178,24 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--on-accent': '#ffffff',
     '--header-accent': '#c0392b',
     '--running-bg': '#331512',
+    '--phase-sleep': '#1E40AF',
+    '--phase-morning': '#0E7490',
+    '--phase-work': '#EF4444',
+    '--phase-evening': '#F59E0B',
+    '--goal-yearly': '#22D3EE',
+    '--goal-monthly': '#FBBF24',
+    '--goal-weekly': '#A78BFA',
   },
   energy: {
+    ...BA_STATUS_COLORS,
+    ...BDP_LIGHT,
+    '--habit-money': '#185FA5',
+    '--habit-health': '#059669',
+    '--habit-relation': '#A15904',
+    '--habit-mind': '#7C3AED',
+    '--habit-success': '#059669',
+    '--habit-warning': '#A15904',
+    '--habit-danger': '#D02222',
     '--bg': '#fff8ec',
     '--surface': '#ffffff',
     '--surface-2': '#fff1d6',
@@ -98,11 +211,27 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--on-accent': '#2b2110',
     '--header-accent': '#e08a1e',
     '--running-bg': '#fbe6c4',
+    '--phase-sleep': '#1E3A8A',
+    '--phase-morning': '#0F766E',
+    '--phase-work': '#D02222',
+    '--phase-evening': '#EA580C',
+    '--goal-yearly': '#D02222',
+    '--goal-monthly': '#A15904',
+    '--goal-weekly': '#117B38',
   },
   // EXECUTIVE — legacy's "corporate" key. Warm ivory, deep amber accent,
   // inspired by Notion/FT (task_tracker_v3_THEMES.py lines 830-864).
   // Every token here is legacy's exact hex.
   corporate: {
+    ...BA_STATUS_COLORS,
+    ...BDP_LIGHT,
+    '--habit-money': '#0C4A6E',
+    '--habit-health': '#059669',
+    '--habit-relation': '#AE5009',
+    '--habit-mind': '#7C3AED',
+    '--habit-success': '#059669',
+    '--habit-warning': '#A15904',
+    '--habit-danger': '#D02222',
     '--bg': '#FAF8F5',
     '--surface': '#FFFFFF',
     '--surface-2': '#F5F1EC',
@@ -118,8 +247,24 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--on-accent': '#FFFFFF',
     '--header-accent': '#AE5009',
     '--running-bg': '#FFFBEB',
+    '--phase-sleep': '#1E3A8A',
+    '--phase-morning': '#0D9488',
+    '--phase-work': '#C0392B',
+    '--phase-evening': '#C96A15',
+    '--goal-yearly': '#AE5009',
+    '--goal-monthly': '#1D4ED8',
+    '--goal-weekly': '#117B38',
   },
   journey: {
+    ...BA_STATUS_COLORS,
+    ...BDP_DARK,
+    '--habit-money': '#4CE0A0',
+    '--habit-health': '#38B384',
+    '--habit-relation': '#F5C451',
+    '--habit-mind': '#7C9EF5',
+    '--habit-success': '#4CE0A0',
+    '--habit-warning': '#F5C451',
+    '--habit-danger': '#F0776B',
     '--bg': '#0b1a1a',
     '--surface': '#122626',
     '--surface-2': '#163030',
@@ -135,6 +280,13 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--on-accent': '#ffffff',
     '--header-accent': '#2fb8a6',
     '--running-bg': '#12302c',
+    '--phase-sleep': '#3B82F6',
+    '--phase-morning': '#2DD4BF',
+    '--phase-work': '#F87171',
+    '--phase-evening': '#FBBF24',
+    '--goal-yearly': '#4CE0A0',
+    '--goal-monthly': '#7DD3FC',
+    '--goal-weekly': '#F5C451',
   },
   // RIZE — clean/airy/minimal, soft indigo accent, pure-white surfaces
   // with hairline borders instead of tonal separation
@@ -143,6 +295,15 @@ const PALETTES: Record<Theme, Record<string, string>> = {
   // (see that theme's own "_INPUT_BG_WAS" comment — a flat theme defines
   // surfaces by border, not fill), hence --surface-2 === --surface here.
   rize: {
+    ...BA_STATUS_COLORS,
+    ...BDP_LIGHT,
+    '--habit-money': '#0C4A6E',
+    '--habit-health': '#059669',
+    '--habit-relation': '#AE5009',
+    '--habit-mind': '#5255EF',
+    '--habit-success': '#059669',
+    '--habit-warning': '#A15904',
+    '--habit-danger': '#D02222',
     '--bg': '#FFFFFF',
     '--surface': '#FFFFFF',
     '--surface-2': '#FFFFFF',
@@ -158,6 +319,13 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--on-accent': '#FFFFFF',
     '--header-accent': '#5255EF',
     '--running-bg': '#EEF2FF',
+    '--phase-sleep': '#312E81',
+    '--phase-morning': '#0D9488',
+    '--phase-work': '#D02222',
+    '--phase-evening': '#A15904',
+    '--goal-yearly': '#5255EF',
+    '--goal-monthly': '#BE185D',
+    '--goal-weekly': '#0F766E',
   },
 };
 

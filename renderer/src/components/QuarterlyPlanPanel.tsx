@@ -59,7 +59,7 @@ function CycleEditor({ panel, onSet, onClose }: { panel: Q90Panel; onSet: (start
               fontSize: 12,
               padding: '4px 10px',
               background: String(p) === len ? 'var(--accent)' : undefined,
-              color: String(p) === len ? '#fff' : undefined,
+              color: String(p) === len ? 'var(--on-accent)' : undefined,
             }}
           >
             {p}
@@ -215,13 +215,13 @@ export default function QuarterlyPlanPanel() {
 
       <div
         title={when}
-        style={{ height: 4, background: 'var(--border, #8883)', borderRadius: 2, marginBottom: 12, overflow: 'hidden' }}
+        style={{ height: 4, background: 'var(--border)', borderRadius: 2, marginBottom: 12, overflow: 'hidden' }}
       >
         <div
           style={{
             width: `${Math.min(100, Math.round((panel.day / panel.cycle_days) * 100))}%`,
             height: '100%',
-            background: 'var(--accent, #4f8cff)',
+            background: 'var(--accent)',
           }}
         />
       </div>
