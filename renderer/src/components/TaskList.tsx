@@ -16,6 +16,10 @@ const URGENCY_COLOR: Record<Task['urgency'], string> = {
   high: '#c0392b',
 };
 
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function TaskList({ listKey }: { listKey: ListKey }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [input, setInput] = useState('');
@@ -23,6 +27,9 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
   const [flash, setFlash] = useState<string | null>(null);
   const [dayView, setDayViewState] = useState<DayView>('today');
   const [nowBump, setNowBump] = useState(0);
+  const [query, setQuery] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editText, setEditText] = useState('');
   const { push: pushUndo } = useUndo();
 
   const refresh = () => tasksApi.list(listKey).then(setTasks);
@@ -122,6 +129,38 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
     refresh();
   };
 
+  const startEdit = (task: Task) => {
+    setEditingId(task.id);
+    setEditText(task.text);
+  };
+
+  const commitEdit = (task: Task) => {
+    const text = editText.trim();
+    setEditingId(null);
+    if (!text || text === task.text) return;
+    const previousText = task.text;
+    tasksApi.edit(task.id, text).then(() => {
+      pushUndo({
+        label: 'edit task',
+        undo: () => tasksApi.edit(task.id, previousText).then(refresh),
+        redo: () => tasksApi.edit(task.id, text).then(refresh),
+      });
+      refresh();
+    });
+  };
+
+  const sendToToday = (task: Task) => {
+    const previousDay = task.day;
+    tasksApi.setDay(task.id, todayIso()).then(() => {
+      pushUndo({
+        label: 'move to today',
+        undo: () => tasksApi.setDay(task.id, previousDay).then(refresh),
+        redo: () => tasksApi.setDay(task.id, todayIso()).then(refresh),
+      });
+      refresh();
+    });
+  };
+
   const switchDayView = (view: DayView) => {
     if (view === dayView) return;
     tasksApi.setDayView(view).then(() => {
@@ -141,6 +180,9 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
   }, [listKey]);
 
   const sorted = [...tasks].sort((a, b) => Number(a.done) - Number(b.done));
+  const q = query.trim().toLowerCase();
+  const visible = q ? sorted.filter((t) => t.text.toLowerCase().includes(q)) : sorted;
+  const doneCount = tasks.filter((t) => t.done).length;
 
   return (
     <div style={{ maxWidth: 560 }}>
@@ -161,6 +203,20 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
 
       {listKey === 'focus' && <NowCard refreshSignal={nowBump} onChanged={refresh} />}
 
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="⌕ Search tasks…"
+          style={{ fontSize: 12, padding: 5, flex: 1, marginRight: 8 }}
+        />
+        {tasks.length > 0 && (
+          <span style={{ fontSize: 12, opacity: 0.6, whiteSpace: 'nowrap' }}>
+            {doneCount}/{tasks.length} done
+          </span>
+        )}
+      </div>
+
       <form onSubmit={addTask} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input
           value={input}
@@ -179,13 +235,17 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
 
       {loading ? (
         <p>Loading…</p>
-      ) : sorted.length === 0 ? (
+      ) : visible.length === 0 ? (
         <p style={{ opacity: 0.6 }}>
-          {listKey === 'classic' && dayView === 'tomorrow' ? 'No tasks for tomorrow yet.' : 'No tasks yet.'}
+          {q
+            ? 'No tasks match your search.'
+            : listKey === 'classic' && dayView === 'tomorrow'
+              ? 'No tasks for tomorrow yet.'
+              : 'No tasks yet.'}
         </p>
       ) : (
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {sorted.map((t) => (
+          {visible.map((t) => (
             <li
               key={t.id}
               style={{
@@ -221,14 +281,37 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
                 </button>
               )}
 
-              <span
-                style={{
-                  flex: 1,
-                  textDecoration: t.done ? 'line-through' : 'none',
-                }}
-              >
-                {t.text}
-              </span>
+              {editingId === t.id ? (
+                <input
+                  autoFocus
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  onBlur={() => commitEdit(t)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitEdit(t);
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                  style={{ flex: 1, fontSize: 14, padding: 2 }}
+                />
+              ) : (
+                <span
+                  onDoubleClick={() => startEdit(t)}
+                  title="Double-click to edit"
+                  style={{
+                    flex: 1,
+                    textDecoration: t.done ? 'line-through' : 'none',
+                    cursor: 'text',
+                  }}
+                >
+                  {t.text}
+                </span>
+              )}
+
+              {listKey === 'classic' && dayView === 'tomorrow' && (
+                <button onClick={() => sendToToday(t)} title="Move to today" style={{ fontSize: 11 }}>
+                  → Today
+                </button>
+              )}
 
               {t.est > 0 && <span style={{ fontSize: 12, opacity: 0.7 }}>~{t.est}m</span>}
 

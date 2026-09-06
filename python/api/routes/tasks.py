@@ -1,7 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from api.schemas import DayViewOut, DayViewSet, ListKey, StrikeToggle, TaskCreate, TaskEdit, TaskOut, TaskRestore
+from api.schemas import (
+    DayViewOut,
+    DayViewSet,
+    ListKey,
+    StrikeToggle,
+    TaskCreate,
+    TaskDaySet,
+    TaskEdit,
+    TaskOut,
+    TaskRestore,
+)
 from database.connection import get_db
 from database.repository import ProjectRepository, TaskRepository
 from engine.tasks import STRIKE_MAX, StrikeLimitReached, TaskEngine
@@ -109,6 +119,14 @@ def toggle_timer(task_id: int, engine: TaskEngine = Depends(get_engine)):
 @router.post("/{task_id}/reset-timer", response_model=TaskOut)
 def reset_timer(task_id: int, engine: TaskEngine = Depends(get_engine)):
     task = engine.reset_timer(task_id)
+    if task is None:
+        raise HTTPException(404, "Task not found")
+    return task
+
+
+@router.post("/{task_id}/day", response_model=TaskOut)
+def set_day(task_id: int, payload: TaskDaySet, engine: TaskEngine = Depends(get_engine)):
+    task = engine.set_day(task_id, payload.day)
     if task is None:
         raise HTTPException(404, "Task not found")
     return task

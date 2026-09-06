@@ -38,6 +38,10 @@ class DayViewSet(BaseModel):
     view: DayViewT
 
 
+class TaskDaySet(BaseModel):
+    day: str  # ISO date
+
+
 class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

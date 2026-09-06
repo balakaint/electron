@@ -156,6 +156,23 @@ def test_invalid_view_rejected():
         check("setting an invalid view raises ValueError", raised)
 
 
+def test_set_day_moves_task_between_views():
+    """set_day (backing the "→ Today" button) just flips `day` — matches
+    legacy's _send_to_today, which never copies/moves a task between
+    separate collections since Today/Tomorrow are one filtered list."""
+    with FreshDB() as f:
+        t = f.engine.create_task("plan ahead", "classic", day=TOMORROW)
+        check("task created for tomorrow starts out of the today view", t.day == TOMORROW)
+
+        moved = f.engine.set_day(t.id, TODAY)
+        check("set_day updates the stored day", moved.day == TODAY)
+
+        f.engine.set_day_view("today")
+        check("task now shows up in the today view", any(x.id == t.id for x in f.engine.list_tasks()))
+
+        check("setting an unknown task id returns None", f.engine.set_day(999999999, TODAY) is None)
+
+
 def run_all():
     tests = [
         test_default_view_is_today,
@@ -165,6 +182,7 @@ def run_all():
         test_new_task_defaults_to_current_view_date,
         test_strike_respects_day_view,
         test_invalid_view_rejected,
+        test_set_day_moves_task_between_views,
     ]
     for t in tests:
         try:

@@ -237,6 +237,19 @@ class TaskEngine:
         task.sessions = []
         return self.repo.save(task)
 
+    def set_day(self, task_id: int, day: str) -> Task | None:
+        """Move a task to an explicit day — matches legacy's
+        _send_to_today (a "→ Today" button that just sets `day` to
+        today), generalized to any date so the caller can undo it by
+        restoring the exact previous value. Tasks aren't split into
+        separate collections (see matches_day_view), so this alone
+        moves a task between Today/Tomorrow; nothing else changes."""
+        task = self.repo.get(task_id)
+        if task is None:
+            return None
+        task.day = day
+        return self.repo.save(task)
+
     def list_strike_tasks(self) -> list[Task]:
         """Today's committed Focus tasks (matches _strike_tasks, which
         reads tasks_focus filtered by strike AND the day-view)."""

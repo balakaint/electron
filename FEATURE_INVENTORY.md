@@ -89,13 +89,13 @@ capabilities. Ask if you want that granularity broken out further.
 | 51 | "3/3 — full" flash on hitting the strike cap | Done | 2410-2432 |
 | 52 | TODAY/TOMORROW day-view toggle (global, Plan-tab-only switch, reshapes Focus too) | Done | 8996-9026 |
 | 53 | New task defaults to the day currently being viewed | Done | 8965-8971, 8988-8994 |
-| 54 | "→ Today" button to promote a Tomorrow task | Not Started | 9106-9123 |
-| 55 | Live task search/filter box | Not Started | 9576-9585 |
+| 54 | "→ Today" button to promote a Tomorrow task | Done | 9106-9123 |
+| 55 | Live task search/filter box | Done | 9576-9585 |
 | 56 | Drag-to-reorder tasks within a list | Not Started | 9028-9066, 9702-9767 |
 | 57 | Editable task-list section heading (per list × day, 4 variants) | Not Started | 4504-4588 |
-| 58 | Task count badge ("done/total") | Not Started (UI shows the list but no summary count) | 9488-9496 |
-| 59 | Double-click task to edit | Not Started (port has no click-to-edit; text is not editable inline or via dialog from the list) | 9637, 9802 |
-| 60 | Undo for every task action (add/edit/delete/MIT/urgency/reorder/timer-reset) | Not Started | scattered `_undo` closures, see row 18 |
+| 58 | Task count badge ("done/total") | Done | 9488-9496 |
+| 59 | Double-click task to edit | Done | 9637, 9802 |
+| 60 | Undo for every task action (add/edit/delete/MIT/urgency/reorder/timer-reset) | Partial — add/edit/delete/MIT/urgency/strike/day-move/toggle-done all wired (see row 18); reorder and timer-reset still aren't, matching legacy's own actual scope | scattered `_undo` closures, see row 18 |
 
 ## E. NOW panel (focused-task pointer)
 
