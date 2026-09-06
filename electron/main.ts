@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } from 'electron';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -198,6 +198,20 @@ function syncLoginItem(startWithWindows: boolean) {
   }
 }
 
+// Matches legacy's _set_dark_titlebar (raw DWM ctypes calls, Windows-
+// only, wired to the theme picker) — nativeTheme.themeSource is
+// Electron's own cross-platform equivalent for the same native-chrome
+// effect (title bar, window borders, scrollbars) with none of the
+// manual HWND/DwmSetWindowAttribute plumbing. Keep in sync with
+// renderer/src/themes.ts's palette: energy is the port's one light
+// theme, the rest are dark.
+const DARK_THEMES = new Set(['focus', 'warroom', 'journey']);
+
+function syncTitleBarTheme(theme: unknown) {
+  if (typeof theme !== 'string') return;
+  nativeTheme.themeSource = DARK_THEMES.has(theme) ? 'dark' : 'light';
+}
+
 ipcMain.handle('health-check', async () => {
   const res = await fetch(`${BASE()}/health`);
   return res.json();
@@ -222,6 +236,9 @@ ipcMain.handle(
     const json = (await res.json()) as Record<string, unknown>;
     if (reqPath === '/api/settings' && typeof json.start_with_windows === 'boolean') {
       syncLoginItem(json.start_with_windows);
+    }
+    if ((reqPath === '/api/settings' || reqPath === '/api/settings/theme') && 'theme' in json) {
+      syncTitleBarTheme(json.theme);
     }
     return json;
   },
@@ -261,8 +278,11 @@ app.whenReady().then(async () => {
   // reinstall, or a Windows "clean startup" tool).
   fetch(`${BASE()}/api/settings`)
     .then((res) => res.json() as Promise<Record<string, unknown>>)
-    .then((settings) => syncLoginItem(Boolean(settings.start_with_windows)))
-    .catch((err) => console.error('startup login-item sync failed:', err));
+    .then((settings) => {
+      syncLoginItem(Boolean(settings.start_with_windows));
+      syncTitleBarTheme(settings.theme);
+    })
+    .catch((err) => console.error('startup settings sync failed:', err));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
