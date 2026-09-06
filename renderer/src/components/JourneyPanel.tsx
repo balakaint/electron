@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Journey, JourneyStage, ProjectKey, ProjectOrderEntry, journeyApi, projectsApi } from '../services/api';
+import { useAutoTimer } from '../useAutoTimer';
 
 function StatusDot({ status }: { status: string }) {
   const label = status === 'ok' ? '✓' : status === 'no' ? '✕' : '·';
@@ -174,12 +175,16 @@ export default function JourneyPanel() {
   const [activeStage, setActiveStage] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
 
+  const refreshOrder = () => projectsApi.order().then(setOrder);
+
   useEffect(() => {
     projectsApi.order().then((o) => {
       setOrder(o);
       if (o.length) setProjectKey(o[0].project.key);
     });
   }, []);
+
+  useAutoTimer(projectKey, order, refreshOrder);
 
   useEffect(() => {
     if (!projectKey) return;

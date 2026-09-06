@@ -13,6 +13,7 @@ import {
   projectsApi,
   tasksApi,
 } from '../services/api';
+import { useAutoTimer } from '../useAutoTimer';
 import BusinessAnalysisCanvas from './BusinessAnalysisCanvas';
 
 function formatSecs(secs: number): string {
@@ -301,6 +302,7 @@ export default function ProjectDashboard() {
   };
 
   useEffect(refresh, []);
+  useAutoTimer(analysisKey, order, refresh);
 
   if (analysisKey) {
     return <BusinessAnalysisCanvas projectKey={analysisKey} onClose={() => setAnalysisKey(null)} />;

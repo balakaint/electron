@@ -161,7 +161,7 @@ chip (ProjectDashboard).
 | 92 | Idle auto-stop with refund | Done (hardcoded 15 min) | 2699-2824 |
 | 93 | Idle-stop threshold configurable in Settings | Done (`idle_stop_min` on `AppState`, `SettingsDialog.tsx`'s "Stop after idle" stepper; `engine/timer_reconciliation.py`'s project/task functions self-resolve it from settings instead of the old hardcoded constant) | 2699-2708, 15469-15471 |
 | 94 | Single-running-project exclusivity | Done | 2715-2755 |
-| 95 | Auto-start timer on opening the project's BA/Journey window | Not Started | 2780-2824 |
+| 95 | Auto-start timer on opening the project's BA/Journey window | Done — shared `useAutoTimer` hook wired into both `ProjectDashboard` (BA open/close) and `JourneyPanel` (project switch); respects the existing `auto_timer_on_open` setting and never stops a timer the user started manually (checked live, not just tracked as a flag) | 2780-2824 |
 | 96 | 30-day activity/progress bar + top-strip canvas | Partial (a simple bar exists; no top-strip canvas, no per-day heat coloring) | 6392-6394, 6883-6926 |
 | 97 | Subtask add/toggle/delete | Done | 6974-7171 |
 | 98 | Subtask "+ STRIKE" promotion chip | Done — this file had left it marked Not Started from before the NOW panel/strike-from-project linkage was actually built; `ProjectDashboard.tsx`'s `strikeSubtask` + `POST /api/projects/subtasks/{pid}/strike` (with "+ STRIKE" / "✓ ON TODAY" / "DAY FULL" states) already fully implement it | 7051-7106 |
