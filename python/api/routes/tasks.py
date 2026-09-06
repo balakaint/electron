@@ -16,6 +16,7 @@ from api.schemas import (
     TaskRestore,
     TaskTitleOut,
     TaskTitleSet,
+    TimerRestore,
 )
 from database.connection import get_db
 from database.repository import ProjectRepository, TaskRepository
@@ -145,6 +146,14 @@ def toggle_timer(task_id: int, engine: TaskEngine = Depends(get_engine)):
 @router.post("/{task_id}/reset-timer", response_model=TaskOut)
 def reset_timer(task_id: int, engine: TaskEngine = Depends(get_engine)):
     task = engine.reset_timer(task_id)
+    if task is None:
+        raise HTTPException(404, "Task not found")
+    return task
+
+
+@router.post("/{task_id}/restore-timer", response_model=TaskOut)
+def restore_timer(task_id: int, payload: TimerRestore, engine: TaskEngine = Depends(get_engine)):
+    task = engine.restore_timer(task_id, payload.secs, payload.sessions)
     if task is None:
         raise HTTPException(404, "Task not found")
     return task

@@ -17,10 +17,25 @@ import { useAutoTimer } from '../useAutoTimer';
 import BusinessAnalysisCanvas from './BusinessAnalysisCanvas';
 import DeepWorkTrend from './DeepWorkTrend';
 import TodayProgressBar from './TodayProgressBar';
+import { savedFlashStyle, useAutosave } from '../useAutosave';
 
 function formatSecs(secs: number): string {
   const mins = Math.round(secs / 60);
   return `${mins}m`;
+}
+
+// Legacy's _PROJ_TARGETS (task_tracker_v3_THEMES.py 2760). Its own note
+// on why presets and not free typing: "the useful answers to 'how long a
+// day on this project' are coarse, and a spinner you can land on 37
+// minutes with invites fiddling instead of deciding."
+const PROJ_TARGETS = [15, 30, 45, 60, 90, 120];
+
+// The next preset ABOVE the current value, wrapping. Written as a search
+// rather than an index lookup, exactly as legacy does, so a value the
+// ±15 stepper produced (say 75) still steps sensibly to 90 instead of
+// snapping back to the first preset.
+function nextProjectTarget(current: number): number {
+  return PROJ_TARGETS.find((o) => o > current) ?? PROJ_TARGETS[0];
 }
 
 // Matches the legacy app's _CIRCLE_CADENCES exactly.
@@ -51,10 +66,10 @@ function ProjectCard({
   const [people, setPeople] = useState<CirclePerson[]>([]);
   const [newPerson, setNewPerson] = useState('');
   const [name, setName] = useState(project.name);
-  const [note, setNote] = useState(project.note);
   const [strikeFlash, setStrikeFlash] = useState<string | null>(null);
 
   const key = project.key as ProjectKey;
+  const noteField = useAutosave(project.note, (v: string) => projectsApi.update(key, { note: v }).then(onChanged));
 
   const refreshSubtasks = () => projectsApi.listSubtasks(key).then(setSubtasks);
   const refreshActivity = () => projectsApi.activity(key, 30).then(setActivity);
@@ -62,7 +77,6 @@ function ProjectCard({
 
   useEffect(() => {
     setName(project.name);
-    setNote(project.note);
     refreshSubtasks();
     refreshActivity();
     refreshPeople();
@@ -70,10 +84,6 @@ function ProjectCard({
 
   const saveName = () => {
     if (name !== project.name) projectsApi.update(key, { name }).then(onChanged);
-  };
-
-  const saveNote = () => {
-    if (note !== project.note) projectsApi.update(key, { note }).then(onChanged);
   };
 
   const strikeSubtask = (pid: string) => {
@@ -205,7 +215,28 @@ function ProjectCard({
           <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
             <div style={{ width: `${pct}%`, height: '100%', background: project.accent_color }} />
           </div>
-          <span>{formatSecs(project.secs_today)} / {project.target_minutes}m</span>
+          <span>
+            {formatSecs(project.secs_today)} /{' '}
+            <button
+              onClick={() =>
+                projectsApi
+                  .bumpTarget(key, nextProjectTarget(project.target_minutes) - project.target_minutes)
+                  .then(onChanged)
+              }
+              title={`Daily target — click to cycle ${PROJ_TARGETS.join('/')} min`}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                color: 'inherit',
+                font: 'inherit',
+                padding: 0,
+                cursor: 'pointer',
+                textDecoration: 'underline dotted',
+              }}
+            >
+              {project.target_minutes}m
+            </button>
+          </span>
           <button onClick={() => projectsApi.bumpTarget(key, -15).then(onChanged)} title="Decrease daily target">−</button>
           <button onClick={() => projectsApi.bumpTarget(key, 15).then(onChanged)} title="Increase daily target">+</button>
         </div>
@@ -278,12 +309,12 @@ function ProjectCard({
 
         <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>QUICK NOTES</div>
         <textarea
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          onBlur={saveNote}
+          value={noteField.value}
+          onChange={(e) => noteField.setValue(e.target.value)}
+          onBlur={noteField.flush}
           rows={3}
           placeholder="Jot something down…"
-          style={{ width: '100%', fontSize: 12, padding: 6, marginBottom: 10, resize: 'vertical', boxSizing: 'border-box' }}
+          style={{ width: '100%', fontSize: 12, padding: 6, marginBottom: 10, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(noteField.state) }}
         />
 
         <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>CIRCLE</div>

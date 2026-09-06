@@ -621,6 +621,11 @@ class BdpActionEdit(BaseModel):
     text: str
 
 
+class TimerRestore(BaseModel):
+    secs: float
+    sessions: list
+
+
 class BdpReorder(BaseModel):
     to_index: int
 

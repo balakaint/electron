@@ -330,6 +330,24 @@ class TaskEngine:
         task.sessions = []
         return self.repo.save(task)
 
+    def restore_timer(self, task_id: int, secs: float, sessions: list) -> Task | None:
+        """Put a task's recorded time back, for undoing a reset.
+
+        restore_task can't serve this: it re-inserts a DELETED task and
+        deliberately no-ops when the id already exists, which is exactly
+        the case here — the task is still there, only its clock was
+        cleared. Legacy's own undo closure for this writes `secs` and
+        `sessions` straight back, and singles it out as worth undoing
+        more than most things, because recorded time is the one thing on
+        a task that cannot be retyped from memory.
+        """
+        task = self.repo.get(task_id)
+        if task is None:
+            return None
+        task.secs = float(secs)
+        task.sessions = list(sessions)
+        return self.repo.save(task)
+
     def set_day(self, task_id: int, day: str) -> Task | None:
         """Move a task to an explicit day — matches legacy's
         _send_to_today (a "→ Today" button that just sets `day` to

@@ -171,7 +171,37 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
   };
 
   const moveTask = (id: number, direction: -1 | 1) => {
-    tasksApi.move(id, direction).then(setTasks);
+    tasksApi.move(id, direction).then((next) => {
+      setTasks(next);
+      // A neighbour swap is its own inverse, so undo is the same call
+      // with the direction flipped — no snapshot needed. Legacy undoes
+      // this by restoring the visible tasks' slots (9059-9064); the
+      // outcome is the same for a one-step move, which is all the ▲/▼
+      // buttons can produce.
+      const back = (direction * -1) as -1 | 1;
+      pushUndo({
+        label: 'reorder task',
+        undo: () => tasksApi.move(id, back).then(setTasks),
+        redo: () => tasksApi.move(id, direction).then(setTasks),
+      });
+    });
+  };
+
+  // Legacy singles this action out as worth undoing more than most
+  // (9404-9406): it throws away recorded time, and recorded time is the
+  // one thing on a task that cannot be retyped from memory. So the
+  // snapshot is taken before the reset, not reconstructed after.
+  const resetTaskTimer = (task: Task) => {
+    const secs = task.secs;
+    const sessions = task.sessions;
+    tasksApi.resetTimer(task.id).then(() => {
+      refresh();
+      pushUndo({
+        label: 'reset timer',
+        undo: () => tasksApi.restoreTimer(task.id, secs, sessions).then(refresh),
+        redo: () => tasksApi.resetTimer(task.id).then(refresh),
+      });
+    });
   };
 
   const sendToToday = (task: Task) => {
@@ -475,6 +505,15 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
               <button onClick={() => tasksApi.toggleTimer(t.id).then(refresh)} title="Start/stop timer">
                 {t.sessions.length > 0 && t.sessions[t.sessions.length - 1].end === null ? '⏸' : '▶'}
               </button>
+              {/* Legacy's ▶/↺/✕ button row (9947-9948). The reset only
+                  appears once there is time to throw away — an always-on
+                  destructive control beside ▶ is easy to hit by accident
+                  and does nothing useful on a fresh task. */}
+              {t.secs > 0 && (
+                <button onClick={() => resetTaskTimer(t)} title="Reset this task's timer">
+                  ↺
+                </button>
+              )}
               <span style={{ fontSize: 12, opacity: 0.7, width: 44 }}>{formatSecs(t.secs)}</span>
 
               {t.sessions.length > 0 && (

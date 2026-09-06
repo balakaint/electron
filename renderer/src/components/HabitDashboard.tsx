@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DaySummary, Habit, HabitCategory, MonthlyReport, WeekScore, habitsApi } from '../services/api';
 import WeeklyScoreChart from './WeeklyScoreChart';
+import { savedFlashStyle, useAutosave } from '../useAutosave';
 
 // Matches legacy's own per-theme _VB dict for this screen exactly
 // (task_tracker_v3_THEMES.py lines 16660-16702) — see themes.ts's
@@ -59,9 +60,12 @@ export default function HabitDashboard() {
   const [summary, setSummary] = useState<DaySummary | null>(null);
   const [streak, setStreak] = useState(0);
   const [week, setWeek] = useState<WeekScore[]>([]);
-  const [intention, setIntentionText] = useState('');
-  const [win, setWin] = useState('');
-  const [reflection, setReflection] = useState('');
+  const [intentionSrc, setIntentionSrc] = useState('');
+  const [winSrc, setWinSrc] = useState('');
+  const [reflectionSrc, setReflectionSrc] = useState('');
+  const intentionField = useAutosave(intentionSrc, (v: string) => habitsApi.setIntention(TODAY, v));
+  const winField = useAutosave(winSrc, (v: string) => habitsApi.setWin(TODAY, v));
+  const reflectionField = useAutosave(reflectionSrc, (v: string) => habitsApi.setReflection(TODAY, v));
   const [monthly, setMonthly] = useState<MonthlyReport | null>(null);
   const [newHabit, setNewHabit] = useState<Record<string, string>>({});
 
@@ -75,22 +79,11 @@ export default function HabitDashboard() {
 
   useEffect(() => {
     refresh();
-    habitsApi.getIntention(TODAY).then((r) => setIntentionText(r.text));
-    habitsApi.getWin(TODAY).then((r) => setWin(r.win));
-    habitsApi.getReflection(TODAY).then((r) => setReflection(r.reflection));
+    habitsApi.getIntention(TODAY).then((r) => setIntentionSrc(r.text));
+    habitsApi.getWin(TODAY).then((r) => setWinSrc(r.win));
+    habitsApi.getReflection(TODAY).then((r) => setReflectionSrc(r.reflection));
   }, []);
 
-  const saveIntention = () => {
-    habitsApi.setIntention(TODAY, intention);
-  };
-
-  const saveWin = () => {
-    habitsApi.setWin(TODAY, win);
-  };
-
-  const saveReflection = () => {
-    habitsApi.setReflection(TODAY, reflection);
-  };
 
   // Past 6pm with a bad score, name what's left rather than just the
   // percentage — matches legacy's alert_lbl. A perfect day still gets
@@ -117,23 +110,23 @@ export default function HabitDashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, opacity: 0.7, whiteSpace: 'nowrap' }}>◎ TODAY I WILL:</span>
             <input
-              value={intention}
-              onChange={(e) => setIntentionText(e.target.value)}
-              onBlur={saveIntention}
-              onKeyDown={(e) => e.key === 'Enter' && saveIntention()}
+              value={intentionField.value}
+              onChange={(e) => intentionField.setValue(e.target.value)}
+              onBlur={intentionField.flush}
+              onKeyDown={(e) => e.key === 'Enter' && intentionField.flush()}
               placeholder="Today I will…"
-              style={{ flex: 1, padding: 6 }}
+              style={{ flex: 1, padding: 6, ...savedFlashStyle(intentionField.state) }}
             />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, opacity: 0.7, whiteSpace: 'nowrap', color: 'var(--habit-success)' }}>◈ TODAY'S WIN:</span>
             <input
-              value={win}
-              onChange={(e) => setWin(e.target.value)}
-              onBlur={saveWin}
-              onKeyDown={(e) => e.key === 'Enter' && saveWin()}
+              value={winField.value}
+              onChange={(e) => winField.setValue(e.target.value)}
+              onBlur={winField.flush}
+              onKeyDown={(e) => e.key === 'Enter' && winField.flush()}
               placeholder="What went well today?"
-              style={{ flex: 1, padding: 6 }}
+              style={{ flex: 1, padding: 6, ...savedFlashStyle(winField.state) }}
             />
           </div>
         </div>
@@ -201,12 +194,12 @@ export default function HabitDashboard() {
         <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
           <div style={{ fontSize: 12, fontWeight: 'bold', opacity: 0.8, marginBottom: 8 }}>📝 END OF DAY REFLECTION</div>
           <textarea
-            value={reflection}
-            onChange={(e) => setReflection(e.target.value)}
-            onBlur={saveReflection}
+            value={reflectionField.value}
+            onChange={(e) => reflectionField.setValue(e.target.value)}
+            onBlur={reflectionField.flush}
             rows={5}
             placeholder="What did you accomplish today? What will you improve tomorrow?"
-            style={{ width: '100%', fontSize: 13, padding: 8, resize: 'vertical', boxSizing: 'border-box' }}
+            style={{ width: '100%', fontSize: 13, padding: 8, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(reflectionField.state) }}
           />
         </div>
 

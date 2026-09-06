@@ -273,6 +273,50 @@ def test_subtask_fk_unlink():
     db.close()
 
 
+# ── 8. Task timer: reset is undoable ──
+def test_reset_timer_is_undoable():
+    db = fresh_db()
+    repo = TaskRepository(db)
+    task_engine = TaskEngine(repo, ProjectRepository(db))
+    t = task_engine.create_task("reset/undo check", "classic")
+    db.commit()
+
+    # Bank some real time, then close the session.
+    task_engine.toggle_timer(t.id)
+    task = repo.get(t.id)
+    sessions = list(task.sessions)
+    sessions[-1] = {**sessions[-1], "start": time.time() - 600}
+    task.sessions = sessions
+    repo.save(task)
+    task_engine.toggle_timer(t.id)
+
+    before = repo.get(t.id)
+    prev_secs, prev_sessions = before.secs, list(before.sessions)
+    check("banked time before reset", prev_secs > 0, f"got {prev_secs}")
+
+    task_engine.reset_timer(t.id)
+    after = repo.get(t.id)
+    check("reset clears secs", after.secs == 0.0, f"got {after.secs}")
+    check("reset clears sessions", after.sessions == [], f"got {after.sessions}")
+
+    # This is what Ctrl+Z calls. restore_task cannot serve it: the task
+    # still exists, so restore_task deliberately no-ops.
+    task_engine.restore_timer(t.id, prev_secs, prev_sessions)
+    back = repo.get(t.id)
+    check("undo restores secs exactly", back.secs == prev_secs, f"got {back.secs} want {prev_secs}")
+    check("undo restores the session list", back.sessions == prev_sessions,
+          f"got {back.sessions}")
+
+    check("restore_timer on an unknown task returns None",
+          task_engine.restore_timer(999999, 1.0, []) is None)
+
+    # restore_task is the delete-undo path and must stay a no-op here,
+    # or the two undo routes would silently overlap.
+    check("restore_task still no-ops on a live task",
+          task_engine.restore_task({"id": t.id, "list_key": "classic", "text": "x"}) is None)
+    db.close()
+
+
 def run_all():
     tests = [
         test_idle_cap_on_stop,
@@ -282,6 +326,7 @@ def run_all():
         test_task_idle_cap,
         test_task_tick_checkpoint,
         test_subtask_fk_unlink,
+        test_reset_timer_is_undoable,
     ]
     for t in tests:
         try:

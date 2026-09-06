@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { savedFlashStyle, useAutosave } from '../useAutosave';
 import {
   BusinessAnalysis,
   DecisionLogEntry,
@@ -37,9 +38,7 @@ function Field({
   value: string;
   onSave: (next: string) => void;
 }) {
-  const [text, setText] = useState(value);
-
-  useEffect(() => setText(value), [value]);
+  const { value: text, setValue: setText, flush, state } = useAutosave(value, onSave);
 
   return (
     <div style={{ marginBottom: 10 }}>
@@ -47,9 +46,9 @@ function Field({
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        onBlur={() => text !== value && onSave(text)}
+        onBlur={flush}
         rows={2}
-        style={{ width: '100%', fontSize: 13, padding: 6, resize: 'vertical', boxSizing: 'border-box' }}
+        style={{ width: '100%', fontSize: 13, padding: 6, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(state) }}
       />
     </div>
   );

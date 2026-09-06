@@ -13,14 +13,16 @@ was checked against the legacy source before being closed.
 
 | Status | Rows |
 |---|---|
-| Done | 148 |
+| Done | 151 |
 | N/A | 8 (rows 3, 7, 21, 36, 99, 140, 170, 172) |
 | Excluded — section R sibling apps | 6 (rows 161-166) |
-| **Remaining real work** | **10** |
+| **Remaining real work** | **7** |
 
-The 10 remaining: 10, 11, 17, 22, 29, 30, 60, 77, 78, 82. Sequenced in
+The 7 remaining: 10, 11, 17, 22, 29, 77, 78. Sequenced in
 `PORT_COMPLETION_PLAN.md`. Phases 1-3 closed 2026-09-06 (rows 15, 147;
-37, 70, 96; 130, 131, 132, 134).
+37, 70, 96; 130-132, 134), Phase 4 partially (rows 30, 60, 82; row 22
+waits on row 10, and row 29's Tools menu carries a Focus Mode entry that
+does too).
 
 Pure internal visual/utility plumbing (color-blend math, hover-tint
 helpers, rounded-rect canvas drawing, tooltip positioning, drag-ghost
@@ -63,7 +65,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 19 | Undo toast ("<action> — UNDO", 5s) | Done | 9202-9257 |
 | 20 | Right-click context menu (Cut/Copy/Paste/Select All) on text fields | Done — one main-process `context-menu` handler on the BrowserWindow (Electron doesn't wire this up automatically, unlike a Chrome tab), using `params.editFlags` for per-field enabled state instead of legacy's own has-selection checks | 1906-1971 |
 | 21 | Global mouse-wheel scroll dispatch (finds nearest scrollable ancestor) | N/A (Phase 0 triage, verified against legacy 1824-1903) — `_bind_global_scroll` walks the parent chain for a `tk.Canvas` with `yscrollcommand` set, and uses `winfo_containing` so the wheel works before the window has focus. Both exist because Tk has no scroll-event bubbling; the browser bubbles wheel events to the nearest scrollable ancestor by default and scrolls unfocused windows on hover. Porting it would mean re-implementing behaviour the platform already provides | 1824-1903 |
-| 22 | Keyboard shortcuts: Ctrl+S save, Ctrl+W/Esc close dialog, Ctrl+F focus mode, F1/? shortcuts panel | Partial (F1/? done; no Ctrl+S needed since every action autosaves immediately; Ctrl+W/Esc and Ctrl+F have no dialog-stack/focus-mode concept to attach to yet) | 1974-2030 |
+| 22 | Keyboard shortcuts: Ctrl+S save, Ctrl+W/Esc close dialog, Ctrl+F focus mode, F1/? shortcuts panel | Partial — F1/? done; Ctrl+S remains unnecessary since every action autosaves; Ctrl+W and Esc now close the TOPMOST dialog via a real open-order stack (the previous code closed every open dialog at once, so opening Shortcuts from Settings and pressing Esc dropped you to the page instead of back to Settings). **Ctrl+F is blocked on row 10:** legacy's `_toggle_focus_mode` is a two-line call into `_set_panel_layout`, so focus mode is the progressive panel layout, not a separate feature. It lands with row 10 | 1974-2030 |
 | 23 | Keyboard-shortcuts help overlay panel | Done | 16077-16127 |
 | 24 | First-run onboarding tour (3-step modal) | Done | 16130-16235 |
 | 25 | Daily MIT morning prompt (pick today's MIT if none set) | Done — retired on Focus same as legacy (its NOW/strike surface already asks this permanently) | 14508-14571 |
@@ -71,7 +73,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 27 | Delayed hover tooltips on icon-only buttons | Done — native browser `title` attribute on every icon-only control across all panels, standing in for legacy's custom 450ms Toplevel tooltip widget (same user-facing effect: a delayed on-hover label, OS-timed rather than hardcoded to 450ms) | 244-303 |
 | 28 | Empty-state placeholders with clickable suggestion chips | Done — all 5 legacy variants (Tomorrow-planning, Focus-with-commitments, Focus-empty, Classic-default, search-no-match), chip click pre-fills + focuses the add-task input rather than adding silently | 308-337, 8940-8948 |
 | 29 | Tools menu (gear icon): Life OS / Cash Tracker / BDP / Goal Roadmap / Deep Work / Browse Music / Focus Mode / Re-entry / Settings | Not Started as a dropdown menu (the port has no such menu; most of its entries are the separate sibling apps in section R, out of scope). Its Settings entry specifically is reachable directly, via its own ⚙ header button — see section O | 16237-16332 |
-| 30 | Debounced-autosave-with-flash-confirmation pattern (used everywhere text is typed) | Partial (individual fields do autosave on blur via each component's own onBlur handler; no shared debounce/flash mechanism) | 7605-7640 |
+| 30 | Debounced-autosave-with-flash-confirmation pattern (used everywhere text is typed) | Done — `useAutosave` in `renderer/src/useAutosave.ts`, legacy's `_debounced_save` + `_flash_saved` at its own 800ms: rapid edits coalesce into one save after a quiet period, blur commits immediately (leaving a field is a stronger "done" signal than a pause), and `savedFlashStyle` tints the border for 500ms to confirm. It also flushes a pending edit on unmount, so navigating away mid-sentence doesn't lose it, and refuses to accept an external refresh while an edit is unsaved. Adopted by every free-text field: BDP's shared `TextField` (~15 fields), Business Analysis's `Field`, project Quick Notes, Habits' intention/win/reflection, Goals notes, and the Quarterly prompts | 7605-7640 |
 
 ## C. Clock / hero card
 
@@ -111,7 +113,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 57 | Editable task-list section heading (per list × day, 4 variants) | Done | 4504-4588 |
 | 58 | Task count badge ("done/total") | Done | 9488-9496 |
 | 59 | Double-click task to edit | Done | 9637, 9802 |
-| 60 | Undo for every task action (add/edit/delete/MIT/urgency/reorder/timer-reset) | Partial — add/edit/delete/MIT/urgency/strike/day-move/toggle-done all wired (see row 18); reorder and timer-reset still aren't, matching legacy's own actual scope | scattered `_undo` closures, see row 18 |
+| 60 | Undo for every task action (add/edit/delete/MIT/urgency/reorder/timer-reset) | Done — reorder and timer-reset are now wired too. **This row's previous status was wrong on the facts:** it claimed legacy doesn't undo these either, but legacy pushes an undo for both — reorder at 9059-9064, and timer-reset at 9404-9416 with its own note that this one is "worth undoing more than most things here: it throws away recorded time, and recorded time is the one thing on a task that cannot be retyped from memory." A second gap surfaced while checking: the port had no reset control at all, only an unused `resetTimer` API, so legacy's ↺ button (9947) is ported as well — shown only once there is time to throw away. Reorder undo re-issues the swap in reverse. Timer-reset undo needed a new `restore_timer` engine function and endpoint: `restore_task` is the delete-undo path and deliberately no-ops when the id still exists, which is exactly this case | scattered `_undo` closures, see row 18 |
 
 ## E. NOW panel (focused-task pointer)
 
@@ -154,7 +156,7 @@ chip (ProjectDashboard).
 | 79 | 30-day per-project activity grid, auto-hit vs manual-mark, streak/status text | Done | 3762-3955 |
 | 80 | Manual day-mark toggle (can only add a day the timer missed, never erase a real hit) | Done | 3891-3903 |
 | 81 | Per-project daily target stepper (±15 min, 5-600 range) | Done | 3908-3948 |
-| 82 | Target-cycle-by-click-on-time-text (alternate control, presets 15/30/45/60/90/120) | Partial (port uses a stepper instead of a click-to-cycle-presets control — same underlying capability, different control) | 2762-2778 |
+| 82 | Target-cycle-by-click-on-time-text (alternate control, presets 15/30/45/60/90/120) | Done — the target figure on each project card is now a button that cycles legacy's `_PROJ_TARGETS`. It picks the next preset ABOVE the current value by search rather than index lookup, exactly as legacy does, so a value the ±15 stepper produced (75, say) steps to 90 instead of snapping back to the first preset. The stepper stays alongside it, as in legacy. Implemented against the existing bumpTarget delta endpoint — no new API surface needed | 2762-2778 |
 
 ## H. Accountability circle
 

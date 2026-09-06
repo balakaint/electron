@@ -4,7 +4,7 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl+T', 'Cycle theme'],
   ['Ctrl+Shift+T', 'Cycle theme (reverse)'],
   ['F1 or ?', 'Show/hide this panel'],
-  ['Esc', 'Close this panel'],
+  ['Esc or Ctrl+W', 'Close the topmost dialog'],
 ];
 
 export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {

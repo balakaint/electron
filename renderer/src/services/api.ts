@@ -66,6 +66,8 @@ export const tasksApi = {
   cycleUrgency: (id: number) => req('POST', `/api/tasks/${id}/cycle-urgency`) as Promise<Task>,
   toggleTimer: (id: number) => req('POST', `/api/tasks/${id}/toggle-timer`) as Promise<Task>,
   resetTimer: (id: number) => req('POST', `/api/tasks/${id}/reset-timer`) as Promise<Task>,
+  restoreTimer: (id: number, secs: number, sessions: Session[]) =>
+    req('POST', `/api/tasks/${id}/restore-timer`, { secs, sessions }) as Promise<Task>,
   setDay: (id: number, day: string) => req('POST', `/api/tasks/${id}/day`, { day }) as Promise<Task>,
   move: (id: number, direction: -1 | 1) => req('POST', `/api/tasks/${id}/move`, { direction }) as Promise<Task[]>,
   toggleStrike: (id: number, projectKey?: string) =>

@@ -1,5 +1,19 @@
 import { useEffect, useState } from 'react';
 import { Q90Area, Q90Field, Q90Panel, quarterlyApi } from '../services/api';
+import { savedFlashStyle, useAutosave } from '../useAutosave';
+
+function PromptField({ value, rows, onSave }: { value: string; rows: number; onSave: (v: string) => void }) {
+  const f = useAutosave(value, onSave);
+  return (
+    <textarea
+      value={f.value}
+      onChange={(e) => f.setValue(e.target.value)}
+      onBlur={f.flush}
+      rows={rows}
+      style={{ width: '100%', fontSize: 13, padding: 6, boxSizing: 'border-box', resize: 'vertical', ...savedFlashStyle(f.state) }}
+    />
+  );
+}
 
 const PROMPTS: { field: Q90Field; question: (n: number) => string; hint: string; rows: number }[] = [
   {
@@ -102,8 +116,7 @@ function AreaAccordion({
   onToggle: () => void;
   onSave: (field: Q90Field, text: string) => void;
 }) {
-  const [drafts, setDrafts] = useState<Record<Q90Field, string>>({ out: area.out, act: area.act, ifthen: area.ifthen });
-  useEffect(() => setDrafts({ out: area.out, act: area.act, ifthen: area.ifthen }), [area.out, area.act, area.ifthen]);
+
 
   return (
     <div
@@ -144,12 +157,10 @@ function AreaAccordion({
             <div key={p.field} style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 2 }}>{p.question(cycleDays)}</div>
               <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>{p.hint}</div>
-              <textarea
-                value={drafts[p.field]}
-                onChange={(e) => setDrafts((d) => ({ ...d, [p.field]: e.target.value }))}
-                onBlur={() => drafts[p.field] !== area[p.field] && onSave(p.field, drafts[p.field])}
+              <PromptField
+                value={area[p.field]}
                 rows={p.rows}
-                style={{ width: '100%', fontSize: 13, padding: 6, boxSizing: 'border-box', resize: 'vertical' }}
+                onSave={(v) => onSave(p.field, v)}
               />
             </div>
           ))}

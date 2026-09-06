@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { Goal, GoalHorizon, GoalPanel, ProjectKey, ProjectOrderEntry, goalsApi, projectsApi } from '../services/api';
 
 const HORIZONS: { key: GoalHorizon; label: string; accent: string }[] = [
@@ -25,11 +26,10 @@ function GoalCard({
   onEditStartDate: (date: string) => void;
 }) {
   const [text, setText] = useState(goal.text);
-  const [note, setNote] = useState(goal.note);
   const [startDate, setStartDate] = useState(goal.start_date);
+  const noteField = useAutosave(goal.note, onEditNote);
 
   useEffect(() => setText(goal.text), [goal.text]);
-  useEffect(() => setNote(goal.note), [goal.note]);
   useEffect(() => setStartDate(goal.start_date), [goal.start_date]);
 
   const cappedDay = Math.min(goal.day_number, 30);
@@ -89,12 +89,12 @@ function GoalCard({
       </div>
 
       <textarea
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        onBlur={() => note !== goal.note && onEditNote(note)}
+        value={noteField.value}
+        onChange={(e) => noteField.setValue(e.target.value)}
+        onBlur={noteField.flush}
         placeholder="Notes…"
         rows={2}
-        style={{ width: '100%', fontSize: 12, padding: 4, resize: 'vertical', boxSizing: 'border-box' }}
+        style={{ width: '100%', fontSize: 12, padding: 4, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(noteField.state) }}
       />
     </div>
   );

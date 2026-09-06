@@ -23,8 +23,14 @@ function AppShell() {
   const [tab, setTab] = useState<ListKey>('classic');
   const [theme, setThemeState] = useState<Theme>('focus');
   const [onboarded, setOnboarded] = useState<boolean | null>(null); // null = not loaded yet
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  // Stored as "when it was opened" rather than a boolean, so the stack
+  // above can order them; null means closed.
+  const [shortcutsOpenedAt, setShortcutsOpenedAt] = useState<number | null>(null);
+  const [settingsOpenedAt, setSettingsOpenedAt] = useState<number | null>(null);
+  const shortcutsOpen = shortcutsOpenedAt !== null;
+  const settingsOpen = settingsOpenedAt !== null;
+  const setShortcutsOpen = (v: boolean) => setShortcutsOpenedAt(v ? Date.now() : null);
+  const setSettingsOpen = (v: boolean) => setSettingsOpenedAt(v ? Date.now() : null);
   const [exporting, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const { undo, redo } = useUndo();
@@ -70,18 +76,44 @@ function AppShell() {
 
   const cycleTheme = (direction: 1 | -1 = 1) => selectTheme(nextTheme(theme, direction));
 
+  // Which dialogs are open, in the order they were opened. A plain
+  // "is anything open" boolean can't answer "close the topmost", which
+  // is what Escape and Ctrl+W are supposed to do — and dialogs here do
+  // stack, since Settings can open Shortcuts.
+  const dialogStack: ('settings' | 'shortcuts')[] = [];
+  if (settingsOpenedAt !== null) dialogStack.push('settings');
+  if (shortcutsOpenedAt !== null) dialogStack.push('shortcuts');
+  dialogStack.sort(
+    (a, b) =>
+      (a === 'settings' ? settingsOpenedAt! : shortcutsOpenedAt!) -
+      (b === 'settings' ? settingsOpenedAt! : shortcutsOpenedAt!),
+  );
+
+  const closeTopDialog = () => {
+    const top = dialogStack[dialogStack.length - 1];
+    if (top === 'shortcuts') setShortcutsOpen(false);
+    else if (top === 'settings') setSettingsOpen(false);
+  };
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const inField = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName);
 
       if (e.key === 'F1' || (e.key === '?' && !inField)) {
         e.preventDefault();
-        setShortcutsOpen((v) => !v);
+        setShortcutsOpen(!shortcutsOpen);
         return;
       }
-      if (e.key === 'Escape' && (shortcutsOpen || settingsOpen)) {
-        setShortcutsOpen(false);
-        setSettingsOpen(false);
+      // Escape and Ctrl+W both mean "close the topmost thing", which is
+      // legacy's own arrangement (Ctrl+W is bound straight to
+      // _handle_escape, line 2013). Closing the TOP one matters: the
+      // previous version closed both dialogs at once, so opening
+      // Shortcuts from Settings and pressing Escape dropped you all the
+      // way back to the page instead of returning to Settings.
+      if (e.key === 'Escape' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w')) {
+        if (dialogStack.length === 0) return;
+        e.preventDefault();
+        closeTopDialog();
         return;
       }
       if (!(e.ctrlKey || e.metaKey)) return;
@@ -99,7 +131,7 @@ function AppShell() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [theme, shortcutsOpen, settingsOpen]);
+  }, [theme, shortcutsOpen, settingsOpen, dialogStack.length]);
 
   return (
     <div style={{ fontFamily: 'sans-serif', padding: 24, background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh' }}>

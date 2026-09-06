@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { BdpPlan, BdpPriority, BdpSort, BdpStatus, BdpView, bdpApi } from '../services/api';
 
 const STATUSES: BdpStatus[] = ['IDEA', 'OPPORTUNITY', 'RESEARCH', 'PLAN', 'ACTIVE', 'HOLD', 'DONE'];
@@ -117,14 +118,21 @@ function TextField({
   multiline?: boolean;
   placeholder?: string;
 }) {
-  const [v, setV] = useState(value);
-  useEffect(() => setV(value), [value]);
+  const { value: v, setValue: setV, flush, state } = useAutosave(value, onSave);
   const common = {
     value: v,
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setV(e.target.value),
-    onBlur: () => v !== value && onSave(v),
+    // Blur commits immediately rather than waiting out the debounce —
+    // leaving a field is a stronger "I'm done" signal than a pause.
+    onBlur: flush,
     placeholder,
-    style: { width: '100%', fontSize: 12, padding: 4, boxSizing: 'border-box' as const },
+    style: {
+      width: '100%',
+      fontSize: 12,
+      padding: 4,
+      boxSizing: 'border-box' as const,
+      ...savedFlashStyle(state),
+    },
   };
   return (
     <div style={{ marginBottom: 6 }}>
