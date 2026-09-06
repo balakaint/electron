@@ -173,6 +173,35 @@ def test_set_day_moves_task_between_views():
         check("setting an unknown task id returns None", f.engine.set_day(999999999, TODAY) is None)
 
 
+def test_move_task_reorders_within_done_group():
+    """move_task (the button-driven stand-in for legacy's drag-to-reorder)
+    swaps sort_order with the adjacent task in the same done-state and
+    day-view group — matches legacy's clamp that a drag can never cross
+    the done/not-done boundary, since _render_tasks always sorts
+    unfinished tasks above finished ones."""
+    with FreshDB() as f:
+        a = f.engine.create_task("first", "classic", day=TODAY)
+        b = f.engine.create_task("second", "classic", day=TODAY)
+        c = f.engine.create_task("third", "classic", day=TODAY)
+        check("tasks list in creation order", [t.id for t in f.engine.list_tasks("classic")] == [a.id, b.id, c.id])
+
+        f.engine.move_task(b.id, -1)
+        check("moving b up swaps it with a", [t.id for t in f.engine.list_tasks("classic")] == [b.id, a.id, c.id])
+
+        f.engine.move_task(b.id, -1)
+        check("moving b up again is a no-op at the top", [t.id for t in f.engine.list_tasks("classic")] == [b.id, a.id, c.id])
+
+        f.engine.toggle_done(c.id)
+        result = f.engine.move_task(c.id, -1)
+        check(
+            "a done task can't be moved above an undone one",
+            [t.id for t in f.engine.list_tasks("classic")] == [b.id, a.id, c.id],
+        )
+        check("move_task returns the current view", [t.id for t in result] == [b.id, a.id, c.id])
+
+        check("moving an unknown task id returns None", f.engine.move_task(999999999, -1) is None)
+
+
 def run_all():
     tests = [
         test_default_view_is_today,
@@ -183,6 +212,7 @@ def run_all():
         test_strike_respects_day_view,
         test_invalid_view_rejected,
         test_set_day_moves_task_between_views,
+        test_move_task_reorders_within_done_group,
     ]
     for t in tests:
         try:

@@ -25,6 +25,7 @@ class Task(Base):
     strike: Mapped[bool] = mapped_column(Boolean, default=False)
     project: Mapped[str | None] = mapped_column(ForeignKey("projects.key"), nullable=True)
     psrc: Mapped[str | None] = mapped_column(ForeignKey("project_subtasks.pid"), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
 HABIT_CATEGORIES = ("money", "health", "relation", "mind")

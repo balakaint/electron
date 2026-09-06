@@ -134,6 +134,8 @@ class TaskEngine:
         if not text:
             raise ValueError("Task text cannot be empty")
         clean_text, est = _parse_est(text)
+        existing = self.repo.list(list_key)
+        sort_order = (max((t.sort_order for t in existing), default=-1)) + 1
         task = Task(
             id=int(time.time() * 1000),
             list_key=list_key,
@@ -148,6 +150,7 @@ class TaskEngine:
             strike=False,
             project=None,
             psrc=None,
+            sort_order=sort_order,
         )
         return self.repo.add(task)
 
@@ -249,6 +252,37 @@ class TaskEngine:
             return None
         task.day = day
         return self.repo.save(task)
+
+    def move_task(self, task_id: int, direction: int) -> list[Task] | None:
+        """Button-driven stand-in for legacy's drag-to-reorder (same
+        pattern as bdp.move_plan): swaps sort_order with the adjacent
+        task in the same list_key, done-state, and day-view group.
+
+        Legacy clamps a drag to the task's own done-group because
+        _render_tasks always sorts unfinished tasks above finished ones —
+        crossing that boundary would spring back on the very next
+        render. The done-state check here reproduces that clamp without
+        needing the original's slot-preserving index math, since a
+        single flat sort_order per list_key (rather than per-day) makes
+        a plain adjacent-swap sufficient."""
+        if direction not in (-1, 1):
+            raise ValueError("direction must be -1 or 1")
+        task = self.repo.get(task_id)
+        if task is None:
+            return None
+        view = get_day_view(self.repo)
+        group = sorted(
+            (t for t in self.repo.list(task.list_key) if matches_day_view(t.day, view) and t.done == task.done),
+            key=lambda t: t.sort_order,
+        )
+        idx = next(i for i, t in enumerate(group) if t.id == task_id)
+        swap_idx = idx + direction
+        if 0 <= swap_idx < len(group):
+            other = group[swap_idx]
+            task.sort_order, other.sort_order = other.sort_order, task.sort_order
+            self.repo.save(task)
+            self.repo.save(other)
+        return self.list_tasks(task.list_key)
 
     def list_strike_tasks(self) -> list[Task]:
         """Today's committed Focus tasks (matches _strike_tasks, which

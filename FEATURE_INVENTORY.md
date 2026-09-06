@@ -91,7 +91,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 53 | New task defaults to the day currently being viewed | Done | 8965-8971, 8988-8994 |
 | 54 | "→ Today" button to promote a Tomorrow task | Done | 9106-9123 |
 | 55 | Live task search/filter box | Done | 9576-9585 |
-| 56 | Drag-to-reorder tasks within a list | Not Started | 9028-9066, 9702-9767 |
+| 56 | Drag-to-reorder tasks within a list | Done — ▲/▼ button stand-in (same pattern as BDP's `move_plan`), not real drag-and-drop; still clamped to the task's own done-group like legacy's drag, and hidden while a search filter is active since positions wouldn't be meaningful | 9028-9066, 9702-9767 |
 | 57 | Editable task-list section heading (per list × day, 4 variants) | Not Started | 4504-4588 |
 | 58 | Task count badge ("done/total") | Done | 9488-9496 |
 | 59 | Double-click task to edit | Done | 9637, 9802 |

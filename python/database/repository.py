@@ -32,7 +32,7 @@ class TaskRepository:
         self.db = db
 
     def list(self, list_key: str | None = None) -> list[Task]:
-        stmt = select(Task)
+        stmt = select(Task).order_by(Task.sort_order)
         if list_key is not None:
             stmt = stmt.where(Task.list_key == list_key)
         return list(self.db.scalars(stmt))

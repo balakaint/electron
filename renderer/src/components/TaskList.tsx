@@ -149,6 +149,10 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
     });
   };
 
+  const moveTask = (id: number, direction: -1 | 1) => {
+    tasksApi.move(id, direction).then(setTasks);
+  };
+
   const sendToToday = (task: Task) => {
     const previousDay = task.day;
     tasksApi.setDay(task.id, todayIso()).then(() => {
@@ -245,7 +249,11 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
         </p>
       ) : (
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {visible.map((t) => (
+          {visible.map((t) => {
+            const group = sorted.filter((x) => x.done === t.done);
+            const isFirst = group[0]?.id === t.id;
+            const isLast = group[group.length - 1]?.id === t.id;
+            return (
             <li
               key={t.id}
               style={{
@@ -257,6 +265,17 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
                 opacity: t.done ? 0.5 : 1,
               }}
             >
+              {!q && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <button onClick={() => moveTask(t.id, -1)} disabled={isFirst} title="Move up" style={{ width: 18, fontSize: 9, lineHeight: 1 }}>
+                    ▲
+                  </button>
+                  <button onClick={() => moveTask(t.id, 1)} disabled={isLast} title="Move down" style={{ width: 18, fontSize: 9, lineHeight: 1 }}>
+                    ▼
+                  </button>
+                </div>
+              )}
+
               <button onClick={() => toggleDone(t.id)} title="Toggle done" style={{ width: 24 }}>
                 {t.done ? '✓' : '○'}
               </button>
@@ -332,7 +351,8 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
                 ✕
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>

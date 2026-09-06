@@ -9,6 +9,7 @@ from api.schemas import (
     TaskCreate,
     TaskDaySet,
     TaskEdit,
+    TaskMove,
     TaskOut,
     TaskRestore,
 )
@@ -130,6 +131,14 @@ def set_day(task_id: int, payload: TaskDaySet, engine: TaskEngine = Depends(get_
     if task is None:
         raise HTTPException(404, "Task not found")
     return task
+
+
+@router.post("/{task_id}/move", response_model=list[TaskOut])
+def move_task(task_id: int, payload: TaskMove, engine: TaskEngine = Depends(get_engine)):
+    tasks = engine.move_task(task_id, payload.direction)
+    if tasks is None:
+        raise HTTPException(404, "Task not found")
+    return tasks
 
 
 @router.post("/{task_id}/toggle-strike", response_model=TaskOut)

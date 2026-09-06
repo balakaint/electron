@@ -42,6 +42,13 @@ class TaskDaySet(BaseModel):
     day: str  # ISO date
 
 
+TaskMoveDirectionT = Literal[-1, 1]
+
+
+class TaskMove(BaseModel):
+    direction: TaskMoveDirectionT
+
+
 class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -58,6 +65,7 @@ class TaskOut(BaseModel):
     strike: bool
     project: str | None
     psrc: str | None
+    sort_order: int
 
 
 class TaskRestore(TaskOut):
