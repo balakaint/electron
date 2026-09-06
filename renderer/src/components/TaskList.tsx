@@ -10,6 +10,16 @@ function formatSecs(secs: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+// Session.start/end are unix seconds (python's time.time()), not ms.
+function formatClock(unixSecs: number): string {
+  return new Date(unixSecs * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatSessionSpan(start: number, end: number | null): string {
+  if (end === null) return `${formatClock(start)} – running`;
+  return `${formatClock(start)} – ${formatClock(end)} (${formatSecs(end - start)})`;
+}
+
 const URGENCY_COLOR: Record<Task['urgency'], string> = {
   low: '#8a8a8a',
   med: '#c8a24a',
@@ -30,6 +40,7 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [title, setTitleState] = useState('');
   const [mitPromptTasks, setMitPromptTasks] = useState<Task[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -367,13 +378,13 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
               key={t.id}
               style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: 8,
+                flexDirection: 'column',
                 padding: '8px 0',
                 borderBottom: '1px solid rgba(128,128,128,0.2)',
                 opacity: t.done ? 0.5 : 1,
               }}
             >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               {!q && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <button onClick={() => moveTask(t.id, -1)} disabled={isFirst} title="Move up" style={{ width: 18, fontSize: 9, lineHeight: 1 }}>
@@ -464,9 +475,28 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
               </button>
               <span style={{ fontSize: 12, opacity: 0.7, width: 44 }}>{formatSecs(t.secs)}</span>
 
+              {t.sessions.length > 0 && (
+                <button
+                  onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}
+                  title="View session history"
+                  style={{ fontSize: 10, opacity: 0.7 }}
+                >
+                  {expandedId === t.id ? '▾' : '▸'} {t.sessions.length}
+                </button>
+              )}
+
               <button onClick={() => deleteTask(t)} title="Delete">
                 ✕
               </button>
+            </div>
+
+            {expandedId === t.id && t.sessions.length > 0 && (
+              <ul style={{ listStyle: 'none', margin: '4px 0 0 32px', padding: 0, fontSize: 11, opacity: 0.75 }}>
+                {[...t.sessions].reverse().map((s, i) => (
+                  <li key={i}>{formatSessionSpan(s.start, s.end)}</li>
+                ))}
+              </ul>
+            )}
             </li>
             );
           })}

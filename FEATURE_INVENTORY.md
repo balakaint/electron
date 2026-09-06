@@ -83,7 +83,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 45 | MIT (exactly one Most Important Task per list) | Done | 9068-9084 |
 | 46 | Urgency cycling (low→med→high→low) | Done | 9088-9104 |
 | 47 | Task timer start/stop with session history | Done (plus crash/idle-safety fixes beyond legacy's own robustness) | 9351-9396, 9359-9396 |
-| 48 | Session-history detail view (expand a task to see each session's start/end) | Partial (data is stored and used correctly; no UI to view individual sessions) | 9984-10013, 9418-9420 |
+| 48 | Session-history detail view (expand a task to see each session's start/end) | Done — a `▸ N`/`▾ N` toggle next to the timer (N = session count) expands a newest-first list of each session's start–end clock time and duration, reusing `Task.sessions` (already stored, just not surfaced); no separate view/route needed since it's inline under the row | 9984-10013, 9418-9420 |
 | 49 | Timer reset (zero secs + sessions) | Done | 9398-9416 |
 | 50 | Strike List (star up to 3 Focus tasks as "today's committed") | Done — including a fix found this pass: a struck task now drops out of the LIST pool below (Focus/Today only), matching legacy's own _render_tasks filter; previously it rendered twice, once in NOW and once in LIST | 2290-2328 |
 | 51 | "3/3 — full" flash on hitting the strike cap | Done | 2410-2432 |
@@ -361,10 +361,11 @@ follow-up: `import_legacy.py` extended with `import_goals`,
 `import_habits`) — the importer previously covered only Tasks/Habits/
 Projects/Business Analysis; every domain the port now models is
 migratable from a legacy save file, moving row 169 to Done and closing
-the gap row 140 used to describe.)*
+the gap row 140 used to describe. Also added Tasks' session-history
+expand toggle (row 48 to Done).)*
 
 - **Done**: rows 16, 18, 19, 23, 24, 26, 39-56, 58-59, 61-69, 71, 79-94, 97, 101-123, 124-129, 133, 135-146, 148-160, 171 — roughly **101 items**, concentrated in Tasks (now including search, inline edit, done-count badge, Tomorrow→Today move, and button-driven reorder), the NOW panel (all 6 rows — derive/point/start-pause/complete/one-clock exclusivity/the "+ STRIKE" promotion, plus the row-66 linked-timer bug-fix), Habits' core loop, Consistency, Circle, Projects' core loop (including per-project Quick Notes), the full Business Analysis canvas, the complete Goals feature, Product Journey (6-stage timeline, gates, tasks, findings log, auto-advance + launch toast, cover image, attach-file), Business Plan Notes (opportunity cards, filters, checklist, seed data), the 90-Day Quarterly Plan (6-area accordion, 3 prompts each, configurable cycle, progress bar), Settings (now complete as one slice: theme cycling, undo/redo, shortcuts panel, onboarding, language/analog-clock/auto-timer/idle-stop/day-phase/goal-hours/currency/start-with-Windows/About), a global keyboard-focus ring, and Export/Backup.
-- **Partial**: rows 15, 22, 30, 37, 48, 60, 70, 82, 96, 130-132, 134, 147 — roughly **14 items** where the data/backend exists but the UI is thin, or a control differs from legacy's exact mechanism (e.g. 4 of 6 themes; Business Plan Notes' one card view standing in for legacy's table+list toggle and ▲/▼ buttons standing in for drag; task undo covers every action except reorder and timer-reset; Settings has no dedicated swatch-preview theme picker).
+- **Partial**: rows 15, 22, 30, 37, 60, 70, 82, 96, 130-132, 134, 147 — roughly **13 items** where the data/backend exists but the UI is thin, or a control differs from legacy's exact mechanism (e.g. 4 of 6 themes; Business Plan Notes' one card view standing in for legacy's table+list toggle and ▲/▼ buttons standing in for drag; task undo covers every action except reorder and timer-reset; Settings has no dedicated swatch-preview theme picker).
 - **Not Started**: everything else — roughly **54+ items**. The largest unported blocks by area: Habits' richer dashboard surface (6 items), remaining app-chrome (context menu, tooltips, empty-state chips, tools menu — ~4 items), and the sibling external apps in section R (mostly out of scope). Business Plan Notes and the Quarterly Plan are both now down to their one-off Partial/N/A rows only (see sections M and N).
 
 Net read: the **daily-driver loop** (Tasks, NOW, Habits, Projects,
