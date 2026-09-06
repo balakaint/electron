@@ -79,7 +79,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 41 | Delete task | Done | 9174-9200 |
 | 42 | Toggle done | Done | 9275-9349 |
 | 43 | Time-box parsing (`~NN`/`~NNm` suffix → estimate) | Done | 8958-8964 |
-| 44 | Parkinson's-Law "over the time-box" warning once actual exceeds estimate | Not Started | 9803-9809, 10157-10164 |
+| 44 | Parkinson's-Law "over the time-box" warning once actual exceeds estimate | Done | 9803-9809, 10157-10164 |
 | 45 | MIT (exactly one Most Important Task per list) | Done | 9068-9084 |
 | 46 | Urgency cycling (low→med→high→low) | Done | 9088-9104 |
 | 47 | Task timer start/stop with session history | Done (plus crash/idle-safety fixes beyond legacy's own robustness) | 9351-9396, 9359-9396 |

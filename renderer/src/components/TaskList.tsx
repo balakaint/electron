@@ -441,7 +441,15 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
                 </button>
               )}
 
-              {t.est > 0 && <span style={{ fontSize: 12, opacity: 0.7 }}>~{t.est}m</span>}
+              {t.est > 0 && !t.done && (
+                t.secs > t.est * 60 ? (
+                  <span style={{ fontSize: 11, color: '#c0392b' }} title="Over the time-box">
+                    ! {Math.floor(t.secs / 60)}m / ~{t.est}m
+                  </span>
+                ) : (
+                  <span style={{ fontSize: 12, opacity: 0.7 }}>~{t.est}m</span>
+                )
+              )}
 
               <button
                 onClick={() => cycleUrgency(t.id)}
