@@ -13,6 +13,44 @@ function getUserDataDir(): string {
   return dir;
 }
 
+// Matches legacy's _setup_window / main-window geometry save, minus
+// the docking system that (deliberately) throws the saved X/width away
+// on every launch — a bare resizable window has no screen-edge to
+// re-dock to, so a plain "remember exactly where I was" is the right
+// simplification here. Lives in its own local JSON file rather than
+// AppState: it's Electron-chrome, not app data, and reading it can't
+// wait on the Python engine being up (the window needs its bounds at
+// construction time, before startPythonEngine() even resolves).
+interface WindowState {
+  x?: number;
+  y?: number;
+  width: number;
+  height: number;
+  maximized: boolean;
+}
+
+function getWindowStatePath(): string {
+  return path.join(app.getPath('userData'), 'window-state.json');
+}
+
+function loadWindowState(): WindowState {
+  try {
+    return JSON.parse(fs.readFileSync(getWindowStatePath(), 'utf-8'));
+  } catch {
+    return { width: 1200, height: 800, maximized: false };
+  }
+}
+
+function saveWindowState(win: BrowserWindow) {
+  const bounds = win.getBounds();
+  const state: WindowState = { ...bounds, maximized: win.isMaximized() };
+  try {
+    fs.writeFileSync(getWindowStatePath(), JSON.stringify(state));
+  } catch (err) {
+    console.error('window state save failed:', err);
+  }
+}
+
 function startPythonEngine(): Promise<void> {
   return new Promise((resolve, reject) => {
     const isDev = !app.isPackaged;
@@ -58,9 +96,12 @@ function startPythonEngine(): Promise<void> {
 }
 
 function createWindow() {
+  const state = loadWindowState();
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: state.width,
+    height: state.height,
+    x: state.x,
+    y: state.y,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -68,6 +109,19 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
     },
   });
+  if (state.maximized) mainWindow.maximize();
+
+  // Debounced the same way as legacy (400ms after the last move/resize)
+  // to avoid a disk-write storm while the user is actively dragging.
+  let saveTimer: ReturnType<typeof setTimeout> | null = null;
+  const debouncedSaveState = () => {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => mainWindow && saveWindowState(mainWindow), 400);
+  };
+  mainWindow.on('resize', debouncedSaveState);
+  mainWindow.on('move', debouncedSaveState);
+  mainWindow.on('maximize', debouncedSaveState);
+  mainWindow.on('unmaximize', debouncedSaveState);
 
   // Matches legacy's _bind_context_menu (Cut/Copy/Paste/Select All on
   // every text widget, app-wide): unlike a regular Chrome tab, a bare
