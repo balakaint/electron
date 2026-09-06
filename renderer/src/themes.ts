@@ -115,6 +115,8 @@ const BDP_DARK = {
 // own screen, just not the same value.
 const PALETTES: Record<Theme, Record<string, string>> = {
   focus: {
+    '--progress-track': '#E8E5E0',
+    '--progress-ring': '#1A1A1A',
     ...BA_STATUS_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#185FA5',
@@ -148,6 +150,8 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--goal-weekly': '#0F766E',
   },
   warroom: {
+    '--progress-track': '#1A1A1E',
+    '--progress-ring': '#FFFFFF',
     ...BA_STATUS_COLORS,
     ...BDP_DARK,
     '--habit-money': '#58A6FF',
@@ -187,6 +191,8 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--goal-weekly': '#A78BFA',
   },
   energy: {
+    '--progress-track': '#EBEBEB',
+    '--progress-ring': '#111111',
     ...BA_STATUS_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#185FA5',
@@ -223,6 +229,8 @@ const PALETTES: Record<Theme, Record<string, string>> = {
   // inspired by Notion/FT (task_tracker_v3_THEMES.py lines 830-864).
   // Every token here is legacy's exact hex.
   corporate: {
+    '--progress-track': '#E7E2DB',
+    '--progress-ring': '#1C1917',
     ...BA_STATUS_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#0C4A6E',
@@ -256,6 +264,8 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--goal-weekly': '#117B38',
   },
   journey: {
+    '--progress-track': '#17211D',
+    '--progress-ring': '#FFFFFF',
     ...BA_STATUS_COLORS,
     ...BDP_DARK,
     '--habit-money': '#4CE0A0',
@@ -295,6 +305,8 @@ const PALETTES: Record<Theme, Record<string, string>> = {
   // (see that theme's own "_INPUT_BG_WAS" comment — a flat theme defines
   // surfaces by border, not fill), hence --surface-2 === --surface here.
   rize: {
+    '--progress-track': '#E5E7EB',
+    '--progress-ring': '#111827',
     ...BA_STATUS_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#0C4A6E',
@@ -328,6 +340,31 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--goal-weekly': '#0F766E',
   },
 };
+
+// Legacy's _PB_RAMPS (task_tracker_v3_THEMES.py 1263) — the gradient the
+// TODAY PROGRESS bar falls back to when no project has been named yet.
+// Eight ordered steps, so this is ramp DATA, not a CSS custom property:
+// a var() can hold one color, and interpolating between the steps needs
+// all eight at once.
+export const PB_RAMPS: Record<Theme, string[]> = {
+  focus: ['#BFDBFE', '#93C5FD', '#60A5FA', '#3B82F6', '#2960E6', '#2D5DD4', '#1E40AF', '#1E3A8A'],
+  warroom: ['#A5F3FC', '#67E8F9', '#22D3EE', '#06B6D4', '#0891B2', '#0E7490', '#155E75', '#164E63'],
+  energy: ['#FDE047', '#FACC15', '#FB923C', '#F97316', '#EF4444', '#D02222', '#B91C1C', '#991B1B'],
+  corporate: ['#FDE68A', '#FCD34D', '#FBBF24', '#F59E0B', '#A15904', '#AE5009', '#92400E', '#78350F'],
+  journey: ['#CFF9E4', '#A8F2CE', '#7EEAB8', '#4CE0A0', '#38B384', '#49836A', '#2A3731', '#17211D'],
+  rize: ['#C7D2FE', '#A5B4FC', '#818CF8', '#5255EF', '#4F46E5', '#4338CA', '#3730A3', '#312E81'],
+};
+
+// applyTheme stamps data-theme on <html>, so any component that needs
+// ramp DATA (not a token) can read the live theme without threading it
+// through props from App.
+export function currentTheme(): Theme {
+  // Guarded so the function is callable outside a browser (render tests,
+  // any future prerender step) rather than throwing on `document`.
+  if (typeof document === 'undefined') return 'focus';
+  const t = document.documentElement.getAttribute('data-theme');
+  return (THEME_ORDER as string[]).includes(t ?? '') ? (t as Theme) : 'focus';
+}
 
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement;

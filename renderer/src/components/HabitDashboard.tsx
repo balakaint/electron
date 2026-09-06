@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { DaySummary, Habit, HabitCategory, MonthlyReport, WeekScore, habitsApi } from '../services/api';
+import WeeklyScoreChart from './WeeklyScoreChart';
 
 // Matches legacy's own per-theme _VB dict for this screen exactly
 // (task_tracker_v3_THEMES.py lines 16660-16702) — see themes.ts's
@@ -147,30 +148,7 @@ export default function HabitDashboard() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 24 }}>
-        {week.map((w) => (
-          <div key={w.day} style={{ textAlign: 'center', flex: 1 }}>
-            <div
-              style={{
-                height: 40,
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'center',
-              }}
-            >
-              <div
-                style={{
-                  width: 16,
-                  height: Math.max(2, (w.pct / 100) * 40),
-                  background: 'var(--habit-success)',
-                  opacity: w.day === TODAY ? 1 : 0.5,
-                }}
-              />
-            </div>
-            <div style={{ fontSize: 10, opacity: 0.6 }}>{w.label}</div>
-          </div>
-        ))}
-      </div>
+      <WeeklyScoreChart week={week} today={TODAY} />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         {CATEGORIES.map(({ key, label, color }) => {

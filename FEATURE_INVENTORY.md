@@ -13,14 +13,14 @@ was checked against the legacy source before being closed.
 
 | Status | Rows |
 |---|---|
-| Done | 141 |
+| Done | 144 |
 | N/A | 8 (rows 3, 7, 21, 36, 99, 140, 170, 172) |
 | Excluded — section R sibling apps | 6 (rows 161-166) |
-| **Remaining real work** | **17** |
+| **Remaining real work** | **14** |
 
-The 17 remaining: 10, 11, 17, 22, 29, 30, 37, 60, 70, 77, 78, 82, 96,
-130, 131, 132, 134. Sequenced in `PORT_COMPLETION_PLAN.md`.
-Phase 1 (rows 15, 147) closed 2026-09-06.
+The 14 remaining: 10, 11, 17, 22, 29, 30, 60, 77, 78, 82, 130, 131, 132,
+134. Sequenced in `PORT_COMPLETION_PLAN.md`.
+Phase 1 (rows 15, 147) and Phase 2 (rows 37, 70, 96) closed 2026-09-06.
 
 Pure internal visual/utility plumbing (color-blend math, hover-tint
 helpers, rounded-rect canvas drawing, tooltip positioning, drag-ghost
@@ -83,7 +83,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 34 | "This week: N of 7 days on target" summary line | Done — nested above the trend chart, ported line-for-line from `_update_week_line` (total/hit-days/best-day over the last 7 days, summed across named projects only) | 14177-14208, 3060-3088 |
 | 35 | Capacity insight ("you tend to do deep work around X") | Done — buckets every Task session's start hour across Classic+Focus, same >=25%-dominance and >=1h-sample thresholds as legacy; returns nothing rather than a fabricated guess when data is thin, matching legacy's own honesty-over-fabrication reasoning | 14465-14506, 3408-3410 |
 | 36 | Work motto banner (editable) | N/A (Phase 0 triage, verified against legacy 3424-3430) — dead code in legacy itself. `_work_motto_var` is created under legacy's own comment `# Placeholder vars`, and `_save_work_motto` is defined but never bound to any event; the only other references are the `save_data`/`load` round-trip of `_work_motto_text`. No widget takes it as a `textvariable`, so there is no live banner to port — only an orphaned StringVar kept so `save_data()` doesn't crash after the panel was removed | 3425-3430 |
-| 37 | TODAY PROGRESS segmented bar (per-project on PLAN, gradient on FOCUS, milestone glow, 100% celebration) | Partial (ProjectDashboard shows a plain percentage line, no segmented/gradient visualization) | 7659-7878, 4894-4947 |
+| 37 | TODAY PROGRESS segmented bar (per-project on PLAN, gradient on FOCUS, milestone glow, 100% celebration) | Done — `TodayProgressBar.tsx`: one segment per named project filling toward its own target in its own accent, dashed outline when untouched, the card's own number centred in each segment, a ring on the running project, and the `{touched}/{n} projects today` readout using legacy's `_proj_meaningful` floor (a quarter of the target, min 5 minutes) rather than any-seconds-above-zero. Milestone glow fires on crossing a quarter INDEX, with the first render establishing a baseline so reopening at 80% doesn't celebrate three at once; 100% keeps a permanent ring. The no-projects-named fallback uses legacy's `_PB_RAMPS` gradient. Built in HTML/CSS rather than a stretched SVG viewBox, which would have distorted the segment numbers | 7659-7878, 4894-4947 |
 | 38 | TODAY/MONTH/YEAR "time remaining" stat row | Done — nested in the clock card below the phase bars; TODAY reads the same work-phase-end boundary the phase bars use (one source of truth, matching legacy's own fix for a case where a separate "work_end" setting could disagree with it) and switches to "work day over" past it; only TODAY carries the accent colour since it's the only one of the three you can still act on | 4839-4892, 6200-6268 |
 
 ## D. Tasks (Plan/Focus lists)
@@ -137,7 +137,7 @@ chip (ProjectDashboard).
 | 67 | Per-category (Money/Health/Relation/Mindset) daily checklist | Done | 2507-2525, 16943-17134 |
 | 68 | Custom habit names per category (add/rename/remove, falls back to shipped defaults) | Done | 2507-2511, 17036-17114 |
 | 69 | Streak (≥50% of active habits, consecutive days ending today) | Done | 2537-2551 |
-| 70 | Weekly score bars/chart | Partial (port shows simple week bars; legacy has a full line+bar chart with best/worst-day callouts, matplotlib if available) | 17145-17223 |
+| 70 | Weekly score bars/chart | Done — `WeeklyScoreChart.tsx`: inline-SVG bars thresholded green/amber/red at legacy's 70/40 cutoffs, a line with round markers over the bar tops, the value printed above each non-zero bar, legacy's 0-115 y-range so 100% doesn't touch the ceiling, and the Best/Worst callouts beneath. Bars and line carry the same series deliberately, as legacy does: the bar's colour answers "was this day good enough", the line answers "which way is the week going". Colours come from the `--habit-*` tokens, not the app-wide status ones, because this card sits on the Habits surface | 17145-17223 |
 | 71 | Daily intention ("TODAY I WILL:") | Done | 16857-16879 |
 | 72 | Daily win ("TODAY'S WIN:") | Done — its own field next to "TODAY I WILL:", backed by a new `win` column on the existing `daily_intentions` row rather than a separate table (same one-text-blob-per-day shape, always read/written alongside intention/reflection on this screen) | 16881-16903 |
 | 73 | End-of-day reflection | Done — same `daily_intentions` row, `reflection` column | 17226-17263 |
@@ -178,7 +178,7 @@ chip (ProjectDashboard).
 | 93 | Idle-stop threshold configurable in Settings | Done (`idle_stop_min` on `AppState`, `SettingsDialog.tsx`'s "Stop after idle" stepper; `engine/timer_reconciliation.py`'s project/task functions self-resolve it from settings instead of the old hardcoded constant) | 2699-2708, 15469-15471 |
 | 94 | Single-running-project exclusivity | Done | 2715-2755 |
 | 95 | Auto-start timer on opening the project's BA/Journey window | Done — shared `useAutoTimer` hook wired into both `ProjectDashboard` (BA open/close) and `JourneyPanel` (project switch); respects the existing `auto_timer_on_open` setting and never stops a timer the user started manually (checked live, not just tracked as a flag) | 2780-2824 |
-| 96 | 30-day activity/progress bar + top-strip canvas | Partial (a simple bar exists; no top-strip canvas, no per-day heat coloring) | 6392-6394, 6883-6926 |
+| 96 | Project-card top strip + subtask progress bar | Done — the card's top strip now fills by subtask completion with legacy's two extra states: muted when the project has no subtasks (so an untouched project doesn't read like a finished one), and a 5px sliver when it has subtasks but none done (so "active, zero progress" stays distinct from "empty"). Legacy's second `pb` bar at the foot of the list is ported too — it repeats the same figure on purpose, because a card with a dozen subtasks is tall enough that the top strip scrolls out of view. **Note:** this row's old title said "30-day activity … per-day heat coloring", which described row 79's consistency grid, not this; the cited legacy lines (6883-6926) are `_draw_prog`/`_draw_top_strip` and contain no per-day colouring. Row 79 was already Done | 6392-6394, 6883-6926 |
 | 97 | Subtask add/toggle/delete | Done | 6974-7171 |
 | 98 | Subtask "+ STRIKE" promotion chip | Done — this file had left it marked Not Started from before the NOW panel/strike-from-project linkage was actually built; `ProjectDashboard.tsx`'s `strikeSubtask` + `POST /api/projects/subtasks/{pid}/strike` (with "+ STRIKE" / "✓ ON TODAY" / "DAY FULL" states) already fully implement it | 7051-7106 |
 | 99 | Subtask "Deep Work" launcher button (opens sibling Deep Work app) | N/A — excluded with section R (Phase 0 triage). This button's entire behaviour is launching the sibling Deep Work app, which is a separate product outside this port's scope; the row cannot be closed independently of row 165 | 6992-7106 (button), 16576-16635 (launcher) |

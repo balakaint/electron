@@ -16,6 +16,7 @@ import {
 import { useAutoTimer } from '../useAutoTimer';
 import BusinessAnalysisCanvas from './BusinessAnalysisCanvas';
 import DeepWorkTrend from './DeepWorkTrend';
+import TodayProgressBar from './TodayProgressBar';
 
 function formatSecs(secs: number): string {
   const mins = Math.round(secs / 60);
@@ -116,6 +117,7 @@ function ProjectCard({
   // task name can't tell you that (a project untouched for a week
   // shows the same line as one worked an hour ago; the minutes can't).
   const pending = subtasks.filter((s) => !s.done);
+  const subtasksDone = subtasks.length - pending.length;
   const previewBits = [`${formatSecs(project.secs_today)} / ${project.target_minutes}m`];
   if (subtasks.length > 0) previewBits.push(`${subtasks.length - pending.length}/${subtasks.length}`);
   const previewTail =
@@ -136,7 +138,26 @@ function ProjectCard({
         opacity: project.done_today ? 0.7 : 1,
       }}
     >
-      <div style={{ height: 6, background: project.accent_color }} />
+      {/* Top strip — legacy's _draw_top_strip (6903-6926). It fills by
+          SUBTASK completion, and carries two states a plain accent bar
+          cannot: a project with no subtasks reads muted rather than
+          fully saturated, so an untouched project doesn't look identical
+          to a finished one; and a project with subtasks but none done
+          keeps a thin sliver, so "active, zero progress" stays distinct
+          from "empty". */}
+      <div style={{ height: 10, background: 'var(--progress-track)' }}>
+        {subtasks.length > 0 && (
+          <div
+            title={`${subtasksDone}/${subtasks.length} subtasks done`}
+            style={{
+              height: '100%',
+              width: subtasksDone > 0 ? `${(subtasksDone / subtasks.length) * 100}%` : 5,
+              minWidth: 3,
+              background: project.accent_color,
+            }}
+          />
+        )}
+      </div>
       <div style={{ padding: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span
@@ -231,6 +252,19 @@ function ProjectCard({
             );
           })}
         </ul>
+        {/* Legacy's `pb` bar (6883-6899) — subtask completion again, at
+            the foot of the list this time. Legacy keeps both this and
+            the top strip because a card with a dozen subtasks is tall
+            enough that the strip scrolls out of view while you are
+            ticking things off down here. */}
+        {subtasks.length > 0 && (
+          <div
+            title={`${subtasksDone}/${subtasks.length} subtasks done`}
+            style={{ height: 4, background: 'var(--progress-track)', marginBottom: 8 }}
+          >
+            <div style={{ height: '100%', width: `${(subtasksDone / subtasks.length) * 100}%`, background: project.accent_color }} />
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
           <input
             value={newSubtask}
@@ -311,12 +345,7 @@ export default function ProjectDashboard() {
 
   return (
     <div style={{ maxWidth: 520 }}>
-      {progress && (
-        <div style={{ marginBottom: 16, fontSize: 13, opacity: 0.8 }}>
-          Today: {progress.projects_done}/{progress.projects_total} projects at target · {progress.pct}%
-          overall
-        </div>
-      )}
+      {progress && <TodayProgressBar entries={order} progress={progress} />}
       <DeepWorkTrend />
       {order.map((entry) => (
         <ProjectCard
