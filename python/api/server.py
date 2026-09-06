@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from api.routes.bdp import actions_router as bdp_actions_router, router as bdp_router
 from api.routes.business_analysis import router as business_analysis_router
 from api.routes.export import router as export_router
 from api.routes.goals import panel_router as goals_panel_router, router as goals_router
@@ -75,6 +76,8 @@ app.include_router(journey_router)
 app.include_router(journey_tasks_router)
 app.include_router(journey_logs_router)
 app.include_router(settings_router)
+app.include_router(bdp_router)
+app.include_router(bdp_actions_router)
 
 
 @app.get("/health")

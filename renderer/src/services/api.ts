@@ -425,6 +425,102 @@ export const settingsApi = {
   update: (patch: SettingsPatch) => req('PUT', '/api/settings', patch) as Promise<Settings>,
 };
 
+export type BdpStatus = 'IDEA' | 'OPPORTUNITY' | 'RESEARCH' | 'PLAN' | 'ACTIVE' | 'HOLD' | 'DONE';
+export type BdpPriority = 'HIGH' | 'MEDIUM' | 'LOW';
+export type BdpSort = 'manual' | 'priority';
+
+export interface BdpAction {
+  id: number;
+  text: string;
+  done: boolean;
+}
+
+export interface BdpPlan {
+  id: number;
+  title: string;
+  status: BdpStatus;
+  priority: BdpPriority;
+  opportunity: string;
+  market: string;
+  target: string;
+  niche: string;
+  model: string;
+  product: string;
+  service: string;
+  supplier: string;
+  timeline: string;
+  potential: number;
+  difficulty: number;
+  cost_amount: string;
+  yearly_profit: string;
+  notes: string;
+  archived: boolean;
+  created: string;
+  updated: string;
+  order: number;
+  next_actions: BdpAction[];
+}
+
+export type BdpPlanPatch = Partial<
+  Pick<
+    BdpPlan,
+    | 'title'
+    | 'status'
+    | 'priority'
+    | 'opportunity'
+    | 'market'
+    | 'target'
+    | 'niche'
+    | 'model'
+    | 'product'
+    | 'service'
+    | 'supplier'
+    | 'timeline'
+    | 'potential'
+    | 'difficulty'
+    | 'cost_amount'
+    | 'yearly_profit'
+    | 'notes'
+  >
+>;
+
+export interface BdpListFilters {
+  status?: BdpStatus | 'All';
+  priority?: BdpPriority | 'All';
+  market?: string;
+  q?: string;
+  sort?: BdpSort;
+}
+
+export const bdpApi = {
+  list: (filters: BdpListFilters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.status && filters.status !== 'All') params.set('status', filters.status);
+    if (filters.priority && filters.priority !== 'All') params.set('priority', filters.priority);
+    if (filters.market && filters.market !== 'All') params.set('market', filters.market);
+    if (filters.q) params.set('q', filters.q);
+    if (filters.sort) params.set('sort', filters.sort);
+    const qs = params.toString();
+    return req('GET', `/api/bdp/plans${qs ? `?${qs}` : ''}`) as Promise<BdpPlan[]>;
+  },
+  create: (title: string, patch: BdpPlanPatch = {}) =>
+    req('POST', '/api/bdp/plans', { title, ...patch }) as Promise<BdpPlan>,
+  edit: (id: number, patch: BdpPlanPatch) => req('PUT', `/api/bdp/plans/${id}`, patch) as Promise<BdpPlan>,
+  duplicate: (id: number) => req('POST', `/api/bdp/plans/${id}/duplicate`) as Promise<BdpPlan>,
+  archive: (id: number) => req('POST', `/api/bdp/plans/${id}/archive`) as Promise<BdpPlan>,
+  remove: (id: number) => req('DELETE', `/api/bdp/plans/${id}`) as Promise<{ ok: boolean }>,
+  move: (id: number, direction: -1 | 1) =>
+    req('POST', `/api/bdp/plans/${id}/move`, { direction }) as Promise<BdpPlan[]>,
+  getSort: () => req('GET', '/api/bdp/sort') as Promise<{ sort: BdpSort }>,
+  setSort: (sort: BdpSort) => req('POST', '/api/bdp/sort', { sort }) as Promise<{ sort: BdpSort }>,
+  addAction: (planId: number, text: string) =>
+    req('POST', `/api/bdp/plans/${planId}/actions`, { text }) as Promise<BdpPlan>,
+  editAction: (actionId: number, text: string) =>
+    req('PUT', `/api/bdp/actions/${actionId}`, { text }) as Promise<BdpPlan>,
+  toggleAction: (actionId: number) => req('POST', `/api/bdp/actions/${actionId}/toggle`) as Promise<BdpPlan>,
+  deleteAction: (actionId: number) => req('DELETE', `/api/bdp/actions/${actionId}`) as Promise<BdpPlan>,
+};
+
 export const exportApi = {
   backup: () => req('GET', '/api/export/backup') as Promise<{ filename: string; data: unknown }>,
   csv: () => req('GET', '/api/export/csv') as Promise<{ filename: string; csv: string }>,

@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 
 from database.models import (
     AppState,
+    BdpAction,
+    BdpPlan,
     BusinessAnalysis,
     CirclePerson,
     DailyIntention,
@@ -431,4 +433,72 @@ class JourneyRepository:
 
     def delete_log(self, entry: JourneyLogEntry) -> None:
         self.db.delete(entry)
+        self.db.commit()
+
+
+class BdpRepository:
+    """Business Plan Notes — a single global list (see BdpPlan's
+    docstring), so unlike GoalRepository/JourneyRepository this has no
+    project_key scoping anywhere."""
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_app_state(self) -> AppState:
+        return _get_app_state(self.db)
+
+    def save_app_state(self, state: AppState) -> AppState:
+        return _save_app_state(self.db, state)
+
+    # ── Plans ────────────────────────────────────────────────────────
+    def list_plans(self, include_archived: bool = False) -> list[BdpPlan]:
+        stmt = select(BdpPlan)
+        if not include_archived:
+            stmt = stmt.where(BdpPlan.archived.is_(False))
+        return list(self.db.scalars(stmt))
+
+    def get_plan(self, plan_id: int) -> BdpPlan | None:
+        return self.db.get(BdpPlan, plan_id)
+
+    def add_plan(self, plan: BdpPlan) -> BdpPlan:
+        self.db.add(plan)
+        self.db.commit()
+        self.db.refresh(plan)
+        return plan
+
+    def save_plan(self, plan: BdpPlan) -> BdpPlan:
+        self.db.commit()
+        self.db.refresh(plan)
+        return plan
+
+    def delete_plan(self, plan: BdpPlan) -> None:
+        # Actions have no ON DELETE CASCADE at the DB level (SQLite
+        # doesn't enforce it by default here) — clear them explicitly so
+        # a deleted plan doesn't leave orphaned action rows behind.
+        for action in self.list_actions(plan.id):
+            self.db.delete(action)
+        self.db.delete(plan)
+        self.db.commit()
+
+    # ── Next-actions checklist ──────────────────────────────────────
+    def list_actions(self, plan_id: int) -> list[BdpAction]:
+        stmt = select(BdpAction).where(BdpAction.plan_id == plan_id).order_by(BdpAction.sort_order)
+        return list(self.db.scalars(stmt))
+
+    def get_action(self, action_id: int) -> BdpAction | None:
+        return self.db.get(BdpAction, action_id)
+
+    def add_action(self, action: BdpAction) -> BdpAction:
+        self.db.add(action)
+        self.db.commit()
+        self.db.refresh(action)
+        return action
+
+    def save_action(self, action: BdpAction) -> BdpAction:
+        self.db.commit()
+        self.db.refresh(action)
+        return action
+
+    def delete_action(self, action: BdpAction) -> None:
+        self.db.delete(action)
         self.db.commit()

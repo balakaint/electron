@@ -450,3 +450,102 @@ class BackupOut(BaseModel):
 class CsvExportOut(BaseModel):
     filename: str
     csv: str
+
+
+BdpStatusT = Literal["IDEA", "OPPORTUNITY", "RESEARCH", "PLAN", "ACTIVE", "HOLD", "DONE"]
+BdpPriorityT = Literal["HIGH", "MEDIUM", "LOW"]
+BdpMoveDirectionT = Literal[-1, 1]
+
+
+class BdpActionOut(BaseModel):
+    id: int
+    text: str
+    done: bool
+
+
+class BdpPlanOut(BaseModel):
+    id: int
+    title: str
+    status: BdpStatusT
+    priority: BdpPriorityT
+    opportunity: str
+    market: str
+    target: str
+    niche: str
+    model: str
+    product: str
+    service: str
+    supplier: str
+    timeline: str
+    potential: int
+    difficulty: int
+    cost_amount: str
+    yearly_profit: str
+    notes: str
+    archived: bool
+    created: str
+    updated: str
+    order: float
+    next_actions: list[BdpActionOut]
+
+
+class BdpPlanCreate(BaseModel):
+    title: str
+    status: BdpStatusT | None = None
+    priority: BdpPriorityT | None = None
+    opportunity: str | None = None
+    market: str | None = None
+    target: str | None = None
+    niche: str | None = None
+    model: str | None = None
+    product: str | None = None
+    service: str | None = None
+    supplier: str | None = None
+    timeline: str | None = None
+    potential: int | None = None
+    difficulty: int | None = None
+    cost_amount: str | None = None
+    yearly_profit: str | None = None
+    notes: str | None = None
+
+
+class BdpPlanEdit(BaseModel):
+    """All-optional — PUT /api/bdp/plans/{id} patches only fields sent."""
+
+    title: str | None = None
+    status: BdpStatusT | None = None
+    priority: BdpPriorityT | None = None
+    opportunity: str | None = None
+    market: str | None = None
+    target: str | None = None
+    niche: str | None = None
+    model: str | None = None
+    product: str | None = None
+    service: str | None = None
+    supplier: str | None = None
+    timeline: str | None = None
+    potential: int | None = None
+    difficulty: int | None = None
+    cost_amount: str | None = None
+    yearly_profit: str | None = None
+    notes: str | None = None
+
+
+class BdpMove(BaseModel):
+    direction: BdpMoveDirectionT
+
+
+class BdpActionCreate(BaseModel):
+    text: str
+
+
+class BdpActionEdit(BaseModel):
+    text: str
+
+
+class BdpSortSet(BaseModel):
+    sort: Literal["manual", "priority"]
+
+
+class BdpSortOut(BaseModel):
+    sort: Literal["manual", "priority"]

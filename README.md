@@ -364,6 +364,47 @@ registering/unregistering the app with Windows startup is Electron
 main-process territory (`app.setLoginItemSettings` or a registry write)
 and isn't wired yet; the toggle just remembers what the user asked for.
 
+**Business Plan Notes** (an unlimited list of opportunity/plan cards —
+replaces the legacy screen's old fixed 6-block layout) is ported with
+one deliberate scope adjustment, noted below:
+
+- `python/database/models.py` — `BdpPlan` (a single global list, *not*
+  project-scoped, matching legacy's own flat
+  `vision_data["self_dev"]["plans"]`; `order` is a float so a new plan
+  can be inserted at the very top or between two neighbors without
+  renumbering everything else) and `BdpAction` (the next-actions
+  checklist — given a real ms-timestamp id per action instead of
+  legacy's retype-the-whole-textarea-and-match-by-text approach, same
+  convention as JourneyTask)
+- `python/engine/bdp.py` — full CRUD, status/priority/market/text
+  search filtering (market's "Other" bucket = anything not
+  Bangladesh/USA/Global/blank, matching legacy exactly), manual vs.
+  priority sort (`_rank`: HIGH before MEDIUM before LOW, then higher
+  potential first, then oldest first — reading top to bottom already
+  tells you what to look at first), duplicate (copies the actions too,
+  as new independent rows), archive (hidden from the default list,
+  never deleted), and the checklist's add/toggle/edit/delete
+- `python/api/routes/bdp.py` — `/api/bdp/plans` (+`/{id}` edit/delete,
+  `/{id}/duplicate`, `/{id}/archive`, `/{id}/move`, `/{id}/actions`),
+  `/api/bdp/sort`, flat `/api/bdp/actions/{id}` (+`/toggle`)
+- `renderer/src/components/BdpPanel.tsx` — search + status/priority/
+  market filters, sort toggle, plan cards with an expandable "Details"
+  section (title/status/priority always visible; the other ~15 fields,
+  star ratings, and next-actions checklist behind one click, since 21
+  simultaneously-visible fields per card was a wall, not a list) and a
+  row menu (duplicate/archive/delete)
+- Seeded via the Alembic migration itself (`c9ce19d69cbf`) rather than
+  a lazy on-first-load check like legacy's `_bdp_seed` — a migration
+  already only ever runs once, so it doesn't need legacy's separate
+  `_migrated_v2` flag to avoid reseeding after the six examples are
+  deleted
+- **Scope adjustment**: legacy's table-view/list-view toggle and true
+  mouse drag-to-reorder are consolidated into one card view with ▲/▼
+  move buttons — same manual-ordering capability, without a second
+  rendering mode or a drag library for equivalent functionality. Not
+  extended to `import_legacy.py` — this is a new-to-the-port feature
+  area with no existing rows to migrate forward, same as Goals/Journey.
+
 ## Next steps
 
 Same approach, one feature at a time: enumerate the real fields a feature
@@ -371,6 +412,7 @@ uses in `task_tracker_v3_THEMES.py`, design the table, port the engine
 logic, wire the routes, build the React screen, then extend
 `import_legacy.py`. Daily Planner is off this list — the legacy app had
 already removed it (see "Importing your existing data" above), and
-Settings is now fully covered (see above). What's actually left:
-licensing, auto-update, and actually wiring `start_with_windows` to the
-real Windows startup entry on the Electron side.
+Settings and Business Plan Notes are now fully covered (see above).
+What's actually left: the 90-Day Quarterly Plan, licensing, auto-update,
+and actually wiring `start_with_windows` to the real Windows startup
+entry on the Electron side.

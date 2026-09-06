@@ -251,7 +251,11 @@ class AppState(Base):
       module's own IDLE_LIMIT_SECS fallback for callers with no repo in
       hand). start_with_windows is stored here as a plain preference
       only — actually registering/unregistering the OS startup entry is
-      Electron-main-process territory and isn't wired yet."""
+      Electron-main-process territory and isn't wired yet.
+    - bdp_sort: Business Plan Notes' list-ordering mode ("manual" |
+      "priority") — a single global toggle for that one screen, matching
+      the legacy screen's own `vd["sort"]`, same shape as task_day_view
+      above."""
 
     __tablename__ = "app_state"
 
@@ -276,6 +280,7 @@ class AppState(Base):
     goal_hours: Mapped[int] = mapped_column(Integer, default=5)
     currency: Mapped[str] = mapped_column(String, default="$")
     start_with_windows: Mapped[bool] = mapped_column(Boolean, default=False)
+    bdp_sort: Mapped[str] = mapped_column(String, default="manual")
 
 
 class LegacyAnalysisBox(Base):
@@ -391,3 +396,67 @@ class JourneyLogEntry(Base):
     text: Mapped[str] = mapped_column(String)
     date: Mapped[str] = mapped_column(String)  # ISO date string
     status: Mapped[str] = mapped_column(String, default="")  # "" | "ok" | "no"
+
+
+BDP_STATUSES = ("IDEA", "OPPORTUNITY", "RESEARCH", "PLAN", "ACTIVE", "HOLD", "DONE")
+BDP_PRIORITIES = ("HIGH", "MEDIUM", "LOW")
+
+
+class BdpPlan(Base):
+    """One row per Business Plan Notes opportunity card — a single
+    global list (not per-project, unlike Goals/Journey/BusinessAnalysis;
+    legacy's own `vision_data["self_dev"]["plans"]` isn't project-scoped
+    either). Replaces the legacy screen's earlier fixed 6-block layout,
+    same reasoning `import_legacy.py` never needed to touch since this
+    is a fresh feature area for the port (no existing rows to migrate
+    forward). `order` is a float, not an int, so a new plan can be
+    inserted at the very top (`min(existing) - 1.0`) or a plan moved
+    between two neighbors without renumbering the whole list — same
+    technique Task/Goal use elsewhere via ms-timestamp ids, adapted here
+    since manual order is independent of creation time."""
+
+    __tablename__ = "bdp_plans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    title: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, default="IDEA")
+    priority: Mapped[str] = mapped_column(String, default="MEDIUM")
+    opportunity: Mapped[str] = mapped_column(String, default="")
+    market: Mapped[str] = mapped_column(String, default="")
+    target: Mapped[str] = mapped_column(String, default="")
+    niche: Mapped[str] = mapped_column(String, default="")
+    model: Mapped[str] = mapped_column(String, default="")
+    product: Mapped[str] = mapped_column(String, default="")
+    service: Mapped[str] = mapped_column(String, default="")
+    supplier: Mapped[str] = mapped_column(String, default="")
+    timeline: Mapped[str] = mapped_column(String, default="")
+    potential: Mapped[int] = mapped_column(Integer, default=3)  # 1-5 stars
+    difficulty: Mapped[int] = mapped_column(Integer, default=3)  # 1-5 stars
+    cost_amount: Mapped[str] = mapped_column(String, default="")  # free text, matches legacy's plain Entry
+    yearly_profit: Mapped[str] = mapped_column(String, default="")
+    notes: Mapped[str] = mapped_column(String, default="")
+    archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Empty until first edited — matches legacy, which never sets either
+    # on a freshly seeded/created plan, only on first _plan_modal commit.
+    created: Mapped[str] = mapped_column(String, default="")  # ISO date string
+    updated: Mapped[str] = mapped_column(String, default="")  # ISO date string
+    order: Mapped[float] = mapped_column(Float, default=0.0)
+
+
+class BdpAction(Base):
+    """A plan's next-actions checklist. Legacy stores these as a bare
+    `[{"text", "done"}]` list edited by retyping a whole textarea (one
+    line per action) and re-matching ticked state back onto surviving
+    lines by exact text — real ids weren't worth adding there since the
+    whole list was already being replaced on every edit. This port gives
+    each action its own ms-timestamp id instead (same convention as
+    JourneyTask), so toggling/editing/deleting one action is a targeted
+    operation rather than a fragile whole-list retype-and-text-match."""
+
+    __tablename__ = "bdp_actions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    plan_id: Mapped[int] = mapped_column(ForeignKey("bdp_plans.id"))
+    text: Mapped[str] = mapped_column(String)
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)

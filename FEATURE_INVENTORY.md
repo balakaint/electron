@@ -222,22 +222,27 @@ has now been re-audited against the actual code.
 
 ## M. Business Plan Notes / BDP (opportunity tracker)
 
-Entirely unported — a whole feature area.
+Ported: `BdpPlan`/`BdpAction` models, `engine/bdp.py`,
+`api/routes/bdp.py`, `renderer/src/components/BdpPanel.tsx` (see
+README.md for the full breakdown). One deliberate scope adjustment:
+legacy's table-view/list-view toggle and true drag-to-reorder are
+consolidated into a single card view with ▲/▼ move buttons — same
+underlying capability (see rows 130-132, 134).
 
 | # | Feature | Status | Legacy lines |
 |---|---|---|---|
-| 129 | Opportunity/plan cards (title, status, priority, opportunity text, next actions, timeline) | Not Started | 12875-13167 |
-| 130 | Table view (dense per-project summary row) | Not Started | 13256-13624 |
-| 131 | List view (compact one-line row) | Not Started | 13668-13723 |
-| 132 | Full-page detail view per plan (autosave, prev/next nav) | Not Started | 13731-13964 |
-| 133 | Search + Status/Priority/Market filters | Not Started | 12679-12872 |
-| 134 | Manual drag-reorder + priority-based sort mode | Not Started | 13280-13375, 12608-12618 |
-| 135 | Row menu: Edit/Duplicate/Archive/Delete | Not Started | 13169-13202 |
-| 136 | Potential/Difficulty star ratings | Not Started | 13007-13020 |
-| 137 | Investment/yearly-profit currency fields | Not Started | 13057-13059 |
-| 138 | Per-plan next-actions checklist | Not Started | 13966-14026 |
-| 139 | Seed example plans on first run (6 starter opportunities) | Not Started | 12376-12432 |
-| 140 | One-time migration from the old fixed 6-block layout | Not Started (n/a unless this feature is ever built) | 12434-12470 |
+| 129 | Opportunity/plan cards (title, status, priority, opportunity text, next actions, timeline) | Done (inline-editable card, not a separate modal — matches this codebase's established GoalsPanel/JourneyPanel convention over legacy's own modal-based editor) | 12875-13167 |
+| 130 | Table view (dense per-project summary row) | Partial (no separate dense table layout; the one card view's collapsed state covers the same "scan many at once" job) | 13256-13624 |
+| 131 | List view (compact one-line row) | Partial (same one consolidated card view stands in for this too — see row 130) | 13668-13723 |
+| 132 | Full-page detail view per plan (autosave, prev/next nav) | Partial (an inline expand-in-place "Details" section autosaves every field on blur; no full-page view and no prev/next navigation between plans) | 13731-13964 |
+| 133 | Search + Status/Priority/Market filters | Done (market's "Other" bucket matches legacy's exact definition: anything not Bangladesh/USA/Global/blank) | 12679-12872 |
+| 134 | Manual drag-reorder + priority-based sort mode | Partial (priority-sort mode is exact; manual mode uses ▲/▼ swap-with-neighbor buttons instead of mouse drag — same reordering outcome, different input method) | 13280-13375, 12608-12618 |
+| 135 | Row menu: Edit/Duplicate/Archive/Delete | Done (Edit is inline fields rather than a menu entry — nothing to "open" separately; Duplicate/Archive/Delete are icon buttons rather than a dropdown, same four actions) | 13169-13202 |
+| 136 | Potential/Difficulty star ratings | Done (1-5, +/- steppers, same clamp as legacy) | 13007-13020 |
+| 137 | Investment/yearly-profit currency fields | Done (`cost_amount`/`yearly_profit`, free text same as legacy's plain Entry widgets) | 13057-13059 |
+| 138 | Per-plan next-actions checklist | Done, and more robust than legacy: each action gets a real id (`BdpAction`) instead of being retyped as one line in a shared textarea and re-matched to its old done-state by exact text | 13966-14026 |
+| 139 | Seed example plans on first run (6 starter opportunities) | Done — seeded by the Alembic migration itself (runs exactly once, ever) rather than a lazy check-on-every-load flag, since a migration already provides that guarantee for free | 12376-12432 |
+| 140 | One-time migration from the old fixed 6-block layout | Not Started / N/A — this migrates *legacy's own* pre-existing 6-block save data forward; the port has no such old-format data of its own to migrate, and `import_legacy.py` isn't extended for BDP (new-to-the-port feature area, same as Goals/Journey) | 12434-12470 |
 
 ## N. 90-Day Quarterly Plan (whole-life plan)
 
@@ -326,23 +331,27 @@ since "the column exists" is not the same as "the feature works."
 *(Updated 2026-09-06: Settings pass — rows 93, 148-156, 159-160 moved to
 Done as one slice (`AppState` columns, `GET`/`PUT /api/settings`,
 `SettingsDialog.tsx`, and the idle-stop setting actually wired into
-`engine/timer_reconciliation.py` rather than just stored) — plus a
-re-audit of section L (Product Journey), which this file had left marked
-"Entirely unported" since an earlier pass despite the feature having
-since been fully built; rows 120, 122, 124-128 moved to Done and 121,
-123 to Partial.)*
+`engine/timer_reconciliation.py` rather than just stored); a re-audit of
+section L (Product Journey), which this file had left marked "Entirely
+unported" since an earlier pass despite the feature having since been
+fully built — rows 120, 122, 124-128 moved to Done and 121, 123 to
+Partial; and a Business Plan Notes pass — rows 129, 133, 135-139 moved
+to Done and 130-132, 134 to Partial (one consolidated card view stands
+in for legacy's separate table/list views, and ▲/▼ buttons stand in for
+mouse drag-reorder), row 140 stays Not Started/N/A since it migrates
+legacy's own old save format, which the port has none of.)*
 
-- **Done**: rows 16, 18, 19, 23, 24, 39-53, 61-69, 71, 79-94, 97, 102-119, 120, 122, 124-128, 148-160 — roughly **78 items**, concentrated in Tasks, the NOW panel (all 6 rows — derive/point/start-pause/complete/one-clock exclusivity/the "+ STRIKE" promotion, plus the row-66 linked-timer bug-fix), Habits' core loop, Consistency, Circle, Projects' core loop, the full Business Analysis canvas, the complete Goals feature, Product Journey (6-stage timeline, gates, tasks, findings log, auto-advance + launch toast), Settings (now complete as one slice: theme cycling, undo/redo, shortcuts panel, onboarding, language/analog-clock/auto-timer/idle-stop/day-phase/goal-hours/currency/start-with-Windows/About), and Export/Backup.
-- **Partial**: rows 15, 22, 30, 37, 48, 70, 82, 96, 101, 121, 123, 147 — roughly **12 items** where the data/backend exists but the UI is thin, or a control differs from legacy's exact mechanism (e.g. 4 of 6 themes; Journey's cover-image/attach-file fields store a path with no upload/preview/open UI around them; Settings has no dedicated swatch-preview theme picker).
-- **Not Started**: everything else — roughly **80+ items**. The largest unported blocks by area: Habits' richer dashboard surface (6 items), Business Plan Notes (12 items), Quarterly Plan (6 items), remaining app-chrome (context menu, focus ring, tooltips, empty-state chips, tools menu — ~5 items), and the sibling external apps in section R (mostly out of scope).
+- **Done**: rows 16, 18, 19, 23, 24, 39-53, 61-69, 71, 79-94, 97, 102-119, 120, 122, 124-129, 133, 135-139, 148-160 — roughly **85 items**, concentrated in Tasks, the NOW panel (all 6 rows — derive/point/start-pause/complete/one-clock exclusivity/the "+ STRIKE" promotion, plus the row-66 linked-timer bug-fix), Habits' core loop, Consistency, Circle, Projects' core loop, the full Business Analysis canvas, the complete Goals feature, Product Journey (6-stage timeline, gates, tasks, findings log, auto-advance + launch toast), Business Plan Notes (opportunity cards, filters, checklist, seed data), Settings (now complete as one slice: theme cycling, undo/redo, shortcuts panel, onboarding, language/analog-clock/auto-timer/idle-stop/day-phase/goal-hours/currency/start-with-Windows/About), and Export/Backup.
+- **Partial**: rows 15, 22, 30, 37, 48, 70, 82, 96, 101, 121, 123, 130-132, 134, 147 — roughly **16 items** where the data/backend exists but the UI is thin, or a control differs from legacy's exact mechanism (e.g. 4 of 6 themes; Journey's cover-image/attach-file fields store a path with no upload/preview/open UI around them; Business Plan Notes' one card view standing in for legacy's table+list toggle and ▲/▼ buttons standing in for drag; Settings has no dedicated swatch-preview theme picker).
+- **Not Started**: everything else — roughly **69+ items**. The largest unported blocks by area: Habits' richer dashboard surface (6 items), Quarterly Plan (6 items), remaining app-chrome (context menu, focus ring, tooltips, empty-state chips, tools menu — ~5 items), and the sibling external apps in section R (mostly out of scope).
 
 Net read: the **daily-driver loop** (Tasks, NOW, Habits, Projects,
 Business Analysis, Consistency, Circle) is genuinely solid end to end,
-**Goals and Product Journey** give it a full first layer of
-**long-horizon planning**, **Settings is now a complete slice** (every
-toggle/stepper from the legacy dialog exists and persists;
-auto-timer-on-open, day-phase hours, goal-hours, and currency are stored
-but not yet read by anything else in the port, same "column exists,
-feature not wired everywhere" caveat as section S), and the app has a
-genuine **safety net** (Export/Backup) instead of none at all. Still
-fully unstarted: Quarterly Plan and Business Plan Notes.
+**Goals, Product Journey, and Business Plan Notes** give it a full first
+layer of **long-horizon and opportunity planning**, **Settings is now a
+complete slice** (every toggle/stepper from the legacy dialog exists and
+persists; auto-timer-on-open, day-phase hours, goal-hours, and currency
+are stored but not yet read by anything else in the port, same "column
+exists, feature not wired everywhere" caveat as section S), and the app
+has a genuine **safety net** (Export/Backup) instead of none at all.
+Still fully unstarted: Quarterly Plan.
