@@ -164,7 +164,7 @@ chip (ProjectDashboard).
 | 95 | Auto-start timer on opening the project's BA/Journey window | Not Started | 2780-2824 |
 | 96 | 30-day activity/progress bar + top-strip canvas | Partial (a simple bar exists; no top-strip canvas, no per-day heat coloring) | 6392-6394, 6883-6926 |
 | 97 | Subtask add/toggle/delete | Done | 6974-7171 |
-| 98 | Subtask "+ STRIKE" promotion chip | Not Started (depends on NOW panel / strike-from-project linkage) | 7051-7106 |
+| 98 | Subtask "+ STRIKE" promotion chip | Done — this file had left it marked Not Started from before the NOW panel/strike-from-project linkage was actually built; `ProjectDashboard.tsx`'s `strikeSubtask` + `POST /api/projects/subtasks/{pid}/strike` (with "+ STRIKE" / "✓ ON TODAY" / "DAY FULL" states) already fully implement it | 7051-7106 |
 | 99 | Subtask "Deep Work" launcher button (opens sibling Deep Work app) | Not Started | 6992-7106 (button), 16576-16635 (launcher) |
 | 100 | Project card collapse/expand + "solo this project" | Not Started | 6539-6627 |
 | 101 | Quick Notes text box per project | Done | 6634-6696 |
