@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from api.schemas import (
+    CapacityInsightOut,
     DayViewOut,
     DayViewSet,
     ListKey,
@@ -42,6 +43,11 @@ def list_strike_tasks(engine: TaskEngine = Depends(get_engine)):
 def check_mit_prompt(engine: TaskEngine = Depends(get_engine)):
     show, tasks = engine.check_mit_prompt()
     return {"show": show, "tasks": tasks}
+
+
+@router.get("/capacity-insight", response_model=CapacityInsightOut)
+def capacity_insight(engine: TaskEngine = Depends(get_engine)):
+    return {"insight": engine.capacity_insight()}
 
 
 @router.get("/day-view", response_model=DayViewOut)

@@ -15,6 +15,7 @@ import {
 } from '../services/api';
 import { useAutoTimer } from '../useAutoTimer';
 import BusinessAnalysisCanvas from './BusinessAnalysisCanvas';
+import DeepWorkTrend from './DeepWorkTrend';
 
 function formatSecs(secs: number): string {
   const mins = Math.round(secs / 60);
@@ -316,6 +317,7 @@ export default function ProjectDashboard() {
           overall
         </div>
       )}
+      <DeepWorkTrend />
       {order.map((entry) => (
         <ProjectCard
           key={entry.project.key}

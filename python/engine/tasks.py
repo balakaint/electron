@@ -1,6 +1,6 @@
 import re
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from database.models import Task
 from database.repository import ProjectRepository, TaskRepository
@@ -185,6 +185,39 @@ class TaskEngine:
         state.mit_prompt_date = today
         self.repo.save_app_state(state)
         return True, open_tasks[:8]
+
+    def capacity_insight(self) -> str | None:
+        """A suggestion built entirely from the user's own historical
+        session data, matching legacy's _capacity_insight — no cloud
+        call, no AI, no new dependency. Buckets every task-timer
+        session's start hour (across Classic + Focus) and, only if one
+        hour clearly dominates (>=25% of all logged time, with a
+        minimum sample so one lucky session can't skew it), names it.
+        Returns None — shown as nothing — rather than a fabricated
+        "you're a morning person" guess when there isn't enough data;
+        an honest blank beats a made-up insight."""
+        buckets: dict[int, float] = {}
+        total = 0.0
+        for task in self.repo.list():
+            for session in task.sessions:
+                start = session.get("start")
+                if not start:
+                    continue
+                end = session.get("end") or start
+                dur = max(0.0, end - start)
+                if dur <= 0:
+                    continue
+                hr = datetime.fromtimestamp(start).hour
+                buckets[hr] = buckets.get(hr, 0.0) + dur
+                total += dur
+        if total < 3600:
+            return None
+        peak_hr = max(buckets, key=buckets.get)
+        if buckets[peak_hr] / total < 0.25:
+            return None
+        h12 = peak_hr % 12 or 12
+        ap = "AM" if peak_hr < 12 else "PM"
+        return f"You tend to do deep work around {h12} {ap} — good time to start"
 
     def create_task(self, text: str, list_key: str = "classic", day: str | None = None) -> Task:
         text = text.strip()

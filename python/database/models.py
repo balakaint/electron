@@ -276,7 +276,9 @@ class AppState(Base):
       shown, matching legacy's `self._settings["mit_prompt_date"]` —
       caps it at once per day the same lazy-check way as
       last_strike_reset_day above (no live day-rollover tick to hang a
-      cron off of)."""
+      cron off of).
+    - trend_days: window length (30 | 90) for the Deep Work Trend chart,
+      matching legacy's `self._settings["trend_days"]`."""
 
     __tablename__ = "app_state"
 
@@ -309,6 +311,7 @@ class AppState(Base):
     task_title_focus_today: Mapped[str | None] = mapped_column(String, nullable=True)
     task_title_focus_tomorrow: Mapped[str | None] = mapped_column(String, nullable=True)
     mit_prompt_date: Mapped[str | None] = mapped_column(String, nullable=True)
+    trend_days: Mapped[int] = mapped_column(Integer, default=30)
 
 
 class LegacyAnalysisBox(Base):

@@ -142,6 +142,90 @@ class ProjectEngine:
     def named_projects(self) -> list[Project]:
         return [p for p in self.repo.list() if self.is_named(p)]
 
+    def goal_secs(self) -> float:
+        """Daily deep-work goal, in seconds — matches legacy's
+        _goal_secs. Derived from named projects' own daily targets
+        (TODAY PROGRESS is their sum, so a separate number could read
+        100% with two projects untouched, or never reach 100% even
+        after every project hit its target); falls back to the
+        Settings goal_hours only once a project has been named."""
+        total = sum(p.target_minutes * 60 for p in self.named_projects())
+        if total > 0:
+            return float(total)
+        state = self.repo.get_app_state()
+        return max(0.5, float(state.goal_hours)) * 3600
+
+    def deep_work_trend(self, num_days: int | None = None) -> dict:
+        """(days, secs, goal) for the Deep Work Trend chart — matches
+        legacy's _trend_series. num_days defaults to the persisted
+        trend_days setting; snapped to 30 or 90 either way, same as
+        legacy clamping anything else to 90."""
+        state = self.repo.get_app_state()
+        n = num_days if num_days is not None else state.trend_days
+        n = 90 if n not in (30, 90) else n
+        keys = [p.key for p in self.named_projects()]
+        today = date.today()
+        days = [str(today - timedelta(days=i)) for i in range(n - 1, -1, -1)]
+        earliest = self.repo.earliest_activity_day(keys) if keys else None
+        if earliest:
+            days = [d for d in days if d >= earliest] or days[-1:]
+        totals = self.repo.activity_range_all(keys, days) if keys else {}
+        secs = [totals.get(d, 0.0) for d in days]
+        return {"days": days, "secs": secs, "goal": self.goal_secs()}
+
+    def get_trend_days(self) -> int:
+        return self.repo.get_app_state().trend_days
+
+    def set_trend_days(self, n: int) -> int:
+        if n not in (30, 90):
+            raise ValueError("trend_days must be 30 or 90")
+        state = self.repo.get_app_state()
+        state.trend_days = n
+        self.repo.save_app_state(state)
+        return n
+
+    def deep_streak(self) -> int:
+        """Consecutive days hitting the goal, today counted once reached
+        — matches legacy's _deep_streak. Backed by the same
+        ProjectActivity data as the trend chart rather than a separate
+        daily_history archive (see row 167's inventory note: the port
+        already had this data before the trend chart needed it)."""
+        goal = self.goal_secs()
+        keys = [p.key for p in self.named_projects()]
+        today = date.today()
+        window = [today - timedelta(days=i) for i in range(400)]
+        totals = self.repo.activity_range_all(keys, [str(d) for d in window]) if keys else {}
+        idx = 1 if totals.get(str(window[0]), 0.0) < goal else 0
+        n = 0
+        while idx < len(window) and totals.get(str(window[idx]), 0.0) >= goal:
+            n += 1
+            idx += 1
+        return n
+
+    def week_summary(self) -> dict:
+        """This week's total / days-on-target / best-day — matches
+        legacy's _update_week_line. "Days on target" is the fact that
+        actually changes behavior; total hours alone can be one heroic
+        Tuesday, which is the pattern this exists to break."""
+        keys = [p.key for p in self.named_projects()]
+        today = date.today()
+        days = [str(today - timedelta(days=i)) for i in range(6, -1, -1)]
+        totals = self.repo.activity_range_all(keys, days) if keys else {}
+        vals = [totals.get(d, 0.0) for d in days]
+        total = sum(vals)
+        if total <= 0:
+            return {"has_data": False, "total_secs": 0, "hit_days": 0, "best_day": None, "best_secs": 0}
+        goal = max(1.0, self.goal_secs())
+        hit = sum(1 for v in vals if v >= goal)
+        bi = max(range(len(vals)), key=lambda i: vals[i])
+        return {
+            "has_data": True,
+            "total_secs": int(total),
+            "hit_days": hit,
+            "best_day": days[bi],
+            "best_secs": int(vals[bi]),
+        }
+
     def project_order(self) -> list[dict]:
         """[(number, project)] — finished sinks to the bottom, matching
         _project_order. Number is the project's fixed position (1-6),

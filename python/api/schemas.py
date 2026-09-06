@@ -181,6 +181,39 @@ class TodayProgressOut(BaseModel):
     projects_total: int
 
 
+TrendDaysT = Literal[30, 90]
+
+
+class TrendOut(BaseModel):
+    days: list[str]
+    secs: list[float]
+    goal: float
+
+
+class TrendDaysOut(BaseModel):
+    trend_days: TrendDaysT
+
+
+class TrendDaysSet(BaseModel):
+    trend_days: TrendDaysT
+
+
+class StreakOut(BaseModel):
+    streak_days: int
+
+
+class WeekSummaryOut(BaseModel):
+    has_data: bool
+    total_secs: int
+    hit_days: int
+    best_day: str | None
+    best_secs: int
+
+
+class CapacityInsightOut(BaseModel):
+    insight: str | None
+
+
 class SubtaskCreate(BaseModel):
     text: str
 

@@ -76,6 +76,7 @@ export const tasksApi = {
   setTitle: (listKey: ListKey, title: string) =>
     req('POST', `/api/tasks/title?list_key=${listKey}`, { title }) as Promise<{ title: string }>,
   checkMitPrompt: () => req('GET', '/api/tasks/mit-prompt') as Promise<{ show: boolean; tasks: Task[] }>,
+  capacityInsight: () => req('GET', '/api/tasks/capacity-insight') as Promise<{ insight: string | null }>,
 };
 
 export const STRIKE_MAX = 3;
@@ -165,6 +166,22 @@ export interface TodayProgress {
   projects_total: number;
 }
 
+export type TrendDays = 30 | 90;
+
+export interface Trend {
+  days: string[];
+  secs: number[];
+  goal: number;
+}
+
+export interface WeekSummary {
+  has_data: boolean;
+  total_secs: number;
+  hit_days: number;
+  best_day: string | null;
+  best_secs: number;
+}
+
 export interface Subtask {
   pid: string;
   project_key: ProjectKey;
@@ -210,6 +227,12 @@ export const projectsApi = {
     req('POST', `/api/projects/subtasks/${pid}/toggle`) as Promise<Subtask>,
   deleteSubtask: (pid: string) => req('DELETE', `/api/projects/subtasks/${pid}`) as Promise<{ ok: true }>,
   strikeSubtask: (pid: string) => req('POST', `/api/projects/subtasks/${pid}/strike`) as Promise<Task>,
+  trend: () => req('GET', '/api/projects/trend') as Promise<Trend>,
+  getTrendDays: () => req('GET', '/api/projects/trend-days') as Promise<{ trend_days: TrendDays }>,
+  setTrendDays: (days: TrendDays) =>
+    req('POST', '/api/projects/trend-days', { trend_days: days }) as Promise<{ trend_days: TrendDays }>,
+  weekSummary: () => req('GET', '/api/projects/week-summary') as Promise<WeekSummary>,
+  deepStreak: () => req('GET', '/api/projects/streak') as Promise<{ streak_days: number }>,
 };
 
 export const nowApi = {

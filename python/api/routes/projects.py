@@ -15,6 +15,11 @@ from api.schemas import (
     SubtaskOut,
     TargetBump,
     TodayProgressOut,
+    StreakOut,
+    TrendDaysOut,
+    TrendDaysSet,
+    TrendOut,
+    WeekSummaryOut,
 )
 from database.connection import get_db
 from database.repository import ProjectRepository
@@ -45,6 +50,31 @@ def project_order(engine: ProjectEngine = Depends(get_engine)):
 @router.get("/today-progress", response_model=TodayProgressOut)
 def today_progress(engine: ProjectEngine = Depends(get_engine)):
     return engine.today_progress()
+
+
+@router.get("/trend", response_model=TrendOut)
+def deep_work_trend(engine: ProjectEngine = Depends(get_engine)):
+    return engine.deep_work_trend()
+
+
+@router.get("/trend-days", response_model=TrendDaysOut)
+def get_trend_days(engine: ProjectEngine = Depends(get_engine)):
+    return {"trend_days": engine.get_trend_days()}
+
+
+@router.post("/trend-days", response_model=TrendDaysOut)
+def set_trend_days(payload: TrendDaysSet, engine: ProjectEngine = Depends(get_engine)):
+    return {"trend_days": engine.set_trend_days(payload.trend_days)}
+
+
+@router.get("/week-summary", response_model=WeekSummaryOut)
+def week_summary(engine: ProjectEngine = Depends(get_engine)):
+    return engine.week_summary()
+
+
+@router.get("/streak", response_model=StreakOut)
+def deep_streak(engine: ProjectEngine = Depends(get_engine)):
+    return {"streak_days": engine.deep_streak()}
 
 
 @router.get("", response_model=list[ProjectOut])

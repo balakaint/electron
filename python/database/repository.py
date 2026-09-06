@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from database.models import (
@@ -240,6 +240,29 @@ class ProjectRepository:
             ProjectActivity.project_key == project_key, ProjectActivity.day.in_(days)
         )
         return {a.day: a for a in self.db.scalars(stmt)}
+
+    def activity_range_all(self, project_keys: list[str], days: list[str]) -> dict[str, float]:
+        """Summed secs per day across the given projects — the Deep Work
+        Trend chart's data source, one query rather than one per
+        project. Matches legacy's per-day sum over _named_projects()."""
+        if not project_keys or not days:
+            return {}
+        stmt = select(ProjectActivity.day, ProjectActivity.secs).where(
+            ProjectActivity.project_key.in_(project_keys), ProjectActivity.day.in_(days)
+        )
+        totals: dict[str, float] = {}
+        for day, secs in self.db.execute(stmt):
+            totals[day] = totals.get(day, 0.0) + secs
+        return totals
+
+    def earliest_activity_day(self, project_keys: list[str]) -> str | None:
+        """First day any of these projects has a real activity row —
+        matches legacy's start_date clip: never plot days from before
+        real use began, since those are unmeasured, not zero-hour."""
+        if not project_keys:
+            return None
+        stmt = select(func.min(ProjectActivity.day)).where(ProjectActivity.project_key.in_(project_keys))
+        return self.db.scalar(stmt)
 
     def get_or_create_activity(self, project_key: str, day: str) -> ProjectActivity:
         row = self.get_activity(project_key, day)
