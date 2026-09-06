@@ -59,12 +59,16 @@ function AppShell() {
     });
   }, []);
 
-  const cycleTheme = (direction: 1 | -1 = 1) => {
-    const next = nextTheme(theme, direction);
+  // One place that commits a theme, so the header cycle button, Ctrl+T
+  // and the Settings picker cannot drift out of sync — they all land
+  // here rather than each doing its own setState/apply/persist trio.
+  const selectTheme = (next: Theme) => {
     setThemeState(next);
     applyTheme(next);
     settingsApi.setTheme(next);
   };
+
+  const cycleTheme = (direction: 1 | -1 = 1) => selectTheme(nextTheme(theme, direction));
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -176,6 +180,8 @@ function AppShell() {
           onClose={() => setSettingsOpen(false)}
           onOpenShortcuts={() => setShortcutsOpen(true)}
           onExport={runExport}
+          theme={theme}
+          onSelectTheme={selectTheme}
         />
       )}
       <UndoToast />

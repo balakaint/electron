@@ -13,13 +13,14 @@ was checked against the legacy source before being closed.
 
 | Status | Rows |
 |---|---|
-| Done | 139 |
+| Done | 141 |
 | N/A | 8 (rows 3, 7, 21, 36, 99, 140, 170, 172) |
 | Excluded — section R sibling apps | 6 (rows 161-166) |
-| **Remaining real work** | **19** |
+| **Remaining real work** | **17** |
 
-The 19 remaining: 10, 11, 15, 17, 22, 29, 30, 37, 60, 70, 77, 78, 82, 96,
-130, 131, 132, 134, 147. Sequenced in `PORT_COMPLETION_PLAN.md`.
+The 17 remaining: 10, 11, 17, 22, 29, 30, 37, 60, 70, 77, 78, 82, 96,
+130, 131, 132, 134. Sequenced in `PORT_COMPLETION_PLAN.md`.
+Phase 1 (rows 15, 147) closed 2026-09-06.
 
 Pure internal visual/utility plumbing (color-blend math, hover-tint
 helpers, rounded-rect canvas drawing, tooltip positioning, drag-ghost
@@ -55,7 +56,7 @@ capabilities. Ask if you want that granularity broken out further.
 
 | # | Feature | Status | Legacy lines |
 |---|---|---|---|
-| 15 | Theme system (6 named themes: Focus/War Room/Energy/Executive/Journey/Rize) | Partial (4 of 6 palettes ported as CSS vars — Focus/War Room/Energy/Journey; only the app shell and modals consume them so far, not every component) | 721-944, 15397-15438 |
+| 15 | Theme system (6 named themes: Focus/War Room/Energy/Executive/Journey/Rize) | Done — all 6 palettes, in legacy's own THEME_ORDER; Executive (legacy key `corporate`) and Rize carry legacy's exact hex values, while the original 4 keep the reinterpreted core swatches an earlier pass shipped. Token set widened 7 → 44 so every component repaints, not just the shell: `--phase-*` from `_SEG_COLORS`, `--goal-*` from each theme's SECTIONS, `--habit-*` from the `_VB` dict (kept separate from the app-wide status colors — legacy's habit panel paints on its own surface, so warroom's habit-success is cyan while the app's success is green), `--ba-*` and `--bdp-*` for the fixed and light/dark sets legacy hardcodes. One deliberate divergence: warroom's `--success` is green, not legacy's cyan `DONE_GREEN`, because that value is accent-derived in legacy (warroom's accent IS cyan there) and the port's warroom accent is red. 9 literals remain on purpose — white text on saturated chips, modal scrims, one toast shadow | 721-944, 15397-15438 |
 | 16 | Theme cycle keyboard shortcut (Ctrl+T / Ctrl+Shift+T) | Done | 1978-1994, 7446-7473 |
 | 17 | Language picker (English/Bangla), used across several panels | Not Started | 15440-15456 |
 | 18 | Global undo stack (Ctrl+Z), 30-deep, covers add/edit/delete/MIT/urgency/timer-reset/reorder | Done, Tasks-scoped (matches legacy's actual scope — add/delete/toggle-done/MIT/urgency/strike; reorder and timer-reset not wired). Redo (Ctrl+Shift+Z) added too, no legacy precedent | 9140-9172 and per-action `_undo` closures throughout |
@@ -284,7 +285,7 @@ only theme control); every other row below is done.
 
 | # | Feature | Status | Legacy lines |
 |---|---|---|---|
-| 147 | Theme picker (radio rows + swatch preview) | Partial (header cycle-button + Ctrl+T only; `SettingsDialog.tsx` doesn't add a separate swatch-preview picker) | 15397-15438 |
+| 147 | Theme picker (radio rows + swatch preview) | Done — a radio row per theme in `SettingsDialog.tsx`'s Appearance section, above Language, matching legacy's own placement and its 4-cell BG/CARD_BG/GREEN/TEXT swatch strip. Each swatch keeps a 1px border for the same reason legacy outlines its own (a near-white BG or near-black TEXT cell would otherwise vanish into the dialog surface — and Rize's BG and CARD_BG are both pure white, so the border is what separates them). Header cycle button, Ctrl+T and this picker now all commit through one `selectTheme` in `App.tsx`, so they cannot drift | 15397-15438 |
 | 148 | Language picker (English/Bangla) | Done (`lang` toggle, `AppState.lang`) | 15440-15456 |
 | 149 | Analog-clock-face toggle | Done (`analog_clock` toggle; stored/round-tripped only — no analog clock face is rendered anywhere in the port yet, same as the port having no clock face at all) | 15458-15461 |
 | 150 | Auto-start-timer-on-project-open toggle | Done (`auto_timer_on_open` toggle, `AppState.auto_timer_on_open`; stored/round-tripped only — nothing in `engine/projects.py` reads it yet to actually auto-start a timer on open) | 15463-15468 |

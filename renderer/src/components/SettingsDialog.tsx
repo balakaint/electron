@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Settings, SettingsPatch, settingsApi } from '../services/api';
+import { THEME_LABELS, THEME_ORDER, Theme, themeSwatch } from '../themes';
 
 const APP_VERSION = '0.1.0';
 const APP_CONTACT = 'balakaint@gmail.com';
@@ -99,14 +100,86 @@ function Stepper({
   );
 }
 
+// Radio row per theme with a live swatch strip, mirroring legacy's own
+// picker (task_tracker_v3_THEMES.py 15398-15440): a selection dot, the
+// theme's label, then four rectangles showing BG / CARD_BG / GREEN /
+// TEXT. Showing the palette matters because the point of the control is
+// judging a theme BEFORE applying it — a name alone tells you nothing.
+function ThemePicker({ value, onSelect }: { value: Theme; onSelect: (t: Theme) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Theme" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {THEME_ORDER.map((t) => {
+        const on = t === value;
+        return (
+          <button
+            key={t}
+            role="radio"
+            aria-checked={on}
+            onClick={() => onSelect(t)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '3px 4px',
+              background: on ? 'var(--accent-light)' : 'transparent',
+              border: '1px solid transparent',
+              borderRadius: 4,
+              cursor: 'pointer',
+              color: 'var(--text)',
+              font: 'inherit',
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: '50%',
+                flex: '0 0 auto',
+                border: `2px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                background: on
+                  ? 'radial-gradient(circle, var(--accent) 0 3px, transparent 3px)'
+                  : 'transparent',
+              }}
+            />
+            <span style={{ fontSize: 12, width: 68, textAlign: 'left' }}>{THEME_LABELS[t]}</span>
+            {/* The border on each swatch keeps a near-white BG or a
+                near-black TEXT visible against whichever surface the
+                CURRENT theme is painting this dialog with — legacy hit
+                the same problem and solved it the same way. */}
+            <span style={{ display: 'flex', flex: '0 0 auto' }}>
+              {themeSwatch(t).map((c, i) => (
+                <span
+                  key={i}
+                  style={{
+                    width: 15,
+                    height: 12,
+                    background: c,
+                    border: '1px solid var(--border)',
+                    marginLeft: i ? -1 : 0,
+                  }}
+                />
+              ))}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function SettingsDialog({
   onClose,
   onOpenShortcuts,
   onExport,
+  theme,
+  onSelectTheme,
 }: {
   onClose: () => void;
   onOpenShortcuts: () => void;
   onExport: () => void;
+  theme: Theme;
+  onSelectTheme: (t: Theme) => void;
 }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
@@ -166,6 +239,9 @@ export default function SettingsDialog({
         </div>
 
         <Section title="Appearance">
+          <Row label="Theme">
+            <ThemePicker value={theme} onSelect={onSelectTheme} />
+          </Row>
           <Row label="Language">
             <div style={{ display: 'flex', gap: 4 }}>
               {(['en', 'bn'] as const).map((v) => (
