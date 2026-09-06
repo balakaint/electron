@@ -62,7 +62,7 @@ capabilities. Ask if you want that granularity broken out further.
 | # | Feature | Status | Legacy lines |
 |---|---|---|---|
 | 31 | Analog + digital clock face | Done — one card (digital HH:MM:SS + two date lines, always shown) with an optional SVG analog dial layered above it, matching legacy's own default-off dial (its comment: the digital readout already answers "what time is it?" better); wired to the existing `analog_clock` setting, on the Tasks page rather than a dedicated PLAN-tab column (row 10's docked layout is out of scope) | 8141-8312, 3290-3317 |
-| 32 | Day-phase progress bars (Morning/Work/Evening/Sleep, configurable start hours) | Not Started | 7881-8138 |
+| 32 | Day-phase progress bars (Morning/Work/Evening/Sleep, configurable start hours) | Done — nested inside the clock card per legacy's own placement; each phase's bounds/progress/wrap-past-midnight math ported line-for-line from `_phase_bounds`/`_phase_progress` (including the sleep-duration fix for a sleep-start set to 00:00), current phase gets full-strength text vs. muted for the rest | 7881-8138 |
 | 33 | Deep Work Trend chart (30/90-day line chart, 7-day moving average, hover tooltip) | Not Started | 14136-14416, 3371-3403 |
 | 34 | "This week: N of 7 days on target" summary line | Not Started | 14177-14208, 3060-3088 |
 | 35 | Capacity insight ("you tend to do deep work around X") | Not Started | 14465-14506, 3408-3410 |

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { settingsApi } from '../services/api';
+import DayPhaseBars from './DayPhaseBars';
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
@@ -51,7 +52,7 @@ export default function ClockCard() {
         padding: 16,
         marginBottom: 16,
         textAlign: 'center',
-        maxWidth: 220,
+        maxWidth: 340,
       }}
     >
       {analog && (
@@ -86,6 +87,9 @@ export default function ClockCard() {
       </div>
       <div style={{ fontSize: 11, opacity: 0.5 }}>
         {now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+      </div>
+      <div style={{ textAlign: 'left' }}>
+        <DayPhaseBars />
       </div>
     </div>
   );
