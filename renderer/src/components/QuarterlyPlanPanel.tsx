@@ -213,6 +213,19 @@ export default function QuarterlyPlanPanel() {
         {formatDate(panel.cycle_start)} → {formatDate(panel.cycle_end)} · {when} ✎
       </button>
 
+      <div
+        title={when}
+        style={{ height: 4, background: 'var(--border, #8883)', borderRadius: 2, marginBottom: 12, overflow: 'hidden' }}
+      >
+        <div
+          style={{
+            width: `${Math.min(100, Math.round((panel.day / panel.cycle_days) * 100))}%`,
+            height: '100%',
+            background: 'var(--accent, #4f8cff)',
+          }}
+        />
+      </div>
+
       {editingCycle && (
         <CycleEditor
           panel={panel}

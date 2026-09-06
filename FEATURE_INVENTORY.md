@@ -255,7 +255,7 @@ line-for-line), `api/routes/quarterly.py`, `QuarterlyPlanPanel.tsx`.
 | 141 | Six life-area accordion (Appearance/Money/Relationship/Health/Social/Mind) | Done | 4235-4248, 15015-15092 |
 | 142 | Three prompts per area (Outcome/Action/If-Then) | Done (same question text, hints, and per-prompt textarea sizing intent as legacy) | 4276-4285 |
 | 143 | Configurable cycle length (30/60/90 or custom, 7-365 day bounds) | Done (presets + custom number input, same clamp) | 4287-4393, 14759-14912 |
-| 144 | Cycle progress bar + "day X of Y, N left" | Partial (the "day X of Y, N left" / "starts in N days" text countdown is exact; no visual progress bar graphic, text only) | 4399-4413, 14926-14940 |
+| 144 | Cycle progress bar + "day X of Y, N left" | Done | 4399-4413, 14926-14940 |
 | 145 | "N/6 areas set" progress counter | Done | 4432-4442 |
 | 146 | Auto-opens the first incomplete area | Done | 15095-15100 |
 
@@ -323,7 +323,7 @@ since "the column exists" is not the same as "the feature works."
 | 168 | `_daily_history`-derived deep-work streak | Not Started | 3047-3058 |
 | 169 | `bdp_data` / bdp legacy blocks (superseded by Business Plan Notes) | Not Started | 568, 12449-12463 |
 | 170 | `_exec_<date>` (hour-by-hour Daily Planner data) | Not Started | 5546-5575 |
-| 171 | `_q90_<cycle-start>` (Quarterly Plan answers) | Not Started | 4415-4442 |
+| 171 | `_q90_<cycle-start>` (Quarterly Plan answers) | Done — see section N; ported as `QuarterlyAnswer` (one row per cycle+area rather than a single nested dict) | 4415-4442 |
 | 172 | `swot_*` fields (Strengths/Weaknesses/Opportunities/Threats — older analysis generation, superseded by Business Analysis) | Not Started (superseded feature, unlikely worth reviving) | 598-601 |
 
 ---
