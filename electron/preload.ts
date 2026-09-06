@@ -8,4 +8,6 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('export-save', { files }),
   pickFile: () => ipcRenderer.invoke('pick-file'),
   openPath: (filePath: string) => ipcRenderer.invoke('open-path', filePath),
+  pickImage: () => ipcRenderer.invoke('pick-image'),
+  readImage: (filePath: string) => ipcRenderer.invoke('read-image', filePath),
 });

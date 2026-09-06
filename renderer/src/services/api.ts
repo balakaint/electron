@@ -46,6 +46,8 @@ declare global {
       exportSave: (files: ExportFile[]) => Promise<ExportSaveResult>;
       pickFile: () => Promise<string | null>;
       openPath: (filePath: string) => Promise<{ ok: boolean; error: string | null }>;
+      pickImage: () => Promise<string | null>;
+      readImage: (filePath: string) => Promise<string | null>;
     };
   }
 }
@@ -431,6 +433,10 @@ export const journeyApi = {
   deleteTask: (taskId: number) => req('DELETE', `/api/journey/tasks/${taskId}`) as Promise<Journey>,
   cycleLog: (entryId: number) => req('POST', `/api/journey/logs/${entryId}/cycle`) as Promise<Journey>,
   deleteLog: (entryId: number) => req('DELETE', `/api/journey/logs/${entryId}`) as Promise<Journey>,
+  pickCoverImage: () => window.api.pickImage(),
+  readCoverImage: (filePath: string) => window.api.readImage(filePath),
+  pickAttachFile: () => window.api.pickFile(),
+  openAttachFile: (filePath: string) => window.api.openPath(filePath),
 };
 
 export type Lang = 'en' | 'bn';

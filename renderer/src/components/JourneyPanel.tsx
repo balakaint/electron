@@ -168,6 +168,81 @@ function StageDetail({
   );
 }
 
+function CoverImage({
+  path,
+  onPick,
+  onRemove,
+}: {
+  path: string;
+  onPick: () => void;
+  onRemove: () => void;
+}) {
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDataUrl(null);
+    if (!path) return undefined;
+    let cancelled = false;
+    journeyApi.readCoverImage(path).then((url) => {
+      if (!cancelled) setDataUrl(url);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+
+  if (!path) {
+    return (
+      <button
+        onClick={onPick}
+        title="Add a cover image"
+        style={{
+          fontSize: 11,
+          padding: '10px 12px',
+          border: '1px dashed var(--border)',
+          borderRadius: 8,
+          background: 'var(--surface)',
+          color: 'var(--text)',
+          width: '100%',
+          marginBottom: 12,
+        }}
+      >
+        + Add cover image
+      </button>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        height: 120,
+        borderRadius: 8,
+        overflow: 'hidden',
+        marginBottom: 12,
+        background: 'var(--surface)',
+      }}
+    >
+      {dataUrl && (
+        <img src={dataUrl} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      )}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to bottom, transparent 45%, var(--surface) 100%)',
+        }}
+      />
+      <button onClick={onPick} title="Change cover image" style={{ position: 'absolute', bottom: 6, right: 34, fontSize: 10, padding: '2px 6px' }}>
+        Change
+      </button>
+      <button onClick={onRemove} title="Remove cover image" style={{ position: 'absolute', bottom: 6, right: 6, fontSize: 10, padding: '2px 6px' }}>
+        ✕
+      </button>
+    </div>
+  );
+}
+
 export default function JourneyPanel() {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
   const [projectKey, setProjectKey] = useState<ProjectKey | null>(null);
@@ -257,21 +332,38 @@ export default function JourneyPanel() {
           boxSizing: 'border-box',
         }}
       />
+      <CoverImage
+        path={journey.cover_image}
+        onPick={() =>
+          journeyApi.pickCoverImage().then((path) => {
+            if (path) apply(journeyApi.updateMeta(projectKey, { cover_image: path }));
+          })
+        }
+        onRemove={() => apply(journeyApi.updateMeta(projectKey, { cover_image: '' }))}
+      />
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <input
-          key={`${projectKey}-cover`}
-          defaultValue={journey.cover_image}
-          onBlur={(e) => e.target.value !== journey.cover_image && apply(journeyApi.updateMeta(projectKey, { cover_image: e.target.value }))}
-          placeholder="Cover image path…"
-          style={{ flex: 1, fontSize: 11, padding: 4 }}
-        />
-        <input
-          key={`${projectKey}-attach`}
-          defaultValue={journey.attach_file}
-          onBlur={(e) => e.target.value !== journey.attach_file && apply(journeyApi.updateMeta(projectKey, { attach_file: e.target.value }))}
-          placeholder="Attached file path…"
-          style={{ flex: 1, fontSize: 11, padding: 4 }}
-        />
+        {journey.attach_file ? (
+          <button
+            onClick={() => journeyApi.openAttachFile(journey.attach_file)}
+            onDoubleClick={() => apply(journeyApi.updateMeta(projectKey, { attach_file: '' }))}
+            title="Click to open · double-click to detach"
+            style={{ fontSize: 11 }}
+          >
+            + {journey.attach_file.split(/[\\/]/).pop()?.slice(0, 24)}
+          </button>
+        ) : (
+          <button
+            onClick={() =>
+              journeyApi.pickAttachFile().then((path) => {
+                if (path) apply(journeyApi.updateMeta(projectKey, { attach_file: path }));
+              })
+            }
+            title="Link a supporting Word/Excel/CSV file"
+            style={{ fontSize: 11 }}
+          >
+            + Attach Word/Excel
+          </button>
+        )}
       </div>
 
       {toast && (

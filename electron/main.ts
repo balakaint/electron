@@ -444,6 +444,47 @@ ipcMain.handle('open-path', async (_, filePath: string) => {
   return { ok: error === '', error: error || null };
 });
 
+// Journey's cover image: same "store a path, not the bytes" model as
+// pick-file, just with an image-only filter (matches legacy's own
+// cover-pick dialog, task_tracker_v3_THEMES.py lines ~11357-11358).
+ipcMain.handle('pick-image', async () => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    title: 'Choose cover image',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] },
+      { name: 'All files', extensions: ['*'] },
+    ],
+  });
+  if (result.canceled || !result.filePaths[0]) return null;
+  return result.filePaths[0];
+});
+
+const IMAGE_MIME_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.gif': 'image/gif',
+};
+
+// Renders <img> from a bare filesystem path without a file:// CSP/origin
+// mismatch between dev (http://localhost:5173) and packaged (file://)
+// loads: read the bytes here, in the process that already has fs
+// access, and hand the renderer a self-contained data URL instead.
+ipcMain.handle('read-image', async (_, filePath: string) => {
+  try {
+    const ext = path.extname(filePath).toLowerCase();
+    const mime = IMAGE_MIME_TYPES[ext];
+    if (!mime) return null;
+    const data = fs.readFileSync(filePath);
+    return `data:${mime};base64,${data.toString('base64')}`;
+  } catch {
+    return null;
+  }
+});
+
 app.whenReady().then(async () => {
   try {
     await startPythonEngine();
