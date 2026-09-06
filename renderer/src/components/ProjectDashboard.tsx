@@ -139,7 +139,7 @@ function ProjectCard({
             placeholder={`PROJECT ${number}`}
             style={{ flex: 1, fontWeight: 'bold', fontSize: 15, border: 'none', background: 'transparent', color: project.accent_color }}
           />
-          <button onClick={() => projectsApi.toggleTimer(key).then(onChanged)}>
+          <button onClick={() => projectsApi.toggleTimer(key).then(onChanged)} title="Start/stop timer">
             {running ? '⏸' : '▶'}
           </button>
           <button onClick={() => onOpenAnalysis(key)} style={{ fontSize: 11 }}>
@@ -152,8 +152,8 @@ function ProjectCard({
             <div style={{ width: `${pct}%`, height: '100%', background: project.accent_color }} />
           </div>
           <span>{formatSecs(project.secs_today)} / {project.target_minutes}m</span>
-          <button onClick={() => projectsApi.bumpTarget(key, -15).then(onChanged)}>−</button>
-          <button onClick={() => projectsApi.bumpTarget(key, 15).then(onChanged)}>+</button>
+          <button onClick={() => projectsApi.bumpTarget(key, -15).then(onChanged)} title="Decrease daily target">−</button>
+          <button onClick={() => projectsApi.bumpTarget(key, 15).then(onChanged)} title="Increase daily target">+</button>
         </div>
 
         <div style={{ display: 'flex', gap: 2, marginBottom: 10 }}>
@@ -179,7 +179,7 @@ function ProjectCard({
             const full = focusTasks.filter((t) => t.strike && !t.done).length >= STRIKE_MAX;
             return (
               <li key={s.pid} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '2px 0' }}>
-                <button onClick={() => projectsApi.toggleSubtask(s.pid).then(refreshSubtasks)} style={{ width: 18 }}>
+                <button onClick={() => projectsApi.toggleSubtask(s.pid).then(refreshSubtasks)} title="Toggle done" style={{ width: 18 }}>
                   {s.done ? '✓' : '○'}
                 </button>
                 <span style={{ flex: 1, textDecoration: s.done ? 'line-through' : 'none' }}>{s.text}</span>
@@ -193,7 +193,7 @@ function ProjectCard({
                     {strikeFlash === s.pid ? 'DAY FULL' : onToday ? '✓ ON TODAY' : '+ STRIKE'}
                   </button>
                 )}
-                <button onClick={() => projectsApi.deleteSubtask(s.pid).then(refreshSubtasks)}>✕</button>
+                <button onClick={() => projectsApi.deleteSubtask(s.pid).then(refreshSubtasks)} title="Delete">✕</button>
               </li>
             );
           })}
@@ -206,7 +206,7 @@ function ProjectCard({
             placeholder="Add subtask…"
             style={{ flex: 1, fontSize: 12, padding: 4 }}
           />
-          <button onClick={addSubtask}>+</button>
+          <button onClick={addSubtask} title="Add subtask">+</button>
         </div>
 
         <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>QUICK NOTES</div>
@@ -233,8 +233,8 @@ function ProjectCard({
               >
                 every {p.cadence_days}d
               </button>
-              <button onClick={() => circleApi.markContacted(p.id).then(refreshPeople)}>✓</button>
-              <button onClick={() => circleApi.remove(p.id).then(refreshPeople)}>✕</button>
+              <button onClick={() => circleApi.markContacted(p.id).then(refreshPeople)} title="Mark contacted today">✓</button>
+              <button onClick={() => circleApi.remove(p.id).then(refreshPeople)} title="Remove">✕</button>
             </li>
           ))}
         </ul>
@@ -246,7 +246,7 @@ function ProjectCard({
             placeholder="Add person…"
             style={{ flex: 1, fontSize: 12, padding: 4 }}
           />
-          <button onClick={addPerson}>+</button>
+          <button onClick={addPerson} title="Add person">+</button>
         </div>
       </div>
     </div>

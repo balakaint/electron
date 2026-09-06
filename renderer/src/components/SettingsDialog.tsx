@@ -86,13 +86,13 @@ function Stepper({
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <button onClick={() => onChange(Math.max(min, value - 1))} style={{ width: 24 }}>
+      <button onClick={() => onChange(Math.max(min, value - 1))} title="Decrease" style={{ width: 24 }}>
         −
       </button>
       <span style={{ fontSize: 13, minWidth: 56, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
         {format ? format(value) : value}
       </span>
-      <button onClick={() => onChange(Math.min(max, value + 1))} style={{ width: 24 }}>
+      <button onClick={() => onChange(Math.min(max, value + 1))} title="Increase" style={{ width: 24 }}>
         +
       </button>
     </div>
@@ -159,7 +159,7 @@ export default function SettingsDialog({
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <h2 style={{ margin: 0, fontSize: 16 }}>Settings</h2>
-          <button onClick={onClose}>✕</button>
+          <button onClick={onClose} title="Close">✕</button>
         </div>
         <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 12 }}>
           {saving ? 'Saving…' : 'Every change is saved automatically'}

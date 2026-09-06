@@ -91,7 +91,7 @@ function StageDetail({
           </div>
           {stage.tasks.map((t) => (
             <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <button onClick={() => onToggleTask(t.id)} style={{ width: 20 }}>
+              <button onClick={() => onToggleTask(t.id)} title="Toggle done" style={{ width: 20 }}>
                 {t.done ? '✓' : '○'}
               </button>
               <input
@@ -106,7 +106,7 @@ function StageDetail({
                   textDecoration: t.done ? 'line-through' : 'none',
                 }}
               />
-              <button onClick={() => onDeleteTask(t.id)}>✕</button>
+              <button onClick={() => onDeleteTask(t.id)} title="Delete">✕</button>
             </div>
           ))}
           <form
@@ -140,7 +140,7 @@ function StageDetail({
                 <div style={{ fontSize: 12 }}>{l.text}</div>
                 <div style={{ fontSize: 10, opacity: 0.5 }}>{l.date}</div>
               </div>
-              <button onClick={() => onDeleteLog(l.id)}>✕</button>
+              <button onClick={() => onDeleteLog(l.id)} title="Delete">✕</button>
             </div>
           ))}
           <form

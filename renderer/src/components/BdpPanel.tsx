@@ -48,14 +48,14 @@ function Stars({
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
       <span style={{ opacity: 0.6, width: 70 }}>{label}</span>
-      <button onClick={() => onChange(Math.max(1, value - 1))} style={{ width: 20 }}>
+      <button onClick={() => onChange(Math.max(1, value - 1))} title={`Decrease ${label}`} style={{ width: 20 }}>
         −
       </button>
       <span style={{ fontFamily: 'monospace', minWidth: 60, textAlign: 'center' }}>
         {'★'.repeat(value)}
         {'·'.repeat(5 - value)}
       </span>
-      <button onClick={() => onChange(Math.min(5, value + 1))} style={{ width: 20 }}>
+      <button onClick={() => onChange(Math.min(5, value + 1))} title={`Increase ${label}`} style={{ width: 20 }}>
         +
       </button>
     </div>
@@ -148,7 +148,7 @@ function ActionsChecklist({
       </div>
       {plan.next_actions.map((a) => (
         <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-          <button onClick={() => onToggle(a.id)} style={{ width: 18 }}>
+          <button onClick={() => onToggle(a.id)} title="Toggle done" style={{ width: 18 }}>
             {a.done ? '✓' : '○'}
           </button>
           <input
@@ -163,7 +163,7 @@ function ActionsChecklist({
               textDecoration: a.done ? 'line-through' : 'none',
             }}
           />
-          <button onClick={() => onDelete(a.id)}>✕</button>
+          <button onClick={() => onDelete(a.id)} title="Delete">✕</button>
         </div>
       ))}
       <form
@@ -235,10 +235,10 @@ function PlanCard({
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         {sort === 'manual' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <button onClick={() => onMove(-1)} disabled={isFirst} style={{ width: 22, fontSize: 11 }}>
+            <button onClick={() => onMove(-1)} disabled={isFirst} title="Move up" style={{ width: 22, fontSize: 11 }}>
               ▲
             </button>
-            <button onClick={() => onMove(1)} disabled={isLast} style={{ width: 22, fontSize: 11 }}>
+            <button onClick={() => onMove(1)} disabled={isLast} title="Move down" style={{ width: 22, fontSize: 11 }}>
               ▼
             </button>
           </div>

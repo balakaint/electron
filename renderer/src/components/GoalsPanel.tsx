@@ -48,7 +48,7 @@ function GoalCard({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <button onClick={onToggle} style={{ width: 22 }}>
+        <button onClick={onToggle} title="Toggle done" style={{ width: 22 }}>
           {goal.done ? '✓' : '○'}
         </button>
         <input
@@ -64,7 +64,7 @@ function GoalCard({
             textDecoration: goal.done ? 'line-through' : 'none',
           }}
         />
-        <button onClick={onDelete}>✕</button>
+        <button onClick={onDelete} title="Delete">✕</button>
       </div>
 
       <div

@@ -114,6 +114,7 @@ export default function HabitDashboard() {
                   <li key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' }}>
                     <button
                       onClick={() => habitsApi.toggle(h.id, TODAY).then(refresh)}
+                      title="Toggle done"
                       style={{ width: 20 }}
                     >
                       {h.done ? '✓' : '○'}
@@ -130,7 +131,7 @@ export default function HabitDashboard() {
                   placeholder="Add habit…"
                   style={{ flex: 1, fontSize: 12, padding: 4 }}
                 />
-                <button onClick={() => addHabit(key)}>+</button>
+                <button onClick={() => addHabit(key)} title="Add habit">+</button>
               </div>
             </div>
           );
