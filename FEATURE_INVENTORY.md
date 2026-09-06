@@ -53,7 +53,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 25 | Daily MIT morning prompt (pick today's MIT if none set) | Not Started | 14508-14571 |
 | 26 | Keyboard-focus ring (visible focus indicator on every control) | Done — one global `:focus-visible` outline rule rather than legacy's per-widget styling, but same user-facing effect (keyboard-only nav visibly highlights the active control; mouse clicks don't show it) | 1777-1822 |
 | 27 | Delayed hover tooltips on icon-only buttons | Not Started | 244-303 |
-| 28 | Empty-state placeholders with clickable suggestion chips | Not Started (plain "No tasks yet." text only) | 308-337, 8940-8948 |
+| 28 | Empty-state placeholders with clickable suggestion chips | Done — all 5 legacy variants (Tomorrow-planning, Focus-with-commitments, Focus-empty, Classic-default, search-no-match), chip click pre-fills + focuses the add-task input rather than adding silently | 308-337, 8940-8948 |
 | 29 | Tools menu (gear icon): Life OS / Cash Tracker / BDP / Goal Roadmap / Deep Work / Browse Music / Focus Mode / Re-entry / Settings | Not Started as a dropdown menu (the port has no such menu; most of its entries are the separate sibling apps in section R, out of scope). Its Settings entry specifically is reachable directly, via its own ⚙ header button — see section O | 16237-16332 |
 | 30 | Debounced-autosave-with-flash-confirmation pattern (used everywhere text is typed) | Partial (individual fields do autosave on blur via each component's own onBlur handler; no shared debounce/flash mechanism) | 7605-7640 |
 
@@ -85,7 +85,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 47 | Task timer start/stop with session history | Done (plus crash/idle-safety fixes beyond legacy's own robustness) | 9351-9396, 9359-9396 |
 | 48 | Session-history detail view (expand a task to see each session's start/end) | Partial (data is stored and used correctly; no UI to view individual sessions) | 9984-10013, 9418-9420 |
 | 49 | Timer reset (zero secs + sessions) | Done | 9398-9416 |
-| 50 | Strike List (star up to 3 Focus tasks as "today's committed") | Done | 2290-2328 |
+| 50 | Strike List (star up to 3 Focus tasks as "today's committed") | Done — including a fix found this pass: a struck task now drops out of the LIST pool below (Focus/Today only), matching legacy's own _render_tasks filter; previously it rendered twice, once in NOW and once in LIST | 2290-2328 |
 | 51 | "3/3 — full" flash on hitting the strike cap | Done | 2410-2432 |
 | 52 | TODAY/TOMORROW day-view toggle (global, Plan-tab-only switch, reshapes Focus too) | Done | 8996-9026 |
 | 53 | New task defaults to the day currently being viewed | Done | 8965-8971, 8988-8994 |

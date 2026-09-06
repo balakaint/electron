@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DayView, ListKey, STRIKE_MAX, Task, nowApi, tasksApi } from '../services/api';
 import { useUndo } from '../undo';
 import NowCard from './NowCard';
@@ -31,6 +31,7 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [title, setTitleState] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
   const { push: pushUndo } = useUndo();
 
   const refresh = () => tasksApi.list(listKey).then(setTasks);
@@ -150,6 +151,11 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
     });
   };
 
+  const quickAddChip = (text: string) => {
+    setInput(text);
+    inputRef.current?.focus();
+  };
+
   const moveTask = (id: number, direction: -1 | 1) => {
     tasksApi.move(id, direction).then(setTasks);
   };
@@ -192,10 +198,52 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
       .finally(() => setLoading(false));
   }, [listKey]);
 
-  const sorted = [...tasks].sort((a, b) => Number(a.done) - Number(b.done));
+  // A struck task belongs to the NOW/STRIKE card above, not the pool
+  // below it — showing it in both places would put the same task on
+  // screen twice with two checkboxes, which reads as a duplication bug
+  // rather than two views of one thing. Matches legacy's own fix for
+  // exactly that (_render_tasks: "tasks = [x for x in tasks if not
+  // x.get('strike')]"). Tomorrow has no STRIKE card to relate to, so
+  // its pool keeps every task regardless of strike.
+  const pool = listKey === 'focus' && dayView === 'today' ? tasks.filter((t) => !t.strike) : tasks;
+  const sorted = [...pool].sort((a, b) => Number(a.done) - Number(b.done));
   const q = query.trim().toLowerCase();
   const visible = q ? sorted.filter((t) => t.text.toLowerCase().includes(q)) : sorted;
-  const doneCount = tasks.filter((t) => t.done).length;
+  const doneCount = pool.filter((t) => t.done).length;
+
+  // Matches legacy's _empty_state: an empty list doubles as onboarding
+  // via a few one-click task suggestions, rather than just sitting
+  // there blank. Four variants by context — search-empty gets no chips
+  // since "add this" doesn't make sense while filtering.
+  const emptyState = q
+    ? { icon: '⌕', title: 'No matching tasks', subtitle: 'Clear the search box to see them', chips: [] as string[] }
+    : listKey === 'classic' && dayView === 'tomorrow'
+      ? {
+          icon: '☾',
+          title: 'Plan tomorrow, sleep better tonight',
+          subtitle: "Deciding now means no deciding in the morning — pick 3 things you'll actually do",
+          chips: ['deep work ~90', 'email + admin ~30', 'review the day ~10'],
+        }
+      : listKey === 'focus' && struckCount > 0
+        ? {
+            icon: '✓',
+            title: "Nothing queued behind today's list",
+            subtitle: "Everything you've taken on is committed above — add here only what comes after it",
+            chips: ['deep work ~45', 'review inbox ~15', 'quick call ~10'],
+          }
+        : listKey === 'focus'
+          ? {
+              icon: '◇',
+              title: 'Nothing to work from yet',
+              subtitle: 'Add what today could contain, then + STRIKE up to 3 of them',
+              chips: ['deep work ~45', 'review inbox ~15', 'quick call ~10'],
+            }
+          : {
+              icon: '✦',
+              title: 'A clear list is a clear mind',
+              subtitle: '0 active tasks · add one — try "deep work ~45" to set a 45-min time-box',
+              chips: ['deep work ~45', 'review inbox ~15', 'quick call ~10'],
+            };
 
   return (
     <div style={{ maxWidth: 560 }}>
@@ -245,15 +293,16 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
           placeholder="⌕ Search tasks…"
           style={{ fontSize: 12, padding: 5, flex: 1, marginRight: 8 }}
         />
-        {tasks.length > 0 && (
+        {pool.length > 0 && (
           <span style={{ fontSize: 12, opacity: 0.6, whiteSpace: 'nowrap' }}>
-            {doneCount}/{tasks.length} done
+            {doneCount}/{pool.length} done
           </span>
         )}
       </div>
 
       <form onSubmit={addTask} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder='Add a task… ("~30" = 30-min time-box)'
@@ -271,13 +320,26 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
       {loading ? (
         <p>Loading…</p>
       ) : visible.length === 0 ? (
-        <p style={{ opacity: 0.6 }}>
-          {q
-            ? 'No tasks match your search.'
-            : listKey === 'classic' && dayView === 'tomorrow'
-              ? 'No tasks for tomorrow yet.'
-              : 'No tasks yet.'}
-        </p>
+        <div style={{ textAlign: 'center', padding: '24px 0', opacity: 0.7 }}>
+          <div style={{ fontSize: 28, marginBottom: 8 }}>{emptyState.icon}</div>
+          <div style={{ fontSize: 14 }}>{emptyState.title}</div>
+          {emptyState.subtitle && (
+            <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>{emptyState.subtitle}</div>
+          )}
+          {emptyState.chips.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+              {emptyState.chips.map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => quickAddChip(chip)}
+                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 12 }}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
           {visible.map((t) => {
