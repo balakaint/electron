@@ -7,7 +7,12 @@ from api.routes.bdp import actions_router as bdp_actions_router, router as bdp_r
 from api.routes.business_analysis import router as business_analysis_router
 from api.routes.export import router as export_router
 from api.routes.goals import panel_router as goals_panel_router, router as goals_router
-from api.routes.habits import intentions_router, router as habits_router
+from api.routes.habits import (
+    intentions_router,
+    reflections_router,
+    router as habits_router,
+    wins_router,
+)
 from api.routes.journey import (
     logs_router as journey_logs_router,
     router as journey_router,
@@ -65,6 +70,8 @@ app = FastAPI(title="Habit OS Engine", lifespan=lifespan)
 app.include_router(tasks_router)
 app.include_router(habits_router)
 app.include_router(intentions_router)
+app.include_router(wins_router)
+app.include_router(reflections_router)
 app.include_router(projects_router)
 app.include_router(circle_router)
 app.include_router(business_analysis_router)

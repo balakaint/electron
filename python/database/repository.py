@@ -163,6 +163,42 @@ class HabitRepository:
         self.db.refresh(row)
         return row
 
+    def get_journal(self, day: str) -> DailyIntention | None:
+        """Same row as get_intention — separate name at the call sites
+        that only care about win/reflection, since "intention" would be
+        a misleading label there."""
+        return self.db.get(DailyIntention, day)
+
+    def set_win(self, day: str, text: str) -> DailyIntention:
+        row = self.db.get(DailyIntention, day)
+        if row is None:
+            row = DailyIntention(day=day, win=text)
+            self.db.add(row)
+        else:
+            row.win = text
+        self.db.commit()
+        self.db.refresh(row)
+        return row
+
+    def set_reflection(self, day: str, text: str) -> DailyIntention:
+        row = self.db.get(DailyIntention, day)
+        if row is None:
+            row = DailyIntention(day=day, reflection=text)
+            self.db.add(row)
+        else:
+            row.reflection = text
+        self.db.commit()
+        self.db.refresh(row)
+        return row
+
+    def distinct_days_with_completions(self, month_prefix: str) -> list[str]:
+        """Every day this month that has at least one habit-completion
+        row (done or not) — matches legacy iterating `_habit_data`'s own
+        keys for the monthly report's "days done" count, which counts
+        days the app was used, not days that hit 100%."""
+        stmt = select(HabitCompletion.day).where(HabitCompletion.day.like(f"{month_prefix}%")).distinct()
+        return list(self.db.scalars(stmt))
+
 
 class ProjectRepository:
     def __init__(self, db: Session):

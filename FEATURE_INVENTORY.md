@@ -123,13 +123,13 @@ chip (ProjectDashboard).
 | 69 | Streak (≥50% of active habits, consecutive days ending today) | Done | 2537-2551 |
 | 70 | Weekly score bars/chart | Partial (port shows simple week bars; legacy has a full line+bar chart with best/worst-day callouts, matplotlib if available) | 17145-17223 |
 | 71 | Daily intention ("TODAY I WILL:") | Done | 16857-16879 |
-| 72 | Daily win ("TODAY'S WIN:") | Not Started | 16881-16903 |
-| 73 | End-of-day reflection | Not Started | 17226-17263 |
-| 74 | Monthly report (avg score / streak / days done for the month) | Not Started | 17265-17299 |
-| 75 | Score-of-100 ring gauge (color-coded) | Not Started (a number/percent may show, no ring visualization) | 16824-16856 |
-| 76 | Low-score-after-6pm alert | Not Started | 16905-16917 |
-| 77 | Compact "Discipline" mini-view inside a PLAN review tri-tab (separate surface from the full dashboard, same data) | Not Started (port has one flat Habits tab, no PLAN-review-card container at all) | 3705-3759 |
-| 78 | Separate "Mindset" tab (today's note + last-7-days history) — distinct from the intention field above | Not Started | 3648-3702, 3464-3465 |
+| 72 | Daily win ("TODAY'S WIN:") | Done — its own field next to "TODAY I WILL:", backed by a new `win` column on the existing `daily_intentions` row rather than a separate table (same one-text-blob-per-day shape, always read/written alongside intention/reflection on this screen) | 16881-16903 |
+| 73 | End-of-day reflection | Done — same `daily_intentions` row, `reflection` column | 17226-17263 |
+| 74 | Monthly report (avg score / streak / days done for the month) | Done — "Days Done" counts every day with a recorded habit toggle this month (matches legacy's own _habit_data-keys count, not days that hit 100%) | 17265-17299 |
+| 75 | Score-of-100 ring gauge (color-coded) | Done — SVG `stroke-dasharray` ring (green >=70, amber >=40, red below), replacing legacy's 1-degree-line-segment approximation (a workaround for Tk having no native round-capped arc) with a native equivalent | 16824-16856 |
+| 76 | Low-score-after-6pm alert | Done — "⚠ N habits remaining!" past 6pm under 50%, "✓ Perfect Day" at 100% regardless of hour, blank otherwise | 16905-16917 |
+| 77 | Compact "Discipline" mini-view inside a PLAN review tri-tab (separate surface from the full dashboard, same data) | Not Started / deferred — this is legacy's own PLAN screen showing a condensed SECOND copy of the same Habits data (Mindset/Discipline/Consistency tabs) the full Habits tab already shows in full; porting it means building a whole new tri-tab container purely to re-render existing data smaller, which reads as low value for the effort relative to everything else in this pass | 3705-3759 |
+| 78 | Separate "Mindset" tab (today's note + last-7-days history) — distinct from the intention field above | Not Started / deferred — same PLAN-review-tri-tab container as row 77, same reasoning; today's note is already covered by rows 72/73's fields on the full Habits tab, only the "last 7 days" history list is net-new and not worth a whole new tab surface on its own | 3648-3702, 3464-3465 |
 
 ## G. Consistency tracking (per-project daily target)
 

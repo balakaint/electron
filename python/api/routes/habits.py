@@ -11,7 +11,10 @@ from api.schemas import (
     HabitRename,
     IntentionOut,
     IntentionSet,
+    MonthlyReportOut,
+    ReflectionOut,
     WeekScoreOut,
+    WinOut,
 )
 from database.connection import get_db
 from database.repository import HabitRepository
@@ -19,6 +22,8 @@ from engine.habits import HabitEngine
 
 router = APIRouter(prefix="/api/habits", tags=["habits"])
 intentions_router = APIRouter(prefix="/api/intentions", tags=["intentions"])
+wins_router = APIRouter(prefix="/api/wins", tags=["wins"])
+reflections_router = APIRouter(prefix="/api/reflections", tags=["reflections"])
 
 
 def get_engine(db: Session = Depends(get_db)) -> HabitEngine:
@@ -85,6 +90,11 @@ def week_scores(engine: HabitEngine = Depends(get_engine)):
     return engine.week_scores()
 
 
+@router.get("/monthly-report", response_model=MonthlyReportOut)
+def monthly_report(engine: HabitEngine = Depends(get_engine)):
+    return engine.monthly_report()
+
+
 @intentions_router.get("/{day}", response_model=IntentionOut)
 def get_intention(day: str, engine: HabitEngine = Depends(get_engine)):
     return {"day": day, "text": engine.get_intention(day)}
@@ -94,3 +104,25 @@ def get_intention(day: str, engine: HabitEngine = Depends(get_engine)):
 def set_intention(day: str, payload: IntentionSet, engine: HabitEngine = Depends(get_engine)):
     text = engine.set_intention(day, payload.text)
     return {"day": day, "text": text}
+
+
+@wins_router.get("/{day}", response_model=WinOut)
+def get_win(day: str, engine: HabitEngine = Depends(get_engine)):
+    return {"day": day, "win": engine.get_win(day)}
+
+
+@wins_router.put("/{day}", response_model=WinOut)
+def set_win(day: str, payload: IntentionSet, engine: HabitEngine = Depends(get_engine)):
+    win = engine.set_win(day, payload.text)
+    return {"day": day, "win": win}
+
+
+@reflections_router.get("/{day}", response_model=ReflectionOut)
+def get_reflection(day: str, engine: HabitEngine = Depends(get_engine)):
+    return {"day": day, "reflection": engine.get_reflection(day)}
+
+
+@reflections_router.put("/{day}", response_model=ReflectionOut)
+def set_reflection(day: str, payload: IntentionSet, engine: HabitEngine = Depends(get_engine)):
+    reflection = engine.set_reflection(day, payload.text)
+    return {"day": day, "reflection": reflection}

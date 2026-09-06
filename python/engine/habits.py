@@ -130,3 +130,34 @@ class HabitEngine:
     def set_intention(self, day: str, text: str) -> str:
         row = self.repo.set_intention(day, text)
         return row.text
+
+    def get_win(self, day: str) -> str:
+        row = self.repo.get_journal(day)
+        return row.win if row is not None else ""
+
+    def set_win(self, day: str, text: str) -> str:
+        row = self.repo.set_win(day, text)
+        return row.win
+
+    def get_reflection(self, day: str) -> str:
+        row = self.repo.get_journal(day)
+        return row.reflection if row is not None else ""
+
+    def set_reflection(self, day: str, text: str) -> str:
+        row = self.repo.set_reflection(day, text)
+        return row.reflection
+
+    def monthly_report(self) -> dict:
+        """Avg score / streak / days-used for the current calendar
+        month — matches legacy's monthly report card. "Days Done" is
+        every day the app recorded a habit toggle this month, not every
+        day that hit 100% (legacy's own m_scores loop counts distinct
+        _habit_data day-keys, not perfect days)."""
+        month_prefix = str(date.today())[:7]
+        days = self.repo.distinct_days_with_completions(month_prefix)
+        scores = []
+        for day in days:
+            done, total = self._day_counts(day)
+            scores.append(int(done / total * 100) if total else 0)
+        avg = int(sum(scores) / len(scores)) if scores else 0
+        return {"avg_score": avg, "streak": self.streak(), "days_done": len(scores)}

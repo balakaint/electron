@@ -110,6 +110,12 @@ export interface WeekScore {
   pct: number;
 }
 
+export interface MonthlyReport {
+  avg_score: number;
+  streak: number;
+  days_done: number;
+}
+
 export const habitsApi = {
   list: (day: string, category?: HabitCategory) =>
     req(
@@ -133,6 +139,13 @@ export const habitsApi = {
     req('GET', `/api/intentions/${day}`) as Promise<{ day: string; text: string }>,
   setIntention: (day: string, text: string) =>
     req('PUT', `/api/intentions/${day}`, { text }) as Promise<{ day: string; text: string }>,
+  getWin: (day: string) => req('GET', `/api/wins/${day}`) as Promise<{ day: string; win: string }>,
+  setWin: (day: string, text: string) => req('PUT', `/api/wins/${day}`, { text }) as Promise<{ day: string; win: string }>,
+  getReflection: (day: string) =>
+    req('GET', `/api/reflections/${day}`) as Promise<{ day: string; reflection: string }>,
+  setReflection: (day: string, text: string) =>
+    req('PUT', `/api/reflections/${day}`, { text }) as Promise<{ day: string; reflection: string }>,
+  monthlyReport: () => req('GET', '/api/habits/monthly-report') as Promise<MonthlyReport>,
 };
 
 export type ProjectKey = 'proj1' | 'proj2' | 'proj3' | 'proj4' | 'proj5' | 'proj6';

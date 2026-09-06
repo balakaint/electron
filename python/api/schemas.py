@@ -136,6 +136,22 @@ class IntentionOut(BaseModel):
     text: str
 
 
+class WinOut(BaseModel):
+    day: str
+    win: str
+
+
+class ReflectionOut(BaseModel):
+    day: str
+    reflection: str
+
+
+class MonthlyReportOut(BaseModel):
+    avg_score: int
+    streak: int
+    days_done: int
+
+
 ProjectKeyT = Literal["proj1", "proj2", "proj3", "proj4", "proj5", "proj6"]
 
 

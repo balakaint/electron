@@ -55,10 +55,18 @@ class HabitCompletion(Base):
 
 
 class DailyIntention(Base):
+    """One row per day of free-text journaling — grown to hold all
+    three of legacy's per-day `_habit_data` keys (intention/win/
+    reflection) rather than three near-identical tables, since they're
+    the same shape (one text blob, keyed by day) and always read/written
+    together on the Habits dashboard."""
+
     __tablename__ = "daily_intentions"
 
     day: Mapped[str] = mapped_column(String, primary_key=True)  # ISO date string
     text: Mapped[str] = mapped_column(String, default="")
+    win: Mapped[str] = mapped_column(String, default="")
+    reflection: Mapped[str] = mapped_column(String, default="")
 
 
 PROJECT_KEYS = ("proj1", "proj2", "proj3", "proj4", "proj5", "proj6")
