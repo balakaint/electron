@@ -549,3 +549,39 @@ class BdpSortSet(BaseModel):
 
 class BdpSortOut(BaseModel):
     sort: Literal["manual", "priority"]
+
+
+Q90AreaKeyT = Literal["appearance", "money", "relationship", "health", "social", "mind"]
+Q90FieldT = Literal["out", "act", "ifthen"]
+
+
+class Q90AreaOut(BaseModel):
+    key: Q90AreaKeyT
+    label: str
+    glyph: str
+    description: str
+    out: str
+    act: str
+    ifthen: str
+
+
+class Q90PanelOut(BaseModel):
+    cycle_start: str
+    cycle_end: str
+    cycle_days: int
+    day: int
+    days_left: int
+    areas_done: int
+    areas_total: int
+    areas: list[Q90AreaOut]
+
+
+class Q90AnswerSet(BaseModel):
+    area: Q90AreaKeyT
+    field: Q90FieldT
+    text: str
+
+
+class Q90CycleSet(BaseModel):
+    start: str  # ISO date
+    days: int

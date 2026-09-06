@@ -246,16 +246,18 @@ underlying capability (see rows 130-132, 134).
 
 ## N. 90-Day Quarterly Plan (whole-life plan)
 
-Entirely unported.
+Fully ported: `QuarterlyAnswer` model, `engine/quarterly.py`
+(`cycle_span`/`cycle_progress`/`set_cycle` port legacy's own functions
+line-for-line), `api/routes/quarterly.py`, `QuarterlyPlanPanel.tsx`.
 
 | # | Feature | Status | Legacy lines |
 |---|---|---|---|
-| 141 | Six life-area accordion (Appearance/Money/Relationship/Health/Social/Mind) | Not Started | 4235-4248, 15015-15092 |
-| 142 | Three prompts per area (Outcome/Action/If-Then) | Not Started | 4276-4285 |
-| 143 | Configurable cycle length (30/60/90 or custom, 7-365 day bounds) | Not Started | 4287-4393, 14759-14912 |
-| 144 | Cycle progress bar + "day X of Y, N left" | Not Started | 4399-4413, 14926-14940 |
-| 145 | "N/6 areas set" progress counter | Not Started | 4432-4442 |
-| 146 | Auto-opens the first incomplete area | Not Started | 15095-15100 |
+| 141 | Six life-area accordion (Appearance/Money/Relationship/Health/Social/Mind) | Done | 4235-4248, 15015-15092 |
+| 142 | Three prompts per area (Outcome/Action/If-Then) | Done (same question text, hints, and per-prompt textarea sizing intent as legacy) | 4276-4285 |
+| 143 | Configurable cycle length (30/60/90 or custom, 7-365 day bounds) | Done (presets + custom number input, same clamp) | 4287-4393, 14759-14912 |
+| 144 | Cycle progress bar + "day X of Y, N left" | Partial (the "day X of Y, N left" / "starts in N days" text countdown is exact; no visual progress bar graphic, text only) | 4399-4413, 14926-14940 |
+| 145 | "N/6 areas set" progress counter | Done | 4432-4442 |
+| 146 | Auto-opens the first incomplete area | Done | 15095-15100 |
 
 ## O. Settings dialog
 
@@ -335,23 +337,29 @@ Done as one slice (`AppState` columns, `GET`/`PUT /api/settings`,
 section L (Product Journey), which this file had left marked "Entirely
 unported" since an earlier pass despite the feature having since been
 fully built — rows 120, 122, 124-128 moved to Done and 121, 123 to
-Partial; and a Business Plan Notes pass — rows 129, 133, 135-139 moved
-to Done and 130-132, 134 to Partial (one consolidated card view stands
-in for legacy's separate table/list views, and ▲/▼ buttons stand in for
+Partial; a Business Plan Notes pass — rows 129, 133, 135-139 moved to
+Done and 130-132, 134 to Partial (one consolidated card view stands in
+for legacy's separate table/list views, and ▲/▼ buttons stand in for
 mouse drag-reorder), row 140 stays Not Started/N/A since it migrates
-legacy's own old save format, which the port has none of.)*
+legacy's own old save format, which the port has none of; and a 90-Day
+Quarterly Plan pass — rows 141-143, 145-146 moved to Done and 144 to
+Partial (text countdown, no visual progress bar).)*
 
-- **Done**: rows 16, 18, 19, 23, 24, 39-53, 61-69, 71, 79-94, 97, 102-119, 120, 122, 124-129, 133, 135-139, 148-160 — roughly **85 items**, concentrated in Tasks, the NOW panel (all 6 rows — derive/point/start-pause/complete/one-clock exclusivity/the "+ STRIKE" promotion, plus the row-66 linked-timer bug-fix), Habits' core loop, Consistency, Circle, Projects' core loop, the full Business Analysis canvas, the complete Goals feature, Product Journey (6-stage timeline, gates, tasks, findings log, auto-advance + launch toast), Business Plan Notes (opportunity cards, filters, checklist, seed data), Settings (now complete as one slice: theme cycling, undo/redo, shortcuts panel, onboarding, language/analog-clock/auto-timer/idle-stop/day-phase/goal-hours/currency/start-with-Windows/About), and Export/Backup.
-- **Partial**: rows 15, 22, 30, 37, 48, 70, 82, 96, 101, 121, 123, 130-132, 134, 147 — roughly **16 items** where the data/backend exists but the UI is thin, or a control differs from legacy's exact mechanism (e.g. 4 of 6 themes; Journey's cover-image/attach-file fields store a path with no upload/preview/open UI around them; Business Plan Notes' one card view standing in for legacy's table+list toggle and ▲/▼ buttons standing in for drag; Settings has no dedicated swatch-preview theme picker).
-- **Not Started**: everything else — roughly **69+ items**. The largest unported blocks by area: Habits' richer dashboard surface (6 items), Quarterly Plan (6 items), remaining app-chrome (context menu, focus ring, tooltips, empty-state chips, tools menu — ~5 items), and the sibling external apps in section R (mostly out of scope).
+- **Done**: rows 16, 18, 19, 23, 24, 39-53, 61-69, 71, 79-94, 97, 102-119, 120, 122, 124-129, 133, 135-139, 141-143, 145-146, 148-160 — roughly **90 items**, concentrated in Tasks, the NOW panel (all 6 rows — derive/point/start-pause/complete/one-clock exclusivity/the "+ STRIKE" promotion, plus the row-66 linked-timer bug-fix), Habits' core loop, Consistency, Circle, Projects' core loop, the full Business Analysis canvas, the complete Goals feature, Product Journey (6-stage timeline, gates, tasks, findings log, auto-advance + launch toast), Business Plan Notes (opportunity cards, filters, checklist, seed data), the 90-Day Quarterly Plan (6-area accordion, 3 prompts each, configurable cycle), Settings (now complete as one slice: theme cycling, undo/redo, shortcuts panel, onboarding, language/analog-clock/auto-timer/idle-stop/day-phase/goal-hours/currency/start-with-Windows/About), and Export/Backup.
+- **Partial**: rows 15, 22, 30, 37, 48, 70, 82, 96, 101, 121, 123, 130-132, 134, 144, 147 — roughly **17 items** where the data/backend exists but the UI is thin, or a control differs from legacy's exact mechanism (e.g. 4 of 6 themes; Journey's cover-image/attach-file fields store a path with no upload/preview/open UI around them; Business Plan Notes' one card view standing in for legacy's table+list toggle and ▲/▼ buttons standing in for drag; the Quarterly Plan's countdown is text-only, no progress-bar graphic; Settings has no dedicated swatch-preview theme picker).
+- **Not Started**: everything else — roughly **63+ items**. The largest unported blocks by area: Habits' richer dashboard surface (6 items), remaining app-chrome (context menu, focus ring, tooltips, empty-state chips, tools menu — ~5 items), and the sibling external apps in section R (mostly out of scope). Business Plan Notes and the Quarterly Plan are both now down to their one-off Partial/N/A rows only (see sections M and N).
 
 Net read: the **daily-driver loop** (Tasks, NOW, Habits, Projects,
 Business Analysis, Consistency, Circle) is genuinely solid end to end,
-**Goals, Product Journey, and Business Plan Notes** give it a full first
-layer of **long-horizon and opportunity planning**, **Settings is now a
-complete slice** (every toggle/stepper from the legacy dialog exists and
-persists; auto-timer-on-open, day-phase hours, goal-hours, and currency
-are stored but not yet read by anything else in the port, same "column
-exists, feature not wired everywhere" caveat as section S), and the app
-has a genuine **safety net** (Export/Backup) instead of none at all.
-Still fully unstarted: Quarterly Plan.
+**Goals, Product Journey, Business Plan Notes, and the 90-Day Quarterly
+Plan** give it a full first layer of **long-horizon and opportunity
+planning**, **Settings is now a complete slice** (every toggle/stepper
+from the legacy dialog exists and persists; auto-timer-on-open,
+day-phase hours, goal-hours, and currency are stored but not yet read by
+anything else in the port, same "column exists, feature not wired
+everywhere" caveat as section S), and the app has a genuine **safety
+net** (Export/Backup) instead of none at all. What's left of substance:
+Habits' richer dashboard, remaining app-chrome polish, and the
+app-packaging items tracked in README.md's "Next steps" (licensing,
+auto-update, actually wiring `start_with_windows` to the real Windows
+startup entry).

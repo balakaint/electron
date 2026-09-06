@@ -255,7 +255,13 @@ class AppState(Base):
     - bdp_sort: Business Plan Notes' list-ordering mode ("manual" |
       "priority") — a single global toggle for that one screen, matching
       the legacy screen's own `vd["sort"]`, same shape as task_day_view
-      above."""
+      above.
+    - q90_cycle_start/q90_cycle_days: the 90-Day (or N-day) Quarterly
+      Plan's cycle anchor and length, matching legacy's
+      `self._settings["cycle_start"/"cycle_days"]`. NULL cycle_start
+      means "no cycle chosen yet" — falls back to the calendar quarter
+      containing today, same as legacy's own fallback, so a fresh
+      install needs no setup step before the screen means something."""
 
     __tablename__ = "app_state"
 
@@ -281,6 +287,8 @@ class AppState(Base):
     currency: Mapped[str] = mapped_column(String, default="$")
     start_with_windows: Mapped[bool] = mapped_column(Boolean, default=False)
     bdp_sort: Mapped[str] = mapped_column(String, default="manual")
+    q90_cycle_start: Mapped[str | None] = mapped_column(String, nullable=True)
+    q90_cycle_days: Mapped[int] = mapped_column(Integer, default=90)
 
 
 class LegacyAnalysisBox(Base):
@@ -460,3 +468,40 @@ class BdpAction(Base):
     text: Mapped[str] = mapped_column(String)
     done: Mapped[bool] = mapped_column(Boolean, default=False)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+# Craft/career is deliberately absent — that's what the 6 Projects and
+# their Goals already are, and a plan that asks the same question twice
+# gets two different answers (matches legacy's own reasoning verbatim).
+Q90_AREAS = (
+    ("appearance", "Appearance", "◈", "How you show up — body, grooming, clothes, posture."),
+    ("money", "Money", "◉", "Earned, saved, owed. The number, not the feeling."),
+    ("relationship", "Relationship", "❖", "The one closest person. Partner, or the one who matters most."),
+    ("health", "Health", "◐", "Sleep, food, movement, the check-up you keep postponing."),
+    ("social", "Friends · Family · Social", "◇", "The people who would notice if you disappeared for a month."),
+    ("mind", "Mind · Skill", "◎", "What you are learning, and what you want to be able to do."),
+)
+Q90_CYCLE_PRESETS = (30, 60, 90)
+Q90_CYCLE_MIN, Q90_CYCLE_MAX = 7, 365
+
+
+class QuarterlyAnswer(Base):
+    """One row per (cycle, area) — legacy instead keys a single
+    `_habit_data["__q90_<cycle-start>"]` dict by cycle-start-date string,
+    holding all 6 areas' answers as a nested dict. Flattened here to one
+    row per area, same reasoning Goal already applied to the
+    yearly/monthly/weekly split: `cycle_start` (not a table per cycle)
+    is what identifies which cycle a row belongs to, since cycles repeat
+    forever and old ones must stay reachable rather than being
+    overwritten. `out`/`act`/`ifthen` match legacy's three prompt keys
+    exactly (Outcome / weekly Action / If-then)."""
+
+    __tablename__ = "quarterly_answers"
+    __table_args__ = (UniqueConstraint("cycle_start", "area", name="uq_qplan_cycle_area"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    cycle_start: Mapped[str] = mapped_column(String)  # ISO date identifying the cycle
+    area: Mapped[str] = mapped_column(String)
+    out: Mapped[str] = mapped_column(String, default="")
+    act: Mapped[str] = mapped_column(String, default="")
+    ifthen: Mapped[str] = mapped_column(String, default="")

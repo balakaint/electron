@@ -405,6 +405,35 @@ one deliberate scope adjustment, noted below:
   extended to `import_legacy.py` — this is a new-to-the-port feature
   area with no existing rows to migrate forward, same as Goals/Journey.
 
+**90-Day (or N-day) Quarterly Plan** (a repeating whole-life-review
+cycle, six areas x three prompts each) is fully ported:
+
+- `python/database/models.py` — `QuarterlyAnswer` (one row per
+  (cycle, area), flattening legacy's single
+  `_habit_data["__q90_<cycle-start>"]` nested dict the same way Goal
+  already flattened yearly/monthly/weekly) plus `AppState.q90_cycle_start`/
+  `q90_cycle_days` (the cycle anchor + length — global settings, not
+  owned by any one cycle's answers). `Q90_AREAS`/`Q90_CYCLE_PRESETS`/
+  `Q90_CYCLE_MIN`/`Q90_CYCLE_MAX` match legacy's `_Q90_AREAS`/
+  `CYCLE_PRESETS`/`CYCLE_MIN`/`CYCLE_MAX` exactly (craft/career is
+  deliberately absent — that's what the 6 Projects and their Goals
+  already are)
+- `python/engine/quarterly.py` — `cycle_span`/`cycle_progress` port
+  legacy's `_cycle_span`/`_cycle_progress` line-for-line, including the
+  "no anchor chosen yet" fallback to the calendar quarter containing
+  today (so a fresh install needs no setup step first) and cycles
+  repeating forward from the anchor forever rather than expiring;
+  `set_cycle` moves the current cycle's answers to the new key,
+  matching legacy's `_set_cycle` (existing destination answers win,
+  nothing is ever silently deleted)
+- `python/api/routes/quarterly.py` — `GET /api/quarterly/panel`,
+  `POST /api/quarterly/answer`, `POST /api/quarterly/cycle`
+- `renderer/src/components/QuarterlyPlanPanel.tsx` — header (cycle
+  length + "N/6 areas set" + date range/countdown, editable inline),
+  6-area accordion (one open at a time, auto-opens the first area with
+  no outcome written yet — matches legacy exactly), each area's 3
+  prompts (Outcome/weekly Action/If-then) autosaving on blur
+
 ## Next steps
 
 Same approach, one feature at a time: enumerate the real fields a feature
@@ -412,7 +441,11 @@ uses in `task_tracker_v3_THEMES.py`, design the table, port the engine
 logic, wire the routes, build the React screen, then extend
 `import_legacy.py`. Daily Planner is off this list — the legacy app had
 already removed it (see "Importing your existing data" above), and
-Settings and Business Plan Notes are now fully covered (see above).
-What's actually left: the 90-Day Quarterly Plan, licensing, auto-update,
-and actually wiring `start_with_windows` to the real Windows startup
-entry on the Electron side.
+Settings, Business Plan Notes, and the Quarterly Plan are now fully
+covered (see above). What's actually left: licensing, auto-update, and
+actually wiring `start_with_windows` to the real Windows startup entry
+on the Electron side — the last remaining gaps are these app-packaging
+concerns plus the long tail of smaller UI polish items tracked in
+`FEATURE_INVENTORY.md` (search/filter boxes, drag-to-reorder as actual
+mouse drag rather than buttons, richer Habits dashboard visuals, and
+similar).

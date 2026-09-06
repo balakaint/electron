@@ -22,6 +22,7 @@ from database.models import (
     ProjectActivity,
     ProjectJourney,
     ProjectSubtask,
+    QuarterlyAnswer,
     Task,
 )
 
@@ -501,4 +502,51 @@ class BdpRepository:
 
     def delete_action(self, action: BdpAction) -> None:
         self.db.delete(action)
+        self.db.commit()
+
+
+class QuarterlyRepository:
+    """90-Day Quarterly Plan. AppState access mirrors BdpRepository's —
+    q90_cycle_start/q90_cycle_days are global settings, not owned by any
+    one cycle's answer rows."""
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_app_state(self) -> AppState:
+        return _get_app_state(self.db)
+
+    def save_app_state(self, state: AppState) -> AppState:
+        return _save_app_state(self.db, state)
+
+    def get_answer(self, cycle_start: str, area: str) -> QuarterlyAnswer | None:
+        stmt = select(QuarterlyAnswer).where(
+            QuarterlyAnswer.cycle_start == cycle_start, QuarterlyAnswer.area == area
+        )
+        return self.db.scalars(stmt).first()
+
+    def list_answers(self, cycle_start: str) -> list[QuarterlyAnswer]:
+        stmt = select(QuarterlyAnswer).where(QuarterlyAnswer.cycle_start == cycle_start)
+        return list(self.db.scalars(stmt))
+
+    def add_answer(self, answer: QuarterlyAnswer) -> QuarterlyAnswer:
+        self.db.add(answer)
+        self.db.commit()
+        self.db.refresh(answer)
+        return answer
+
+    def save_answer(self, answer: QuarterlyAnswer) -> QuarterlyAnswer:
+        self.db.commit()
+        self.db.refresh(answer)
+        return answer
+
+    def rename_cycle(self, old_start: str, new_start: str) -> None:
+        """Move every answer row from old_start to new_start — matches
+        legacy's _set_cycle: if the destination already has answers,
+        those win and the source is left alone rather than overwritten
+        (nothing is ever silently deleted either way)."""
+        if old_start == new_start or self.list_answers(new_start):
+            return
+        for row in self.list_answers(old_start):
+            row.cycle_start = new_start
         self.db.commit()

@@ -521,6 +521,38 @@ export const bdpApi = {
   deleteAction: (actionId: number) => req('DELETE', `/api/bdp/actions/${actionId}`) as Promise<BdpPlan>,
 };
 
+export type Q90AreaKey = 'appearance' | 'money' | 'relationship' | 'health' | 'social' | 'mind';
+export type Q90Field = 'out' | 'act' | 'ifthen';
+
+export interface Q90Area {
+  key: Q90AreaKey;
+  label: string;
+  glyph: string;
+  description: string;
+  out: string;
+  act: string;
+  ifthen: string;
+}
+
+export interface Q90Panel {
+  cycle_start: string;
+  cycle_end: string;
+  cycle_days: number;
+  day: number;
+  days_left: number;
+  areas_done: number;
+  areas_total: number;
+  areas: Q90Area[];
+}
+
+export const quarterlyApi = {
+  getPanel: () => req('GET', '/api/quarterly/panel') as Promise<Q90Panel>,
+  setAnswer: (area: Q90AreaKey, field: Q90Field, text: string) =>
+    req('POST', '/api/quarterly/answer', { area, field, text }) as Promise<Q90Panel>,
+  setCycle: (start: string, days: number) =>
+    req('POST', '/api/quarterly/cycle', { start, days }) as Promise<Q90Panel>,
+};
+
 export const exportApi = {
   backup: () => req('GET', '/api/export/backup') as Promise<{ filename: string; data: unknown }>,
   csv: () => req('GET', '/api/export/csv') as Promise<{ filename: string; csv: string }>,

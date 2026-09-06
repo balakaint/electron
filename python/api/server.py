@@ -15,6 +15,7 @@ from api.routes.journey import (
 )
 from api.routes.now import router as now_router, strike_router as now_strike_router
 from api.routes.projects import circle_router, router as projects_router
+from api.routes.quarterly import router as quarterly_router
 from api.routes.settings import router as settings_router
 from api.routes.tasks import router as tasks_router
 from database.connection import SessionLocal
@@ -78,6 +79,7 @@ app.include_router(journey_logs_router)
 app.include_router(settings_router)
 app.include_router(bdp_router)
 app.include_router(bdp_actions_router)
+app.include_router(quarterly_router)
 
 
 @app.get("/health")

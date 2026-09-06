@@ -6,6 +6,7 @@ import ProjectDashboard from './components/ProjectDashboard';
 import GoalsPanel from './components/GoalsPanel';
 import JourneyPanel from './components/JourneyPanel';
 import BdpPanel from './components/BdpPanel';
+import QuarterlyPlanPanel from './components/QuarterlyPlanPanel';
 import OnboardingModal from './components/OnboardingModal';
 import SettingsDialog from './components/SettingsDialog';
 import ShortcutsHelp from './components/ShortcutsHelp';
@@ -13,7 +14,7 @@ import UndoToast from './components/UndoToast';
 import { UndoProvider, useUndo } from './undo';
 import { applyTheme, nextTheme, Theme, THEME_LABELS } from './themes';
 
-type Page = 'tasks' | 'habits' | 'projects' | 'goals' | 'journey' | 'bdp';
+type Page = 'tasks' | 'habits' | 'projects' | 'goals' | 'journey' | 'bdp' | 'quarterly';
 
 function AppShell() {
   const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking');
@@ -133,6 +134,9 @@ function AppShell() {
         <button onClick={() => setPage('bdp')} disabled={page === 'bdp'}>
           Business Plan
         </button>
+        <button onClick={() => setPage('quarterly')} disabled={page === 'quarterly'}>
+          90-Day Plan
+        </button>
       </div>
 
       {page === 'tasks' && (
@@ -158,6 +162,8 @@ function AppShell() {
       {page === 'journey' && <JourneyPanel />}
 
       {page === 'bdp' && <BdpPanel />}
+
+      {page === 'quarterly' && <QuarterlyPlanPanel />}
 
       <p style={{ marginTop: 32, fontSize: 12, opacity: 0.5 }}>Engine: {status}</p>
 
