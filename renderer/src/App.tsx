@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ListKey, exportApi, settingsApi } from './services/api';
 import TaskList from './components/TaskList';
+import PlanReview from './components/PlanReview';
 import ClockCard from './components/ClockCard';
 import HabitDashboard from './components/HabitDashboard';
 import ProjectDashboard from './components/ProjectDashboard';
@@ -192,6 +193,11 @@ function AppShell() {
             </button>
           </div>
           <TaskList listKey={tab} />
+          {/* PLAN only. Legacy puts the review card on PLAN's lower half
+              and deliberately not on FOCUS — FOCUS is where you tick
+              things off, PLAN is where you step back and look at the
+              week. */}
+          {tab === 'classic' && <PlanReview />}
         </>
       )}
 

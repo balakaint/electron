@@ -191,6 +191,35 @@ class HabitRepository:
         self.db.refresh(row)
         return row
 
+    def set_mindset(self, day: str, text: str) -> DailyIntention:
+        row = self.db.get(DailyIntention, day)
+        if row is None:
+            row = DailyIntention(day=day, mindset=text)
+            self.db.add(row)
+        else:
+            row.mindset = text
+        self.db.commit()
+        self.db.refresh(row)
+        return row
+
+    def mindset_history(self, days: list[str]) -> dict[str, str]:
+        """The mindset note for each of `days` that has a non-empty one.
+
+        Returned as a dict rather than a list so the caller can ask for a
+        fixed window and let the gaps fall out — legacy's own loop skips
+        a day with no text rather than printing an empty row, because a
+        run of blank lines reads as a broken widget, not as "you didn't
+        write anything on Tuesday".
+        """
+        if not days:
+            return {}
+        rows = (
+            self.db.query(DailyIntention)
+            .filter(DailyIntention.day.in_(days))
+            .all()
+        )
+        return {r.day: r.mindset for r in rows if (r.mindset or "").strip()}
+
     def distinct_days_with_completions(self, month_prefix: str) -> list[str]:
         """Every day this month that has at least one habit-completion
         row (done or not) — matches legacy iterating `_habit_data`'s own

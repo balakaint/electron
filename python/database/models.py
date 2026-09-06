@@ -56,10 +56,17 @@ class HabitCompletion(Base):
 
 class DailyIntention(Base):
     """One row per day of free-text journaling — grown to hold all
-    three of legacy's per-day `_habit_data` keys (intention/win/
-    reflection) rather than three near-identical tables, since they're
-    the same shape (one text blob, keyed by day) and always read/written
-    together on the Habits dashboard."""
+    four of legacy's per-day `_habit_data` text keys (intention/win/
+    reflection/mindset) rather than four near-identical tables, since
+    they're the same shape (one text blob, keyed by day) and are
+    read/written together.
+
+    `mindset` is legacy's `__mindset_<day>`, the note behind the PLAN
+    screen's Mindset tab. It is deliberately NOT the same field as
+    `text` (the "TODAY I WILL" intention): legacy keeps them under
+    separate keys and shows them on separate surfaces, and merging them
+    would silently overwrite one with the other on import.
+    """
 
     __tablename__ = "daily_intentions"
 
@@ -67,6 +74,7 @@ class DailyIntention(Base):
     text: Mapped[str] = mapped_column(String, default="")
     win: Mapped[str] = mapped_column(String, default="")
     reflection: Mapped[str] = mapped_column(String, default="")
+    mindset: Mapped[str] = mapped_column(String, default="")
 
 
 PROJECT_KEYS = ("proj1", "proj2", "proj3", "proj4", "proj5", "proj6")

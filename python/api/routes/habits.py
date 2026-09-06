@@ -10,6 +10,8 @@ from api.schemas import (
     HabitOut,
     HabitRename,
     IntentionOut,
+    MindsetHistoryEntry,
+    MindsetOut,
     IntentionSet,
     MonthlyReportOut,
     ReflectionOut,
@@ -22,6 +24,7 @@ from engine.habits import HabitEngine
 
 router = APIRouter(prefix="/api/habits", tags=["habits"])
 intentions_router = APIRouter(prefix="/api/intentions", tags=["intentions"])
+mindset_router = APIRouter(prefix="/api/mindset", tags=["mindset"])
 wins_router = APIRouter(prefix="/api/wins", tags=["wins"])
 reflections_router = APIRouter(prefix="/api/reflections", tags=["reflections"])
 
@@ -115,6 +118,24 @@ def get_win(day: str, engine: HabitEngine = Depends(get_engine)):
 def set_win(day: str, payload: IntentionSet, engine: HabitEngine = Depends(get_engine)):
     win = engine.set_win(day, payload.text)
     return {"day": day, "win": win}
+
+
+@mindset_router.get("/history", response_model=list[MindsetHistoryEntry])
+def mindset_history(days: int = 7, engine: HabitEngine = Depends(get_engine)):
+    """Declared BEFORE the /{day} route below: FastAPI matches in
+    definition order, so with these swapped "history" would be captured
+    as a date string and this endpoint would be unreachable."""
+    return engine.mindset_history(days)
+
+
+@mindset_router.get("/{day}", response_model=MindsetOut)
+def get_mindset(day: str, engine: HabitEngine = Depends(get_engine)):
+    return {"day": day, "mindset": engine.get_mindset(day)}
+
+
+@mindset_router.put("/{day}", response_model=MindsetOut)
+def set_mindset(day: str, payload: IntentionSet, engine: HabitEngine = Depends(get_engine)):
+    return {"day": day, "mindset": engine.set_mindset(day, payload.text)}
 
 
 @reflections_router.get("/{day}", response_model=ReflectionOut)

@@ -175,6 +175,11 @@ def import_habits(data: dict, db: Session) -> dict:
         ("__intention_", "text"),
         ("__win_", "win"),
         ("__reflection_", "reflection"),
+        # __mindset_<day> is the PLAN screen's Mindset note. It was
+        # missing from this list, so every one of those notes was
+        # silently dropped on import — the key isn't referenced anywhere
+        # else, so nothing else would have caught it.
+        ("__mindset_", "mindset"),
     )
     _intention_cache: dict[str, DailyIntention] = {}
     for key, text in hd.items():

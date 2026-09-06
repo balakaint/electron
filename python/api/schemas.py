@@ -146,6 +146,17 @@ class ReflectionOut(BaseModel):
     reflection: str
 
 
+class MindsetOut(BaseModel):
+    day: str
+    mindset: str
+
+
+class MindsetHistoryEntry(BaseModel):
+    day: str
+    label: str
+    text: str
+
+
 class MonthlyReportOut(BaseModel):
     avg_score: int
     streak: int

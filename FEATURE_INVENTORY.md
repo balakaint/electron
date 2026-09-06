@@ -13,12 +13,12 @@ was checked against the legacy source before being closed.
 
 | Status | Rows |
 |---|---|
-| Done | 152 |
+| Done | 154 |
 | N/A | 8 (rows 3, 7, 21, 36, 99, 140, 170, 172) |
 | Excluded — section R sibling apps | 6 (rows 161-166) |
-| **Remaining real work** | **6** |
+| **Remaining real work** | **4** |
 
-The 6 remaining: 10, 11, 22, 29, 77, 78. Sequenced in
+The 4 remaining: 10, 11, 22, 29. Sequenced in
 `PORT_COMPLETION_PLAN.md`. Phases 1-3 closed 2026-09-06 (rows 15, 147;
 37, 70, 96; 130-132, 134), Phase 4 partially (rows 30, 60, 82; row 22
 waits on row 10, and row 29's Tools menu carries a Focus Mode entry that
@@ -146,8 +146,8 @@ chip (ProjectDashboard).
 | 74 | Monthly report (avg score / streak / days done for the month) | Done — "Days Done" counts every day with a recorded habit toggle this month (matches legacy's own _habit_data-keys count, not days that hit 100%) | 17265-17299 |
 | 75 | Score-of-100 ring gauge (color-coded) | Done — SVG `stroke-dasharray` ring (green >=70, amber >=40, red below), replacing legacy's 1-degree-line-segment approximation (a workaround for Tk having no native round-capped arc) with a native equivalent | 16824-16856 |
 | 76 | Low-score-after-6pm alert | Done — "⚠ N habits remaining!" past 6pm under 50%, "✓ Perfect Day" at 100% regardless of hour, blank otherwise | 16905-16917 |
-| 77 | Compact "Discipline" mini-view inside a PLAN review tri-tab (separate surface from the full dashboard, same data) | Not Started / deferred — this is legacy's own PLAN screen showing a condensed SECOND copy of the same Habits data (Mindset/Discipline/Consistency tabs) the full Habits tab already shows in full; porting it means building a whole new tri-tab container purely to re-render existing data smaller, which reads as low value for the effort relative to everything else in this pass | 3705-3759 |
-| 78 | Separate "Mindset" tab (today's note + last-7-days history) — distinct from the intention field above | Not Started / deferred — same PLAN-review-tri-tab container as row 77, same reasoning; today's note is already covered by rows 72/73's fields on the full Habits tab, only the "last 7 days" history list is net-new and not worth a whole new tab surface on its own | 3648-3702, 3464-3465 |
+| 77 | Compact "Discipline" mini-view inside a PLAN review tri-tab (separate surface from the full dashboard, same data) | Done — `PlanReview.tsx` on the PLAN tab only (legacy keeps it off FOCUS: FOCUS is where you tick things off, PLAN is where you step back). The Discipline tab shows `{done}/{total} today`, the streak only once there IS one (legacy's reasoning: a permanent "0 day streak" is a daily reminder of failure), and the habit checklist grouped by category, tappable. It reuses the same API calls as the Habits dashboard rather than duplicating logic — legacy calls this "a second door to one room, not a second room", and the earlier "low value" judgement missed the point: the value is not seeing the data again, it is not having to leave the screen where you are deciding the day | 3705-3759 |
+| 78 | Separate "Mindset" tab (today's note + last-7-days history) — distinct from the intention field above | Done — and the previous status was wrong about the data: the mindset note is **not** covered by rows 72/73. Legacy stores it under its own `__mindset_<day>` key, separate from `__intention_`/`__win_`/`__reflection_`, and the port had no column for it at all. Worse, `import_legacy.py`'s per-day text prefix list omitted `__mindset_`, so every one of those notes was being **silently dropped on import** — nothing else references the key, so nothing would have caught it. Fixed here: a `mindset` column (migration b7d2f81c4a35), get/set plus a 7-day history endpoint, and the missing import prefix. The history skips days with nothing written, as legacy does — a run of blank rows reads as a broken widget, not as "you didn't write anything on Tuesday" | 3648-3702, 3464-3465 |
 
 ## G. Consistency tracking (per-project daily target)
 

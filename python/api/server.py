@@ -9,6 +9,7 @@ from api.routes.export import router as export_router
 from api.routes.goals import panel_router as goals_panel_router, router as goals_router
 from api.routes.habits import (
     intentions_router,
+    mindset_router,
     reflections_router,
     router as habits_router,
     wins_router,
@@ -72,6 +73,7 @@ app.include_router(habits_router)
 app.include_router(intentions_router)
 app.include_router(wins_router)
 app.include_router(reflections_router)
+app.include_router(mindset_router)
 app.include_router(projects_router)
 app.include_router(circle_router)
 app.include_router(business_analysis_router)

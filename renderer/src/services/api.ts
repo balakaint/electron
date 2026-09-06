@@ -108,6 +108,12 @@ export interface DaySummary {
   categories: Record<HabitCategory, CategorySummary>;
 }
 
+export interface MindsetEntry {
+  day: string;
+  label: string;
+  text: string;
+}
+
 export interface WeekScore {
   day: string;
   label: string;
@@ -143,6 +149,12 @@ export const habitsApi = {
     req('GET', `/api/intentions/${day}`) as Promise<{ day: string; text: string }>,
   setIntention: (day: string, text: string) =>
     req('PUT', `/api/intentions/${day}`, { text }) as Promise<{ day: string; text: string }>,
+  getMindset: (day: string) =>
+    req('GET', `/api/mindset/${day}`) as Promise<{ day: string; mindset: string }>,
+  setMindset: (day: string, text: string) =>
+    req('PUT', `/api/mindset/${day}`, { text }) as Promise<{ day: string; mindset: string }>,
+  mindsetHistory: (days = 7) =>
+    req('GET', `/api/mindset/history?days=${days}`) as Promise<MindsetEntry[]>,
   getWin: (day: string) => req('GET', `/api/wins/${day}`) as Promise<{ day: string; win: string }>,
   setWin: (day: string, text: string) => req('PUT', `/api/wins/${day}`, { text }) as Promise<{ day: string; win: string }>,
   getReflection: (day: string) =>
