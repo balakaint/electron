@@ -38,6 +38,8 @@ export interface ExportSaveResult {
   filenames?: string[];
 }
 
+export type PanelLayout = 'full' | 'compact';
+
 declare global {
   interface Window {
     api: {
@@ -48,6 +50,7 @@ declare global {
       openPath: (filePath: string) => Promise<{ ok: boolean; error: string | null }>;
       pickImage: () => Promise<string | null>;
       readImage: (filePath: string) => Promise<string | null>;
+      setPanelLayout: (layout: PanelLayout) => Promise<{ ok: true }>;
     };
   }
 }
@@ -469,6 +472,7 @@ export interface Settings {
   goal_hours: number;
   currency: string;
   start_with_windows: boolean;
+  panel_layout: PanelLayout;
 }
 
 export type SettingsPatch = Partial<
@@ -485,6 +489,7 @@ export type SettingsPatch = Partial<
     | 'goal_hours'
     | 'currency'
     | 'start_with_windows'
+    | 'panel_layout'
   >
 >;
 

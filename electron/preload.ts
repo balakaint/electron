@@ -10,4 +10,5 @@ contextBridge.exposeInMainWorld('api', {
   openPath: (filePath: string) => ipcRenderer.invoke('open-path', filePath),
   pickImage: () => ipcRenderer.invoke('pick-image'),
   readImage: (filePath: string) => ipcRenderer.invoke('read-image', filePath),
+  setPanelLayout: (layout: 'full' | 'compact') => ipcRenderer.invoke('set-panel-layout', layout),
 });

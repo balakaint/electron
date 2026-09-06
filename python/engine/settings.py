@@ -16,6 +16,7 @@ from database.repository import TaskRepository
 # is legacy's internal key for the theme it labels "EXECUTIVE".
 THEMES = ("focus", "warroom", "energy", "corporate", "journey", "rize")
 LANGS = ("en", "bn")
+PANEL_LAYOUTS = ("full", "compact")
 
 _IDLE_MIN, _IDLE_MAX = 2, 120
 _PHASE_MIN, _PHASE_MAX = 0, 23
@@ -39,6 +40,7 @@ def get_settings(repo: TaskRepository) -> dict:
         "goal_hours": state.goal_hours,
         "currency": state.currency,
         "start_with_windows": state.start_with_windows,
+        "panel_layout": state.panel_layout,
     }
 
 
@@ -71,6 +73,7 @@ def update_settings(
     goal_hours: int | None = None,
     currency: str | None = None,
     start_with_windows: bool | None = None,
+    panel_layout: str | None = None,
 ) -> dict:
     """Patch only the provided fields — matches the legacy dialog's
     single "Save Settings" applying every row at once, but as a partial
@@ -108,6 +111,13 @@ def update_settings(
         state.currency = (currency.strip() or "$")[:4]
     if start_with_windows is not None:
         state.start_with_windows = start_with_windows
+    if panel_layout is not None:
+        # Validated rather than clamped: an unknown layout is a caller
+        # bug, and silently falling back to "full" would hide it while
+        # leaving the window in a state the user didn't ask for.
+        if panel_layout not in PANEL_LAYOUTS:
+            raise ValueError(f"panel_layout must be one of {PANEL_LAYOUTS}")
+        state.panel_layout = panel_layout
 
     repo.save_app_state(state)
     return get_settings(repo)

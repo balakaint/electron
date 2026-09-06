@@ -4,6 +4,7 @@ const SHORTCUTS: [string, string][] = [
   ['Ctrl+T', 'Cycle theme'],
   ['Ctrl+Shift+T', 'Cycle theme (reverse)'],
   ['F1 or ?', 'Show/hide this panel'],
+  ['Ctrl+F', 'Focus mode — tasks only, docked'],
   ['Esc or Ctrl+W', 'Close the topmost dialog'],
 ];
 

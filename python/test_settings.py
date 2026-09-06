@@ -202,6 +202,37 @@ def test_restore_task_undoes_delete():
         check("restoring an id that already exists is a no-op (returns None)", again is None)
 
 
+def test_panel_layout_persists_and_validates():
+    with FreshDB() as f:
+        from engine.settings import get_settings, update_settings
+        check("panel_layout defaults to full",
+              get_settings(f.repo)["panel_layout"] == "full",
+              get_settings(f.repo)["panel_layout"])
+
+        out = update_settings(f.repo, panel_layout="compact")
+        check("panel_layout can be set to compact", out["panel_layout"] == "compact")
+        check("panel_layout persists",
+              get_settings(f.repo)["panel_layout"] == "compact")
+
+        # Rejected, not clamped: an unknown layout is a caller bug, and
+        # falling back to "full" silently would leave the window in a
+        # state nobody asked for while hiding the mistake.
+        try:
+            update_settings(f.repo, panel_layout="partial")
+            raised = False
+        except ValueError:
+            raised = True
+        check("an unported layout ('partial') is rejected", raised)
+        check("a rejected layout leaves the stored one alone",
+              get_settings(f.repo)["panel_layout"] == "compact")
+
+        # A patch that doesn't mention panel_layout must not reset it —
+        # this is the bug an all-optional PATCH endpoint invites.
+        update_settings(f.repo, goal_hours=6)
+        check("an unrelated patch leaves panel_layout alone",
+              get_settings(f.repo)["panel_layout"] == "compact")
+
+
 def run_all():
     tests = [
         test_default_settings,
@@ -215,6 +246,7 @@ def run_all():
         test_invalid_lang_rejected,
         test_idle_stop_setting_changes_real_timer_behavior,
         test_restore_task_undoes_delete,
+        test_panel_layout_persists_and_validates,
     ]
     for t in tests:
         try:

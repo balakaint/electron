@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, screen, shell } from 'electron';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -363,6 +363,54 @@ function syncTitleBarTheme(theme: unknown) {
   if (typeof theme !== 'string') return;
   nativeTheme.themeSource = DARK_THEMES.has(theme) ? 'dark' : 'light';
 }
+
+// ── Progressive panel layout: the window half ───────────────────────
+// Legacy's compact mode is not "the same window with things hidden" —
+// it is an actually-narrow window docked flush to the right edge of the
+// work area (screen minus taskbar), so it sits beside whatever you are
+// working in. Hiding content without narrowing the window would leave a
+// wide pane of empty space, which is the state legacy explicitly calls
+// out as the bug worth avoiding.
+//
+// See docs/ROW10_LAYOUT_NOTE.md for why only two of legacy's three
+// layout rungs are ported.
+const COMPACT_WIDTH = 420;
+
+// The bounds to return to when leaving compact. Held in memory only:
+// window-state.json already persists what the user last had, and
+// writing an interim "restore point" to disk would fight it.
+let preCompactBounds: Electron.Rectangle | null = null;
+
+function applyPanelLayout(layout: 'full' | 'compact') {
+  const win = mainWindow;
+  if (!win || win.isDestroyed()) return;
+
+  if (layout === 'compact') {
+    if (preCompactBounds === null) preCompactBounds = win.getBounds();
+    if (win.isMaximized()) win.unmaximize();
+    // getDisplayMatching, not getPrimaryDisplay: this is Electron's
+    // equivalent of legacy's MonitorFromPoint fix. The primary display's
+    // work area is the wrong rectangle the moment the window has been
+    // dragged to a second monitor, and the symptom — docking to the
+    // wrong screen, or the taskbar overlapping the bottom — is
+    // confusing enough that legacy left a paragraph about it.
+    const wa = screen.getDisplayMatching(win.getBounds()).workArea;
+    win.setBounds({
+      x: wa.x + wa.width - COMPACT_WIDTH,
+      y: wa.y,
+      width: COMPACT_WIDTH,
+      height: wa.height,
+    });
+  } else if (preCompactBounds) {
+    win.setBounds(preCompactBounds);
+    preCompactBounds = null;
+  }
+}
+
+ipcMain.handle('set-panel-layout', async (_, layout: 'full' | 'compact') => {
+  applyPanelLayout(layout);
+  return { ok: true };
+});
 
 ipcMain.handle('health-check', async () => {
   const res = await fetch(`${BASE()}/health`);

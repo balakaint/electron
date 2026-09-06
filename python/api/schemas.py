@@ -486,6 +486,7 @@ class SectionTitleSet(BaseModel):
 
 ThemeT = Literal["focus", "warroom", "energy", "corporate", "journey", "rize"]
 LangT = Literal["en", "bn"]
+PanelLayoutT = Literal["full", "compact"]
 
 
 class SettingsOut(BaseModel):
@@ -502,6 +503,7 @@ class SettingsOut(BaseModel):
     goal_hours: int
     currency: str
     start_with_windows: bool
+    panel_layout: PanelLayoutT
 
 
 class ThemeSet(BaseModel):
@@ -523,6 +525,7 @@ class SettingsUpdate(BaseModel):
     goal_hours: int | None = None
     currency: str | None = None
     start_with_windows: bool | None = None
+    panel_layout: PanelLayoutT | None = None
 
 
 class BackupOut(BaseModel):

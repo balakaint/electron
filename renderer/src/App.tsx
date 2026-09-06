@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ListKey, exportApi, settingsApi } from './services/api';
+import { ListKey, PanelLayout, exportApi, settingsApi } from './services/api';
 import TaskList from './components/TaskList';
 import PlanReview from './components/PlanReview';
+import ToolsMenu from './components/ToolsMenu';
 import ClockCard from './components/ClockCard';
 import HabitDashboard from './components/HabitDashboard';
 import ProjectDashboard from './components/ProjectDashboard';
@@ -25,6 +26,7 @@ function AppShell() {
   const [tab, setTab] = useState<ListKey>('classic');
   const [theme, setThemeState] = useState<Theme>('focus');
   const [lang, setLang] = useState<Lang>('en');
+  const [layout, setLayoutState] = useState<PanelLayout>('full');
   const [onboarded, setOnboarded] = useState<boolean | null>(null); // null = not loaded yet
   // Stored as "when it was opened" rather than a boolean, so the stack
   // above can order them; null means closed.
@@ -65,6 +67,10 @@ function AppShell() {
       setThemeState(s.theme);
       applyTheme(s.theme);
       setLang(s.lang);
+      // Restore the docked geometry too, not just the hidden content —
+      // a window left narrow should come back narrow.
+      setLayoutState(s.panel_layout);
+      if (s.panel_layout === 'compact') window.api.setPanelLayout('compact');
       setOnboarded(s.onboarded);
     });
   }, []);
@@ -79,6 +85,24 @@ function AppShell() {
   };
 
   const cycleTheme = (direction: 1 | -1 = 1) => selectTheme(nextTheme(theme, direction));
+
+  // Legacy's _set_panel_layout: change the mode, persist it, and resize
+  // the window to match. Compact that doesn't narrow the window is the
+  // failure legacy calls out by name — "empty space with a wandering
+  // position" rather than a panel you can work beside.
+  const setLayout = (next: PanelLayout) => {
+    if (next === layout) return;
+    setLayoutState(next);
+    window.api.setPanelLayout(next);
+    settingsApi.update({ panel_layout: next });
+  };
+
+  // Legacy's _toggle_focus_mode (15802-15805) is exactly this: a real
+  // toggle off the CURRENT state, not a fixed step. Its own comment
+  // explains why — a fixed ±1 clamps at index 0 and the control dies in
+  // the collapsed state.
+  const toggleFocusMode = () => setLayout(layout === 'compact' ? 'full' : 'compact');
+  const compact = layout === 'compact';
 
   // Which dialogs are open, in the order they were opened. A plain
   // "is anything open" boolean can't answer "close the topmost", which
@@ -130,34 +154,84 @@ function AppShell() {
         e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
+      } else if (key === 'f') {
+        e.preventDefault();
+        toggleFocusMode();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [theme, shortcutsOpen, settingsOpen, dialogStack.length]);
+  }, [theme, shortcutsOpen, settingsOpen, dialogStack.length, layout]);
 
   return (
     <LangProvider lang={lang}>
-    <div style={{ fontFamily: 'sans-serif', padding: 24, background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ margin: 0 }}>Habit OS</h1>
+    <div style={{ fontFamily: 'sans-serif', padding: compact ? 12 : 24, background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        {/* Legacy's layout chevron, pinned to the corner and showing what
+            THIS click would do next rather than the current state. */}
+        <button
+          onClick={toggleFocusMode}
+          title={compact ? 'Show everything (Ctrl+F)' : 'Focus mode — tasks only, docked (Ctrl+F)'}
+          style={{ fontSize: 12 }}
+        >
+          {compact ? '▶' : '◀'}
+        </button>
+        {!compact && <h1 style={{ margin: 0, flex: 1 }}>Habit OS</h1>}
+        {compact && <span style={{ flex: 1, fontSize: 12, opacity: 0.6 }}>Focus</span>}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={runExport} disabled={exporting} title="Export a JSON backup + CSV" style={{ fontSize: 12 }}>
-            {exporting ? 'Exporting…' : '⬇ Export Data'}
-          </button>
-          <button onClick={() => cycleTheme(1)} title="Cycle theme (Ctrl+T)" style={{ fontSize: 12 }}>
-            🎨 {THEME_LABELS[theme]}
-          </button>
-          <button onClick={() => setSettingsOpen(true)} title="Settings" style={{ fontSize: 12 }}>
-            ⚙
-          </button>
+          {!compact && (
+            <>
+              <button onClick={runExport} disabled={exporting} title="Export a JSON backup + CSV" style={{ fontSize: 12 }}>
+                {exporting ? 'Exporting…' : '⬇ Export Data'}
+              </button>
+              <button onClick={() => cycleTheme(1)} title="Cycle theme (Ctrl+T)" style={{ fontSize: 12 }}>
+                🎨 {THEME_LABELS[theme]}
+              </button>
+            </>
+          )}
+          <ToolsMenu
+            entries={[
+              {
+                icon: '▤',
+                label: 'Business Dev Plan',
+                desc: 'Opportunity tracker and plan canvas',
+                onSelect: () => {
+                  setLayout('full');
+                  setPage('bdp');
+                },
+              },
+              {
+                icon: '❖',
+                label: 'Goal Step',
+                desc: 'Yearly, monthly and weekly goals per project',
+                onSelect: () => {
+                  setLayout('full');
+                  setPage('goals');
+                },
+              },
+              {
+                icon: '◎',
+                label: 'Focus Mode',
+                desc: 'Tasks only, docked to the screen edge  ·  Ctrl+F',
+                onSelect: toggleFocusMode,
+              },
+              {
+                icon: '⚙',
+                label: 'Settings',
+                desc: 'Language, work hours, export, about',
+                onSelect: () => setSettingsOpen(true),
+              },
+            ]}
+          />
         </div>
       </div>
 
       {exportStatus && <p style={{ fontSize: 12, opacity: 0.7, margin: '8px 0 0' }}>{exportStatus}</p>}
 
-      <div style={{ display: 'flex', gap: 8, margin: '16px 0' }}>
+      {/* Compact is task-only: the page nav is the first thing to go,
+          since every other page is by definition not the task list. */}
+      <div style={{ display: compact ? 'none' : 'flex', gap: 8, margin: '16px 0' }}>
         <button onClick={() => setPage('tasks')} disabled={page === 'tasks'}>
           Tasks
         </button>
@@ -181,9 +255,9 @@ function AppShell() {
         </button>
       </div>
 
-      {page === 'tasks' && (
+      {(page === 'tasks' || compact) && (
         <>
-          <ClockCard />
+          {!compact && <ClockCard />}
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <button onClick={() => setTab('classic')} disabled={tab === 'classic'}>
               Plan
@@ -197,21 +271,21 @@ function AppShell() {
               and deliberately not on FOCUS — FOCUS is where you tick
               things off, PLAN is where you step back and look at the
               week. */}
-          {tab === 'classic' && <PlanReview />}
+          {tab === 'classic' && !compact && <PlanReview />}
         </>
       )}
 
-      {page === 'habits' && <HabitDashboard />}
+      {!compact && page === 'habits' && <HabitDashboard />}
 
-      {page === 'projects' && <ProjectDashboard />}
+      {!compact && page === 'projects' && <ProjectDashboard />}
 
-      {page === 'goals' && <GoalsPanel />}
+      {!compact && page === 'goals' && <GoalsPanel />}
 
-      {page === 'journey' && <JourneyPanel />}
+      {!compact && page === 'journey' && <JourneyPanel />}
 
-      {page === 'bdp' && <BdpPanel />}
+      {!compact && page === 'bdp' && <BdpPanel />}
 
-      {page === 'quarterly' && <QuarterlyPlanPanel />}
+      {!compact && page === 'quarterly' && <QuarterlyPlanPanel />}
 
       <p style={{ marginTop: 32, fontSize: 12, opacity: 0.5 }}>Engine: {status}</p>
 

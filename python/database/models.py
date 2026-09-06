@@ -281,6 +281,12 @@ class AppState(Base):
       component state because it is a working preference — you pick
       "table" to scan twenty plans and expect it still to be table
       tomorrow, exactly as with bdp_sort.
+    - panel_layout: "full" or "compact" — legacy's progressive panel
+      layout, reduced to the two rungs this port's structure can carry
+      (see docs/ROW10_LAYOUT_NOTE.md for why "partial" is not ported).
+      Same reasoning as bdp_view for storing it rather than keeping it
+      in component state: a window you left docked and narrow should
+      still be docked and narrow next time.
     - q90_cycle_start/q90_cycle_days: the 90-Day (or N-day) Quarterly
       Plan's cycle anchor and length, matching legacy's
       `self._settings["cycle_start"/"cycle_days"]`. NULL cycle_start
@@ -326,6 +332,7 @@ class AppState(Base):
     start_with_windows: Mapped[bool] = mapped_column(Boolean, default=False)
     bdp_sort: Mapped[str] = mapped_column(String, default="manual")
     bdp_view: Mapped[str] = mapped_column(String, default="card")
+    panel_layout: Mapped[str] = mapped_column(String, default="full")
     q90_cycle_start: Mapped[str | None] = mapped_column(String, nullable=True)
     q90_cycle_days: Mapped[int] = mapped_column(Integer, default=90)
     task_title_classic_today: Mapped[str | None] = mapped_column(String, nullable=True)
