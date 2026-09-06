@@ -104,6 +104,26 @@ function ProjectCard({
   const running = project.running_since !== null;
   const pct = project.target_minutes > 0 ? Math.min(100, Math.round((project.secs_today / (project.target_minutes * 60)) * 100)) : 0;
 
+  const toggleCollapsed = () => projectsApi.update(key, { collapsed: !project.collapsed }).then(onChanged);
+  const soloThis = () => projectsApi.solo(key).then(onChanged);
+
+  // One line that answers "how is this project doing today" without
+  // opening it — matches legacy's _collapsed_preview_text. Time-vs-
+  // target rather than the next task's name, since the question you
+  // scan collapsed cards for is which project has gone quiet, and a
+  // task name can't tell you that (a project untouched for a week
+  // shows the same line as one worked an hour ago; the minutes can't).
+  const pending = subtasks.filter((s) => !s.done);
+  const previewBits = [`${formatSecs(project.secs_today)} / ${project.target_minutes}m`];
+  if (subtasks.length > 0) previewBits.push(`${subtasks.length - pending.length}/${subtasks.length}`);
+  const previewTail =
+    subtasks.length === 0
+      ? ''
+      : pending.length === 0
+        ? '✓ all tasks done'
+        : `→ ${pending[0].text}${pending.length > 1 ? `  (+${pending.length - 1} more)` : ''}`;
+  const previewText = [previewBits.join('   ·   '), previewTail].filter(Boolean).join('   ·   ');
+
   return (
     <div
       style={{
@@ -118,6 +138,9 @@ function ProjectCard({
       <div style={{ padding: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span
+            onClick={toggleCollapsed}
+            onDoubleClick={soloThis}
+            title="Click to collapse/expand · double-click to solo this project"
             style={{
               width: 22,
               height: 22,
@@ -127,6 +150,8 @@ function ProjectCard({
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: 12,
+              cursor: 'pointer',
+              userSelect: 'none',
             }}
           >
             {number}
@@ -147,6 +172,12 @@ function ProjectCard({
           </button>
         </div>
 
+        {project.collapsed ? (
+          <div onClick={toggleCollapsed} style={{ fontSize: 11, opacity: 0.7, cursor: 'pointer', padding: '2px 0' }}>
+            {previewText}
+          </div>
+        ) : (
+          <>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, fontSize: 12 }}>
           <div style={{ flex: 1, height: 6, background: '#8882', borderRadius: 3, overflow: 'hidden' }}>
             <div style={{ width: `${pct}%`, height: '100%', background: project.accent_color }} />
@@ -248,6 +279,8 @@ function ProjectCard({
           />
           <button onClick={addPerson} title="Add person">+</button>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

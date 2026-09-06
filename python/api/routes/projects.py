@@ -65,6 +65,13 @@ def update_project(key: ProjectKeyT, payload: ProjectUpdate, engine: ProjectEngi
     return engine.project_to_dict(project)
 
 
+@router.post("/{key}/solo", response_model=list[ProjectOut])
+def solo_project(key: ProjectKeyT, engine: ProjectEngine = Depends(get_engine)):
+    _require_project(engine, key)
+    projects = engine.solo_project(key)
+    return [engine.project_to_dict(p) for p in projects]
+
+
 @router.post("/{key}/target", response_model=ProjectOut)
 def bump_target(key: ProjectKeyT, payload: TargetBump, engine: ProjectEngine = Depends(get_engine)):
     _require_project(engine, key)

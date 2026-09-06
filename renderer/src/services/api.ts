@@ -147,6 +147,7 @@ export interface Project {
   is_named: boolean;
   secs_today: number;
   done_today: boolean;
+  collapsed: boolean;
 }
 
 export interface ProjectOrderEntry {
@@ -189,8 +190,9 @@ export interface CirclePerson {
 export const projectsApi = {
   order: () => req('GET', '/api/projects/order') as Promise<ProjectOrderEntry[]>,
   todayProgress: () => req('GET', '/api/projects/today-progress') as Promise<TodayProgress>,
-  update: (key: ProjectKey, patch: Partial<Pick<Project, 'name' | 'note' | 'detail_note'>>) =>
+  update: (key: ProjectKey, patch: Partial<Pick<Project, 'name' | 'note' | 'detail_note' | 'collapsed'>>) =>
     req('PUT', `/api/projects/${key}`, patch) as Promise<Project>,
+  solo: (key: ProjectKey) => req('POST', `/api/projects/${key}/solo`) as Promise<Project[]>,
   bumpTarget: (key: ProjectKey, delta: number) =>
     req('POST', `/api/projects/${key}/target`, { delta }) as Promise<Project>,
   toggleTimer: (key: ProjectKey) => req('POST', `/api/projects/${key}/toggle-timer`) as Promise<Project>,

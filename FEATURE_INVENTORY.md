@@ -166,7 +166,7 @@ chip (ProjectDashboard).
 | 97 | Subtask add/toggle/delete | Done | 6974-7171 |
 | 98 | Subtask "+ STRIKE" promotion chip | Done — this file had left it marked Not Started from before the NOW panel/strike-from-project linkage was actually built; `ProjectDashboard.tsx`'s `strikeSubtask` + `POST /api/projects/subtasks/{pid}/strike` (with "+ STRIKE" / "✓ ON TODAY" / "DAY FULL" states) already fully implement it | 7051-7106 |
 | 99 | Subtask "Deep Work" launcher button (opens sibling Deep Work app) | Not Started | 6992-7106 (button), 16576-16635 (launcher) |
-| 100 | Project card collapse/expand + "solo this project" | Not Started | 6539-6627 |
+| 100 | Project card collapse/expand + "solo this project" | Done — badge click toggles, double-click solos (collapses every other project, all-or-nothing); collapsed preview shows time-vs-target + done/total + next pending task, same as legacy's _collapsed_preview_text | 6539-6627 |
 | 101 | Quick Notes text box per project | Done | 6634-6696 |
 | 102 | Finished-projects-sink-to-bottom ordering | Done | 2635-2656 |
 | 103 | "N/M projects at target" today progress summary | Done | 141-151 in `projects.py` (today_progress) vs 2658-2672 legacy |

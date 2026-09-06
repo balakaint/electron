@@ -145,6 +145,7 @@ class ProjectUpdate(BaseModel):
     detail_note: str | None = None
     note_bg: str | None = None
     note_fg: str | None = None
+    collapsed: bool | None = None
 
 
 class TargetBump(BaseModel):
@@ -164,6 +165,7 @@ class ProjectOut(BaseModel):
     is_named: bool
     secs_today: float
     done_today: bool
+    collapsed: bool
 
 
 class ProjectOrderEntry(BaseModel):

@@ -34,6 +34,7 @@ class ProjectEngine:
             "is_named": self.is_named(project),
             "secs_today": self.secs_today(project.key),
             "done_today": self.done_today(project),
+            "collapsed": project.collapsed,
         }
 
     def get_project(self, key: str) -> Project | None:
@@ -47,6 +48,7 @@ class ProjectEngine:
         detail_note: str | None = None,
         note_bg: str | None = None,
         note_fg: str | None = None,
+        collapsed: bool | None = None,
     ) -> Project | None:
         project = self.repo.get(key)
         if project is None:
@@ -61,7 +63,21 @@ class ProjectEngine:
             project.note_bg = note_bg
         if note_fg is not None:
             project.note_fg = note_fg
+        if collapsed is not None:
+            project.collapsed = collapsed
         return self.repo.save(project)
+
+    def solo_project(self, key: str) -> list[Project]:
+        """Collapse every other project, expand this one — matches
+        legacy's double-click-badge _solo. All-or-nothing by design: a
+        half-applied pass would leave the panel in a state the user
+        never asked for and has no name for, so every project is
+        written before any of them is returned."""
+        projects = self.repo.list()
+        for p in projects:
+            p.collapsed = p.key != key
+            self.repo.save(p)
+        return projects
 
     def bump_target(self, key: str, delta: int) -> Project | None:
         project = self.repo.get(key)

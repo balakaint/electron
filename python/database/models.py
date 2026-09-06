@@ -80,6 +80,7 @@ class Project(Base):
     # _proj_add_secs, which always wrote into str(date.today())'s bucket
     # regardless of when the session began.
     running_since: Mapped[float | None] = mapped_column(Float, nullable=True)
+    collapsed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class ProjectSubtask(Base):
