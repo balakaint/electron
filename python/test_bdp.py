@@ -230,6 +230,75 @@ def test_move_swaps_with_neighbor_and_noops_at_edges():
         check("moving the last plan further down is a no-op", noop_end[-1]["id"] == last_id)
 
 
+def test_reorder_moves_to_arbitrary_index():
+    with FreshDB() as f:
+        import engine.bdp as bdp
+        titles = [p["title"] for p in bdp.list_plans(f.repo)]
+        moved = bdp.list_plans(f.repo)[4]
+
+        # Far move backwards: 5th plan to the front, in one call.
+        out = bdp.reorder_plan(f.repo, moved["id"], 0)
+        check("reorder puts the plan at the requested index",
+              out[0]["title"] == moved["title"], f"got {out[0]['title']}")
+        check("reorder preserves every other plan's relative order",
+              [p["title"] for p in out][1:] == [t for t in titles if t != moved["title"]],
+              f"got {[p['title'] for p in out]}")
+
+        # Far move forwards, back to where it started.
+        out = bdp.reorder_plan(f.repo, moved["id"], 4)
+        check("reorder round-trips", [p["title"] for p in out] == titles,
+              f"got {[p['title'] for p in out]}")
+
+        # order values must stay dense, or they drift over time.
+        orders = sorted(p.order for p in f.repo.list_plans(include_archived=False))
+        check("reorder renumbers order densely from 0",
+              orders == list(range(len(orders))), f"got {orders}")
+
+
+def test_reorder_clamps_and_noops():
+    with FreshDB() as f:
+        import engine.bdp as bdp
+        plans = bdp.list_plans(f.repo)
+        first = plans[0]
+
+        out = bdp.reorder_plan(f.repo, first["id"], 999)
+        check("reorder clamps an index past the end",
+              out[-1]["title"] == first["title"], f"got {out[-1]['title']}")
+
+        out = bdp.reorder_plan(f.repo, first["id"], -5)
+        check("reorder clamps a negative index",
+              out[0]["title"] == first["title"], f"got {out[0]['title']}")
+
+        before = [p["title"] for p in bdp.list_plans(f.repo)]
+        out = bdp.reorder_plan(f.repo, first["id"], 0)
+        check("reorder to the same index is a no-op",
+              [p["title"] for p in out] == before)
+
+        try:
+            bdp.reorder_plan(f.repo, 999999, 0)
+            raised = False
+        except ValueError:
+            raised = True
+        check("reorder of an unknown plan raises ValueError", raised)
+
+
+def test_view_mode_persists():
+    with FreshDB() as f:
+        import engine.bdp as bdp
+        check("view defaults to card", bdp.get_view(f.repo) == "card")
+        for v in ("table", "list", "card"):
+            check(f"view can be set to {v}", bdp.set_view(f.repo, v) == v)
+            check(f"view {v} persists", bdp.get_view(f.repo) == v)
+        try:
+            bdp.set_view(f.repo, "grid")
+            raised = False
+        except ValueError:
+            raised = True
+        check("an unknown view raises ValueError", raised)
+        check("a rejected view leaves the stored one alone",
+              bdp.get_view(f.repo) == "card")
+
+
 def run_all():
     tests = [
         test_seed_data_present,
@@ -244,6 +313,9 @@ def run_all():
         test_search_matches_text_and_actions,
         test_sort_modes,
         test_move_swaps_with_neighbor_and_noops_at_edges,
+        test_reorder_moves_to_arbitrary_index,
+        test_reorder_clamps_and_noops,
+        test_view_mode_persists,
     ]
     for t in tests:
         try:

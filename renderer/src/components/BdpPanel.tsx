@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BdpPlan, BdpPriority, BdpSort, BdpStatus, bdpApi } from '../services/api';
+import { BdpPlan, BdpPriority, BdpSort, BdpStatus, BdpView, bdpApi } from '../services/api';
 
 const STATUSES: BdpStatus[] = ['IDEA', 'OPPORTUNITY', 'RESEARCH', 'PLAN', 'ACTIVE', 'HOLD', 'DONE'];
 const PRIORITIES: BdpPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
@@ -195,11 +195,73 @@ function ActionsChecklist({
   );
 }
 
+type DetailHandlers = {
+  onPatch: (patch: Partial<BdpPlan>) => void;
+  onAddAction: (text: string) => void;
+  onToggleAction: (id: number) => void;
+  onEditAction: (id: number, text: string) => void;
+  onDeleteAction: (id: number) => void;
+};
+
+// Every editable field of one plan. Shared verbatim by the card's inline
+// expand and the full-page view, so the two cannot drift into disagreeing
+// about which fields a plan has — legacy had one `_fields` builder for
+// the same reason.
+function PlanDetail({
+  plan,
+  onPatch,
+  onAddAction,
+  onToggleAction,
+  onEditAction,
+  onDeleteAction,
+}: { plan: BdpPlan } & DetailHandlers) {
+  return (
+    <>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 2 }}>STATUS</div>
+            <ChoiceRow options={STATUSES} value={plan.status} colors={STATUS_COLOR} onChange={(v) => onPatch({ status: v })} />
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 2 }}>PRIORITY</div>
+            <ChoiceRow options={PRIORITIES} value={plan.priority} colors={PRIORITY_COLOR} onChange={(v) => onPatch({ priority: v })} />
+          </div>
+          <TextField label="Opportunity — why is this worth your time?" value={plan.opportunity} multiline onSave={(v) => onPatch({ opportunity: v })} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <TextField label="Market" value={plan.market} onSave={(v) => onPatch({ market: v })} />
+            <TextField label="Target customer" value={plan.target} onSave={(v) => onPatch({ target: v })} />
+            <TextField label="Niche" value={plan.niche} onSave={(v) => onPatch({ niche: v })} />
+            <TextField label="Business model" value={plan.model} onSave={(v) => onPatch({ model: v })} />
+            <TextField label="Product" value={plan.product} onSave={(v) => onPatch({ product: v })} />
+            <TextField label="Service" value={plan.service} onSave={(v) => onPatch({ service: v })} />
+            <TextField label="Supplier" value={plan.supplier} onSave={(v) => onPatch({ supplier: v })} />
+            <TextField label="Timeline (e.g. 3 Months)" value={plan.timeline} onSave={(v) => onPatch({ timeline: v })} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '8px 0' }}>
+            <Stars label="Potential" value={plan.potential} onChange={(v) => onPatch({ potential: v })} />
+            <Stars label="Difficulty" value={plan.difficulty} onChange={(v) => onPatch({ difficulty: v })} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <TextField label="Investment (৳)" value={plan.cost_amount} onSave={(v) => onPatch({ cost_amount: v })} />
+            <TextField label="Yearly profit (৳)" value={plan.yearly_profit} onSave={(v) => onPatch({ yearly_profit: v })} />
+          </div>
+          <TextField label="Notes" value={plan.notes} multiline onSave={(v) => onPatch({ notes: v })} />
+          <ActionsChecklist
+            plan={plan}
+            onAdd={onAddAction}
+            onToggle={onToggleAction}
+            onEdit={onEditAction}
+            onDelete={onDeleteAction}
+          />
+    </>
+  );
+}
+
 function PlanCard({
   plan,
   isFirst,
   isLast,
   sort,
+  onOpen,
   onPatch,
   onMove,
   onDuplicate,
@@ -214,6 +276,7 @@ function PlanCard({
   isFirst: boolean;
   isLast: boolean;
   sort: BdpSort;
+  onOpen: () => void;
   onPatch: (patch: Partial<BdpPlan>) => void;
   onMove: (direction: -1 | 1) => void;
   onDuplicate: () => void;
@@ -274,9 +337,14 @@ function PlanCard({
           {plan.opportunity && <p style={{ fontSize: 13, margin: '0 0 6px' }}>{plan.opportunity}</p>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
-          <button onClick={() => setExpanded((v) => !v)} style={{ fontSize: 11 }}>
-            {expanded ? 'Collapse ▲' : 'Details ▼'}
-          </button>
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={() => setExpanded((v) => !v)} style={{ fontSize: 11 }}>
+              {expanded ? 'Collapse ▲' : 'Details ▼'}
+            </button>
+            <button onClick={onOpen} title="Open full page" style={{ fontSize: 11 }}>
+              ⤢
+            </button>
+          </div>
           <div style={{ display: 'flex', gap: 4 }}>
             <button onClick={onDuplicate} title="Duplicate" style={{ fontSize: 11 }}>
               ⧉
@@ -293,40 +361,13 @@ function PlanCard({
 
       {expanded && (
         <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 2 }}>STATUS</div>
-            <ChoiceRow options={STATUSES} value={plan.status} colors={STATUS_COLOR} onChange={(v) => onPatch({ status: v })} />
-          </div>
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 2 }}>PRIORITY</div>
-            <ChoiceRow options={PRIORITIES} value={plan.priority} colors={PRIORITY_COLOR} onChange={(v) => onPatch({ priority: v })} />
-          </div>
-          <TextField label="Opportunity — why is this worth your time?" value={plan.opportunity} multiline onSave={(v) => onPatch({ opportunity: v })} />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <TextField label="Market" value={plan.market} onSave={(v) => onPatch({ market: v })} />
-            <TextField label="Target customer" value={plan.target} onSave={(v) => onPatch({ target: v })} />
-            <TextField label="Niche" value={plan.niche} onSave={(v) => onPatch({ niche: v })} />
-            <TextField label="Business model" value={plan.model} onSave={(v) => onPatch({ model: v })} />
-            <TextField label="Product" value={plan.product} onSave={(v) => onPatch({ product: v })} />
-            <TextField label="Service" value={plan.service} onSave={(v) => onPatch({ service: v })} />
-            <TextField label="Supplier" value={plan.supplier} onSave={(v) => onPatch({ supplier: v })} />
-            <TextField label="Timeline (e.g. 3 Months)" value={plan.timeline} onSave={(v) => onPatch({ timeline: v })} />
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '8px 0' }}>
-            <Stars label="Potential" value={plan.potential} onChange={(v) => onPatch({ potential: v })} />
-            <Stars label="Difficulty" value={plan.difficulty} onChange={(v) => onPatch({ difficulty: v })} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <TextField label="Investment (৳)" value={plan.cost_amount} onSave={(v) => onPatch({ cost_amount: v })} />
-            <TextField label="Yearly profit (৳)" value={plan.yearly_profit} onSave={(v) => onPatch({ yearly_profit: v })} />
-          </div>
-          <TextField label="Notes" value={plan.notes} multiline onSave={(v) => onPatch({ notes: v })} />
-          <ActionsChecklist
+          <PlanDetail
             plan={plan}
-            onAdd={onAddAction}
-            onToggle={onToggleAction}
-            onEdit={onEditAction}
-            onDelete={onDeleteAction}
+            onPatch={onPatch}
+            onAddAction={onAddAction}
+            onToggleAction={onToggleAction}
+            onEditAction={onEditAction}
+            onDeleteAction={onDeleteAction}
           />
         </div>
       )}
@@ -334,9 +375,229 @@ function PlanCard({
   );
 }
 
+// ── Full-page project view ──────────────────────────────────────────
+// One plan, the whole panel, every field editable in place. Legacy's own
+// note on why this exists beside the card's inline expand
+// (task_tracker_v3_THEMES.py 13724-13730): the compact view is for
+// capturing something fast, this is for sitting with a project and
+// working it out — which is why nothing here is behind a Save button.
+// Each field commits on focus-out, the way a document does.
+function PlanPage({
+  plan,
+  index,
+  total,
+  onGo,
+  onClose,
+  ...handlers
+}: {
+  plan: BdpPlan;
+  index: number;
+  total: number;
+  onGo: (step: -1 | 1) => void;
+  onClose: () => void;
+} & DetailHandlers) {
+  const [title, setTitle] = useState(plan.title);
+  useEffect(() => setTitle(plan.title), [plan.id, plan.title]);
+
+  // Escape returns to the list. Legacy rebinds Escape on the window and
+  // has to hand it back on close; here the listener simply unmounts with
+  // the page, so there is nothing to restore.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    // Legacy caps the column at 980px and centres it: "a field stretched
+    // across a 1900px monitor is unreadable — the eye loses the line."
+    <div style={{ maxWidth: 980, margin: '0 auto' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          paddingBottom: 8,
+          borderBottom: '1px solid var(--border)',
+          marginBottom: 16,
+        }}
+      >
+        <button onClick={onClose} style={{ fontSize: 12 }}>
+          ←  All plans
+        </button>
+        <span style={{ flex: 1, fontSize: 11, opacity: 0.5 }}>
+          {index + 1} of {total}
+        </span>
+        {/* Prev/Next wrap, as legacy's _sibling does with its modulo —
+            reaching the end of a short list and finding the button dead
+            is worse than looping. */}
+        <button onClick={() => onGo(-1)} disabled={total < 2} style={{ fontSize: 12 }}>
+          ‹  Prev
+        </button>
+        <button onClick={() => onGo(1)} disabled={total < 2} style={{ fontSize: 12 }}>
+          Next  ›
+        </button>
+      </div>
+
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={() => {
+          const t = title.trim();
+          if (t && t !== plan.title) handlers.onPatch({ title: t });
+          else if (!t) setTitle(plan.title);
+        }}
+        style={{
+          width: '100%',
+          fontSize: 24,
+          fontWeight: 'bold',
+          border: 'none',
+          borderBottom: `2px solid ${STATUS_COLOR[plan.status]}`,
+          background: 'transparent',
+          color: 'var(--text)',
+          padding: '0 0 6px',
+          marginBottom: 16,
+        }}
+      />
+
+      <PlanDetail plan={plan} {...handlers} />
+    </div>
+  );
+}
+
+// ── Table view ──────────────────────────────────────────────────────
+// Legacy's dense per-project summary row (13256-13624). Its three
+// columns are PROJECT NAME / SUPPLIER / ROADMAP, weighted 56/24/20 —
+// kept here, because the point of this view is scanning many plans at
+// once and a column set chosen per-view would defeat the comparison.
+const TBL_COLS: [string, number][] = [
+  ['PROJECT NAME', 56],
+  ['SUPPLIER', 24],
+  ['ROADMAP', 20],
+];
+
+function TableHeader() {
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: TBL_COLS.map(([, w]) => `${w}fr`).join(' '),
+        // Legacy: 2px rules above and below the header, 1px between
+        // rows — "the weight difference is what makes the header read as
+        // a header without needing a fill colour behind it."
+        borderTop: '2px solid var(--text)',
+        borderBottom: '2px solid var(--text)',
+      }}
+    >
+      {TBL_COLS.map(([label], i) => (
+        <div
+          key={label}
+          style={{
+            // Muted, not full strength: a column header is read once to
+            // learn the layout and should never again compete with the
+            // plan titles under it.
+            fontSize: 10,
+            letterSpacing: 0.5,
+            opacity: 0.55,
+            padding: '4px 8px',
+            borderLeft: i ? '1px solid var(--border)' : undefined,
+          }}
+        >
+          {label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TableRow({ plan, onOpen }: { plan: BdpPlan; onOpen: () => void }) {
+  const acts = plan.next_actions;
+  const done = acts.filter((a) => a.done).length;
+  return (
+    <div
+      onClick={onOpen}
+      title="Open this plan"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: TBL_COLS.map(([, w]) => `${w}fr`).join(' '),
+        borderBottom: '1px solid var(--border)',
+        borderLeft: `3px solid ${STATUS_COLOR[plan.status]}`,
+        cursor: 'pointer',
+        fontSize: 12,
+      }}
+    >
+      <div style={{ padding: '6px 8px', minWidth: 0 }}>
+        <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {plan.title}
+        </div>
+        <div style={{ opacity: 0.6, fontSize: 11 }}>
+          {plan.status} · {plan.priority}
+          {plan.market ? ` · ${plan.market}` : ''}
+        </div>
+      </div>
+      <div style={{ padding: '6px 8px', borderLeft: '1px solid var(--border)', opacity: plan.supplier ? 1 : 0.4, minWidth: 0 }}>
+        {plan.supplier || '—'}
+      </div>
+      <div style={{ padding: '6px 8px', borderLeft: '1px solid var(--border)', minWidth: 0 }}>
+        <span style={{ opacity: plan.timeline ? 1 : 0.4 }}>{plan.timeline || '—'}</span>
+        {acts.length > 0 && (
+          <span style={{ opacity: 0.6 }}>
+            {' '}· {done}/{acts.length}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── List view ───────────────────────────────────────────────────────
+// Legacy's compact one-line row (13668-13723): index and title on the
+// left, then market | status | priority | timeline | actions on the
+// right, with the status colour as a 3px stripe.
+function ListRow({ plan, index, onOpen }: { plan: BdpPlan; index: number; onOpen: () => void }) {
+  const acts = plan.next_actions;
+  const bits = [plan.market || '—', plan.status, plan.priority, plan.timeline || '—'];
+  if (acts.length > 0) bits.push(`${acts.filter((a) => a.done).length}/${acts.length}`);
+  return (
+    <div
+      onClick={onOpen}
+      title="Open this plan"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        border: '1px solid var(--border)',
+        borderLeft: `3px solid ${STATUS_COLOR[plan.status]}`,
+        background: 'var(--surface)',
+        padding: '5px 8px',
+        marginBottom: 2,
+        cursor: 'pointer',
+        fontSize: 12,
+      }}
+    >
+      <span style={{ fontWeight: 'bold', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {index}. {plan.title}
+      </span>
+      <span style={{ opacity: 0.6, fontSize: 11, whiteSpace: 'nowrap' }}>{bits.join('   |   ')}</span>
+    </div>
+  );
+}
+
 export default function BdpPanel() {
   const [plans, setPlans] = useState<BdpPlan[]>([]);
   const [sort, setSort] = useState<BdpSort>('manual');
+  const [view, setView] = useState<BdpView>('card');
+  // Which plan the full-page view is showing, by id rather than index —
+  // an index would point at a different plan the moment a filter or the
+  // sort mode changed underneath it.
+  const [openId, setOpenId] = useState<number | null>(null);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState<BdpStatus | 'All'>('All');
   const [fPriority, setFPriority] = useState<BdpPriority | 'All'>('All');
@@ -348,6 +609,7 @@ export default function BdpPanel() {
 
   useEffect(() => {
     bdpApi.getSort().then((s) => setSort(s.sort));
+    bdpApi.getView().then((v) => setView(v.view));
   }, []);
 
   useEffect(() => {
@@ -359,6 +621,61 @@ export default function BdpPanel() {
     setSort(v);
     bdpApi.setSort(v);
   };
+
+  const changeView = (v: BdpView) => {
+    setView(v);
+    bdpApi.setView(v);
+  };
+
+  // Handlers a plan needs wherever it is rendered — the card's inline
+  // expand and the full page both take the same set.
+  const handlersFor = (p: BdpPlan) => ({
+    onPatch: (patch: Partial<BdpPlan>) => bdpApi.edit(p.id, patch).then(refresh),
+    onAddAction: (text: string) => bdpApi.addAction(p.id, text).then(refresh),
+    onToggleAction: (id: number) => bdpApi.toggleAction(id).then(refresh),
+    onEditAction: (id: number, text: string) => bdpApi.editAction(id, text).then(refresh),
+    onDeleteAction: (id: number) => bdpApi.deleteAction(id).then(refresh),
+  });
+
+  // Drag-to-reorder, manual sort only. The dragged row is not moved on
+  // screen; the position it would land in is marked instead and the list
+  // re-renders once on drop — legacy's own reasoning (13280-13300), and
+  // it holds here too: reordering live under the cursor fights the
+  // scroll position for no extra clarity.
+  const dragProps = (p: BdpPlan, i: number) =>
+    sort !== 'manual'
+      ? {}
+      : {
+          draggable: true,
+          onDragStart: (e: React.DragEvent) => {
+            setDragId(p.id);
+            e.dataTransfer.effectAllowed = 'move';
+          },
+          onDragOver: (e: React.DragEvent) => {
+            if (dragId === null) return;
+            e.preventDefault();
+            setDropIndex(i);
+          },
+          onDragEnd: () => {
+            setDragId(null);
+            setDropIndex(null);
+          },
+          onDrop: (e: React.DragEvent) => {
+            e.preventDefault();
+            const id = dragId;
+            setDragId(null);
+            setDropIndex(null);
+            if (id !== null && plans.findIndex((x) => x.id === id) !== i) {
+              bdpApi.reorder(id, i).then(setPlans);
+            }
+          },
+          style: {
+            opacity: dragId === p.id ? 0.4 : 1,
+            // The drop marker is a line, not a gap: a gap reflows every
+            // row below it and the list appears to jump while dragging.
+            boxShadow: dropIndex === i && dragId !== p.id ? 'inset 0 2px 0 0 var(--accent)' : undefined,
+          },
+        };
 
   const submitNew = (e: React.FormEvent) => {
     e.preventDefault();
@@ -372,8 +689,27 @@ export default function BdpPanel() {
 
   if (!loaded) return <div>Loading…</div>;
 
+  const openPlan = openId === null ? null : plans.find((p) => p.id === openId) ?? null;
+  if (openPlan) {
+    const idx = plans.findIndex((p) => p.id === openPlan.id);
+    return (
+      <PlanPage
+        plan={openPlan}
+        index={idx}
+        total={plans.length}
+        // Wraps, matching legacy's modulo in _sibling.
+        onGo={(step) => setOpenId(plans[(idx + step + plans.length) % plans.length].id)}
+        onClose={() => setOpenId(null)}
+        {...handlersFor(openPlan)}
+      />
+    );
+  }
+  // A plan that was open but has since been filtered out (or deleted)
+  // leaves openId pointing at nothing; fall through to the list rather
+  // than rendering a blank panel.
+
   return (
-    <div style={{ maxWidth: 820 }}>
+    <div style={{ maxWidth: view === 'card' ? 820 : 980 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
         <input
           value={q}
@@ -408,6 +744,30 @@ export default function BdpPanel() {
         <button onClick={() => changeSort(sort === 'manual' ? 'priority' : 'manual')} style={{ fontSize: 12 }}>
           ⇅ {sort === 'manual' ? 'Manual' : 'Priority'}
         </button>
+        <div role="radiogroup" aria-label="View" style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
+          {(['card', 'table', 'list'] as BdpView[]).map((v) => (
+            <button
+              key={v}
+              role="radio"
+              aria-checked={view === v}
+              onClick={() => changeView(v)}
+              title={
+                v === 'card'
+                  ? 'Card view — one plan at a time, editable in place'
+                  : v === 'table'
+                    ? 'Table view — dense summary rows'
+                    : 'List view — one line per plan'
+              }
+              style={{
+                fontSize: 12,
+                fontWeight: view === v ? 'bold' : 'normal',
+                background: view === v ? 'var(--accent-light)' : undefined,
+              }}
+            >
+              {v === 'card' ? '▤' : v === 'table' ? '▦' : '☰'}
+            </button>
+          ))}
+        </div>
       </div>
 
       <form onSubmit={submitNew} style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
@@ -422,24 +782,34 @@ export default function BdpPanel() {
 
       {plans.length === 0 && <p style={{ opacity: 0.6, fontSize: 13 }}>No plans match — try clearing filters.</p>}
 
-      {plans.map((p, i) => (
-        <PlanCard
-          key={p.id}
-          plan={p}
-          isFirst={i === 0}
-          isLast={i === plans.length - 1}
-          sort={sort}
-          onPatch={(patch) => bdpApi.edit(p.id, patch).then(refresh)}
-          onMove={(direction) => bdpApi.move(p.id, direction).then(setPlans)}
-          onDuplicate={() => bdpApi.duplicate(p.id).then(refresh)}
-          onArchive={() => bdpApi.archive(p.id).then(refresh)}
-          onDelete={() => bdpApi.remove(p.id).then(refresh)}
-          onAddAction={(text) => bdpApi.addAction(p.id, text).then(refresh)}
-          onToggleAction={(id) => bdpApi.toggleAction(id).then(refresh)}
-          onEditAction={(id, text) => bdpApi.editAction(id, text).then(refresh)}
-          onDeleteAction={(id) => bdpApi.deleteAction(id).then(refresh)}
-        />
-      ))}
+      {view === 'table' && plans.length > 0 && <TableHeader />}
+
+      {plans.map((p, i) =>
+        view === 'card' ? (
+          <div key={p.id} {...dragProps(p, i)}>
+            <PlanCard
+              plan={p}
+              isFirst={i === 0}
+              isLast={i === plans.length - 1}
+              sort={sort}
+              onOpen={() => setOpenId(p.id)}
+              onMove={(direction) => bdpApi.move(p.id, direction).then(setPlans)}
+              onDuplicate={() => bdpApi.duplicate(p.id).then(refresh)}
+              onArchive={() => bdpApi.archive(p.id).then(refresh)}
+              onDelete={() => bdpApi.remove(p.id).then(refresh)}
+              {...handlersFor(p)}
+            />
+          </div>
+        ) : view === 'table' ? (
+          <div key={p.id} {...dragProps(p, i)}>
+            <TableRow plan={p} onOpen={() => setOpenId(p.id)} />
+          </div>
+        ) : (
+          <div key={p.id} {...dragProps(p, i)}>
+            <ListRow plan={p} index={i + 1} onOpen={() => setOpenId(p.id)} />
+          </div>
+        ),
+      )}
     </div>
   );
 }

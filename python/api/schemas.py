@@ -621,12 +621,24 @@ class BdpActionEdit(BaseModel):
     text: str
 
 
+class BdpReorder(BaseModel):
+    to_index: int
+
+
 class BdpSortSet(BaseModel):
     sort: Literal["manual", "priority"]
 
 
 class BdpSortOut(BaseModel):
     sort: Literal["manual", "priority"]
+
+
+class BdpViewSet(BaseModel):
+    view: Literal["card", "table", "list"]
+
+
+class BdpViewOut(BaseModel):
+    view: Literal["card", "table", "list"]
 
 
 Q90AreaKeyT = Literal["appearance", "money", "relationship", "health", "social", "mind"]

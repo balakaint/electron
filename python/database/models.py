@@ -268,6 +268,11 @@ class AppState(Base):
       "priority") — a single global toggle for that one screen, matching
       the legacy screen's own `vd["sort"]`, same shape as task_day_view
       above.
+    - bdp_view: which of that screen's three layouts is showing ("card" |
+      "table" | "list"). Stored beside bdp_sort rather than in local
+      component state because it is a working preference — you pick
+      "table" to scan twenty plans and expect it still to be table
+      tomorrow, exactly as with bdp_sort.
     - q90_cycle_start/q90_cycle_days: the 90-Day (or N-day) Quarterly
       Plan's cycle anchor and length, matching legacy's
       `self._settings["cycle_start"/"cycle_days"]`. NULL cycle_start
@@ -312,6 +317,7 @@ class AppState(Base):
     currency: Mapped[str] = mapped_column(String, default="$")
     start_with_windows: Mapped[bool] = mapped_column(Boolean, default=False)
     bdp_sort: Mapped[str] = mapped_column(String, default="manual")
+    bdp_view: Mapped[str] = mapped_column(String, default="card")
     q90_cycle_start: Mapped[str | None] = mapped_column(String, nullable=True)
     q90_cycle_days: Mapped[int] = mapped_column(Integer, default=90)
     task_title_classic_today: Mapped[str | None] = mapped_column(String, nullable=True)

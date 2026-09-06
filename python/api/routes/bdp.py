@@ -8,8 +8,11 @@ from api.schemas import (
     BdpPlanCreate,
     BdpPlanEdit,
     BdpPlanOut,
+    BdpReorder,
     BdpSortOut,
     BdpSortSet,
+    BdpViewOut,
+    BdpViewSet,
     BdpStatusT,
 )
 import engine.bdp as bdp
@@ -86,6 +89,14 @@ def move_plan(plan_id: int, payload: BdpMove, repo: BdpRepository = Depends(get_
         raise HTTPException(404, str(e))
 
 
+@router.post("/plans/{plan_id}/reorder", response_model=list[BdpPlanOut])
+def reorder_plan(plan_id: int, payload: BdpReorder, repo: BdpRepository = Depends(get_repo)):
+    try:
+        return bdp.reorder_plan(repo, plan_id, payload.to_index)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 @router.get("/sort", response_model=BdpSortOut)
 def read_sort(repo: BdpRepository = Depends(get_repo)):
     return {"sort": bdp.get_sort(repo)}
@@ -94,6 +105,16 @@ def read_sort(repo: BdpRepository = Depends(get_repo)):
 @router.post("/sort", response_model=BdpSortOut)
 def write_sort(payload: BdpSortSet, repo: BdpRepository = Depends(get_repo)):
     return {"sort": bdp.set_sort(repo, payload.sort)}
+
+
+@router.get("/view", response_model=BdpViewOut)
+def read_view(repo: BdpRepository = Depends(get_repo)):
+    return {"view": bdp.get_view(repo)}
+
+
+@router.post("/view", response_model=BdpViewOut)
+def write_view(payload: BdpViewSet, repo: BdpRepository = Depends(get_repo)):
+    return {"view": bdp.set_view(repo, payload.view)}
 
 
 @router.post("/plans/{plan_id}/actions", response_model=BdpPlanOut)

@@ -13,14 +13,14 @@ was checked against the legacy source before being closed.
 
 | Status | Rows |
 |---|---|
-| Done | 144 |
+| Done | 148 |
 | N/A | 8 (rows 3, 7, 21, 36, 99, 140, 170, 172) |
 | Excluded — section R sibling apps | 6 (rows 161-166) |
-| **Remaining real work** | **14** |
+| **Remaining real work** | **10** |
 
-The 14 remaining: 10, 11, 17, 22, 29, 30, 60, 77, 78, 82, 130, 131, 132,
-134. Sequenced in `PORT_COMPLETION_PLAN.md`.
-Phase 1 (rows 15, 147) and Phase 2 (rows 37, 70, 96) closed 2026-09-06.
+The 10 remaining: 10, 11, 17, 22, 29, 30, 60, 77, 78, 82. Sequenced in
+`PORT_COMPLETION_PLAN.md`. Phases 1-3 closed 2026-09-06 (rows 15, 147;
+37, 70, 96; 130, 131, 132, 134).
 
 Pure internal visual/utility plumbing (color-blend math, hover-tint
 helpers, rounded-rect canvas drawing, tooltip positioning, drag-ghost
@@ -248,11 +248,11 @@ underlying capability (see rows 130-132, 134).
 | # | Feature | Status | Legacy lines |
 |---|---|---|---|
 | 129 | Opportunity/plan cards (title, status, priority, opportunity text, next actions, timeline) | Done (inline-editable card, not a separate modal — matches this codebase's established GoalsPanel/JourneyPanel convention over legacy's own modal-based editor) | 12875-13167 |
-| 130 | Table view (dense per-project summary row) | Partial (no separate dense table layout; the one card view's collapsed state covers the same "scan many at once" job) | 13256-13624 |
-| 131 | List view (compact one-line row) | Partial (same one consolidated card view stands in for this too — see row 130) | 13668-13723 |
-| 132 | Full-page detail view per plan (autosave, prev/next nav) | Partial (an inline expand-in-place "Details" section autosaves every field on blur; no full-page view and no prev/next navigation between plans) | 13731-13964 |
+| 130 | Table view (dense per-project summary row) | Done — a real dense layout with legacy's own three columns and weights (PROJECT NAME 56 / SUPPLIER 24 / ROADMAP 20), the 2px header rules and 1px row rules it uses to make a header read as one without a fill colour, and the muted header ink it uses so column labels never compete with plan titles. Row click opens the full page | 13256-13624 |
+| 131 | List view (compact one-line row) | Done — `ListRow`: index and title left, `market | status | priority | timeline | actions` right, status colour as a 3px left stripe, matching legacy's `_build_row`. Row click opens the full page | 13668-13723 |
+| 132 | Full-page detail view per plan (autosave, prev/next nav) | Done — `PlanPage`: 980px centred column (legacy's own cap: "a field stretched across a 1900px monitor is unreadable"), 24px inline-editable title, Prev/Next that wrap via the same modulo legacy's `_sibling` uses, back-to-list, and Escape to close. Every field commits on blur, no Save button. The field set is the shared `PlanDetail` component the card's inline expand also renders, so the two views cannot drift about which fields a plan has. The open plan is tracked by id, not index, so a filter change underneath it cannot silently swap which plan you are editing | 13731-13964 |
 | 133 | Search + Status/Priority/Market filters | Done (market's "Other" bucket matches legacy's exact definition: anything not Bangladesh/USA/Global/blank) | 12679-12872 |
-| 134 | Manual drag-reorder + priority-based sort mode | Partial (priority-sort mode is exact; manual mode uses ▲/▼ swap-with-neighbor buttons instead of mouse drag — same reordering outcome, different input method) | 13280-13375, 12608-12618 |
+| 134 | Manual drag-reorder + priority-based sort mode | Done — HTML5 drag-and-drop in all three views when manual sort is active. The dragged row is not moved under the cursor; the landing position is marked with an inset line and the list re-renders once on drop, which is legacy's own approach and reasoning (reordering live inside a scroll container fights the scroll position). Backed by a new `reorder` engine function and endpoint that lifts the plan out and reinserts it at an arbitrary index in one pass, rather than issuing a run of neighbour swaps; it renumbers `order` densely so the column cannot drift into fractions or huge gaps. The ▲/▼ buttons are kept as the keyboard-accessible path, since drag alone is not operable without a mouse | 13280-13375, 12608-12618 |
 | 135 | Row menu: Edit/Duplicate/Archive/Delete | Done (Edit is inline fields rather than a menu entry — nothing to "open" separately; Duplicate/Archive/Delete are icon buttons rather than a dropdown, same four actions) | 13169-13202 |
 | 136 | Potential/Difficulty star ratings | Done (1-5, +/- steppers, same clamp as legacy) | 13007-13020 |
 | 137 | Investment/yearly-profit currency fields | Done (`cost_amount`/`yearly_profit`, free text same as legacy's plain Entry widgets) | 13057-13059 |

@@ -222,6 +222,35 @@ def move_plan(repo: BdpRepository, plan_id: int, direction: int) -> list[dict]:
     return list_plans(repo)
 
 
+def reorder_plan(repo: BdpRepository, plan_id: int, to_index: int) -> list[dict]:
+    """Move a plan to an arbitrary position in the manual order.
+
+    move_plan swaps with a neighbour, which is all the up/down buttons
+    ever needed. A drag can cross the whole list in one gesture, and
+    doing that as a run of swaps would write every row in between and
+    fire a request per step. This lifts the plan out, reinserts it at
+    `to_index`, and renumbers — one pass, and the resulting order is
+    exactly what the user dropped, not a sequence of near-misses.
+
+    Renumbering densely (0..n-1) rather than preserving the old spacing
+    keeps `order` from drifting into fractions or huge gaps over time.
+    """
+    plans = sorted(repo.list_plans(include_archived=False), key=lambda p: p.order)
+    idx = next((i for i, p in enumerate(plans) if p.id == plan_id), None)
+    if idx is None:
+        raise ValueError("Plan not found")
+    to_index = max(0, min(len(plans) - 1, to_index))
+    if to_index == idx:
+        return list_plans(repo)
+    moved = plans.pop(idx)
+    plans.insert(to_index, moved)
+    for i, plan in enumerate(plans):
+        if plan.order != i:
+            plan.order = i
+            repo.save_plan(plan)
+    return list_plans(repo)
+
+
 def get_sort(repo: BdpRepository) -> str:
     return repo.get_app_state().bdp_sort
 
@@ -236,6 +265,19 @@ def set_sort(repo: BdpRepository, value: str) -> str:
 
 
 # ── Next-actions checklist ──────────────────────────────────────────
+def get_view(repo: BdpRepository) -> str:
+    return repo.get_app_state().bdp_view
+
+
+def set_view(repo: BdpRepository, value: str) -> str:
+    if value not in ("card", "table", "list"):
+        raise ValueError("view must be 'card', 'table' or 'list'")
+    state = repo.get_app_state()
+    state.bdp_view = value
+    repo.save_app_state(state)
+    return value
+
+
 def add_action(repo: BdpRepository, plan_id: int, text: str) -> dict:
     plan = repo.get_plan(plan_id)
     if plan is None:

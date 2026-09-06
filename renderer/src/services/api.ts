@@ -484,6 +484,7 @@ export const settingsApi = {
 export type BdpStatus = 'IDEA' | 'OPPORTUNITY' | 'RESEARCH' | 'PLAN' | 'ACTIVE' | 'HOLD' | 'DONE';
 export type BdpPriority = 'HIGH' | 'MEDIUM' | 'LOW';
 export type BdpSort = 'manual' | 'priority';
+export type BdpView = 'card' | 'table' | 'list';
 
 export interface BdpAction {
   id: number;
@@ -569,6 +570,10 @@ export const bdpApi = {
     req('POST', `/api/bdp/plans/${id}/move`, { direction }) as Promise<BdpPlan[]>,
   getSort: () => req('GET', '/api/bdp/sort') as Promise<{ sort: BdpSort }>,
   setSort: (sort: BdpSort) => req('POST', '/api/bdp/sort', { sort }) as Promise<{ sort: BdpSort }>,
+  reorder: (id: number, toIndex: number) =>
+    req('POST', `/api/bdp/plans/${id}/reorder`, { to_index: toIndex }) as Promise<BdpPlan[]>,
+  getView: () => req('GET', '/api/bdp/view') as Promise<{ view: BdpView }>,
+  setView: (view: BdpView) => req('POST', '/api/bdp/view', { view }) as Promise<{ view: BdpView }>,
   addAction: (planId: number, text: string) =>
     req('POST', `/api/bdp/plans/${planId}/actions`, { text }) as Promise<BdpPlan>,
   editAction: (actionId: number, text: string) =>
