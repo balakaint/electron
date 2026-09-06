@@ -31,6 +31,7 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
   const [title, setTitleState] = useState('');
+  const [mitPromptTasks, setMitPromptTasks] = useState<Task[] | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { push: pushUndo } = useUndo();
 
@@ -197,6 +198,21 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
       })
       .finally(() => setLoading(false));
   }, [listKey]);
+
+  // Retired on Focus, same as legacy: its NOW/strike surface already
+  // asks "what matters most" permanently, so a popup over it would
+  // cover the very screen answering it. Classic has no such surface.
+  useEffect(() => {
+    if (listKey !== 'classic') return;
+    tasksApi.checkMitPrompt().then(({ show, tasks }) => {
+      if (show) setMitPromptTasks(tasks);
+    });
+  }, [listKey]);
+
+  const pickMitPrompt = (task: Task) => {
+    setMitPromptTasks(null);
+    setMit(task);
+  };
 
   // A struck task belongs to the NOW/STRIKE card above, not the pool
   // below it — showing it in both places would put the same task on
@@ -447,6 +463,42 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
             );
           })}
         </ul>
+      )}
+
+      {mitPromptTasks && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+          }}
+        >
+          <div style={{ background: 'var(--surface)', borderRadius: 8, padding: 20, width: 320 }}>
+            <div style={{ fontSize: 15, fontWeight: 'bold', color: '#c8a24a', marginBottom: 4 }}>
+              ★ WHAT'S TODAY'S MIT?
+            </div>
+            <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 12 }}>One Most Important Task. Do it first.</div>
+            {mitPromptTasks.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => pickMitPrompt(t)}
+                style={{ display: 'block', width: '100%', textAlign: 'left', fontSize: 13, padding: '6px 8px', marginBottom: 2 }}
+              >
+                ☆ {t.text.slice(0, 44)}
+              </button>
+            ))}
+            <button
+              onClick={() => setMitPromptTasks(null)}
+              style={{ display: 'block', margin: '10px auto 0', fontSize: 11, opacity: 0.6, border: 'none', background: 'none' }}
+            >
+              Skip today
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

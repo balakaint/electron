@@ -163,6 +163,29 @@ class TaskEngine:
     def set_task_title(self, list_key: str, title: str) -> str:
         return set_task_title(self.repo, list_key, get_day_view(self.repo), title)
 
+    def check_mit_prompt(self) -> tuple[bool, list[Task]]:
+        """Once a day: if Classic's current view has open tasks and none
+        of them is the MIT, surface up to 8 for the caller to prompt
+        with — matches legacy's _maybe_mit_prompt, which the port
+        retires on Focus the same way legacy's own comment describes
+        (Focus's NOW/strike surface already asks this permanently, so a
+        popup over it would cover the very screen answering it); the
+        frontend only calls this while Classic is the active list.
+        Marks today as prompted the moment it decides to show — not on
+        whatever the user later picks — same as legacy setting
+        mit_prompt_date before building the dialog, so a dismiss-without-
+        choosing still counts as already asked today."""
+        state = self.repo.get_app_state()
+        today = str(date.today())
+        if state.mit_prompt_date == today:
+            return False, []
+        open_tasks = [t for t in self.list_tasks("classic") if not t.done]
+        if not open_tasks or any(t.mit for t in open_tasks):
+            return False, []
+        state.mit_prompt_date = today
+        self.repo.save_app_state(state)
+        return True, open_tasks[:8]
+
     def create_task(self, text: str, list_key: str = "classic", day: str | None = None) -> Task:
         text = text.strip()
         if not text:

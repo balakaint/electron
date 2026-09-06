@@ -81,6 +81,11 @@ class TaskRestore(TaskOut):
     exact snapshot the client had before calling delete."""
 
 
+class MitPromptOut(BaseModel):
+    show: bool
+    tasks: list[TaskOut]
+
+
 HabitCategoryT = Literal["money", "health", "relation", "mind"]
 
 

@@ -73,6 +73,7 @@ export const tasksApi = {
   getTitle: (listKey: ListKey) => req('GET', `/api/tasks/title?list_key=${listKey}`) as Promise<{ title: string }>,
   setTitle: (listKey: ListKey, title: string) =>
     req('POST', `/api/tasks/title?list_key=${listKey}`, { title }) as Promise<{ title: string }>,
+  checkMitPrompt: () => req('GET', '/api/tasks/mit-prompt') as Promise<{ show: boolean; tasks: Task[] }>,
 };
 
 export const STRIKE_MAX = 3;

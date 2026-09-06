@@ -50,7 +50,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 22 | Keyboard shortcuts: Ctrl+S save, Ctrl+W/Esc close dialog, Ctrl+F focus mode, F1/? shortcuts panel | Partial (F1/? done; no Ctrl+S needed since every action autosaves immediately; Ctrl+W/Esc and Ctrl+F have no dialog-stack/focus-mode concept to attach to yet) | 1974-2030 |
 | 23 | Keyboard-shortcuts help overlay panel | Done | 16077-16127 |
 | 24 | First-run onboarding tour (3-step modal) | Done | 16130-16235 |
-| 25 | Daily MIT morning prompt (pick today's MIT if none set) | Not Started | 14508-14571 |
+| 25 | Daily MIT morning prompt (pick today's MIT if none set) | Done — retired on Focus same as legacy (its NOW/strike surface already asks this permanently) | 14508-14571 |
 | 26 | Keyboard-focus ring (visible focus indicator on every control) | Done — one global `:focus-visible` outline rule rather than legacy's per-widget styling, but same user-facing effect (keyboard-only nav visibly highlights the active control; mouse clicks don't show it) | 1777-1822 |
 | 27 | Delayed hover tooltips on icon-only buttons | Done — native browser `title` attribute on every icon-only control across all panels, standing in for legacy's custom 450ms Toplevel tooltip widget (same user-facing effect: a delayed on-hover label, OS-timed rather than hardcoded to 450ms) | 244-303 |
 | 28 | Empty-state placeholders with clickable suggestion chips | Done — all 5 legacy variants (Tomorrow-planning, Focus-with-commitments, Focus-empty, Classic-default, search-no-match), chip click pre-fills + focuses the add-task input rather than adding silently | 308-337, 8940-8948 |

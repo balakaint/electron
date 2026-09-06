@@ -268,7 +268,12 @@ class AppState(Base):
       matches legacy's four `_task_title[_focus][_tomorrow]` keys. NULL
       falls back to a computed default ("TODAY'S TARGETS" / "LIST" /
       etc, see engine.tasks.default_task_title) the same way
-      sec_title_* above falls back for Goals."""
+      sec_title_* above falls back for Goals.
+    - mit_prompt_date: last date the "what's today's MIT?" prompt was
+      shown, matching legacy's `self._settings["mit_prompt_date"]` —
+      caps it at once per day the same lazy-check way as
+      last_strike_reset_day above (no live day-rollover tick to hang a
+      cron off of)."""
 
     __tablename__ = "app_state"
 
@@ -300,6 +305,7 @@ class AppState(Base):
     task_title_classic_tomorrow: Mapped[str | None] = mapped_column(String, nullable=True)
     task_title_focus_today: Mapped[str | None] = mapped_column(String, nullable=True)
     task_title_focus_tomorrow: Mapped[str | None] = mapped_column(String, nullable=True)
+    mit_prompt_date: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class LegacyAnalysisBox(Base):

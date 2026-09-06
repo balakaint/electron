@@ -226,6 +226,32 @@ def test_task_title_per_list_and_view():
         check("blanking a title falls back to the default", f.engine.get_task_title("classic") == "TODAY'S TARGETS")
 
 
+def test_mit_prompt_once_per_day():
+    """check_mit_prompt (matches legacy's _maybe_mit_prompt): no open
+    Classic tasks -> nothing to ask; an existing MIT -> nothing to ask,
+    and today isn't marked prompted since the check short-circuited
+    before that point; otherwise shows up to 8 and marks today so a
+    second call same day returns nothing more to show."""
+    with FreshDB() as f:
+        show, tasks = f.engine.check_mit_prompt()
+        check("no open tasks means nothing to prompt", show is False and tasks == [])
+
+        t1 = f.engine.create_task("first task", "classic", day=TODAY)
+        t2 = f.engine.create_task("second task", "classic", day=TODAY)
+        show, tasks = f.engine.check_mit_prompt()
+        check("open tasks with no MIT triggers the prompt", show is True)
+        check("prompt includes both open tasks", {t.id for t in tasks} == {t1.id, t2.id})
+
+        show, tasks = f.engine.check_mit_prompt()
+        check("same-day second call shows nothing (already prompted)", show is False and tasks == [])
+
+        with FreshDB() as f2:
+            t = f2.engine.create_task("has an mit", "classic", day=TODAY)
+            f2.engine.set_mit(t.id)
+            show, tasks = f2.engine.check_mit_prompt()
+            check("an existing MIT means nothing to prompt", show is False and tasks == [])
+
+
 def run_all():
     tests = [
         test_default_view_is_today,
@@ -238,6 +264,7 @@ def run_all():
         test_set_day_moves_task_between_views,
         test_move_task_reorders_within_done_group,
         test_task_title_per_list_and_view,
+        test_mit_prompt_once_per_day,
     ]
     for t in tests:
         try:

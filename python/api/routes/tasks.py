@@ -7,6 +7,7 @@ from api.schemas import (
     ListKey,
     StrikeToggle,
     TaskCreate,
+    MitPromptOut,
     TaskDaySet,
     TaskEdit,
     TaskMove,
@@ -35,6 +36,12 @@ def list_tasks(list_key: ListKey | None = None, engine: TaskEngine = Depends(get
 def list_strike_tasks(engine: TaskEngine = Depends(get_engine)):
     """Today's committed Focus tasks (max STRIKE_MAX)."""
     return engine.list_strike_tasks()
+
+
+@router.get("/mit-prompt", response_model=MitPromptOut)
+def check_mit_prompt(engine: TaskEngine = Depends(get_engine)):
+    show, tasks = engine.check_mit_prompt()
+    return {"show": show, "tasks": tasks}
 
 
 @router.get("/day-view", response_model=DayViewOut)
