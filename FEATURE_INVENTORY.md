@@ -242,7 +242,7 @@ underlying capability (see rows 130-132, 134).
 | 137 | Investment/yearly-profit currency fields | Done (`cost_amount`/`yearly_profit`, free text same as legacy's plain Entry widgets) | 13057-13059 |
 | 138 | Per-plan next-actions checklist | Done, and more robust than legacy: each action gets a real id (`BdpAction`) instead of being retyped as one line in a shared textarea and re-matched to its old done-state by exact text | 13966-14026 |
 | 139 | Seed example plans on first run (6 starter opportunities) | Done — seeded by the Alembic migration itself (runs exactly once, ever) rather than a lazy check-on-every-load flag, since a migration already provides that guarantee for free | 12376-12432 |
-| 140 | One-time migration from the old fixed 6-block layout | Not Started / N/A — this migrates *legacy's own* pre-existing 6-block save data forward; the port has no such old-format data of its own to migrate, and `import_legacy.py` isn't extended for BDP (new-to-the-port feature area, same as Goals/Journey) | 12434-12470 |
+| 140 | One-time migration from the old fixed 6-block layout | Not Started / N/A — this migrates *legacy's own* pre-existing 6-block save data forward; the port has no such old-format data of its own to migrate (legacy's `_bdp_load` already folds that format into the current `plans` list before `import_bdp` ever sees it) | 12434-12470 |
 
 ## N. 90-Day Quarterly Plan (whole-life plan)
 
@@ -321,9 +321,9 @@ since "the column exists" is not the same as "the feature works."
 |---|---|---|---|
 | 167 | `daily_history` (90-day archive of secs+done-count per day) | Done / N/A — the port already had this exact data before rows 33-35 needed it: `ProjectActivity` (one row per project × day, added for the 30-day activity strip) is a strictly better source than legacy's single aggregate dict, since it survives per-project instead of collapsing to one number. No new table needed | 2971-2984, 3044-3058 |
 | 168 | `_daily_history`-derived deep-work streak | Done — shown as "🔥 Nd streak" beside the Deep Work Trend chart's title, hidden at 0 same as legacy; ported line-for-line from `_deep_streak` (today counts once it reaches goal, otherwise the streak is measured from yesterday backward) | 3047-3058 |
-| 169 | `bdp_data` / bdp legacy blocks (superseded by Business Plan Notes) | Not Started | 568, 12449-12463 |
-| 170 | `_exec_<date>` (hour-by-hour Daily Planner data) | Not Started | 5546-5575 |
-| 171 | `_q90_<cycle-start>` (Quarterly Plan answers) | Done — see section N; ported as `QuarterlyAnswer` (one row per cycle+area rather than a single nested dict) | 4415-4442 |
+| 169 | `bdp_data` / bdp legacy blocks (superseded by Business Plan Notes) | Done — `import_legacy.py`'s `import_bdp` reads the top-level `bdp_data` key (a dedicated escape hatch legacy writes precisely because `clean_vision()`'s whitelist would otherwise drop `vision_data["self_dev"]["plans"]` entirely) into `BdpPlan`/`BdpAction`, with `next_actions`' id-less `{"text","done"}` entries deduped by text on re-run the same way the decision log already is | 568, 12449-12463 |
+| 170 | `_exec_<date>` (hour-by-hour Daily Planner data) | Not Started / Out of scope — the removed Daily Planner has no equivalent screen in the port to import into (see README's "Importing your existing data") | 5546-5575 |
+| 171 | `_q90_<cycle-start>` (Quarterly Plan answers) | Done — see section N; ported as `QuarterlyAnswer` (one row per cycle+area rather than a single nested dict), and now actually imported too: `import_legacy.py`'s `import_quarterly` reads every `__q90_<cycle-start>` key, not just the current cycle | 4415-4442 |
 | 172 | `swot_*` fields (Strengths/Weaknesses/Opportunities/Threats — older analysis generation, superseded by Business Analysis) | Not Started (superseded feature, unlikely worth reviving) | 598-601 |
 
 ---
@@ -354,7 +354,14 @@ richer dashboard (rows 33-35, 72-76, 167-168), and Projects' card
 collapse/solo and BA attach-file (rows 100, 118). Updated 2026-09-07:
 Journey's cover-image upload (crop-to-fit + fade overlay, via a new
 base64 data-URL IPC channel) and attach-file browse/open moved rows
-121 and 123 to Done, reusing row 118's file-picker pattern.)*
+121 and 123 to Done, reusing row 118's file-picker pattern. Same-day
+follow-up: `import_legacy.py` extended with `import_goals`,
+`import_journey`, `import_bdp`, `import_quarterly`, and
+`import_settings` (plus win/reflection into the existing
+`import_habits`) — the importer previously covered only Tasks/Habits/
+Projects/Business Analysis; every domain the port now models is
+migratable from a legacy save file, moving row 169 to Done and closing
+the gap row 140 used to describe.)*
 
 - **Done**: rows 16, 18, 19, 23, 24, 26, 39-56, 58-59, 61-69, 71, 79-94, 97, 101-123, 124-129, 133, 135-146, 148-160, 171 — roughly **101 items**, concentrated in Tasks (now including search, inline edit, done-count badge, Tomorrow→Today move, and button-driven reorder), the NOW panel (all 6 rows — derive/point/start-pause/complete/one-clock exclusivity/the "+ STRIKE" promotion, plus the row-66 linked-timer bug-fix), Habits' core loop, Consistency, Circle, Projects' core loop (including per-project Quick Notes), the full Business Analysis canvas, the complete Goals feature, Product Journey (6-stage timeline, gates, tasks, findings log, auto-advance + launch toast, cover image, attach-file), Business Plan Notes (opportunity cards, filters, checklist, seed data), the 90-Day Quarterly Plan (6-area accordion, 3 prompts each, configurable cycle, progress bar), Settings (now complete as one slice: theme cycling, undo/redo, shortcuts panel, onboarding, language/analog-clock/auto-timer/idle-stop/day-phase/goal-hours/currency/start-with-Windows/About), a global keyboard-focus ring, and Export/Backup.
 - **Partial**: rows 15, 22, 30, 37, 48, 60, 70, 82, 96, 130-132, 134, 147 — roughly **14 items** where the data/backend exists but the UI is thin, or a control differs from legacy's exact mechanism (e.g. 4 of 6 themes; Business Plan Notes' one card view standing in for legacy's table+list toggle and ▲/▼ buttons standing in for drag; task undo covers every action except reorder and timer-reset; Settings has no dedicated swatch-preview theme picker).

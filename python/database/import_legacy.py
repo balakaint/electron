@@ -1,7 +1,13 @@
-"""One-off importer: pulls Tasks and Habits data out of the legacy
-Tkinter app's JSON blob (~/.task_tracker_v6.json) and inserts it into the
-new SQLite tables. Idempotent — safe to re-run after the legacy app has
-recorded more data.
+"""One-off importer: pulls every domain the port currently supports —
+Tasks, Habits, Projects (subtasks/activity/circle), Business Analysis,
+Goals, Product Journey, Business Plan Notes, the 90-Day Quarterly Plan,
+and Settings — out of the legacy Tkinter app's JSON blob
+(~/.task_tracker_v6.json) and inserts it into the new SQLite tables.
+Idempotent — safe to re-run after the legacy app has recorded more
+data. Deliberately excludes domains the port doesn't model: the
+removed Daily Planner (`_exec_<date>`), the old pre-ba_* SWOT fields,
+and the sibling external apps (Life OS, Cash Tracker, etc. — out of
+scope, see FEATURE_INVENTORY.md section R).
 
 Usage:
     python -m database.import_legacy /path/to/.task_tracker_v6.json
@@ -10,21 +16,32 @@ Usage:
 import json
 import re
 import sys
+import time
 
 from sqlalchemy.orm import Session
 
 from database.connection import SessionLocal
 from database.models import (
+    AppState,
+    BdpAction,
+    BdpPlan,
     BusinessAnalysis,
     CirclePerson,
     DailyIntention,
     DecisionLog,
+    Goal,
     Habit,
     HabitCompletion,
+    JOURNEY_STAGES,
+    JourneyLogEntry,
+    JourneyStage,
+    JourneyTask,
     LegacyAnalysisBox,
     Project,
     ProjectActivity,
+    ProjectJourney,
     ProjectSubtask,
+    QuarterlyAnswer,
     Task,
 )
 
@@ -37,6 +54,26 @@ _BA_TEXT_FIELDS = (
     "fin_investment", "fin_cost", "fin_revenue", "fin_profit",
     "decision_why", "next_action", "next_deadline",
 )
+_GOAL_HORIZONS = ("yearly", "monthly", "weekly")
+_VALID_THEMES = ("focus", "warroom", "energy", "journey")
+
+
+def _ms_id_counter(start: int):
+    """Legacy `next_actions`/journey tasks/log entries carry no id of
+    their own (they were retyped/appended in place, never referenced by
+    id elsewhere) — this hands out unique ms-timestamp-shaped ids
+    matching Task/Goal/CirclePerson's own convention, for tables here
+    that DO need a real primary key."""
+    counter = [start]
+
+    def _next() -> int:
+        counter[0] += 1
+        return counter[0]
+
+    return _next
+
+
+_next_synthetic_id = _ms_id_counter(int(time.time() * 1000))
 
 
 def _to_task(raw: dict, list_key: str) -> Task:
@@ -125,16 +162,36 @@ def import_habits(data: dict, db: Session) -> dict:
                 else:
                     existing.done = bool(done)
 
+    # __intention_/__win_/__reflection_<day> are DailyIntention's three
+    # per-day text columns (see that model's own docstring) — same
+    # get-or-create-by-day shape for all three, just a different column.
+    # A local cache (rather than repeated db.get() calls) is needed
+    # because all three prefixes commonly share the same day: a pending
+    # (added-but-unflushed) row for "text" must be found and reused by
+    # the very next "win"/"reflection" key for that same day, not
+    # re-inserted as a second row with the same primary key.
     intentions_written = 0
+    _DAY_TEXT_PREFIXES = (
+        ("__intention_", "text"),
+        ("__win_", "win"),
+        ("__reflection_", "reflection"),
+    )
+    _intention_cache: dict[str, DailyIntention] = {}
     for key, text in hd.items():
-        if key.startswith("__intention_") and isinstance(text, str):
-            day = key[len("__intention_"):]
-            row = db.get(DailyIntention, day)
+        if not isinstance(text, str):
+            continue
+        for prefix, field in _DAY_TEXT_PREFIXES:
+            if not key.startswith(prefix):
+                continue
+            day = key[len(prefix):]
+            row = _intention_cache.get(day) or db.get(DailyIntention, day)
             if row is None:
-                db.add(DailyIntention(day=day, text=text))
-            else:
-                row.text = text
+                row = DailyIntention(day=day)
+                db.add(row)
+                _intention_cache[day] = row
+            setattr(row, field, text)
             intentions_written += 1
+            break
 
     habits_after = sum(len(m) for m in name_to_id.values())
     return {
@@ -329,6 +386,314 @@ def import_business_analysis(data: dict, db: Session) -> dict:
     }
 
 
+def import_goals(data: dict, db: Session) -> dict:
+    """Reads `goals_by_project[proj_key][horizon]` (flattened here to
+    Goal's `horizon` column, same split Task.list_key already applies).
+    The flat top-level `yearly`/`monthly`/`weekly` lists are the
+    currently-selected project's goals only — a strict subset of
+    goals_by_project, which always wins when present — so they're never
+    read here. Legacy's per-goal `day` field is dropped (see Goal's own
+    docstring: nothing ever read it back)."""
+    gbp = data.get("goals_by_project", {}) or {}
+    written = 0
+    for project_key, lists in gbp.items():
+        if project_key not in _PROJECT_KEYS or not isinstance(lists, dict):
+            continue
+        for horizon in _GOAL_HORIZONS:
+            for raw in lists.get(horizon, []) or []:
+                gid = raw.get("id")
+                if gid is None:
+                    continue
+                goal = db.get(Goal, gid)
+                if goal is None:
+                    db.add(Goal(
+                        id=gid,
+                        project_key=project_key,
+                        horizon=horizon,
+                        text=raw.get("text", ""),
+                        done=bool(raw.get("done", False)),
+                        start_date=raw.get("start_date", "") or "",
+                        done_date=raw.get("done_date") or None,
+                        note=raw.get("note", "") or "",
+                    ))
+                    written += 1
+                else:
+                    goal.text = raw.get("text", goal.text)
+                    goal.done = bool(raw.get("done", goal.done))
+                    goal.done_date = raw.get("done_date") or goal.done_date
+                    goal.note = raw.get("note", goal.note)
+    return {"goals_written": written}
+
+
+def import_journey(data: dict, db: Session) -> dict:
+    """Reads `habit_data["__journey_<key>"]` — Product Journey lives
+    there, not in vision_data, because vision_data's save_data()/
+    clean_vision() only persists a fixed per-project key whitelist (see
+    the legacy app's own `_open_project_journey` docstring). Tasks and
+    log entries carry no id of their own in the legacy shape (plain
+    `{"text","done"}` / `{"t","d","s"}` dicts, appended in place) so
+    they're deduped by content on re-run instead of by id, same
+    trade-off `import_business_analysis` already accepts for its
+    decision log."""
+    hd = data.get("habit_data", {}) or {}
+    vd = data.get("vision_data", {}) or {}
+    stages_written = tasks_written = logs_written = 0
+
+    for key in _PROJECT_KEYS:
+        jd = hd.get(f"__journey_{key}")
+        if not isinstance(jd, dict):
+            continue
+
+        journey = db.get(ProjectJourney, key)
+        if journey is None:
+            continue  # migration always seeds all 6; skip defensively
+        pd = vd.get(key) if isinstance(vd.get(key), dict) else {}
+        journey.proj_name = jd.get("proj_name") or pd.get("title", "") or ""
+        journey.tagline = jd.get("tagline") or journey.tagline
+        journey.cover_image = jd.get("cover_image", "") or ""
+        journey.attach_file = jd.get("attach_file", "") or ""
+
+        names = jd.get("names") or []
+        descs = jd.get("descs") or []
+        gates = jd.get("gates") or []
+        gate_done = jd.get("gate_done") or []
+        tasks_by_stage = jd.get("tasks") or []
+        logs_by_stage = jd.get("logs") or []
+        n = max(len(names), len(JOURNEY_STAGES))
+
+        for i in range(n):
+            default_name, default_desc = JOURNEY_STAGES[i] if i < len(JOURNEY_STAGES) else ("", "")
+            name = (names[i] if i < len(names) else "") or default_name
+            desc = descs[i] if i < len(descs) else default_desc
+            gate = gates[i] if i < len(gates) else ""
+            gdone = bool(gate_done[i]) if i < len(gate_done) else False
+
+            stage = db.query(JourneyStage).filter_by(project_key=key, stage_index=i).first()
+            if stage is None:
+                db.add(JourneyStage(
+                    project_key=key, stage_index=i, name=name,
+                    description=desc or "", gate=gate, gate_done=gdone,
+                ))
+                stages_written += 1
+            else:
+                stage.name = name
+                stage.description = desc
+                stage.gate = gate
+                stage.gate_done = gdone
+
+            existing_texts = {
+                t.text for t in db.query(JourneyTask).filter_by(project_key=key, stage_index=i).all()
+            }
+            for raw in (tasks_by_stage[i] if i < len(tasks_by_stage) else []) or []:
+                text = raw.get("text", "")
+                if not text or text in existing_texts:
+                    continue
+                db.add(JourneyTask(
+                    id=_next_synthetic_id(), project_key=key, stage_index=i,
+                    text=text, done=bool(raw.get("done", False)),
+                ))
+                existing_texts.add(text)
+                tasks_written += 1
+
+            existing_logs = {
+                (log.text, log.date, log.status)
+                for log in db.query(JourneyLogEntry).filter_by(project_key=key, stage_index=i).all()
+            }
+            for raw in (logs_by_stage[i] if i < len(logs_by_stage) else []) or []:
+                sig = (raw.get("t", ""), raw.get("d", ""), raw.get("s", ""))
+                if not sig[0] or sig in existing_logs:
+                    continue
+                db.add(JourneyLogEntry(
+                    id=_next_synthetic_id(), project_key=key, stage_index=i,
+                    text=sig[0], date=sig[1], status=sig[2],
+                ))
+                existing_logs.add(sig)
+                logs_written += 1
+
+    return {
+        "journey_stages_written": stages_written,
+        "journey_tasks_written": tasks_written,
+        "journey_logs_written": logs_written,
+    }
+
+
+def import_bdp(data: dict, db: Session) -> dict:
+    """Reads the top-level `bdp_data` key — a dedicated escape hatch
+    save_data() writes alongside `vision_data["self_dev"]` specifically
+    because clean_vision()'s whitelist would otherwise drop the whole
+    `plans` list (see that function's dict-branch: only title/note/
+    tasks/box*/ba_* survive it, `self_dev` matches none of those). Each
+    plan's `next_actions` are a bare `{"text","done"}` list like
+    Journey's own tasks — same synthetic-id + dedupe-by-text handling."""
+    bdp = data.get("bdp_data", {}) or {}
+    plans_written = actions_written = 0
+
+    # New plans sort ABOVE whatever is already in the table (e.g. the
+    # port's own seeded example cards) rather than colliding with their
+    # order values — a real user's imported data outranks placeholder
+    # content, and BdpPlan.order's own docstring already establishes
+    # "min(existing) - 1.0" as how a new plan goes to the top.
+    existing_min = db.query(BdpPlan.order).order_by(BdpPlan.order.asc()).first()
+    next_order = (existing_min[0] if existing_min else 0.0) - len(bdp.get("plans", []) or [])
+
+    for i, raw in enumerate(bdp.get("plans", []) or []):
+        pid = raw.get("id")
+        if pid is None:
+            continue
+        plan = db.get(BdpPlan, pid)
+        if plan is None:
+            plan = BdpPlan(id=pid, title=raw.get("title", ""), order=next_order + i)
+            db.add(plan)
+            db.flush()  # BdpAction rows below reference plan_id by FK
+            plans_written += 1
+        plan.title = raw.get("title", plan.title)
+        plan.status = raw.get("status") or plan.status or "IDEA"
+        plan.priority = raw.get("priority") or plan.priority or "MEDIUM"
+        plan.opportunity = raw.get("opportunity", "") or ""
+        plan.market = raw.get("market", "") or ""
+        plan.target = raw.get("target", "") or ""
+        plan.niche = raw.get("niche", "") or ""
+        plan.model = raw.get("model", "") or ""
+        plan.product = raw.get("product", "") or ""
+        plan.service = raw.get("service", "") or ""
+        plan.supplier = raw.get("supplier", "") or ""
+        plan.timeline = raw.get("timeline", "") or ""
+        plan.potential = int(raw.get("potential") or plan.potential or 3)
+        plan.difficulty = int(raw.get("difficulty") or plan.difficulty or 3)
+        plan.cost_amount = raw.get("cost_amount", "") or ""
+        plan.yearly_profit = raw.get("yearly_profit", "") or ""
+        plan.notes = raw.get("notes", "") or ""
+        plan.archived = bool(raw.get("archived", False))
+        plan.created = raw.get("created", "") or plan.created
+        plan.updated = raw.get("updated", "") or plan.updated
+
+        existing_texts = {a.text for a in db.query(BdpAction).filter_by(plan_id=pid).all()}
+        for order, raw_action in enumerate(raw.get("next_actions", []) or []):
+            text = raw_action.get("text", "")
+            if not text or text in existing_texts:
+                continue
+            db.add(BdpAction(
+                id=_next_synthetic_id(), plan_id=pid, text=text,
+                done=bool(raw_action.get("done", False)),
+                sort_order=len(existing_texts) + order,
+            ))
+            existing_texts.add(text)
+            actions_written += 1
+
+    return {"bdp_plans_written": plans_written, "bdp_actions_written": actions_written}
+
+
+def import_quarterly(data: dict, db: Session) -> dict:
+    """Reads `habit_data["__q90_<cycle-start>"]` — `{area: {out, act,
+    ifthen}}` per cycle. Flattened to one QuarterlyAnswer row per
+    (cycle_start, area), same reasoning Goal already applies to its
+    horizon split."""
+    hd = data.get("habit_data", {}) or {}
+    written = 0
+    for key, val in hd.items():
+        if not key.startswith("__q90_") or not isinstance(val, dict):
+            continue
+        cycle_start = key[len("__q90_"):]
+        for area, fields in val.items():
+            if not isinstance(fields, dict):
+                continue
+            row = db.query(QuarterlyAnswer).filter_by(cycle_start=cycle_start, area=area).first()
+            if row is None:
+                db.add(QuarterlyAnswer(
+                    cycle_start=cycle_start, area=area,
+                    out=fields.get("out", "") or "",
+                    act=fields.get("act", "") or "",
+                    ifthen=fields.get("ifthen", "") or "",
+                ))
+                written += 1
+            else:
+                row.out = fields.get("out", row.out)
+                row.act = fields.get("act", row.act)
+                row.ifthen = fields.get("ifthen", row.ifthen)
+    return {"quarterly_answers_written": written}
+
+
+def import_settings(data: dict, db: Session) -> dict:
+    """Reads the top-level `settings` dict (legacy's own `self._settings`
+    — see AppState's docstring for the full field-by-field mapping this
+    mirrors), plus the handful of settings-shaped values legacy keeps
+    OUTSIDE that dict: `theme`/`onboarded`/`goal_project` at the save
+    payload's top level, section/task-list headings inside
+    `vision_data`'s underscore-prefixed keys (the one place
+    clean_vision's whitelist explicitly preserves them), and BDP's sort
+    mode inside `bdp_data`. Only themes the port actually ships
+    (`_VALID_THEMES`) are applied — legacy's retired Executive/Rize
+    values fall back to AppState's own default rather than being stored
+    unusable."""
+    st = data.get("settings", {}) or {}
+    vd = data.get("vision_data", {}) or {}
+    bdp = data.get("bdp_data", {}) or {}
+
+    app_state = db.get(AppState, 1)
+    if app_state is None:
+        app_state = AppState(id=1)
+        db.add(app_state)
+
+    theme = data.get("theme")
+    if theme in _VALID_THEMES:
+        app_state.theme = theme
+    app_state.onboarded = bool(data.get("onboarded", app_state.onboarded))
+    goal_project = data.get("goal_project")
+    if goal_project in _PROJECT_KEYS:
+        app_state.goal_project = goal_project
+
+    if "lang" in st:
+        app_state.lang = st["lang"]
+    if "currency" in st:
+        app_state.currency = st["currency"]
+    if "goal_hours" in st:
+        app_state.goal_hours = int(st["goal_hours"])
+    if "analog_clock" in st:
+        app_state.analog_clock = bool(st["analog_clock"])
+    if "auto_timer_on_open" in st:
+        app_state.auto_timer_on_open = bool(st["auto_timer_on_open"])
+    if "idle_stop_min" in st:
+        app_state.idle_stop_min = int(st["idle_stop_min"])
+    if "trend_days" in st:
+        app_state.trend_days = int(st["trend_days"])
+    if st.get("cycle_start"):
+        app_state.q90_cycle_start = st["cycle_start"]
+    if "cycle_days" in st:
+        app_state.q90_cycle_days = int(st["cycle_days"])
+    if st.get("mit_prompt_date"):
+        app_state.mit_prompt_date = st["mit_prompt_date"]
+    if st.get("task_day") in ("today", "tomorrow"):
+        app_state.task_day_view = st["task_day"]
+    for field in ("phase_morning_start", "phase_work_start", "phase_evening_start", "phase_sleep_start"):
+        if field in st:
+            setattr(app_state, field, int(st[field]))
+
+    sec_yearly = vd.get("_sec_title_yearly") or data.get("sec_title_yearly")
+    if sec_yearly:
+        app_state.sec_title_yearly = sec_yearly
+    sec_monthly = vd.get("_sec_title_monthly") or data.get("sec_title_monthly")
+    if sec_monthly:
+        app_state.sec_title_monthly = sec_monthly
+    sec_weekly = vd.get("_sec_title_weekly") or data.get("sec_title_weekly")
+    if sec_weekly:
+        app_state.sec_title_weekly = sec_weekly
+
+    task_title_today = vd.get("_task_title") or data.get("task_title")
+    if task_title_today:
+        app_state.task_title_classic_today = task_title_today
+    if vd.get("_task_title_tomorrow"):
+        app_state.task_title_classic_tomorrow = vd["_task_title_tomorrow"]
+    if vd.get("_task_title_focus"):
+        app_state.task_title_focus_today = vd["_task_title_focus"]
+    if vd.get("_task_title_focus_tomorrow"):
+        app_state.task_title_focus_tomorrow = vd["_task_title_focus_tomorrow"]
+
+    if bdp.get("sort") in ("manual", "priority"):
+        app_state.bdp_sort = bdp["sort"]
+
+    return {"settings_imported": True}
+
+
 def import_file(path: str) -> dict:
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
@@ -339,6 +704,11 @@ def import_file(path: str) -> dict:
         tasks_imported, tasks_skipped = import_tasks(data, db)
         habit_stats = import_habits(data, db)
         ba_stats = import_business_analysis(data, db)
+        goal_stats = import_goals(data, db)
+        journey_stats = import_journey(data, db)
+        bdp_stats = import_bdp(data, db)
+        quarterly_stats = import_quarterly(data, db)
+        settings_stats = import_settings(data, db)
         db.commit()
     finally:
         db.close()
@@ -349,6 +719,11 @@ def import_file(path: str) -> dict:
         **habit_stats,
         **project_stats,
         **ba_stats,
+        **goal_stats,
+        **journey_stats,
+        **bdp_stats,
+        **quarterly_stats,
+        **settings_stats,
     }
 
 
@@ -367,5 +742,13 @@ if __name__ == "__main__":
         f"{stats['intentions_written']} intention(s).\n"
         f"Business analysis: updated {stats['ba_projects_updated']} project(s), "
         f"wrote {stats['ba_log_entries_written']} decision log entr(y/ies), "
-        f"{stats['ba_boxes_written']} new legacy box(es)."
+        f"{stats['ba_boxes_written']} new legacy box(es).\n"
+        f"Goals: wrote {stats['goals_written']} goal(s).\n"
+        f"Journey: wrote {stats['journey_stages_written']} stage(s), "
+        f"{stats['journey_tasks_written']} task(s), "
+        f"{stats['journey_logs_written']} log entr(y/ies).\n"
+        f"Business Plan Notes: wrote {stats['bdp_plans_written']} plan(s), "
+        f"{stats['bdp_actions_written']} action(s).\n"
+        f"Quarterly Plan: wrote {stats['quarterly_answers_written']} answer row(s).\n"
+        f"Settings: imported."
     )
