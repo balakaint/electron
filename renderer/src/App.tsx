@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ListKey, exportApi, settingsApi } from './services/api';
 import TaskList from './components/TaskList';
+import ClockCard from './components/ClockCard';
 import HabitDashboard from './components/HabitDashboard';
 import ProjectDashboard from './components/ProjectDashboard';
 import GoalsPanel from './components/GoalsPanel';
@@ -141,6 +142,7 @@ function AppShell() {
 
       {page === 'tasks' && (
         <>
+          <ClockCard />
           <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
             <button onClick={() => setTab('classic')} disabled={tab === 'classic'}>
               Plan
