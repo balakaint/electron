@@ -25,7 +25,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 2 | Default/fresh data schema for a brand-new install | Done (Alembic migrations + seed data serve the same role) | 538-568 |
 | 3 | Atomic save (temp file + fsync + rename) on every change | Partial (SQLite gives its own durability guarantees, not the same atomic-JSON-swap mechanism) | 571-711 |
 | 4 | Daily backup rotation (copy save file once/day, prune beyond 14) | Not Started | 439-475 |
-| 5 | Single-instance lock file (detects/overrides stale locks from crashed processes) | Not Started | 401-436, 353-398 |
+| 5 | Single-instance lock file (detects/overrides stale locks from crashed processes) | Done — `app.requestSingleInstanceLock()`, which supersedes legacy's manual PID-file entirely rather than porting the staleness check: the OS-level lock dies with the process, so there's no stale-lock state to ever detect | 401-436, 353-398 |
 | 6 | Corrupt-file quarantine + recovery notice dialog on next launch | Not Started | 478-535, 17420-17430 |
 | 7 | Windows per-monitor DPI awareness | Not Started (Electron handles DPI itself, but no equivalent tuning) | 48-58 |
 | 8 | Windows dark title bar matched to active theme | Not Started (no theme system) | 2055-2098 |
@@ -33,7 +33,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 10 | Progressive panel layout (compact/partial/full, screen-edge docking) | Not Started | 15748-16074, 15818-15923 |
 | 11 | App close handler: stop timers cleanly, fold today into history, save, release lock | Partial (Electron's window-all-closed kills the Python engine; timer reconciliation on next startup covers the "stop timers cleanly" intent, but nothing folds a day into history since there's no daily_history equivalent) | 17351-17387 |
 | 12 | Startup crash handler (traceback to file + dedicated error window with copy button) | Not Started | 17432-17495 |
-| 13 | Single-instance-already-running prompt (Yes/No, warns about overwrite risk) | Not Started | 17399-17417 |
+| 13 | Single-instance-already-running prompt (Yes/No, warns about overwrite risk) | Done, simplified to silently focusing the existing window rather than a Yes/No "open anyway" dialog — legacy's warning existed because "open anyway" was survivable (worst case, one JSON write clobbers another); in the port "open anyway" would mean a second process fighting the first over the same hardcoded port and SQLite file, which has no safe outcome to offer a choice about | 17399-17417 |
 | 14 | "Start with Windows" autostart toggle (registry Run key) | Done — `app.setLoginItemSettings` in the main process, using `AppState.start_with_windows` (already stored, previously unwired per row 30's own note) rather than legacy's direct registry Run-key edit; synced on every settings save and re-asserted on launch | 15201-15252 |
 
 ## B. Global UI chrome / shortcuts

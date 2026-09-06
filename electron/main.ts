@@ -7,6 +7,35 @@ const PYTHON_PORT = 5180;
 let pythonProcess: ChildProcessWithoutNullStreams | null = null;
 let mainWindow: BrowserWindow | null = null;
 
+// Matches legacy's acquire_lock/release_lock (a PID file it checks for
+// staleness) and the Yes/No "open anyway" prompt around it, but the
+// underlying risk changed shape with the architecture: legacy's own
+// reasoning was "two copies both autosave a JSON file, whichever
+// writes last wins outright" — a risk SQLite-via-a-single-process
+// doesn't have. What the port DOES still risk is two Electron
+// instances each spawning a Python engine on the same hardcoded port
+// and opening the same SQLite file from two separate processes, which
+// "open anyway" would only make worse, not offer a safe escape from.
+// So this uses Electron's own OS-level lock (no stale-PID-file problem
+// to detect at all, since the lock dies with the process) and skips
+// the warning dialog in favor of just focusing the already-running
+// window — the standard pattern for apps with no legitimate reason to
+// run twice (VS Code, Slack, Discord all do this silently).
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  // app.quit() only schedules a quit — it doesn't stop the rest of this
+  // module from running, and everything below (spawning the Python
+  // engine on a hardcoded port, opening the same SQLite file) is
+  // exactly what must NOT happen from a second process. Exiting
+  // immediately is the only way to guarantee that.
+  process.exit(0);
+}
+app.on('second-instance', () => {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.focus();
+});
+
 function getUserDataDir(): string {
   const dir = path.join(app.getPath('userData'), 'data');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
