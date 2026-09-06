@@ -45,7 +45,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 17 | Language picker (English/Bangla), used across several panels | Not Started | 15440-15456 |
 | 18 | Global undo stack (Ctrl+Z), 30-deep, covers add/edit/delete/MIT/urgency/timer-reset/reorder | Done, Tasks-scoped (matches legacy's actual scope — add/delete/toggle-done/MIT/urgency/strike; reorder and timer-reset not wired). Redo (Ctrl+Shift+Z) added too, no legacy precedent | 9140-9172 and per-action `_undo` closures throughout |
 | 19 | Undo toast ("<action> — UNDO", 5s) | Done | 9202-9257 |
-| 20 | Right-click context menu (Cut/Copy/Paste/Select All) on text fields | Not Started | 1906-1971 |
+| 20 | Right-click context menu (Cut/Copy/Paste/Select All) on text fields | Done — one main-process `context-menu` handler on the BrowserWindow (Electron doesn't wire this up automatically, unlike a Chrome tab), using `params.editFlags` for per-field enabled state instead of legacy's own has-selection checks | 1906-1971 |
 | 21 | Global mouse-wheel scroll dispatch (finds nearest scrollable ancestor) | Not Started (web scrolling handles this natively) | 1824-1903 |
 | 22 | Keyboard shortcuts: Ctrl+S save, Ctrl+W/Esc close dialog, Ctrl+F focus mode, F1/? shortcuts panel | Partial (F1/? done; no Ctrl+S needed since every action autosaves immediately; Ctrl+W/Esc and Ctrl+F have no dialog-stack/focus-mode concept to attach to yet) | 1974-2030 |
 | 23 | Keyboard-shortcuts help overlay panel | Done | 16077-16127 |

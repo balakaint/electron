@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Menu } from 'electron';
 import { spawn, ChildProcessWithoutNullStreams } from 'child_process';
 import path from 'path';
 import fs from 'fs';
@@ -67,6 +67,26 @@ function createWindow() {
       sandbox: true,
       preload: path.join(__dirname, 'preload.js'),
     },
+  });
+
+  // Matches legacy's _bind_context_menu (Cut/Copy/Paste/Select All on
+  // every text widget, app-wide): unlike a regular Chrome tab, a bare
+  // BrowserWindow shows no context menu at all on right-click unless
+  // one is built here — Electron doesn't wire up Chromium's default
+  // editable-field menu automatically. `params.editFlags` already
+  // reflects the exact widget under the cursor (has a selection? is it
+  // empty?), so this needs no renderer-side code to match legacy's
+  // per-field enabled/disabled state.
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    if (!params.isEditable) return;
+    const { editFlags } = params;
+    Menu.buildFromTemplate([
+      { label: 'Cut', role: 'cut', enabled: editFlags.canCut },
+      { label: 'Copy', role: 'copy', enabled: editFlags.canCopy },
+      { label: 'Paste', role: 'paste', enabled: editFlags.canPaste },
+      { type: 'separator' },
+      { label: 'Select All', role: 'selectAll', enabled: editFlags.canSelectAll },
+    ]).popup({ window: mainWindow! });
   });
 
   const isDev = !app.isPackaged;
