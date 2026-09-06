@@ -167,7 +167,7 @@ chip (ProjectDashboard).
 | 98 | Subtask "+ STRIKE" promotion chip | Not Started (depends on NOW panel / strike-from-project linkage) | 7051-7106 |
 | 99 | Subtask "Deep Work" launcher button (opens sibling Deep Work app) | Not Started | 6992-7106 (button), 16576-16635 (launcher) |
 | 100 | Project card collapse/expand + "solo this project" | Not Started | 6539-6627 |
-| 101 | Quick Notes text box per project | Partial (fields exist in schema/API, no textarea in the UI) | 6634-6696 |
+| 101 | Quick Notes text box per project | Done | 6634-6696 |
 | 102 | Finished-projects-sink-to-bottom ordering | Done | 2635-2656 |
 | 103 | "N/M projects at target" today progress summary | Done | 141-151 in `projects.py` (today_progress) vs 2658-2672 legacy |
 

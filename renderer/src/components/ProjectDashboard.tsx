@@ -48,6 +48,7 @@ function ProjectCard({
   const [people, setPeople] = useState<CirclePerson[]>([]);
   const [newPerson, setNewPerson] = useState('');
   const [name, setName] = useState(project.name);
+  const [note, setNote] = useState(project.note);
   const [strikeFlash, setStrikeFlash] = useState<string | null>(null);
 
   const key = project.key as ProjectKey;
@@ -58,13 +59,18 @@ function ProjectCard({
 
   useEffect(() => {
     setName(project.name);
+    setNote(project.note);
     refreshSubtasks();
     refreshActivity();
     refreshPeople();
-  }, [project.name, key]);
+  }, [project.name, project.note, key]);
 
   const saveName = () => {
     if (name !== project.name) projectsApi.update(key, { name }).then(onChanged);
+  };
+
+  const saveNote = () => {
+    if (note !== project.note) projectsApi.update(key, { note }).then(onChanged);
   };
 
   const strikeSubtask = (pid: string) => {
@@ -202,6 +208,16 @@ function ProjectCard({
           />
           <button onClick={addSubtask}>+</button>
         </div>
+
+        <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>QUICK NOTES</div>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          onBlur={saveNote}
+          rows={3}
+          placeholder="Jot something down…"
+          style={{ width: '100%', fontSize: 12, padding: 6, marginBottom: 10, resize: 'vertical', boxSizing: 'border-box' }}
+        />
 
         <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>CIRCLE</div>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
