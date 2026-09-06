@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { settingsApi } from '../services/api';
 import DayPhaseBars from './DayPhaseBars';
+import ScopeStats from './ScopeStats';
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
@@ -90,6 +91,7 @@ export default function ClockCard() {
       </div>
       <div style={{ textAlign: 'left' }}>
         <DayPhaseBars />
+        <ScopeStats />
       </div>
     </div>
   );

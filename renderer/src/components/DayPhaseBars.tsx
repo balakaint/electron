@@ -39,7 +39,7 @@ function nextOccurrence(after: number, h: number): number {
   return h >= after ? h : h + 24;
 }
 
-function phaseBounds(settings: Settings): Record<PhaseKey, [number, number]> {
+export function phaseBounds(settings: Settings): Record<PhaseKey, [number, number]> {
   const ms = settings.phase_morning_start;
   const ws = settings.phase_work_start;
   const es = settings.phase_evening_start;

@@ -66,9 +66,9 @@ capabilities. Ask if you want that granularity broken out further.
 | 33 | Deep Work Trend chart (30/90-day line chart, 7-day moving average, hover tooltip) | Not Started | 14136-14416, 3371-3403 |
 | 34 | "This week: N of 7 days on target" summary line | Not Started | 14177-14208, 3060-3088 |
 | 35 | Capacity insight ("you tend to do deep work around X") | Not Started | 14465-14506, 3408-3410 |
-| 36 | Work motto banner (editable) | Not Started | 3425-3430 |
+| 36 | Work motto banner (editable) | Not Started / N/A — dead code in legacy itself: `_work_motto_var` is created, saved, and even migrated forward in `save_data`, but no widget anywhere binds it via `textvariable` — there is no live banner to port, just an orphaned StringVar from a prior redesign | 3425-3430 |
 | 37 | TODAY PROGRESS segmented bar (per-project on PLAN, gradient on FOCUS, milestone glow, 100% celebration) | Partial (ProjectDashboard shows a plain percentage line, no segmented/gradient visualization) | 7659-7878, 4894-4947 |
-| 38 | TODAY/MONTH/YEAR "time remaining" stat row | Not Started | 4839-4892, 6200-6268 |
+| 38 | TODAY/MONTH/YEAR "time remaining" stat row | Done — nested in the clock card below the phase bars; TODAY reads the same work-phase-end boundary the phase bars use (one source of truth, matching legacy's own fix for a case where a separate "work_end" setting could disagree with it) and switches to "work day over" past it; only TODAY carries the accent colour since it's the only one of the three you can still act on | 4839-4892, 6200-6268 |
 
 ## D. Tasks (Plan/Focus lists)
 
