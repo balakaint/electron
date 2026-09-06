@@ -4,7 +4,22 @@ Exhaustive pass over `task_tracker_v3_THEMES.py` (17,495 lines), extracted
 section-by-section directly from source. Status is judged against the
 Electron/Python port as of 2026-09-05. **Done** = fully working in the
 port. **Partial** = some real part of it works, meaningful gap remains.
-**Not Started** = nothing exists in the port yet.
+**Not Started** = nothing exists in the port yet. **N/A** = not a gap —
+either dead code in legacy itself, a mechanism the web platform already
+provides, or explicitly out of scope; every N/A row states which, and
+was checked against the legacy source before being closed.
+
+## Rollup (Phase 0 triage, 2026-09-06)
+
+| Status | Rows |
+|---|---|
+| Done | 139 |
+| N/A | 8 (rows 3, 7, 21, 36, 99, 140, 170, 172) |
+| Excluded — section R sibling apps | 6 (rows 161-166) |
+| **Remaining real work** | **19** |
+
+The 19 remaining: 10, 11, 15, 17, 22, 29, 30, 37, 60, 70, 77, 78, 82, 96,
+130, 131, 132, 134, 147. Sequenced in `PORT_COMPLETION_PLAN.md`.
 
 Pure internal visual/utility plumbing (color-blend math, hover-tint
 helpers, rounded-rect canvas drawing, tooltip positioning, drag-ghost
@@ -23,11 +38,11 @@ capabilities. Ask if you want that granularity broken out further.
 |---|---|---|---|
 | 1 | Load save file with fallback through daily backups on missing/corrupt file | Done — adapted for a single SQLite file instead of a JSON blob: a magic-bytes check (not a full parse) detects corruption before Python ever opens it, a missing-but-backups-exist file is restored the same as a corrupt one (matching legacy's own load_data distinguishing "genuinely absent" from "went missing"), and a recovery dialog names which backup was used | 478-535 |
 | 2 | Default/fresh data schema for a brand-new install | Done (Alembic migrations + seed data serve the same role) | 538-568 |
-| 3 | Atomic save (temp file + fsync + rename) on every change | Partial (SQLite gives its own durability guarantees, not the same atomic-JSON-swap mechanism) | 571-711 |
+| 3 | Atomic save (temp file + fsync + rename) on every change | N/A (Phase 0 triage, verified against legacy 690-701) — legacy's temp+flush+fsync+`os.replace` exists to make a *single JSON blob* survive a power cut mid-write, a failure mode SQLite's own journal/WAL already handles per transaction. There is no JSON blob in the port to swap atomically, so this is a mechanism with no work left to do, not a missing capability. Durability itself is covered; row 4's daily backup covers the "good copy on disk" half | 571-711 |
 | 4 | Daily backup rotation (copy save file once/day, prune beyond 14) | Done — copies `app.db` (not a re-serialization of live state, same "back up the file just proven readable" reasoning as legacy) once per calendar day, right after the Python engine confirms READY; prunes beyond 14 on every call, not just the day's first, matching legacy's own fix for a folder that otherwise grew without limit | 439-475 |
 | 5 | Single-instance lock file (detects/overrides stale locks from crashed processes) | Done — `app.requestSingleInstanceLock()`, which supersedes legacy's manual PID-file entirely rather than porting the staleness check: the OS-level lock dies with the process, so there's no stale-lock state to ever detect | 401-436, 353-398 |
 | 6 | Corrupt-file quarantine + recovery notice dialog on next launch | Done — a corrupt `app.db` is renamed aside (`.corrupt-<timestamp>`, kept not deleted, matching legacy) before Python ever tries to open it, then a native dialog names what happened once the main window exists (legacy's own notice likewise fires after the window opens, not before) | 478-535, 17420-17430 |
-| 7 | Windows per-monitor DPI awareness | Not Started (Electron handles DPI itself, but no equivalent tuning) | 48-58 |
+| 7 | Windows per-monitor DPI awareness | N/A (Phase 0 triage, verified against legacy 48-58) — legacy's entire implementation is one Win32 call, `SetProcessDpiAwareness(2)`, with a `SetProcessDPIAware()` fallback. Chromium sets per-monitor DPI awareness for its own process; there is no equivalent call for an Electron app to make, and no tuning knob left exposed | 48-58 |
 | 8 | Windows dark title bar matched to active theme | Done — `nativeTheme.themeSource`, Electron's cross-platform equivalent of legacy's raw DWM ctypes calls, synced on theme change and on launch; energy is the port's one light theme, the other three are dark (legacy's own version only darkened for warroom/journey, excluding its dark "focus" mode — not replicated here since that reads as an oversight rather than an intentional exclusion) | 2055-2098 |
 | 9 | Window geometry persistence (main + every Toplevel, debounced save on move/resize) | Done for the one window the port has — bounds + maximized state, 400ms debounced, in a local `window-state.json` rather than AppState (Electron-chrome, not app data; needed before the Python engine is even up). No Toplevel-per-window persistence since the port has no secondary windows to persist, and no re-docking system since legacy's own version deliberately discards saved X/width for that (see row 10) — a bare resizable window has no edge to redock to, so exact restoration is the right simplification here | 2141-2197 |
 | 10 | Progressive panel layout (compact/partial/full, screen-edge docking) | Not Started | 15748-16074, 15818-15923 |
@@ -46,7 +61,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 18 | Global undo stack (Ctrl+Z), 30-deep, covers add/edit/delete/MIT/urgency/timer-reset/reorder | Done, Tasks-scoped (matches legacy's actual scope — add/delete/toggle-done/MIT/urgency/strike; reorder and timer-reset not wired). Redo (Ctrl+Shift+Z) added too, no legacy precedent | 9140-9172 and per-action `_undo` closures throughout |
 | 19 | Undo toast ("<action> — UNDO", 5s) | Done | 9202-9257 |
 | 20 | Right-click context menu (Cut/Copy/Paste/Select All) on text fields | Done — one main-process `context-menu` handler on the BrowserWindow (Electron doesn't wire this up automatically, unlike a Chrome tab), using `params.editFlags` for per-field enabled state instead of legacy's own has-selection checks | 1906-1971 |
-| 21 | Global mouse-wheel scroll dispatch (finds nearest scrollable ancestor) | Not Started (web scrolling handles this natively) | 1824-1903 |
+| 21 | Global mouse-wheel scroll dispatch (finds nearest scrollable ancestor) | N/A (Phase 0 triage, verified against legacy 1824-1903) — `_bind_global_scroll` walks the parent chain for a `tk.Canvas` with `yscrollcommand` set, and uses `winfo_containing` so the wheel works before the window has focus. Both exist because Tk has no scroll-event bubbling; the browser bubbles wheel events to the nearest scrollable ancestor by default and scrolls unfocused windows on hover. Porting it would mean re-implementing behaviour the platform already provides | 1824-1903 |
 | 22 | Keyboard shortcuts: Ctrl+S save, Ctrl+W/Esc close dialog, Ctrl+F focus mode, F1/? shortcuts panel | Partial (F1/? done; no Ctrl+S needed since every action autosaves immediately; Ctrl+W/Esc and Ctrl+F have no dialog-stack/focus-mode concept to attach to yet) | 1974-2030 |
 | 23 | Keyboard-shortcuts help overlay panel | Done | 16077-16127 |
 | 24 | First-run onboarding tour (3-step modal) | Done | 16130-16235 |
@@ -66,7 +81,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 33 | Deep Work Trend chart (30/90-day line chart, 7-day moving average, hover tooltip) | Done — SVG line chart on the Projects page: dotted goal line, pale raw daily line, 7-day average withheld until 3+ live days exist, zero-day red dots hidden past 50% density, "this week" tinted band, hover shows exact date+value. Data source is the existing `ProjectActivity` table (already the port's per-day-per-project time record) rather than a new `daily_history` archive — row 167 turns out to already be covered by it, see that row's note | 14136-14416, 3371-3403 |
 | 34 | "This week: N of 7 days on target" summary line | Done — nested above the trend chart, ported line-for-line from `_update_week_line` (total/hit-days/best-day over the last 7 days, summed across named projects only) | 14177-14208, 3060-3088 |
 | 35 | Capacity insight ("you tend to do deep work around X") | Done — buckets every Task session's start hour across Classic+Focus, same >=25%-dominance and >=1h-sample thresholds as legacy; returns nothing rather than a fabricated guess when data is thin, matching legacy's own honesty-over-fabrication reasoning | 14465-14506, 3408-3410 |
-| 36 | Work motto banner (editable) | Not Started / N/A — dead code in legacy itself: `_work_motto_var` is created, saved, and even migrated forward in `save_data`, but no widget anywhere binds it via `textvariable` — there is no live banner to port, just an orphaned StringVar from a prior redesign | 3425-3430 |
+| 36 | Work motto banner (editable) | N/A (Phase 0 triage, verified against legacy 3424-3430) — dead code in legacy itself. `_work_motto_var` is created under legacy's own comment `# Placeholder vars`, and `_save_work_motto` is defined but never bound to any event; the only other references are the `save_data`/`load` round-trip of `_work_motto_text`. No widget takes it as a `textvariable`, so there is no live banner to port — only an orphaned StringVar kept so `save_data()` doesn't crash after the panel was removed | 3425-3430 |
 | 37 | TODAY PROGRESS segmented bar (per-project on PLAN, gradient on FOCUS, milestone glow, 100% celebration) | Partial (ProjectDashboard shows a plain percentage line, no segmented/gradient visualization) | 7659-7878, 4894-4947 |
 | 38 | TODAY/MONTH/YEAR "time remaining" stat row | Done — nested in the clock card below the phase bars; TODAY reads the same work-phase-end boundary the phase bars use (one source of truth, matching legacy's own fix for a case where a separate "work_end" setting could disagree with it) and switches to "work day over" past it; only TODAY carries the accent colour since it's the only one of the three you can still act on | 4839-4892, 6200-6268 |
 
@@ -165,7 +180,7 @@ chip (ProjectDashboard).
 | 96 | 30-day activity/progress bar + top-strip canvas | Partial (a simple bar exists; no top-strip canvas, no per-day heat coloring) | 6392-6394, 6883-6926 |
 | 97 | Subtask add/toggle/delete | Done | 6974-7171 |
 | 98 | Subtask "+ STRIKE" promotion chip | Done — this file had left it marked Not Started from before the NOW panel/strike-from-project linkage was actually built; `ProjectDashboard.tsx`'s `strikeSubtask` + `POST /api/projects/subtasks/{pid}/strike` (with "+ STRIKE" / "✓ ON TODAY" / "DAY FULL" states) already fully implement it | 7051-7106 |
-| 99 | Subtask "Deep Work" launcher button (opens sibling Deep Work app) | Not Started | 6992-7106 (button), 16576-16635 (launcher) |
+| 99 | Subtask "Deep Work" launcher button (opens sibling Deep Work app) | N/A — excluded with section R (Phase 0 triage). This button's entire behaviour is launching the sibling Deep Work app, which is a separate product outside this port's scope; the row cannot be closed independently of row 165 | 6992-7106 (button), 16576-16635 (launcher) |
 | 100 | Project card collapse/expand + "solo this project" | Done — badge click toggles, double-click solos (collapses every other project, all-or-nothing); collapsed preview shows time-vs-target + done/total + next pending task, same as legacy's _collapsed_preview_text | 6539-6627 |
 | 101 | Quick Notes text box per project | Done | 6634-6696 |
 | 102 | Finished-projects-sink-to-bottom ordering | Done | 2635-2656 |
@@ -242,7 +257,7 @@ underlying capability (see rows 130-132, 134).
 | 137 | Investment/yearly-profit currency fields | Done (`cost_amount`/`yearly_profit`, free text same as legacy's plain Entry widgets) | 13057-13059 |
 | 138 | Per-plan next-actions checklist | Done, and more robust than legacy: each action gets a real id (`BdpAction`) instead of being retyped as one line in a shared textarea and re-matched to its old done-state by exact text | 13966-14026 |
 | 139 | Seed example plans on first run (6 starter opportunities) | Done — seeded by the Alembic migration itself (runs exactly once, ever) rather than a lazy check-on-every-load flag, since a migration already provides that guarantee for free | 12376-12432 |
-| 140 | One-time migration from the old fixed 6-block layout | Not Started / N/A — this migrates *legacy's own* pre-existing 6-block save data forward; the port has no such old-format data of its own to migrate (legacy's `_bdp_load` already folds that format into the current `plans` list before `import_bdp` ever sees it) | 12434-12470 |
+| 140 | One-time migration from the old fixed 6-block layout | N/A (Phase 0 triage, verified against legacy 12434-12470) — `_bdp_load` converts `block_N_title`/`block_N_note` into the `plans` list and sets `_migrated_v2` the first time the BDP screen is opened, so by the time a save file is exported it already holds `plans`. The port has no old-format data of its own to migrate. **Caveat:** `import_legacy.py` reads only `bdp.get("plans")`, so a save file whose BDP screen was never opened in a migrated legacy build (no `_migrated_v2`) would have its `block_N_*` text silently dropped on import. One-off risk, one defensive branch to close if it ever matters | 12434-12470 |
 
 ## N. 90-Day Quarterly Plan (whole-life plan)
 
@@ -322,9 +337,9 @@ since "the column exists" is not the same as "the feature works."
 | 167 | `daily_history` (90-day archive of secs+done-count per day) | Done / N/A — the port already had this exact data before rows 33-35 needed it: `ProjectActivity` (one row per project × day, added for the 30-day activity strip) is a strictly better source than legacy's single aggregate dict, since it survives per-project instead of collapsing to one number. No new table needed | 2971-2984, 3044-3058 |
 | 168 | `_daily_history`-derived deep-work streak | Done — shown as "🔥 Nd streak" beside the Deep Work Trend chart's title, hidden at 0 same as legacy; ported line-for-line from `_deep_streak` (today counts once it reaches goal, otherwise the streak is measured from yesterday backward) | 3047-3058 |
 | 169 | `bdp_data` / bdp legacy blocks (superseded by Business Plan Notes) | Done — `import_legacy.py`'s `import_bdp` reads the top-level `bdp_data` key (a dedicated escape hatch legacy writes precisely because `clean_vision()`'s whitelist would otherwise drop `vision_data["self_dev"]["plans"]` entirely) into `BdpPlan`/`BdpAction`, with `next_actions`' id-less `{"text","done"}` entries deduped by text on re-run the same way the decision log already is | 568, 12449-12463 |
-| 170 | `_exec_<date>` (hour-by-hour Daily Planner data) | Not Started / Out of scope — the removed Daily Planner has no equivalent screen in the port to import into (see README's "Importing your existing data") | 5546-5575 |
+| 170 | `_exec_<date>` (hour-by-hour Daily Planner data) | N/A — out of scope (Phase 0 triage, verified against legacy 5546-5578). `_exec_key`/`_exec_day`/`_exec_set` store an hour-keyed `{t, d}` map per day for the Daily Planner, a screen deliberately dropped from the port. There is no surface to import the data into; reviving it means reviving the screen, which is a new feature decision, not a port gap (see README's "Importing your existing data") | 5546-5575 |
 | 171 | `_q90_<cycle-start>` (Quarterly Plan answers) | Done — see section N; ported as `QuarterlyAnswer` (one row per cycle+area rather than a single nested dict), and now actually imported too: `import_legacy.py`'s `import_quarterly` reads every `__q90_<cycle-start>` key, not just the current cycle | 4415-4442 |
-| 172 | `swot_*` fields (Strengths/Weaknesses/Opportunities/Threats — older analysis generation, superseded by Business Analysis) | Not Started (superseded feature, unlikely worth reviving) | 598-601 |
+| 172 | `swot_*` fields (Strengths/Weaknesses/Opportunities/Threats — older analysis generation, superseded by Business Analysis) | N/A (Phase 0 triage, verified against legacy 598-601) — the four `swot_*` keys appear only in `save_data`'s serialisation; no widget in legacy reads or writes them any more (the leftover `swot_hdr` palette entries at 977-1109 are the only other trace of the removed screen). Superseded by the Business Analysis canvas, section K, which is fully ported | 598-601 |
 
 ---
 
