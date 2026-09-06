@@ -12,6 +12,8 @@ from api.schemas import (
     TaskMove,
     TaskOut,
     TaskRestore,
+    TaskTitleOut,
+    TaskTitleSet,
 )
 from database.connection import get_db
 from database.repository import ProjectRepository, TaskRepository
@@ -43,6 +45,16 @@ def get_day_view(engine: TaskEngine = Depends(get_engine)):
 @router.post("/day-view", response_model=DayViewOut)
 def set_day_view(payload: DayViewSet, engine: TaskEngine = Depends(get_engine)):
     return {"view": engine.set_day_view(payload.view)}
+
+
+@router.get("/title", response_model=TaskTitleOut)
+def get_task_title(list_key: ListKey, engine: TaskEngine = Depends(get_engine)):
+    return {"title": engine.get_task_title(list_key)}
+
+
+@router.post("/title", response_model=TaskTitleOut)
+def set_task_title(list_key: ListKey, payload: TaskTitleSet, engine: TaskEngine = Depends(get_engine)):
+    return {"title": engine.set_task_title(list_key, payload.title)}
 
 
 @router.post("", response_model=TaskOut)

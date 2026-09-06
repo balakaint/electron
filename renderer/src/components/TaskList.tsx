@@ -30,6 +30,7 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
+  const [title, setTitleState] = useState('');
   const { push: pushUndo } = useUndo();
 
   const refresh = () => tasksApi.list(listKey).then(setTasks);
@@ -165,20 +166,28 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
     });
   };
 
+  const fetchTitle = () => tasksApi.getTitle(listKey).then(({ title }) => setTitleState(title));
+
+  const saveTitle = () => {
+    tasksApi.setTitle(listKey, title.trim()).then(({ title }) => setTitleState(title));
+  };
+
   const switchDayView = (view: DayView) => {
     if (view === dayView) return;
     tasksApi.setDayView(view).then(() => {
       setDayViewState(view);
       refresh();
+      fetchTitle();
     });
   };
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([tasksApi.list(listKey), tasksApi.getDayView()])
-      .then(([taskList, { view }]) => {
+    Promise.all([tasksApi.list(listKey), tasksApi.getDayView(), tasksApi.getTitle(listKey)])
+      .then(([taskList, { view }, { title }]) => {
         setTasks(taskList);
         setDayViewState(view);
+        setTitleState(title);
       })
       .finally(() => setLoading(false));
   }, [listKey]);
@@ -206,6 +215,28 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
       )}
 
       {listKey === 'focus' && <NowCard refreshSignal={nowBump} onChanged={refresh} />}
+
+      <input
+        value={title}
+        onChange={(e) => setTitleState(e.target.value)}
+        onBlur={saveTitle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+        }}
+        style={{
+          display: 'block',
+          fontWeight: 'bold',
+          fontSize: 13,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+          border: 'none',
+          background: 'transparent',
+          color: 'var(--text)',
+          padding: 0,
+          marginBottom: 8,
+          width: '100%',
+        }}
+      />
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <input

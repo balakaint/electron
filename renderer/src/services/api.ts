@@ -70,6 +70,9 @@ export const tasksApi = {
   listStrike: () => req('GET', '/api/tasks/strike') as Promise<Task[]>,
   getDayView: () => req('GET', '/api/tasks/day-view') as Promise<{ view: DayView }>,
   setDayView: (view: DayView) => req('POST', '/api/tasks/day-view', { view }) as Promise<{ view: DayView }>,
+  getTitle: (listKey: ListKey) => req('GET', `/api/tasks/title?list_key=${listKey}`) as Promise<{ title: string }>,
+  setTitle: (listKey: ListKey, title: string) =>
+    req('POST', `/api/tasks/title?list_key=${listKey}`, { title }) as Promise<{ title: string }>,
 };
 
 export const STRIKE_MAX = 3;

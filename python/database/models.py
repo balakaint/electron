@@ -262,7 +262,13 @@ class AppState(Base):
       `self._settings["cycle_start"/"cycle_days"]`. NULL cycle_start
       means "no cycle chosen yet" — falls back to the calendar quarter
       containing today, same as legacy's own fallback, so a fresh
-      install needs no setup step before the screen means something."""
+      install needs no setup step before the screen means something.
+    - task_title_classic_today/classic_tomorrow/focus_today/focus_tomorrow:
+      user-renamed Tasks-list headings, one per (list × day-view) —
+      matches legacy's four `_task_title[_focus][_tomorrow]` keys. NULL
+      falls back to a computed default ("TODAY'S TARGETS" / "LIST" /
+      etc, see engine.tasks.default_task_title) the same way
+      sec_title_* above falls back for Goals."""
 
     __tablename__ = "app_state"
 
@@ -290,6 +296,10 @@ class AppState(Base):
     bdp_sort: Mapped[str] = mapped_column(String, default="manual")
     q90_cycle_start: Mapped[str | None] = mapped_column(String, nullable=True)
     q90_cycle_days: Mapped[int] = mapped_column(Integer, default=90)
+    task_title_classic_today: Mapped[str | None] = mapped_column(String, nullable=True)
+    task_title_classic_tomorrow: Mapped[str | None] = mapped_column(String, nullable=True)
+    task_title_focus_today: Mapped[str | None] = mapped_column(String, nullable=True)
+    task_title_focus_tomorrow: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class LegacyAnalysisBox(Base):

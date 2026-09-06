@@ -202,6 +202,30 @@ def test_move_task_reorders_within_done_group():
         check("moving an unknown task id returns None", f.engine.move_task(999999999, -1) is None)
 
 
+def test_task_title_per_list_and_view():
+    """Four independent heading slots — {classic,focus} x {today,tomorrow}
+    — matching legacy's four _task_title[_focus][_tomorrow] keys. NULL
+    falls back to a computed default; renaming one slot must not affect
+    the other three."""
+    with FreshDB() as f:
+        check("classic/today default", f.engine.get_task_title("classic") == "TODAY'S TARGETS")
+        check("focus/today default", f.engine.get_task_title("focus") == "LIST")
+
+        f.engine.set_task_title("classic", "MY TARGETS")
+        check("classic/today renamed", f.engine.get_task_title("classic") == "MY TARGETS")
+        check("focus/today untouched by classic's rename", f.engine.get_task_title("focus") == "LIST")
+
+        f.engine.set_day_view("tomorrow")
+        check("classic/tomorrow default (independent slot)", f.engine.get_task_title("classic") == "TOMORROW'S TARGETS")
+        check("focus/tomorrow default", f.engine.get_task_title("focus") == "TASK LIST")
+
+        f.engine.set_day_view("today")
+        check("classic/today rename survived switching views and back", f.engine.get_task_title("classic") == "MY TARGETS")
+
+        f.engine.set_task_title("classic", "  ")
+        check("blanking a title falls back to the default", f.engine.get_task_title("classic") == "TODAY'S TARGETS")
+
+
 def run_all():
     tests = [
         test_default_view_is_today,
@@ -213,6 +237,7 @@ def run_all():
         test_invalid_view_rejected,
         test_set_day_moves_task_between_views,
         test_move_task_reorders_within_done_group,
+        test_task_title_per_list_and_view,
     ]
     for t in tests:
         try:

@@ -49,6 +49,14 @@ class TaskMove(BaseModel):
     direction: TaskMoveDirectionT
 
 
+class TaskTitleOut(BaseModel):
+    title: str
+
+
+class TaskTitleSet(BaseModel):
+    title: str
+
+
 class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

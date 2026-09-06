@@ -35,6 +35,34 @@ def _view_date_str(view: str) -> str:
     return str(d)
 
 
+def _task_title_key(list_key: str, view: str) -> str:
+    return f"task_title_{list_key}_{view}"
+
+
+def default_task_title(list_key: str, view: str) -> str:
+    """Matches legacy's DEFAULT_TASK_TITLE branch: FOCUS is named for its
+    relationship to the STRIKE LIST card above it ("LIST" — the pool you
+    promote three of into STRIKE, "TASK LIST" once Tomorrow's view has
+    no STRIKE card to relate to); CLASSIC is named for what it holds
+    ("TARGETS" — everything the day owes you)."""
+    if list_key == "focus":
+        return "TASK LIST" if view == "tomorrow" else "LIST"
+    return "TOMORROW'S TARGETS" if view == "tomorrow" else "TODAY'S TARGETS"
+
+
+def get_task_title(repo: TaskRepository, list_key: str, view: str) -> str:
+    state = repo.get_app_state()
+    saved = getattr(state, _task_title_key(list_key, view))
+    return saved or default_task_title(list_key, view)
+
+
+def set_task_title(repo: TaskRepository, list_key: str, view: str, title: str) -> str:
+    state = repo.get_app_state()
+    setattr(state, _task_title_key(list_key, view), title.strip() or None)
+    repo.save_app_state(state)
+    return get_task_title(repo, list_key, view)
+
+
 def matches_day_view(task_day: str, view: str) -> bool:
     """TODAY matches day<=today (deliberately inclusive of overdue — an
     unfinished task must never silently vanish at midnight). TOMORROW
@@ -128,6 +156,12 @@ class TaskEngine:
 
     def set_day_view(self, view: str) -> str:
         return set_day_view(self.repo, view)
+
+    def get_task_title(self, list_key: str) -> str:
+        return get_task_title(self.repo, list_key, get_day_view(self.repo))
+
+    def set_task_title(self, list_key: str, title: str) -> str:
+        return set_task_title(self.repo, list_key, get_day_view(self.repo), title)
 
     def create_task(self, text: str, list_key: str = "classic", day: str | None = None) -> Task:
         text = text.strip()
