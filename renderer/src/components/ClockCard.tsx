@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { bnDayName, useLang } from '../i18n';
 import { settingsApi } from '../services/api';
 import DayPhaseBars from './DayPhaseBars';
 import ScopeStats from './ScopeStats';
@@ -15,6 +16,7 @@ function pad(n: number): string {
 // only draws the <svg> when the analog_clock setting is on, an SVG
 // circle/line dial standing in for legacy's raw Canvas draw calls.
 export default function ClockCard() {
+  const lang = useLang();
   const [now, setNow] = useState(new Date());
   const [analog, setAnalog] = useState(false);
 
@@ -84,7 +86,9 @@ export default function ClockCard() {
         <span style={{ fontSize: 13, opacity: 0.6, marginLeft: 4 }}>{h < 12 ? 'AM' : 'PM'}</span>
       </div>
       <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
-        {now.toLocaleDateString(undefined, { weekday: 'long' })}
+        {/* Legacy swaps only the weekday NAME, not the whole date line
+            (5016): the numeric date below stays as it is in both. */}
+        {lang === 'bn' ? bnDayName(now) : now.toLocaleDateString(undefined, { weekday: 'long' })}
       </div>
       <div style={{ fontSize: 11, opacity: 0.5 }}>
         {now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}

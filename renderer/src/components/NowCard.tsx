@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useL } from '../i18n';
 import { Project, Task, nowApi, projectsApi } from '../services/api';
 
 function formatHMS(secs: number): string {
@@ -14,6 +15,7 @@ function isRunning(task: Task): boolean {
 }
 
 export default function NowCard({ refreshSignal, onChanged }: { refreshSignal: number; onChanged: () => void }) {
+  const L = useL();
   const [task, setTask] = useState<Task | null>(null);
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [displaySecs, setDisplaySecs] = useState(0);
@@ -64,7 +66,7 @@ export default function NowCard({ refreshSignal, onChanged }: { refreshSignal: n
         background: 'var(--surface)',
       }}
     >
-      <div style={{ fontSize: 11, opacity: 0.6, letterSpacing: 1 }}>NOW</div>
+      <div style={{ fontSize: 11, opacity: 0.6, letterSpacing: 1 }}>{L('NOW', 'এখন')}</div>
       {task ? (
         <>
           <div style={{ fontSize: 18, fontWeight: 'bold', margin: '4px 0' }}>{task.text}</div>
@@ -76,7 +78,7 @@ export default function NowCard({ refreshSignal, onChanged }: { refreshSignal: n
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={toggleRun} style={{ flex: 1, padding: '8px 0', fontWeight: 'bold' }}>
-              {running ? '⏸ PAUSE' : '▶ START'}
+              {running ? `⏸ ${L('PAUSE', 'বিরতি')}` : `▶ ${L('START', 'শুরু')}`}
             </button>
             <button onClick={complete} style={{ padding: '8px 12px' }}>
               ✓ COMPLETE
@@ -84,7 +86,9 @@ export default function NowCard({ refreshSignal, onChanged }: { refreshSignal: n
           </div>
         </>
       ) : (
-        <p style={{ opacity: 0.6, fontSize: 13, margin: '8px 0 0' }}>Pick from MIT, or + STRIKE a task</p>
+        <p style={{ opacity: 0.6, fontSize: 13, margin: '8px 0 0' }}>
+          {L('Pick from MIT, or + STRIKE a task', 'MIT থেকে বাছুন, বা + STRIKE দিন')}
+        </p>
       )}
     </div>
   );

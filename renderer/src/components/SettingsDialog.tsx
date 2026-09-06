@@ -174,12 +174,16 @@ export default function SettingsDialog({
   onExport,
   theme,
   onSelectTheme,
+  onLangChange,
 }: {
   onClose: () => void;
   onOpenShortcuts: () => void;
   onExport: () => void;
   theme: Theme;
   onSelectTheme: (t: Theme) => void;
+  // The language control already persisted through `patch`; this tells
+  // App so the running UI switches immediately rather than on next load.
+  onLangChange: (l: 'en' | 'bn') => void;
 }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
@@ -247,7 +251,10 @@ export default function SettingsDialog({
               {(['en', 'bn'] as const).map((v) => (
                 <button
                   key={v}
-                  onClick={() => patch({ lang: v })}
+                  onClick={() => {
+                    patch({ lang: v });
+                    onLangChange(v);
+                  }}
                   disabled={settings.lang === v}
                   style={{ fontSize: 12, padding: '3px 8px' }}
                 >

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { PHASE_LABELS_BN, useLang } from '../i18n';
 import { Settings, settingsApi } from '../services/api';
 
 type PhaseKey = 'morning' | 'work' | 'evening' | 'sleep';
@@ -76,6 +77,7 @@ function phaseProgress(key: PhaseKey, bounds: Record<PhaseKey, [number, number]>
 const PHASE_ORDER: PhaseKey[] = ['morning', 'work', 'evening', 'sleep'];
 
 export default function DayPhaseBars() {
+  const lang = useLang();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [now, setNow] = useState(new Date());
 
@@ -120,7 +122,7 @@ export default function DayPhaseBars() {
                 color: key === currentPhase ? 'var(--text)' : 'var(--text-muted)',
               }}
             >
-              {PHASE_LABEL[key]}
+              {lang === 'bn' ? PHASE_LABELS_BN[key] : PHASE_LABEL[key]}
             </span>
             <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
               <div style={{ width: `${pct}%`, height: '100%', background: PHASE_COLOR[key] }} />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useL } from '../i18n';
 import { Settings, settingsApi } from '../services/api';
 import { phaseBounds } from './DayPhaseBars';
 
@@ -13,6 +14,7 @@ function daysInMonth(year: number, month0: number): number {
 // something you can still act on, so only it carries the accent
 // colour; MONTH/YEAR are reference facts.
 export default function ScopeStats() {
+  const L = useL();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [now, setNow] = useState(new Date());
 
@@ -33,7 +35,7 @@ export default function ScopeStats() {
   const end = new Date(base.getTime() + endH * 3600000);
   const leftSecs = Math.max(0, Math.round((end.getTime() - now.getTime()) / 1000));
 
-  const today = leftSecs <= 0 ? 'work day over' : `${String(Math.floor(leftSecs / 3600)).padStart(2, '0')}h ${String(Math.floor((leftSecs % 3600) / 60)).padStart(2, '0')}m`;
+  const today = leftSecs <= 0 ? L('work day over', 'দিন শেষ') : `${String(Math.floor(leftSecs / 3600)).padStart(2, '0')}h ${String(Math.floor((leftSecs % 3600) / 60)).padStart(2, '0')}m`;
 
   const y = now.getFullYear();
   const monthDays = daysInMonth(y, now.getMonth());
@@ -42,7 +44,7 @@ export default function ScopeStats() {
   const yearLeft = Math.round((yearEnd.getTime() - new Date(y, now.getMonth(), now.getDate()).getTime()) / 86400000);
 
   const cards = [
-    { cap: 'TODAY', val: today, accent: true },
+    { cap: L('TODAY', 'আজ'), val: today, accent: true },
     { cap: now.toLocaleDateString(undefined, { month: 'long' }).toUpperCase(), val: `${monthLeft} days`, accent: false },
     { cap: String(y), val: `${yearLeft} days`, accent: false },
   ];

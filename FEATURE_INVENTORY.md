@@ -13,12 +13,12 @@ was checked against the legacy source before being closed.
 
 | Status | Rows |
 |---|---|
-| Done | 151 |
+| Done | 152 |
 | N/A | 8 (rows 3, 7, 21, 36, 99, 140, 170, 172) |
 | Excluded — section R sibling apps | 6 (rows 161-166) |
-| **Remaining real work** | **7** |
+| **Remaining real work** | **6** |
 
-The 7 remaining: 10, 11, 17, 22, 29, 77, 78. Sequenced in
+The 6 remaining: 10, 11, 22, 29, 77, 78. Sequenced in
 `PORT_COMPLETION_PLAN.md`. Phases 1-3 closed 2026-09-06 (rows 15, 147;
 37, 70, 96; 130-132, 134), Phase 4 partially (rows 30, 60, 82; row 22
 waits on row 10, and row 29's Tools menu carries a Focus Mode entry that
@@ -60,7 +60,7 @@ capabilities. Ask if you want that granularity broken out further.
 |---|---|---|---|
 | 15 | Theme system (6 named themes: Focus/War Room/Energy/Executive/Journey/Rize) | Done — all 6 palettes, in legacy's own THEME_ORDER; Executive (legacy key `corporate`) and Rize carry legacy's exact hex values, while the original 4 keep the reinterpreted core swatches an earlier pass shipped. Token set widened 7 → 44 so every component repaints, not just the shell: `--phase-*` from `_SEG_COLORS`, `--goal-*` from each theme's SECTIONS, `--habit-*` from the `_VB` dict (kept separate from the app-wide status colors — legacy's habit panel paints on its own surface, so warroom's habit-success is cyan while the app's success is green), `--ba-*` and `--bdp-*` for the fixed and light/dark sets legacy hardcodes. One deliberate divergence: warroom's `--success` is green, not legacy's cyan `DONE_GREEN`, because that value is accent-derived in legacy (warroom's accent IS cyan there) and the port's warroom accent is red. 9 literals remain on purpose — white text on saturated chips, modal scrims, one toast shadow | 721-944, 15397-15438 |
 | 16 | Theme cycle keyboard shortcut (Ctrl+T / Ctrl+Shift+T) | Done | 1978-1994, 7446-7473 |
-| 17 | Language picker (English/Bangla), used across several panels | Not Started | 15440-15456 |
+| 17 | Language picker (English/Bangla), used across several panels | Done — `renderer/src/i18n.tsx` ports legacy's `L(en, bn)` helper as a hook, plus its two tables: `_SEG_LABELS_BN` (day-phase labels) and `BN_DAYS`. **Scope note:** legacy does NOT translate the whole interface — `L()` appears at roughly thirty call sites and everything else stays English in both languages. That is ported as-is rather than widened, because half-translating is worse than not translating and a full sweep is a product decision needing Bengali review, not a port task. Translated here: NOW heading, PAUSE/START, the NOW empty hint, the weekday name on the clock, the four day-phase labels, and TODAY / "work day over" in the scope stats. Omitted with cause: legacy's Pomodoro labels and its HOURS / TASK LIST tri-tab (the port has neither screen), and the task-list heading — legacy hardcodes "TO-DO"/"আজকের কাজ" there, but the port made that heading user-editable (row 57), and overwriting someone's own title on a language switch would be wrong. The picker itself already existed in Settings and already persisted; it now also switches the running UI rather than waiting for a reload | 15440-15456 |
 | 18 | Global undo stack (Ctrl+Z), 30-deep, covers add/edit/delete/MIT/urgency/timer-reset/reorder | Done, Tasks-scoped (matches legacy's actual scope — add/delete/toggle-done/MIT/urgency/strike; reorder and timer-reset not wired). Redo (Ctrl+Shift+Z) added too, no legacy precedent | 9140-9172 and per-action `_undo` closures throughout |
 | 19 | Undo toast ("<action> — UNDO", 5s) | Done | 9202-9257 |
 | 20 | Right-click context menu (Cut/Copy/Paste/Select All) on text fields | Done — one main-process `context-menu` handler on the BrowserWindow (Electron doesn't wire this up automatically, unlike a Chrome tab), using `params.editFlags` for per-field enabled state instead of legacy's own has-selection checks | 1906-1971 |

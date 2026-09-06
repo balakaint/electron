@@ -14,6 +14,7 @@ import ShortcutsHelp from './components/ShortcutsHelp';
 import UndoToast from './components/UndoToast';
 import { UndoProvider, useUndo } from './undo';
 import { applyTheme, nextTheme, Theme, THEME_LABELS } from './themes';
+import { Lang, LangProvider } from './i18n';
 
 type Page = 'tasks' | 'habits' | 'projects' | 'goals' | 'journey' | 'bdp' | 'quarterly';
 
@@ -22,6 +23,7 @@ function AppShell() {
   const [page, setPage] = useState<Page>('tasks');
   const [tab, setTab] = useState<ListKey>('classic');
   const [theme, setThemeState] = useState<Theme>('focus');
+  const [lang, setLang] = useState<Lang>('en');
   const [onboarded, setOnboarded] = useState<boolean | null>(null); // null = not loaded yet
   // Stored as "when it was opened" rather than a boolean, so the stack
   // above can order them; null means closed.
@@ -61,6 +63,7 @@ function AppShell() {
     settingsApi.get().then((s) => {
       setThemeState(s.theme);
       applyTheme(s.theme);
+      setLang(s.lang);
       setOnboarded(s.onboarded);
     });
   }, []);
@@ -134,6 +137,7 @@ function AppShell() {
   }, [theme, shortcutsOpen, settingsOpen, dialogStack.length]);
 
   return (
+    <LangProvider lang={lang}>
     <div style={{ fontFamily: 'sans-serif', padding: 24, background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 style={{ margin: 0 }}>Habit OS</h1>
@@ -214,10 +218,12 @@ function AppShell() {
           onExport={runExport}
           theme={theme}
           onSelectTheme={selectTheme}
+          onLangChange={setLang}
         />
       )}
       <UndoToast />
     </div>
+    </LangProvider>
   );
 }
 
