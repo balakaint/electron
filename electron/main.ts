@@ -100,6 +100,21 @@ function createWindow() {
 const BASE = () => `http://127.0.0.1:${PYTHON_PORT}`;
 const ALLOWED_METHODS = new Set(['GET', 'POST', 'PUT', 'DELETE']);
 
+// The renderer only stores the preference (Settings' start_with_windows
+// toggle); actually registering/unregistering the OS startup entry has
+// to happen here, since contextIsolation + nodeIntegration:false keep
+// the renderer from touching login-item settings itself. Wrapped in
+// try/catch because setLoginItemSettings isn't meaningful on every
+// platform this could run on, and a preference toggle must never crash
+// the app over a missing OS integration.
+function syncLoginItem(startWithWindows: boolean) {
+  try {
+    app.setLoginItemSettings({ openAtLogin: startWithWindows });
+  } catch (err) {
+    console.error('setLoginItemSettings failed:', err);
+  }
+}
+
 ipcMain.handle('health-check', async () => {
   const res = await fetch(`${BASE()}/health`);
   return res.json();
@@ -121,7 +136,11 @@ ipcMain.handle(
       throw new Error(`${res.status} ${detail}`);
     }
     if (res.status === 204) return null;
-    return res.json();
+    const json = (await res.json()) as Record<string, unknown>;
+    if (reqPath === '/api/settings' && typeof json.start_with_windows === 'boolean') {
+      syncLoginItem(json.start_with_windows);
+    }
+    return json;
   },
 );
 
@@ -150,6 +169,17 @@ ipcMain.handle(
 app.whenReady().then(async () => {
   await startPythonEngine();
   createWindow();
+
+  // Registering the OS startup entry is a side effect of a stored
+  // preference, not something the preference-setting UI is guaranteed
+  // to re-trigger every launch (the toggle only fires on change) — so
+  // launch itself has to re-assert whatever was last saved, in case the
+  // OS entry was ever cleared out from under the app (e.g. a user
+  // reinstall, or a Windows "clean startup" tool).
+  fetch(`${BASE()}/api/settings`)
+    .then((res) => res.json() as Promise<Record<string, unknown>>)
+    .then((settings) => syncLoginItem(Boolean(settings.start_with_windows)))
+    .catch((err) => console.error('startup login-item sync failed:', err));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

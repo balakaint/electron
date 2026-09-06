@@ -250,9 +250,10 @@ class AppState(Base):
       the one place any cross-cutting setting lives. idle_stop_min is
       read by engine.timer_reconciliation (default 15, matching that
       module's own IDLE_LIMIT_SECS fallback for callers with no repo in
-      hand). start_with_windows is stored here as a plain preference
-      only — actually registering/unregistering the OS startup entry is
-      Electron-main-process territory and isn't wired yet.
+      hand). start_with_windows is just the stored preference — the
+      actual OS registration (`app.setLoginItemSettings`) lives in
+      electron/main.ts, which syncs it on every settings save and
+      re-asserts it on launch.
     - bdp_sort: Business Plan Notes' list-ordering mode ("manual" |
       "priority") — a single global toggle for that one screen, matching
       the legacy screen's own `vd["sort"]`, same shape as task_day_view

@@ -34,7 +34,7 @@ capabilities. Ask if you want that granularity broken out further.
 | 11 | App close handler: stop timers cleanly, fold today into history, save, release lock | Partial (Electron's window-all-closed kills the Python engine; timer reconciliation on next startup covers the "stop timers cleanly" intent, but nothing folds a day into history since there's no daily_history equivalent) | 17351-17387 |
 | 12 | Startup crash handler (traceback to file + dedicated error window with copy button) | Not Started | 17432-17495 |
 | 13 | Single-instance-already-running prompt (Yes/No, warns about overwrite risk) | Not Started | 17399-17417 |
-| 14 | "Start with Windows" autostart toggle (registry Run key) | Not Started | 15201-15252 |
+| 14 | "Start with Windows" autostart toggle (registry Run key) | Done — `app.setLoginItemSettings` in the main process, using `AppState.start_with_windows` (already stored, previously unwired per row 30's own note) rather than legacy's direct registry Run-key edit; synced on every settings save and re-asserted on launch | 15201-15252 |
 
 ## B. Global UI chrome / shortcuts
 
