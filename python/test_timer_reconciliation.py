@@ -317,6 +317,102 @@ def test_reset_timer_is_undoable():
     db.close()
 
 
+# ── 9. Shutdown: stop_all_running closes open sessions ──
+def test_stop_all_running_on_shutdown():
+    """Note this file shares ONE database across its tests (fresh_db is
+    just SessionLocal()), and an earlier test deliberately leaves a
+    session open. So this asserts on the specific tasks it created, not
+    on a global count."""
+    db = fresh_db()
+    repo = TaskRepository(db)
+    task_engine = TaskEngine(repo, ProjectRepository(db))
+    a = task_engine.create_task("shutdown running", "classic")
+    c = task_engine.create_task("shutdown never started", "classic")
+    db.commit()
+
+    task_engine.toggle_timer(a.id)
+    task = repo.get(a.id)
+    sessions = list(task.sessions)
+    sessions[-1] = {**sessions[-1], "start": time.time() - 240, "checkpoint": time.time() - 60}
+    task.sessions = sessions
+    repo.save(task)
+
+    closed = task_engine.stop_all_running()
+    check("stop_all_running closed at least the open one", closed >= 1, f"got {closed}")
+    check("the running task's session is closed",
+          repo.get(a.id).sessions[-1]["end"] is not None)
+    check("a task that was never started is untouched",
+          repo.get(c.id).sessions == [] and repo.get(c.id).secs == 0)
+    check("re-running does not reopen or double-close anything",
+          repo.get(a.id).sessions[-1]["end"] is not None)
+    db.close()
+
+
+def test_open_session_left_by_an_abrupt_exit_banks_idle_time():
+    """The actual reason to stop timers at shutdown.
+
+    The idle cap is measured from the last CHECKPOINT, and the scheduler
+    checkpoints about once a minute, so an abrupt exit loses almost no
+    real time — a clean stop is NOT more accurate, which is what an
+    earlier version of this change wrongly claimed.
+
+    The harm is different: tick_task never auto-stops. So a session left
+    open by an abrupt exit is still open on the next launch, and startup
+    reconciliation credits min(gap, idle_limit) where the gap is the
+    whole time the app was CLOSED. Leave it overnight and the task banks
+    a full idle limit of time nobody worked, and still shows as running.
+    """
+    db = fresh_db()
+    repo = TaskRepository(db)
+    task_engine = TaskEngine(repo, ProjectRepository(db))
+    t = task_engine.create_task("abrupt exit", "classic")
+    db.commit()
+
+    task_engine.toggle_timer(t.id)
+    task = repo.get(t.id)
+    sessions = list(task.sessions)
+    # Checkpointed a moment before the app was killed, then closed for
+    # eight hours.
+    eight_hours = 8 * 3600
+    sessions[-1] = {
+        **sessions[-1],
+        "start": time.time() - eight_hours - 300,
+        "checkpoint": time.time() - eight_hours,
+    }
+    task.sessions = sessions
+    task.secs = 300.0
+    repo.save(task)
+
+    reconcile_all_tasks(repo)
+    after = repo.get(t.id)
+    banked = after.secs - 300.0
+    check("startup reconciliation banks idle time for a session left open",
+          banked >= IDLE_LIMIT_SECS - 1, f"banked {banked}s")
+    check("and the session is STILL open, so it reads as running",
+          after.sessions[-1]["end"] is None)
+
+    # With a clean shutdown the session would have been closed instead,
+    # so none of the above can happen.
+    t2 = task_engine.create_task("clean exit", "classic")
+    db.commit()
+    task_engine.toggle_timer(t2.id)
+    task2 = repo.get(t2.id)
+    sessions2 = list(task2.sessions)
+    sessions2[-1] = {**sessions2[-1], "start": time.time() - 300, "checkpoint": time.time() - 60}
+    task2.sessions = sessions2
+    task2.secs = 240.0
+    repo.save(task2)
+
+    task_engine.stop_all_running()
+    secs_at_close = repo.get(t2.id).secs
+    reconcile_all_tasks(repo)
+    after2 = repo.get(t2.id)
+    check("a cleanly stopped session is closed", after2.sessions[-1]["end"] is not None)
+    check("and startup reconciliation adds nothing to it",
+          after2.secs == secs_at_close, f"{after2.secs} vs {secs_at_close}")
+    db.close()
+
+
 def run_all():
     tests = [
         test_idle_cap_on_stop,
@@ -327,6 +423,8 @@ def run_all():
         test_task_tick_checkpoint,
         test_subtask_fk_unlink,
         test_reset_timer_is_undoable,
+        test_stop_all_running_on_shutdown,
+        test_open_session_left_by_an_abrupt_exit_banks_idle_time,
     ]
     for t in tests:
         try:

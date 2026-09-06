@@ -575,11 +575,60 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on('window-all-closed', () => {
+// Legacy's on_close stops every running task timer BEFORE saving
+// (17359-17367), because quitting with one running "used to leave `end`
+// as None forever ... and it inflated the task's session count for
+// good."
+//
+// Not an accuracy fix: the idle cap runs from the last checkpoint and
+// the scheduler checkpoints about once a minute, so an abrupt exit loses
+// well under a minute of genuine work. The problem is that tick_task
+// never auto-stops — a session left open by an abrupt exit is STILL open
+// on the next launch, and startup reconciliation credits min(gap,
+// idle_limit) where the gap is the whole time the app was closed. Quit
+// overnight and the task banks a full idle limit of time nobody worked,
+// and reads as still running. Closing the session on the way out is what
+// prevents that; the reconciler stays as the safety net for a real
+// crash, where nothing gets to run.
+//
+// Bounded and best-effort: shutdown must not hang on an engine that has
+// already died or wedged, so a failure or a slow reply just proceeds to
+// the kill.
+let shutdownDone = false;
+
+async function gracefulShutdown(): Promise<void> {
+  if (shutdownDone) return;
+  shutdownDone = true;
+  if (!pythonProcess) return;
+  try {
+    await Promise.race([
+      fetch(`${BASE()}/api/tasks/stop-all-timers`, { method: 'POST' }),
+      new Promise((resolve) => setTimeout(resolve, 1500)),
+    ]);
+  } catch (err) {
+    console.error('stop-all-timers on shutdown failed:', err);
+  }
+}
+
+app.on('window-all-closed', async () => {
+  await gracefulShutdown();
   pythonProcess?.kill();
   if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', () => {
+// before-quit fires for Cmd+Q and an OS-initiated quit, which
+// window-all-closed does not. Quitting is deferred once so the stop can
+// actually complete — without preventDefault the process is gone before
+// the request lands. shutdownDone makes the second pass fall straight
+// through, so this cannot loop.
+app.on('before-quit', (e) => {
+  if (!shutdownDone) {
+    e.preventDefault();
+    gracefulShutdown().finally(() => {
+      pythonProcess?.kill();
+      app.quit();
+    });
+    return;
+  }
   pythonProcess?.kill();
 });

@@ -151,6 +151,14 @@ def reset_timer(task_id: int, engine: TaskEngine = Depends(get_engine)):
     return task
 
 
+@router.post("/stop-all-timers")
+def stop_all_timers(engine: TaskEngine = Depends(get_engine)):
+    """Declared BEFORE the /{task_id}/... routes: FastAPI matches in
+    definition order, and "stop-all-timers" would otherwise be captured
+    as a task_id and 422 on the int conversion."""
+    return {"closed": engine.stop_all_running()}
+
+
 @router.post("/{task_id}/restore-timer", response_model=TaskOut)
 def restore_timer(task_id: int, payload: TimerRestore, engine: TaskEngine = Depends(get_engine)):
     task = engine.restore_timer(task_id, payload.secs, payload.sessions)

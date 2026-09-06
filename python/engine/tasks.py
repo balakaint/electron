@@ -330,6 +330,38 @@ class TaskEngine:
         task.sessions = []
         return self.repo.save(task)
 
+    def stop_all_running(self) -> int:
+        """Close every open task session and return how many were closed.
+
+        Called on app shutdown, matching legacy's on_close loop
+        (17359-17367) and for its stated reason: quitting with a timer
+        running "used to leave `end` as None forever ... and it inflated
+        the task's session count for good."
+
+        Note the accuracy argument for this is NOT that a clean stop
+        credits more real time — it doesn't. The idle cap is measured
+        from the last checkpoint and the scheduler checkpoints about once
+        a minute, so an abrupt exit loses under a minute of genuine work.
+
+        The harm is that `tick_task` never auto-stops. A session left
+        open by an abrupt exit is still open on the next launch, and
+        startup reconciliation then credits min(gap, idle_limit) where
+        the gap is the whole time the app was CLOSED — so quitting
+        overnight banks a full idle limit of time nobody worked, and the
+        task still reads as running. Closing the session here is what
+        prevents that. The reconciler remains the safety net for a real
+        crash, where nothing gets to run.
+        """
+        closed = 0
+        idle_limit = self.repo.get_app_state().idle_stop_min * 60
+        for task in self.repo.list():
+            sessions = task.sessions or []
+            if sessions and sessions[-1].get("end") is None:
+                stop_task_session(task, idle_limit_secs=idle_limit)
+                self.repo.save(task)
+                closed += 1
+        return closed
+
     def restore_timer(self, task_id: int, secs: float, sessions: list) -> Task | None:
         """Put a task's recorded time back, for undoing a reset.
 
