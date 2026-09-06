@@ -1,0 +1,24 @@
+appId: com.yourcompany.habit-os
+productName: Habit OS
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - dist/**
+  - package.json
+
+extraResources:
+  - from: python/dist/engine
+    to: engine
+
+win:
+  target: nsis
+  icon: build/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
