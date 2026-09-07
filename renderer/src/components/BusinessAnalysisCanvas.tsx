@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import CircleSection from './CircleSection';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import {
   BusinessAnalysis,
@@ -221,6 +222,7 @@ export default function BusinessAnalysisCanvas({
           </div>
         </Section>
       )}
+      <CircleSection projectKey={projectKey} />
     </div>
   );
 }

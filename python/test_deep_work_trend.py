@@ -192,6 +192,34 @@ def test_capacity_insight_detects_dominant_hour():
         check("the insight names 9 AM", insight is not None and "9 AM" in insight)
 
 
+def test_note_title_is_separate_from_the_note():
+    """Legacy's per-project Quick Notes HEADING (_qn_title_<key>).
+
+    It is its own field, not the note body: legacy preserves renamed
+    headings explicitly on save (580-587), and the port had no column at
+    all — so every card showed the fixed "QUICK NOTES" and any rename in
+    an imported file was dropped.
+    """
+    with FreshDB() as f:
+        p = f.projects.update_project("proj1", note="body text")
+        check("a project starts with no custom heading", p.note_title == "", repr(p.note_title))
+
+        p = f.projects.update_project("proj1", note_title="WHAT TO DO IN SEPTEMBER")
+        check("the heading is stored", p.note_title == "WHAT TO DO IN SEPTEMBER")
+        check("and it did not touch the note body", p.note == "body text", repr(p.note))
+
+        p = f.projects.update_project("proj1", note="new body")
+        check("editing the note leaves the heading alone",
+              p.note_title == "WHAT TO DO IN SEPTEMBER", repr(p.note_title))
+
+        # Empty means "use the default heading", so it must be storable.
+        p = f.projects.update_project("proj1", note_title="")
+        check("clearing the heading is allowed", p.note_title == "")
+
+        check("note_title is exposed to the client",
+              "note_title" in f.projects.project_to_dict(f.project_repo.get("proj1")))
+
+
 def run_all():
     tests = [
         test_goal_secs_from_named_projects_or_settings,
@@ -204,6 +232,7 @@ def run_all():
         test_deep_streak,
         test_capacity_insight_needs_minimum_data,
         test_capacity_insight_detects_dominant_hour,
+        test_note_title_is_separate_from_the_note,
     ]
     for t in tests:
         try:

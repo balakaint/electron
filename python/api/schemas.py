@@ -170,6 +170,7 @@ class ProjectUpdate(BaseModel):
     name: str | None = None
     note: str | None = None
     detail_note: str | None = None
+    note_title: str | None = None
     note_bg: str | None = None
     note_fg: str | None = None
     collapsed: bool | None = None
@@ -185,6 +186,7 @@ class ProjectOut(BaseModel):
     accent_color: str
     note: str
     detail_note: str
+    note_title: str
     note_bg: str | None
     note_fg: str | None
     target_minutes: int

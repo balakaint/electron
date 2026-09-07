@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityEntry,
-  CirclePerson,
   Project,
   ProjectKey,
   ProjectOrderEntry,
@@ -9,7 +8,6 @@ import {
   Subtask,
   Task,
   TodayProgress,
-  circleApi,
   projectsApi,
   tasksApi,
 } from '../services/api';
@@ -38,16 +36,6 @@ function nextProjectTarget(current: number): number {
   return PROJ_TARGETS.find((o) => o > current) ?? PROJ_TARGETS[0];
 }
 
-// Matches the legacy app's _CIRCLE_CADENCES exactly.
-const CADENCE_PRESETS = [1, 3, 7, 14, 30];
-
-function nextCadence(current: number): number {
-  const i = CADENCE_PRESETS.indexOf(current);
-  // Falls back to the default rather than erroring when the stored
-  // value isn't one of the presets (matches legacy's own fallback).
-  return i === -1 ? 7 : CADENCE_PRESETS[(i + 1) % CADENCE_PRESETS.length];
-}
-
 function ProjectCard({
   entry,
   focusTasks,
@@ -69,27 +57,33 @@ function ProjectCard({
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [newSubtask, setNewSubtask] = useState('');
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
-  const [people, setPeople] = useState<CirclePerson[]>([]);
-  const [newPerson, setNewPerson] = useState('');
   const [name, setName] = useState(project.name);
   const [strikeFlash, setStrikeFlash] = useState<string | null>(null);
+  // Legacy defaults the heading to "QUICK NOTES" and lets it be renamed
+  // per project; empty means "use the default", not "no heading".
+  const [noteTitle, setNoteTitle] = useState(project.note_title);
+  const [addingTask, setAddingTask] = useState(false);
 
   const key = project.key as ProjectKey;
   const noteField = useAutosave(project.note, (v: string) => projectsApi.update(key, { note: v }).then(onChanged));
 
   const refreshSubtasks = () => projectsApi.listSubtasks(key).then(setSubtasks);
   const refreshActivity = () => projectsApi.activity(key, 30).then(setActivity);
-  const refreshPeople = () => circleApi.list(key).then(setPeople);
 
   useEffect(() => {
     setName(project.name);
+    setNoteTitle(project.note_title);
     refreshSubtasks();
     refreshActivity();
-    refreshPeople();
   }, [project.name, project.note, key]);
 
   const saveName = () => {
     if (name !== project.name) projectsApi.update(key, { name }).then(onChanged);
+  };
+
+  const saveNoteTitle = () => {
+    const t = noteTitle.trim();
+    if (t !== project.note_title) projectsApi.update(key, { note_title: t }).then(onChanged);
   };
 
   const strikeSubtask = (pid: string) => {
@@ -108,15 +102,6 @@ function ProjectCard({
     projectsApi.addSubtask(key, text).then(() => {
       setNewSubtask('');
       refreshSubtasks();
-    });
-  };
-
-  const addPerson = () => {
-    const nm = newPerson.trim();
-    if (!nm) return;
-    circleApi.add(key, nm).then(() => {
-      setNewPerson('');
-      refreshPeople();
     });
   };
 
@@ -239,6 +224,38 @@ function ProjectCard({
           </div>
         ) : (
           <>
+        {/* Notes first. Legacy puts them directly under the header
+            (6634-6696, body row 1) and the timer row below them — the
+            note is what the card is for on a planning screen, and
+            burying it under the task list is what made these cards so
+            tall that only two fit on screen. */}
+        <input
+          value={noteTitle}
+          onChange={(e) => setNoteTitle(e.target.value)}
+          onBlur={saveNoteTitle}
+          placeholder="QUICK NOTES"
+          title="Rename this note — legacy keeps a per-project heading"
+          style={{
+            width: '100%',
+            fontSize: 11,
+            letterSpacing: 0.5,
+            opacity: 0.7,
+            border: 'none',
+            background: 'transparent',
+            color: project.accent_color,
+            padding: 0,
+            marginBottom: 4,
+          }}
+        />
+        <textarea
+          value={noteField.value}
+          onChange={(e) => noteField.setValue(e.target.value)}
+          onBlur={noteField.flush}
+          rows={3}
+          placeholder="Jot something down…"
+          style={{ width: '100%', fontSize: 12, padding: 6, marginBottom: 8, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(noteField.state) }}
+        />
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, fontSize: 12 }}>
           <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
             <div style={{ width: `${pct}%`, height: '100%', background: project.accent_color }} />
@@ -269,20 +286,23 @@ function ProjectCard({
           <button onClick={() => projectsApi.bumpTarget(key, 15).then(onChanged)} title="Increase daily target">+</button>
         </div>
 
-        <div style={{ display: 'flex', gap: 2, marginBottom: 10 }}>
-          {activity.map((a) => (
-            <div
-              key={a.day}
-              title={`${a.day} — ${formatSecs(a.secs)}`}
-              onClick={() => projectsApi.mark(key, a.day, !a.worked).then(refreshActivity)}
-              style={{
-                width: 7,
-                height: 14,
-                background: a.worked ? project.accent_color : 'var(--border)',
-                cursor: 'pointer',
-              }}
-            />
-          ))}
+        {/* Legacy's TASKS header row: label, done-count, "+ task"
+            (6848-6862). The add field lives behind that button rather
+            than sitting open on every card — six always-visible inputs
+            is most of why this column scrolled. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, marginBottom: 2 }}>
+          <span style={{ opacity: 0.6, letterSpacing: 0.5 }}>TASKS</span>
+          <span style={{ flex: 1 }} />
+          <span style={{ opacity: 0.6 }}>
+            {subtasksDone}/{subtasks.length}
+          </span>
+          <button
+            onClick={() => setAddingTask((v) => !v)}
+            title="Add a task to this project"
+            style={{ fontSize: 11 }}
+          >
+            + task
+          </button>
         </div>
 
         <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 8px 0' }}>
@@ -324,56 +344,23 @@ function ProjectCard({
             <div style={{ height: '100%', width: `${(subtasksDone / subtasks.length) * 100}%`, background: project.accent_color }} />
           </div>
         )}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-          <input
-            value={newSubtask}
-            onChange={(e) => setNewSubtask(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
-            placeholder="Add subtask…"
-            style={{ flex: 1, fontSize: 12, padding: 4 }}
-          />
-          <button onClick={addSubtask} title="Add subtask">+</button>
-        </div>
+        {addingTask && (
+          <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+            <input
+              autoFocus
+              value={newSubtask}
+              onChange={(e) => setNewSubtask(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addSubtask();
+                if (e.key === 'Escape') setAddingTask(false);
+              }}
+              placeholder="Add task…"
+              style={{ flex: 1, fontSize: 12, padding: 4 }}
+            />
+            <button onClick={addSubtask} title="Add task">+</button>
+          </div>
+        )}
 
-        <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>QUICK NOTES</div>
-        <textarea
-          value={noteField.value}
-          onChange={(e) => noteField.setValue(e.target.value)}
-          onBlur={noteField.flush}
-          rows={3}
-          placeholder="Jot something down…"
-          style={{ width: '100%', fontSize: 12, padding: 6, marginBottom: 10, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(noteField.state) }}
-        />
-
-        <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>CIRCLE</div>
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-          {people.map((p) => (
-            <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '2px 0' }}>
-              <span style={{ width: 6, height: 6, borderRadius: 3, background: p.overdue ? 'var(--danger)' : 'var(--success)' }} />
-              <span style={{ flex: 1 }}>{p.name}</span>
-              <span style={{ opacity: 0.6 }}>{p.gap_days === null ? 'never' : `${p.gap_days}d ago`}</span>
-              <button
-                onClick={() => circleApi.update(p.id, { cadence_days: nextCadence(p.cadence_days) }).then(refreshPeople)}
-                title="How often you want to be in touch — click to change"
-                style={{ fontSize: 11, opacity: 0.8 }}
-              >
-                every {p.cadence_days}d
-              </button>
-              <button onClick={() => circleApi.markContacted(p.id).then(refreshPeople)} title="Mark contacted today">✓</button>
-              <button onClick={() => circleApi.remove(p.id).then(refreshPeople)} title="Remove">✕</button>
-            </li>
-          ))}
-        </ul>
-        <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-          <input
-            value={newPerson}
-            onChange={(e) => setNewPerson(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addPerson()}
-            placeholder="Add person…"
-            style={{ flex: 1, fontSize: 12, padding: 4 }}
-          />
-          <button onClick={addPerson} title="Add person">+</button>
-        </div>
           </>
         )}
       </div>

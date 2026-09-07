@@ -232,6 +232,7 @@ def import_projects(data: dict, db: Session) -> dict:
             project.name = pd.get("title", "") or ""
             project.note = pd.get("note", "") or ""
             project.detail_note = pd.get("detail_note", "") or ""
+            project.note_title = vd.get(f"_qn_title_{project.key}", "") or ""
             project.note_bg = pd.get("note_bg") or None
             project.note_fg = pd.get("note_fg") or None
             for raw in pd.get("tasks", []):

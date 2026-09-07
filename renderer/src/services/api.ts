@@ -175,6 +175,7 @@ export interface Project {
   accent_color: string;
   note: string;
   detail_note: string;
+  note_title: string;
   note_bg: string | null;
   note_fg: string | null;
   target_minutes: number;
@@ -241,7 +242,7 @@ export interface CirclePerson {
 export const projectsApi = {
   order: () => req('GET', '/api/projects/order') as Promise<ProjectOrderEntry[]>,
   todayProgress: () => req('GET', '/api/projects/today-progress') as Promise<TodayProgress>,
-  update: (key: ProjectKey, patch: Partial<Pick<Project, 'name' | 'note' | 'detail_note' | 'collapsed'>>) =>
+  update: (key: ProjectKey, patch: Partial<Pick<Project, 'name' | 'note' | 'detail_note' | 'note_title' | 'collapsed'>>) =>
     req('PUT', `/api/projects/${key}`, patch) as Promise<Project>,
   solo: (key: ProjectKey) => req('POST', `/api/projects/${key}/solo`) as Promise<Project[]>,
   bumpTarget: (key: ProjectKey, delta: number) =>

@@ -27,6 +27,7 @@ class ProjectEngine:
             "accent_color": project.accent_color,
             "note": project.note,
             "detail_note": project.detail_note,
+            "note_title": project.note_title,
             "note_bg": project.note_bg,
             "note_fg": project.note_fg,
             "target_minutes": project.target_minutes,
@@ -46,6 +47,7 @@ class ProjectEngine:
         name: str | None = None,
         note: str | None = None,
         detail_note: str | None = None,
+        note_title: str | None = None,
         note_bg: str | None = None,
         note_fg: str | None = None,
         collapsed: bool | None = None,
@@ -59,6 +61,8 @@ class ProjectEngine:
             project.note = note
         if detail_note is not None:
             project.detail_note = detail_note
+        if note_title is not None:
+            project.note_title = note_title
         if note_bg is not None:
             project.note_bg = note_bg
         if note_fg is not None:

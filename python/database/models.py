@@ -88,6 +88,11 @@ class Project(Base):
     accent_color: Mapped[str] = mapped_column(String)
     note: Mapped[str] = mapped_column(String, default="")
     detail_note: Mapped[str] = mapped_column(String, default="")
+    # Legacy's `_qn_title_<projkey>`: the Quick Notes heading is
+    # renameable per project, and legacy goes out of its way to
+    # preserve those renames on save (580-587). Empty means "use the
+    # default heading" rather than "blank heading".
+    note_title: Mapped[str] = mapped_column(String, default="")
     note_bg: Mapped[str | None] = mapped_column(String, nullable=True)
     note_fg: Mapped[str | None] = mapped_column(String, nullable=True)
     target_minutes: Mapped[int] = mapped_column(Integer, default=60)
