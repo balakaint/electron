@@ -1,0 +1,312 @@
+import { useEffect, useRef, useState } from 'react';
+import { HourPlan as HourPlanData, HourSlot, hoursApi } from '../services/api';
+import { useL } from '../i18n';
+
+// The day as 24 hour-slots, grouped into the four day-phase blocks.
+// Ported from legacy's TODAY EXECUTION panel (task_tracker_v3_THEMES.py
+// 5584-5830).
+//
+// PLACEMENT IS THE ONE DELIBERATE DIFFERENCE. Legacy puts this on the
+// EXECUTE screen as the first of three tabs (HOURS | MIT | TASK LIST),
+// and argues for it there: "the question at the start of a block is
+// what hour am I in". Here it is the TODAY tab of the PLAN review card,
+// first in the strip, ahead of Mindset — Zahid's call, and PLAN is
+// where he decides what the day contains. The logic below is legacy's.
+//
+// Which hours belong to which block is computed server-side from the
+// four phase-start settings, not stored and not duplicated here, so
+// retiming the day in Settings retimes this too. Legacy's note: "One
+// clock, one set of boundaries."
+
+function hourLabel(hour: number): string {
+  const ampm = hour < 12 ? 'AM' : 'PM';
+  const h12 = hour % 12 || 12;
+  return `${String(h12).padStart(2, '0')}:00 ${ampm}`;
+}
+
+function liveClock(): string {
+  const d = new Date();
+  const h12 = d.getHours() % 12 || 12;
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(h12)}:${p(d.getMinutes())}:${p(d.getSeconds())} ${d.getHours() < 12 ? 'AM' : 'PM'}`;
+}
+
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function Row({
+  slot,
+  isNow,
+  color,
+  onSave,
+  onToggle,
+  onClear,
+}: {
+  slot: HourSlot;
+  isNow: boolean;
+  color: string;
+  onSave: (text: string) => void;
+  onToggle: () => void;
+  onClear: () => void;
+}) {
+  const [text, setText] = useState(slot.text);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [clock, setClock] = useState(liveClock);
+
+  useEffect(() => setText(slot.text), [slot.text]);
+
+  // The hour you are IN shows the live clock instead of its label.
+  // Legacy: "A column of identical 09:00 AM / 10:00 AM reads as a
+  // timetable; one moving number in it is what tells you where you
+  // actually are without counting rows."
+  useEffect(() => {
+    if (!isNow) return;
+    const id = setInterval(() => setClock(liveClock()), 1000);
+    return () => clearInterval(id);
+  }, [isNow]);
+
+  const filled = text.trim().length > 0;
+  // An empty hour recedes almost into the block behind it. Legacy's
+  // reasoning: nineteen unplanned hours each drawing a circle, a
+  // timestamp and a rule spend half the panel telling you, at full
+  // strength, that you wrote nothing there — and the two lines you DID
+  // write get lost in it. Weight follows content.
+  const lit = filled || isNow;
+
+  const save = (v: string) => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => onSave(v), 500);
+  };
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0' }}>
+      <button
+        onClick={filled ? onToggle : undefined}
+        // Nothing to tick on an empty hour, so the control is genuinely
+        // inactive rather than merely styled as such.
+        disabled={!filled}
+        title={filled ? (slot.done ? 'Mark not done' : 'Mark done') : ''}
+        style={{
+          width: 20,
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          fontSize: 12,
+          cursor: filled ? 'pointer' : 'default',
+          color: slot.done ? 'var(--success)' : 'var(--text-muted)',
+          // The inert circle may fade all the way back: WCAG exempts
+          // inactive controls from the text-contrast rule.
+          opacity: slot.done ? 1 : lit ? 0.75 : 0.3,
+        }}
+      >
+        {slot.done ? '✓' : '○'}
+      </button>
+
+      {/* The hour label is NOT inactive — it is the row's address, the
+          thing that tells you which slot you are typing into — so it
+          recedes but stays legible. Legacy measured its old treatment at
+          1.69:1 and stopped blending it. */}
+      <span
+        style={{
+          fontFamily: 'monospace',
+          fontSize: isNow ? 13 : 12,
+          fontWeight: isNow ? 'bold' : 'normal',
+          color: isNow ? color : 'var(--text-muted)',
+          opacity: isNow || filled ? 1 : 0.75,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {isNow ? clock : hourLabel(slot.hour)}
+      </span>
+
+      <input
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          save(e.target.value);
+        }}
+        onBlur={() => {
+          if (timer.current) clearTimeout(timer.current);
+          if (text !== slot.text) onSave(text);
+        }}
+        onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        style={{
+          flex: 1,
+          minWidth: 0,
+          border: 'none',
+          // The rule appears only where there is something to underline.
+          // "Twenty-four hairlines down an empty column read as a form to
+          // fill in; two read as the day you actually planned."
+          borderBottom: lit ? '1px solid var(--border)' : '1px solid transparent',
+          background: 'transparent',
+          color: slot.done ? 'var(--text-muted)' : 'var(--text)',
+          // The line for RIGHT NOW is the largest thing on the screen —
+          // on a panel whose whole job is one line per hour, that line
+          // should outweigh the chrome around it.
+          fontSize: isNow ? 14 : 13,
+          fontWeight: isNow ? 'bold' : 'normal',
+          textDecoration: slot.done ? 'line-through' : undefined,
+          padding: '2px 4px',
+        }}
+      />
+
+      {/* Only a row you have written in shows its clear button. Legacy
+          tried hover-only and rejected it: that makes clearing an hour
+          findable by accident and unreachable by keyboard or touch. */}
+      <button
+        onClick={onClear}
+        title="Clear this hour"
+        style={{
+          width: 18,
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          fontSize: 11,
+          cursor: 'pointer',
+          color: 'var(--text-muted)',
+          visibility: filled ? 'visible' : 'hidden',
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+export default function HourPlanTab() {
+  const L = useL();
+  const [plan, setPlan] = useState<HourPlanData | null>(null);
+  // In memory, deliberately not persisted. Legacy's reason: "auto-collapse
+  // when its time zone isn't running" only stays true if the automatic
+  // answer is what you get by default — saved to disk, one afternoon of
+  // opening Morning to plan tomorrow would pin it open forever. A manual
+  // toggle is "let me look at that now", not a preference.
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [nowHour, setNowHour] = useState(new Date().getHours());
+  const day = todayIso();
+
+  const refresh = () => hoursApi.get(day).then(setPlan);
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day]);
+
+  // Cheap: one comparison a minute, so crossing into a new hour moves
+  // the NOW badge and the live row without a reload.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const h = new Date().getHours();
+      setNowHour((prev) => (prev === h ? prev : h));
+    }, 30_000);
+    return () => clearInterval(id);
+  }, []);
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nowHour]);
+
+  if (!plan) return null;
+
+  const set = (hour: number, patch: { text?: string; done?: boolean }) =>
+    hoursApi.set(day, hour, patch).then(refresh);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+        <span style={{ fontSize: 11, letterSpacing: 0.5, opacity: 0.6 }}>
+          {L('TO-DO', 'আজকের কাজ')}
+        </span>
+        <span style={{ fontSize: 11, opacity: 0.6 }}>({plan.total_planned})</span>
+        <span style={{ flex: 1 }} />
+        <span
+          style={{
+            fontSize: 11,
+            fontWeight: 'bold',
+            color:
+              plan.total_planned > 0 && plan.total_done === plan.total_planned
+                ? 'var(--success)'
+                : undefined,
+            opacity: plan.total_planned > 0 && plan.total_done === plan.total_planned ? 1 : 0.7,
+          }}
+        >
+          {plan.total_done}/{plan.total_planned} done
+        </span>
+      </div>
+
+      {plan.blocks.map((b) => {
+        const isNow = b.key === plan.current_block;
+        // Only the block you are IN is open by default — but any of them
+        // opens on a click, "because planning tonight at 10am is the
+        // whole point of having the block, and a section that refuses to
+        // open is a section you stop trusting".
+        const shown = open[b.key] ?? isNow;
+        const color = `var(--phase-${b.key})`;
+        return (
+          <div
+            key={b.key}
+            style={{
+              marginBottom: 4,
+              border: '1px solid transparent',
+              // A tint of the block's own colour, so the four blocks are
+              // told apart by the same palette the PLAN phase bars use.
+              background: `color-mix(in srgb, ${color} 9%, var(--surface))`,
+            }}
+          >
+            <div
+              onClick={() => setOpen((o) => ({ ...o, [b.key]: !(o[b.key] ?? isNow) }))}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '4px 8px',
+                cursor: 'pointer',
+                userSelect: 'none',
+              }}
+            >
+              <span style={{ color, fontSize: 11 }}>{shown ? '▾' : '▸'}</span>
+              {/* Names and counts step up; the captions around them stay
+                  small. The block name used to be the same size as the
+                  task text inside it, so nothing led the eye anywhere. */}
+              <span style={{ color, fontSize: 13, fontWeight: 'bold' }}>{b.name}</span>
+              {isNow && (
+                <span
+                  style={{
+                    background: color,
+                    color: 'var(--on-accent)',
+                    fontSize: 9,
+                    fontWeight: 'bold',
+                    padding: '1px 4px',
+                  }}
+                >
+                  NOW
+                </span>
+              )}
+              <span style={{ flex: 1 }} />
+              <span style={{ color, fontSize: 12, fontWeight: 'bold' }}>
+                {b.done}/{b.planned}
+              </span>
+            </div>
+
+            {shown && (
+              <div style={{ padding: '0 8px 4px' }}>
+                {b.hours.map((slot) => (
+                  <Row
+                    key={slot.hour}
+                    slot={slot}
+                    isNow={slot.hour === nowHour}
+                    color={color}
+                    onSave={(text) => set(slot.hour, { text })}
+                    onToggle={() => set(slot.hour, { done: !slot.done })}
+                    onClear={() => set(slot.hour, { text: '', done: false })}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

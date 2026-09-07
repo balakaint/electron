@@ -562,3 +562,34 @@ class QuarterlyAnswer(Base):
     out: Mapped[str] = mapped_column(String, default="")
     act: Mapped[str] = mapped_column(String, default="")
     ifthen: Mapped[str] = mapped_column(String, default="")
+
+
+class HourSlot(Base):
+    """One planned hour of one day — the TODAY tab's hour-by-hour plan.
+
+    Legacy keeps this as `_habit_data["__exec_<date>"]`, a dict of
+    {"<hour>": {"t": text, "d": done}} (task_tracker_v3_THEMES.py
+    5546-5563). Flattened to a row per (day, hour) for the same reason
+    QuarterlyAnswer was: a nested blob cannot be queried, migrated or
+    partially written, and every other per-day structure here is already
+    one row per thing.
+
+    Only slots the user has actually typed into exist. An empty hour is
+    the ABSENCE of a row, not a row with an empty string — legacy makes
+    the same distinction and says why: "an empty hour is not a task you
+    failed to do", so it must not count toward the day's planned total.
+
+    Which hours belong to Morning/Work/Evening/Sleep is NOT stored. It
+    is derived from the four phase-start settings at read time, so
+    retiming your day retimes this too — legacy's note: "One clock, one
+    set of boundaries."
+    """
+
+    __tablename__ = "hour_slots"
+    __table_args__ = (UniqueConstraint("day", "hour", name="uq_hour_slot_day_hour"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    day: Mapped[str] = mapped_column(String)  # ISO date string
+    hour: Mapped[int] = mapped_column(Integer)  # 0-23, local time
+    text: Mapped[str] = mapped_column(String, default="")
+    done: Mapped[bool] = mapped_column(Boolean, default=False)

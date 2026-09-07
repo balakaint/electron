@@ -682,3 +682,31 @@ export const exportApi = {
     ]);
   },
 };
+
+export interface HourSlot {
+  hour: number;
+  text: string;
+  done: boolean;
+}
+
+export interface HourBlock {
+  key: string;
+  name: string;
+  hours: HourSlot[];
+  done: number;
+  planned: number;
+}
+
+export interface HourPlan {
+  day: string;
+  current_block: string;
+  total_done: number;
+  total_planned: number;
+  blocks: HourBlock[];
+}
+
+export const hoursApi = {
+  get: (day: string) => req('GET', `/api/hours/${day}`) as Promise<HourPlan>,
+  set: (day: string, hour: number, patch: { text?: string; done?: boolean }) =>
+    req('PUT', `/api/hours/${day}/${hour}`, patch) as Promise<HourSlot>,
+};

@@ -14,6 +14,7 @@ from database.models import (
     Goal,
     Habit,
     HabitCompletion,
+    HourSlot,
     JourneyLogEntry,
     JourneyStage,
     JourneyTask,
@@ -638,3 +639,53 @@ class QuarterlyRepository:
         for row in self.list_answers(old_start):
             row.cycle_start = new_start
         self.db.commit()
+
+
+class HourPlanRepository:
+    """Per-(day, hour) rows for the TODAY hour-by-hour plan.
+
+    Its own class rather than a few methods on HabitRepository: legacy
+    stores this under the same `_habit_data` blob as the journal notes,
+    but they are unrelated — one is free text about the day, the other
+    is a schedule — and the only reason they shared a home there was
+    that legacy had exactly one dict to put things in.
+    """
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_app_state(self) -> AppState:
+        """The four phase-start hours live here, and this plan derives
+        its blocks from them rather than storing its own copy."""
+        return _get_app_state(self.db)
+
+    def hour_slots(self, day: str) -> list[HourSlot]:
+        return list(self.db.query(HourSlot).filter(HourSlot.day == day).all())
+
+    def set_hour_slot(
+        self, day: str, hour: int, text: str | None = None, done: bool | None = None
+    ) -> HourSlot:
+        """Upsert one slot. `text` and `done` are independently optional
+        so ticking a box cannot blank the text it belongs to, and typing
+        cannot silently un-tick — the two controls are separate in the UI
+        and separate here (legacy's _exec_set, 5553-5562)."""
+        row = (
+            self.db.query(HourSlot)
+            .filter(HourSlot.day == day, HourSlot.hour == hour)
+            .one_or_none()
+        )
+        if row is None:
+            row = HourSlot(day=day, hour=hour, text="", done=False)
+            self.db.add(row)
+        if text is not None:
+            row.text = text
+        if done is not None:
+            row.done = bool(done)
+        # Clearing the text clears the tick with it: a slot with no task
+        # cannot be "done", and leaving the flag set would count toward
+        # tomorrow's totals if the same hour were reused.
+        if not (row.text or "").strip():
+            row.done = False
+        self.db.commit()
+        self.db.refresh(row)
+        return row

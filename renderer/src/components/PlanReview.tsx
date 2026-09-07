@@ -11,6 +11,7 @@ import {
   quarterlyApi,
 } from '../services/api';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
+import HourPlanTab from './HourPlan';
 
 // Legacy's PLAN review card (task_tracker_v3_THEMES.py 3585-3955): a
 // Mindset / Discipline / Consistency tri-tab that lives on the PLAN
@@ -29,9 +30,14 @@ import { savedFlashStyle, useAutosave } from '../useAutosave';
 // way to notice you've written 'stop procrastinating on the export docs'
 // five days running."
 
-type Tab = 'mindset' | 'discipline' | 'consistency';
+type Tab = 'today' | 'mindset' | 'discipline' | 'consistency';
 
+// TODAY first. It is the hour-by-hour plan for the day in front of you,
+// and the other three are review — you decide what today holds before
+// you reflect on how it went, so the strip reads left to right in the
+// order you use it.
 const TABS: [Tab, string][] = [
+  ['today', 'Today'],
   ['mindset', 'Mindset'],
   ['discipline', 'Discipline'],
   ['consistency', 'Consistency'],
@@ -269,7 +275,7 @@ function QuarterLink({ onOpen }: { onOpen: () => void }) {
 }
 
 export default function PlanReview({ onOpenQuarterly }: { onOpenQuarterly: () => void }) {
-  const [tab, setTab] = useState<Tab>('mindset');
+  const [tab, setTab] = useState<Tab>('today');
 
   return (
     <div style={{ marginTop: 20, border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
@@ -291,6 +297,7 @@ export default function PlanReview({ onOpenQuarterly }: { onOpenQuarterly: () =>
         ))}
         <QuarterLink onOpen={onOpenQuarterly} />
       </div>
+      {tab === 'today' && <HourPlanTab />}
       {tab === 'mindset' && <MindsetTab />}
       {tab === 'discipline' && <DisciplineTab />}
       {tab === 'consistency' && <ConsistencyTab />}

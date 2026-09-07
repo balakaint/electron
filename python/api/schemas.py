@@ -696,3 +696,33 @@ class Q90AnswerSet(BaseModel):
 class Q90CycleSet(BaseModel):
     start: str  # ISO date
     days: int
+
+
+class HourSlotOut(BaseModel):
+    hour: int
+    text: str
+    done: bool
+
+
+class HourSlotSet(BaseModel):
+    # Both optional and independent: ticking must not blank the text, and
+    # typing must not un-tick. Sending neither is a no-op rather than an
+    # error, so a debounced save that fires with nothing to say is safe.
+    text: str | None = None
+    done: bool | None = None
+
+
+class HourBlockOut(BaseModel):
+    key: str
+    name: str
+    hours: list[HourSlotOut]
+    done: int
+    planned: int
+
+
+class HourPlanOut(BaseModel):
+    day: str
+    current_block: str
+    total_done: int
+    total_planned: int
+    blocks: list[HourBlockOut]
