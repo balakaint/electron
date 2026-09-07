@@ -660,10 +660,48 @@ class HourPlanRepository:
         return _get_app_state(self.db)
 
     def hour_slots(self, day: str) -> list[HourSlot]:
-        return list(self.db.query(HourSlot).filter(HourSlot.day == day).all())
+        """Everything visible on `day`.
+
+        Three kinds of row show up here:
+          - written on this day (one-off or carried, finished or not);
+          - carried, unfinished, written on an EARLIER day — the point of
+            the feature, a task that keeps asking until it is done;
+          - carried and finished ON this day, so ticking it does not make
+            it disappear out from under the click.
+
+        A carried row finished on an earlier day is deliberately absent:
+        finishing is what ends the carry.
+        """
+        rows = (
+            self.db.query(HourSlot)
+            .filter(
+                HourSlot.day == day,
+            )
+            .all()
+        )
+        carried = (
+            self.db.query(HourSlot)
+            .filter(
+                HourSlot.repeat.is_(True),
+                HourSlot.day < day,
+                (HourSlot.done_day.is_(None)) | (HourSlot.done_day == day),
+            )
+            .all()
+        )
+        # A row written today wins its hour outright. Without this, adding
+        # something to an hour a carried task already occupies would show
+        # two entries in one slot with no way to tell which the tick
+        # belongs to.
+        taken = {r.hour for r in rows}
+        return list(rows) + [r for r in carried if r.hour not in taken]
 
     def set_hour_slot(
-        self, day: str, hour: int, text: str | None = None, done: bool | None = None
+        self,
+        day: str,
+        hour: int,
+        text: str | None = None,
+        done: bool | None = None,
+        repeat: bool | None = None,
     ) -> HourSlot:
         """Upsert one slot. `text` and `done` are independently optional
         so ticking a box cannot blank the text it belongs to, and typing
@@ -675,17 +713,39 @@ class HourPlanRepository:
             .one_or_none()
         )
         if row is None:
+            # Editing an hour a carried task occupies edits THAT task,
+            # not a new copy for today. The user chose "changes it every
+            # day": a carried entry is one thing you keep, so there is
+            # only ever one row to change.
+            row = (
+                self.db.query(HourSlot)
+                .filter(
+                    HourSlot.hour == hour,
+                    HourSlot.repeat.is_(True),
+                    HourSlot.day < day,
+                    (HourSlot.done_day.is_(None)) | (HourSlot.done_day == day),
+                )
+                .order_by(HourSlot.day.desc())
+                .first()
+            )
+        if row is None:
             row = HourSlot(day=day, hour=hour, text="", done=False)
             self.db.add(row)
         if text is not None:
             row.text = text
         if done is not None:
             row.done = bool(done)
+            # Stamped with the day of the CLICK, not the row's own day.
+            row.done_day = day if row.done else None
+        if repeat is not None:
+            row.repeat = bool(repeat)
         # Clearing the text clears the tick with it: a slot with no task
         # cannot be "done", and leaving the flag set would count toward
         # tomorrow's totals if the same hour were reused.
         if not (row.text or "").strip():
             row.done = False
+            row.done_day = None
+            row.repeat = False
         self.db.commit()
         self.db.refresh(row)
         return row

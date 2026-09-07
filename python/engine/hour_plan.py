@@ -105,13 +105,14 @@ class HourPlanEngine:
                 row = slots.get(h)
                 text = (row.text if row is not None else "") or ""
                 is_done = bool(row.done) if row is not None else False
+                repeats = bool(row.repeat) if row is not None else False
                 # "planned" means a slot with text in it. An empty hour
                 # is not a task you failed to do (legacy 5565-5567).
                 if text.strip():
                     planned += 1
                     if is_done:
                         done += 1
-                hours.append({"hour": h, "text": text, "done": is_done})
+                hours.append({"hour": h, "text": text, "done": is_done, "repeat": repeats})
             total_done += done
             total_planned += planned
             blocks.append(
@@ -126,11 +127,21 @@ class HourPlanEngine:
             "blocks": blocks,
         }
 
-    def set_slot(self, day: str, hour: int, text: str | None = None, done: bool | None = None) -> dict:
+    def set_slot(
+        self,
+        day: str,
+        hour: int,
+        text: str | None = None,
+        done: bool | None = None,
+        repeat: bool | None = None,
+    ) -> dict:
         if not 0 <= hour <= 23:
             raise ValueError(f"hour must be 0-23, got {hour}")
-        row = self.repo.set_hour_slot(day, hour, text=text, done=done)
-        return {"hour": row.hour, "text": row.text, "done": row.done}
+        row = self.repo.set_hour_slot(day, hour, text=text, done=done, repeat=repeat)
+        return {"hour": row.hour, "text": row.text, "done": row.done, "repeat": row.repeat}
 
     def clear_slot(self, day: str, hour: int) -> dict:
+        # Clearing the text ends the carry too — the repository drops
+        # `repeat` with it, because an empty entry has nothing to keep
+        # asking about.
         return self.set_slot(day, hour, text="", done=False)

@@ -589,7 +589,26 @@ class HourSlot(Base):
     __table_args__ = (UniqueConstraint("day", "hour", name="uq_hour_slot_day_hour"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # The day this entry was written. For a one-off that is also the only
+    # day it appears; for a carried one it is where the carry starts.
     day: Mapped[str] = mapped_column(String)  # ISO date string
     hour: Mapped[int] = mapped_column(Integer)  # 0-23, local time
     text: Mapped[str] = mapped_column(String, default="")
     done: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # "Repeat until I finish it" — NOT a habit.
+    #
+    # The day starts fresh: an ordinary entry belongs to its date and
+    # tomorrow opens empty. An entry marked `repeat` is the exception —
+    # it reappears at its hour every day until the day it is ticked, and
+    # then stops. That is a task important enough to keep asking, not a
+    # routine that recurs forever, so nothing here needs a weekday mask
+    # or an end date.
+    repeat: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # WHICH day it was finished, not just that it was. A carried entry
+    # has to show as done on the day you ticked it and be gone the next
+    # morning; a single boolean cannot say which day that was, so the
+    # entry would either vanish from the day you completed it or linger
+    # on every later one.
+    done_day: Mapped[str | None] = mapped_column(String, nullable=True)

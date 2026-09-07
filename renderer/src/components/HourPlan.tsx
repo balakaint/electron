@@ -43,6 +43,7 @@ function Row({
   onSave,
   onToggle,
   onClear,
+  onToggleRepeat,
 }: {
   slot: HourSlot;
   isNow: boolean;
@@ -50,6 +51,7 @@ function Row({
   onSave: (text: string) => void;
   onToggle: () => void;
   onClear: () => void;
+  onToggleRepeat: () => void;
 }) {
   const [text, setText] = useState(slot.text);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,6 +154,40 @@ function Row({
         }}
       />
 
+      {/* Repeat until finished. Not a habit and not a schedule: the day
+          starts fresh, and this one entry keeps coming back at its hour
+          until the morning after you tick it.
+
+          Only a written row can carry — there is nothing to keep asking
+          about an empty hour — and the control states which mode it is
+          in rather than what the click will do, because "off" is the
+          normal case and an always-lit ↻ on every row would read as a
+          column of buttons rather than a mark on the one task you chose
+          to keep. */}
+      <button
+        onClick={onToggleRepeat}
+        disabled={!filled}
+        aria-pressed={slot.repeat}
+        title={
+          slot.repeat
+            ? 'Repeats every day until you finish it — click to stop'
+            : 'Keep this on every day until it is finished'
+        }
+        style={{
+          width: 20,
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          fontSize: 12,
+          cursor: filled ? 'pointer' : 'default',
+          color: slot.repeat ? color : 'var(--text-faint)',
+          visibility: filled ? 'visible' : 'hidden',
+          fontWeight: slot.repeat ? 'bold' : 'normal',
+        }}
+      >
+        ↻
+      </button>
+
       {/* Only a row you have written in shows its clear button. Legacy
           tried hover-only and rejected it: that makes clearing an hour
           findable by accident and unreachable by keyboard or touch. */}
@@ -209,7 +245,7 @@ export default function HourPlanTab() {
 
   if (!plan) return null;
 
-  const set = (hour: number, patch: { text?: string; done?: boolean }) =>
+  const set = (hour: number, patch: { text?: string; done?: boolean; repeat?: boolean }) =>
     hoursApi.set(day, hour, patch).then(refresh);
 
   return (
@@ -299,6 +335,7 @@ export default function HourPlanTab() {
                     color={color}
                     onSave={(text) => set(slot.hour, { text })}
                     onToggle={() => set(slot.hour, { done: !slot.done })}
+                    onToggleRepeat={() => set(slot.hour, { repeat: !slot.repeat })}
                     onClear={() => set(slot.hour, { text: '', done: false })}
                   />
                 ))}

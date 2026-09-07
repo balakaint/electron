@@ -687,6 +687,8 @@ export interface HourSlot {
   hour: number;
   text: string;
   done: boolean;
+  // Carries forward to tomorrow if it is still unfinished.
+  repeat: boolean;
 }
 
 export interface HourBlock {
@@ -707,6 +709,6 @@ export interface HourPlan {
 
 export const hoursApi = {
   get: (day: string) => req('GET', `/api/hours/${day}`) as Promise<HourPlan>,
-  set: (day: string, hour: number, patch: { text?: string; done?: boolean }) =>
+  set: (day: string, hour: number, patch: { text?: string; done?: boolean; repeat?: boolean }) =>
     req('PUT', `/api/hours/${day}/${hour}`, patch) as Promise<HourSlot>,
 };

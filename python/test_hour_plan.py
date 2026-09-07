@@ -177,6 +177,105 @@ def test_hour_out_of_range_is_refused():
         check("hour 24 is refused", raised)
 
 
+def _slot(plan, hour):
+    for b in plan["blocks"]:
+        for h in b["hours"]:
+            if h["hour"] == hour:
+                return h
+    raise AssertionError(f"hour {hour} missing from the plan")
+
+
+# ── Repeat-until-finished ────────────────────────────────────────────
+# NOT a habit. Zahid's words: "everyday fresh start hok, only selected
+# task repeat koruk ... eta habit na, most important task, it will repeat
+# everyday until i finish". So the day opens empty by default, a marked
+# task keeps reappearing, and FINISHING is what ends it — no weekday
+# mask, no end date, no separate routines table.
+
+def test_an_ordinary_entry_does_not_carry():
+    with FreshDB() as f:
+        f.engine.set_slot("2026-09-07", 9, text="one-off")
+        check("tomorrow opens empty", f.engine.day("2026-09-08")["total_planned"] == 0)
+
+
+def test_a_repeating_entry_carries_until_finished():
+    with FreshDB() as f:
+        f.engine.set_slot("2026-09-07", 9, text="file the export docs")
+        f.engine.set_slot("2026-09-07", 9, repeat=True)
+
+        for day in ("2026-09-08", "2026-09-09", "2026-09-20"):
+            p = f.engine.day(day)
+            check(f"it is still there on {day}", _slot(p, 9)["text"] == "file the export docs")
+            check(f"and unticked on {day}", _slot(p, 9)["done"] is False)
+
+
+def test_finishing_ends_the_carry():
+    with FreshDB() as f:
+        f.engine.set_slot("2026-09-07", 9, text="file the export docs", repeat=True)
+        f.engine.set_slot("2026-09-09", 9, done=True)
+
+        p = f.engine.day("2026-09-09")
+        check("it shows as done on the day you ticked it", _slot(p, 9)["done"] is True)
+        check("and still counts toward that day", p["total_done"] == 1)
+
+        p = f.engine.day("2026-09-10")
+        check("the next morning it is gone", _slot(p, 9)["text"] == "")
+        check("and the day is empty again", p["total_planned"] == 0)
+
+
+def test_unticking_resumes_the_carry():
+    with FreshDB() as f:
+        f.engine.set_slot("2026-09-07", 9, text="chase the invoice", repeat=True)
+        f.engine.set_slot("2026-09-08", 9, done=True)
+        f.engine.set_slot("2026-09-08", 9, done=False)
+        check("it comes back after an accidental tick",
+              _slot(f.engine.day("2026-09-09"), 9)["text"] == "chase the invoice")
+
+
+def test_editing_changes_every_day():
+    """The user's own choice: a carried entry is one thing you keep, so
+    editing it edits the routine rather than forking a copy for today."""
+    with FreshDB() as f:
+        f.engine.set_slot("2026-09-07", 9, text="gym", repeat=True)
+        f.engine.set_slot("2026-09-09", 9, text="gym + stretch")
+        check("edited on a later day", _slot(f.engine.day("2026-09-09"), 9)["text"] == "gym + stretch")
+        check("and the change is there tomorrow too",
+              _slot(f.engine.day("2026-09-10"), 9)["text"] == "gym + stretch")
+        check("with no duplicate row left behind",
+              len(f.repo.hour_slots("2026-09-10")) == 1)
+
+
+def test_todays_own_entry_beats_a_carried_one():
+    with FreshDB() as f:
+        f.engine.set_slot("2026-09-07", 9, text="carried", repeat=True)
+        f.repo.db.add(__import__("database.models", fromlist=["HourSlot"]).HourSlot(
+            day="2026-09-09", hour=9, text="written today", done=False, repeat=False))
+        f.repo.db.commit()
+        p = f.engine.day("2026-09-09")
+        check("one entry in the hour, not two", len([h for h in _all(p) if h["hour"] == 9]) == 1)
+        check("and it is today's", _slot(p, 9)["text"] == "written today")
+
+
+def test_clearing_ends_the_carry():
+    with FreshDB() as f:
+        f.engine.set_slot("2026-09-07", 9, text="chase the invoice", repeat=True)
+        f.engine.clear_slot("2026-09-08", 9)
+        check("clearing stops it coming back",
+              _slot(f.engine.day("2026-09-09"), 9)["text"] == "")
+
+
+def test_repeat_survives_a_tick_and_untick_round_trip():
+    with FreshDB() as f:
+        f.engine.set_slot("2026-09-07", 9, text="ship it", repeat=True)
+        f.engine.set_slot("2026-09-07", 9, done=True)
+        f.engine.set_slot("2026-09-07", 9, done=False)
+        check("still marked as repeating", _slot(f.engine.day("2026-09-07"), 9)["repeat"] is True)
+
+
+def _all(plan):
+    return [h for b in plan["blocks"] for h in b["hours"]]
+
+
 if __name__ == "__main__":
     for fn in [v for k, v in sorted(globals().items()) if k.startswith("test_")]:
         try:

@@ -20,6 +20,6 @@ def get_day(day: str, engine: HourPlanEngine = Depends(get_engine)):
 @router.put("/{day}/{hour}", response_model=HourSlotOut)
 def set_slot(day: str, hour: int, payload: HourSlotSet, engine: HourPlanEngine = Depends(get_engine)):
     try:
-        return engine.set_slot(day, hour, text=payload.text, done=payload.done)
+        return engine.set_slot(day, hour, text=payload.text, done=payload.done, repeat=payload.repeat)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))

@@ -702,6 +702,8 @@ class HourSlotOut(BaseModel):
     hour: int
     text: str
     done: bool
+    # True when this entry carries forward to tomorrow if unfinished.
+    repeat: bool = False
 
 
 class HourSlotSet(BaseModel):
@@ -710,6 +712,7 @@ class HourSlotSet(BaseModel):
     # error, so a debounced save that fires with nothing to say is safe.
     text: str | None = None
     done: bool | None = None
+    repeat: bool | None = None
 
 
 class HourBlockOut(BaseModel):
