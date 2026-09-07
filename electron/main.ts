@@ -621,8 +621,21 @@ function applyPanelLayout(layout: Layout) {
     // Guarded: re-applying compact (the renderer re-asserts it once on
     // load, after the main process has already docked) must not capture
     // the docked bounds as the thing to restore.
-    if (preCompactBounds === null) {
-      preCompactBounds = win.getBounds();
+    const live = win.getBounds();
+    // The guard used to be `preCompactBounds === null` alone, which is
+    // exactly the state on a launch that STARTS compact: the main
+    // process docks early from window-state.json's compact flag, then
+    // the renderer asserts compact again, and this captured the docked
+    // 585px as "the size to restore". Pressing the chevron then put
+    // three columns into a 585px window with no way back — the collapse
+    // control looked broken because it was.
+    //
+    // A window already at the docked width is not a full geometry, so it
+    // is not recorded as one. What gets restored instead is the file's
+    // own geometry, which is the FULL one by construction (see
+    // windowStateToPersist: compact never overwrites it).
+    if (preCompactBounds === null && live.width !== COMPACT_WIDTH) {
+      preCompactBounds = live;
       preCompactMaximized = win.isMaximized();
     }
     const dock = () => {
@@ -673,8 +686,27 @@ function applyPanelLayout(layout: Layout) {
     win.setMinimumSize(FULL_MIN_WIDTH, FULL_MIN_HEIGHT);
   }
 
-  if (layout !== 'compact' && preCompactBounds) {
-    win.setBounds(preCompactBounds);
+  if (layout !== 'compact') {
+    // Nothing remembered means this session never saw a full window to
+    // remember — it started compact. Fall back to the stored geometry
+    // rather than leaving the window at its docked width, which is what
+    // made expanding do nothing visible.
+    const restore =
+      preCompactBounds ??
+      (win.getBounds().width === COMPACT_WIDTH
+        ? (() => {
+            const st = loadWindowState();
+            return { x: st.x, y: st.y, width: st.width, height: st.height };
+          })()
+        : null);
+    if (restore) {
+      win.setBounds({
+        x: restore.x ?? win.getBounds().x,
+        y: restore.y ?? win.getBounds().y,
+        width: restore.width,
+        height: restore.height,
+      });
+    }
     // A window that was maximized before going compact should come back
     // maximized, not merely the size it happened to have underneath.
     if (preCompactMaximized) win.maximize();

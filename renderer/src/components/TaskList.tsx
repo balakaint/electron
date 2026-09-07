@@ -2,14 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { DayView, ListKey, STRIKE_MAX, Task, nowApi, tasksApi } from '../services/api';
 import { useUndo } from '../undo';
 import NowCard from './NowCard';
+import { formatSecs } from '../format';
 import StrikeCard from './StrikeCard';
-
-function formatSecs(secs: number): string {
-  const total = Math.round(secs);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
 
 // Session.start/end are unix seconds (python's time.time()), not ms.
 function formatClock(unixSecs: number): string {

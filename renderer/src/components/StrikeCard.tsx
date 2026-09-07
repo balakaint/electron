@@ -1,5 +1,6 @@
 import { STRIKE_MAX, Task } from '../services/api';
 import { useL } from '../i18n';
+import { formatSecs } from '../format';
 
 // Legacy's STRIKE card (task_tracker_v3_THEMES.py 5238-6025) — the three
 // tasks you actually committed to today.
@@ -17,12 +18,6 @@ import { useL } from '../i18n';
 // "+ STRIKE" button on the project cards that fills this card. A heading
 // that names the same thing in different words from the control feeding
 // it is one concept wearing two names.
-
-function formatSecs(secs: number): string {
-  const m = Math.floor(secs / 60);
-  const s = secs % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-}
 
 function titleCase(text: string): string {
   return text.replace(/\S+/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
