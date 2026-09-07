@@ -28,8 +28,22 @@ const COMMANDS = {
     page = await app.firstWindow();
     page.on('console', (msg) => {
       if (msg.type() === 'error') console.log('PAGE CONSOLE ERROR:', msg.text());
+      else if (msg.text().includes('[layout]')) console.log('PAGE LOG:', msg.text());
     });
     page.on('pageerror', (err) => console.log('PAGE ERROR:', err.message));
+    const mainProc = app.process();
+    const mainLogPath = path.join(SHOT_DIR, 'main-stdout.log');
+    const mainLogFd = fs.openSync(mainLogPath, 'w');
+    mainProc.stdout?.on('data', (d) => {
+      fs.writeSync(mainLogFd, d);
+      const s = d.toString();
+      if (s.includes('[layout]')) process.stdout.write('MAIN LOG: ' + s);
+    });
+    mainProc.stderr?.on('data', (d) => {
+      fs.writeSync(mainLogFd, d);
+      process.stdout.write('MAIN STDERR: ' + d.toString());
+    });
+    console.log('main process log ->', mainLogPath);
     await page.waitForSelector('text=Habit OS', { timeout: 20_000 }).catch(() => {});
     console.log('launched.', app.windows().length, 'window(s):', page.url());
   },
@@ -138,6 +152,22 @@ const COMMANDS = {
   async windows() {
     if (!app) return console.log('ERROR: launch first');
     for (const w of app.windows()) console.log(' ', w.url());
+  },
+
+  async setbounds(args) {
+    if (!app) return console.log('ERROR: launch first');
+    const [x, y, width, height] = args.split(' ').map(Number);
+    await app.evaluate(({ BrowserWindow }, b) => BrowserWindow.getAllWindows()[0].setBounds(b), { x, y, width, height });
+    console.log('bounds set');
+  },
+
+  async bounds() {
+    if (!app) return console.log('ERROR: launch first');
+    const b = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getBounds());
+    const wa = await app.evaluate(({ screen, BrowserWindow }) =>
+      screen.getDisplayMatching(BrowserWindow.getAllWindows()[0].getBounds()).workArea,
+    );
+    console.log(JSON.stringify({ bounds: b, workArea: wa }));
   },
 
   async quit() {
