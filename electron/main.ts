@@ -194,7 +194,17 @@ interface WindowState {
   compact?: boolean;
 }
 
-const COMPACT_WIDTH = 420;
+// Legacy's _layout_width (15938): compact is `_PANEL3_W + 40` — the
+// panel's own fixed width (545) plus room for the window frame and the
+// scrollbar. It is not a taste number, it is the smallest width at which
+// panel 3 is not cut off, which is the entire point of compact mode.
+//
+// This was 420. Panel 3 is 545 wide in the renderer too (App.tsx), so
+// compact was docking 165px narrower than its only occupant: the clock,
+// the third scope box, the right of the trend chart and the mindset card
+// were all sliced off, with a horizontal scrollbar as the consolation.
+const PANEL3_W = 545;
+const COMPACT_WIDTH = PANEL3_W + 40;
 // Three columns: panel 3 is a fixed 545, so a 1200-wide window left
 // panels 1 and 2 about 320 each — narrower than a single project card
 // wants. 1500 gives the two flexible columns room to be read.
