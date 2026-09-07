@@ -8,3 +8,5 @@ python/**/__pycache__/
 *.pyc
 .venv/
 python/app.db
+ux-audit.json
+*.delete-me
