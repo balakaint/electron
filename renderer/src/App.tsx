@@ -339,6 +339,7 @@ function AppShell() {
             onSelectView={setTab}
             compact={compact}
             onToggleLayout={toggleFocusMode}
+            onOpenQuarterly={() => setOverlay({ kind: 'quarterly' })}
           />
         </div>
       </div>

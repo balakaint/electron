@@ -5,8 +5,10 @@ import {
   MindsetEntry,
   Project,
   ProjectOrderEntry,
+  Q90Panel,
   habitsApi,
   projectsApi,
+  quarterlyApi,
 } from '../services/api';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 
@@ -221,12 +223,57 @@ function ConsistencyTab() {
   );
 }
 
-export default function PlanReview() {
+// Legacy's quarter link, sitting at the right end of the tab row
+// (3585-3604). Its own note on why the counts are in the link at all:
+// "the quarter link also carries its own progress — 2/6 · 78d — so the
+// plan can nag from the panel without opening anything."
+//
+// It counts areas with an OUTCOME written, not areas touched. Legacy is
+// explicit that this is deliberate: "an area with a weekly action but no
+// outcome is a habit without a destination, and calling that 'planned'
+// is the kind of flattering number this app keeps having to remove."
+// areas_done from the engine already uses that rule.
+function QuarterLink({ onOpen }: { onOpen: () => void }) {
+  const [panel, setPanel] = useState<Q90Panel | null>(null);
+  useEffect(() => {
+    quarterlyApi.getPanel().then(setPanel);
+  }, []);
+  if (!panel) return null;
+
+  // Before the cycle starts, legacy counts DOWN to it rather than
+  // reporting a negative "days left".
+  const tail =
+    panel.day === 0
+      ? `starts in ${panel.days_left - panel.cycle_days}d`
+      : `${panel.days_left}d left`;
+
+  return (
+    <button
+      onClick={onOpen}
+      title="Open the quarterly plan"
+      style={{
+        marginLeft: 'auto',
+        fontSize: 11,
+        border: 'none',
+        background: 'transparent',
+        // Muted once something is planned; the accent is a nudge for an
+        // empty plan, not a permanent highlight.
+        color: panel.areas_done ? 'var(--text-muted)' : 'var(--accent)',
+        cursor: 'pointer',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {panel.cycle_days}-day plan {panel.areas_done}/{panel.areas_total} · {tail} ›
+    </button>
+  );
+}
+
+export default function PlanReview({ onOpenQuarterly }: { onOpenQuarterly: () => void }) {
   const [tab, setTab] = useState<Tab>('mindset');
 
   return (
     <div style={{ marginTop: 20, border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
-      <div role="tablist" style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+      <div role="tablist" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10 }}>
         {TABS.map(([key, label]) => (
           <button
             key={key}
@@ -242,6 +289,7 @@ export default function PlanReview() {
             {label}
           </button>
         ))}
+        <QuarterLink onOpen={onOpenQuarterly} />
       </div>
       {tab === 'mindset' && <MindsetTab />}
       {tab === 'discipline' && <DisciplineTab />}

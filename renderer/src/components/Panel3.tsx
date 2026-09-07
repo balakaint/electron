@@ -31,11 +31,13 @@ export default function Panel3({
   onSelectView,
   compact,
   onToggleLayout,
+  onOpenQuarterly,
 }: {
   view: View;
   onSelectView: (v: View) => void;
   compact: boolean;
   onToggleLayout: () => void;
+  onOpenQuarterly: () => void;
 }) {
   const L = useL();
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
@@ -112,7 +114,7 @@ export default function Panel3({
         {view === 'classic' ? (
           <>
             <DeepWorkTrend />
-            <PlanReview />
+            <PlanReview onOpenQuarterly={onOpenQuarterly} />
           </>
         ) : (
           <>

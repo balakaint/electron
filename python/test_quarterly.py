@@ -142,6 +142,26 @@ def test_cycle_progress_day_zero_for_future_start():
         check("a cycle that hasn't started yet reports day 0", day == 0)
         check("days_left accounts for the not-yet-started gap", left == total + 5)
 
+        # The panel's quarter link renders "starts in Nd" from
+        # days_left - cycle_days, matching legacy's own
+        # `_qleft - _qtot`. Pinned here because it is a contract between
+        # the engine and the UI: if days_left ever stopped including the
+        # gap, the link would quietly show a wrong countdown rather than
+        # fail.
+        panel = q.get_panel(f.repo)
+        check("the panel exposes the same day 0", panel["day"] == 0)
+        check(
+            "days_left - cycle_days is the days until the cycle starts",
+            panel["days_left"] - panel["cycle_days"] == 5,
+            f"got {panel['days_left'] - panel['cycle_days']}",
+        )
+
+        # And once running, days_left is used directly as "Nd left".
+        q.set_cycle(f.repo, str(date.today()), 30)
+        panel = q.get_panel(f.repo)
+        check("a running cycle is on day 1", panel["day"] == 1)
+        check("and reports 29 days left of 30", panel["days_left"] == 29, str(panel["days_left"]))
+
 
 def test_invalid_cycle_start_string_rejected():
     with FreshDB() as f:

@@ -47,17 +47,27 @@ export default function ClockCard() {
   const secHand = hand(secAngle, 45);
 
   return (
+    // Legacy's arrangement: the day-phase bars on the LEFT and the clock
+    // beside them on the right, with the scope stats underneath both.
+    // The port had the clock first and the phases below it, which reads
+    // as "here is the time, and also some bars" — where legacy reads as
+    // "here is where you are in the day", with the clock as the label
+    // rather than the headline. On a fixed-width panel the two sit side
+    // by side comfortably and save a good deal of vertical space.
     <div
       style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderRadius: 8,
-        padding: 16,
-        marginBottom: 16,
-        textAlign: 'center',
-        maxWidth: 340,
+        padding: 12,
+        marginBottom: 12,
       }}
     >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <DayPhaseBars />
+        </div>
+        <div style={{ textAlign: 'center', flex: '0 0 auto' }}>
       {analog && (
         <svg width="110" height="110" viewBox="0 0 120 120" style={{ marginBottom: 8 }}>
           <circle cx="60" cy="60" r="56" fill="var(--bg)" stroke="var(--border)" strokeWidth={1.5} />
@@ -93,10 +103,9 @@ export default function ClockCard() {
       <div style={{ fontSize: 11, opacity: 0.5 }}>
         {now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
       </div>
-      <div style={{ textAlign: 'left' }}>
-        <DayPhaseBars />
-        <ScopeStats />
+        </div>
       </div>
+      <ScopeStats />
     </div>
   );
 }
