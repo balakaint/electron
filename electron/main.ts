@@ -188,7 +188,19 @@ interface WindowState {
   width: number;
   height: number;
   maximized: boolean;
+  // Whether the window was left in compact mode. The GEOMETRY stored
+  // alongside this is always the FULL geometry, never compact's — see
+  // windowStateToPersist for why.
+  compact?: boolean;
 }
+
+// Current layout, and the geometry to return to when leaving compact.
+// Declared here rather than beside applyPanelLayout because
+// saveWindowState needs them, and the two together are what make a
+// docked window restorable.
+let currentLayout: 'full' | 'compact' = 'full';
+let preCompactBounds: Electron.Rectangle | null = null;
+let preCompactMaximized = false;
 
 function getWindowStatePath(): string {
   return path.join(app.getPath('userData'), 'window-state.json');
@@ -202,9 +214,45 @@ function loadWindowState(): WindowState {
   }
 }
 
+/**
+ * What to write to window-state.json.
+ *
+ * Pure, and exported, because this is where a real bug lived: compact's
+ * geometry was being persisted as if the user had chosen it. Compact is
+ * computed — a fixed width docked to the screen edge — so saving it
+ * overwrote the only record of the real window size. On the next launch
+ * the window opened at 420px, compact was re-applied on top of that, and
+ * the "restore" bounds captured 420px as the full size. Leaving compact
+ * then resized the window to 420px: the nav and clock crammed into a
+ * sliver with a horizontal scrollbar, and no way back but a manual drag.
+ *
+ * So while compact, the REMEMBERED full geometry is written instead of
+ * the live bounds, and the compact flag records the mode. Both halves
+ * are needed: keeping the flag without the geometry still loses the size,
+ * and keeping the geometry without the flag reopens full every time.
+ */
+export function windowStateToPersist(
+  layout: 'full' | 'compact',
+  live: { bounds: Electron.Rectangle; maximized: boolean },
+  remembered: { bounds: Electron.Rectangle; maximized: boolean } | null,
+): WindowState | null {
+  if (layout === 'compact') {
+    // Nothing remembered yet means compact was applied before any full
+    // geometry was recorded. Writing the live compact bounds is exactly
+    // the bug above, so write nothing and keep whatever is on disk.
+    if (!remembered) return null;
+    return { ...remembered.bounds, maximized: remembered.maximized, compact: true };
+  }
+  return { ...live.bounds, maximized: live.maximized, compact: false };
+}
+
 function saveWindowState(win: BrowserWindow) {
-  const bounds = win.getBounds();
-  const state: WindowState = { ...bounds, maximized: win.isMaximized() };
+  const state = windowStateToPersist(
+    currentLayout,
+    { bounds: win.getBounds(), maximized: win.isMaximized() },
+    preCompactBounds ? { bounds: preCompactBounds, maximized: preCompactMaximized } : null,
+  );
+  if (state === null) return;
   try {
     fs.writeFileSync(getWindowStatePath(), JSON.stringify(state));
   } catch (err) {
@@ -292,6 +340,17 @@ function createWindow() {
   });
   if (state.maximized) mainWindow.maximize();
 
+  // Reopen docked if that is how it was left. Done here in the main
+  // process rather than waiting for the renderer to ask, so the window
+  // doesn't flash full-size first — and, more importantly, so the full
+  // geometry is seeded as the restore point BEFORE compact is applied.
+  // That seeding is what the earlier bug was missing.
+  if (state.compact) {
+    preCompactBounds = { x: state.x ?? 0, y: state.y ?? 0, width: state.width, height: state.height };
+    preCompactMaximized = state.maximized;
+    applyPanelLayout('compact');
+  }
+
   // Debounced the same way as legacy (400ms after the last move/resize)
   // to avoid a disk-write storm while the user is actively dragging.
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -376,17 +435,21 @@ function syncTitleBarTheme(theme: unknown) {
 // layout rungs are ported.
 const COMPACT_WIDTH = 420;
 
-// The bounds to return to when leaving compact. Held in memory only:
-// window-state.json already persists what the user last had, and
-// writing an interim "restore point" to disk would fight it.
-let preCompactBounds: Electron.Rectangle | null = null;
 
 function applyPanelLayout(layout: 'full' | 'compact') {
   const win = mainWindow;
   if (!win || win.isDestroyed()) return;
 
+  currentLayout = layout;
+
   if (layout === 'compact') {
-    if (preCompactBounds === null) preCompactBounds = win.getBounds();
+    // Guarded: re-applying compact (the renderer re-asserts it once on
+    // load, after the main process has already docked) must not capture
+    // the docked bounds as the thing to restore.
+    if (preCompactBounds === null) {
+      preCompactBounds = win.getBounds();
+      preCompactMaximized = win.isMaximized();
+    }
     if (win.isMaximized()) win.unmaximize();
     // getDisplayMatching, not getPrimaryDisplay: this is Electron's
     // equivalent of legacy's MonitorFromPoint fix. The primary display's
@@ -403,7 +466,11 @@ function applyPanelLayout(layout: 'full' | 'compact') {
     });
   } else if (preCompactBounds) {
     win.setBounds(preCompactBounds);
+    // A window that was maximized before going compact should come back
+    // maximized, not merely the size it happened to have underneath.
+    if (preCompactMaximized) win.maximize();
     preCompactBounds = null;
+    preCompactMaximized = false;
   }
 }
 

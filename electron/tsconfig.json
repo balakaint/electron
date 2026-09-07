@@ -10,5 +10,7 @@
     "outDir": "../dist/electron",
     "rootDir": "."
   },
-  "include": ["."]
+  "include": ["."],
+  "_comment": "Tests are excluded so they do not compile into dist/electron and ship inside the installer — electron-builder packages dist/** wholesale.",
+  "exclude": ["**/*.test.ts", "electron-stub.cjs"]
 }
