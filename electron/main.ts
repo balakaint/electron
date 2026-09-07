@@ -244,6 +244,14 @@ export function healWindowState(state: WindowState): WindowState {
   };
 }
 
+function readWindowStateRaw(): unknown {
+  try {
+    return JSON.parse(fs.readFileSync(getWindowStatePath(), 'utf-8'));
+  } catch {
+    return null;
+  }
+}
+
 function loadWindowState(): WindowState {
   try {
     const state: WindowState = JSON.parse(fs.readFileSync(getWindowStatePath(), 'utf-8'));
@@ -376,6 +384,10 @@ function startPythonEngine(): Promise<void> {
 }
 
 function createWindow() {
+  // Kept separately so the log below can show both what was on disk AND
+  // what the repair made of it. Which of the two applied is exactly what
+  // has been guessed at for several rounds; it should be readable.
+  const raw = readWindowStateRaw();
   const state = loadWindowState();
   mainWindow = new BrowserWindow({
     width: state.width,
@@ -402,6 +414,10 @@ function createWindow() {
   // doesn't flash full-size first — and, more importantly, so the full
   // geometry is seeded as the restore point BEFORE compact is applied.
   // That seeding is what the earlier bug was missing.
+  console.log(
+    `[layout] window-state.json ${JSON.stringify(raw)} -> after heal ${JSON.stringify(state)}`,
+  );
+
   if (state.compact) {
     preCompactBounds = { x: state.x ?? 0, y: state.y ?? 0, width: state.width, height: state.height };
     preCompactMaximized = state.maximized;
@@ -523,6 +539,10 @@ function applyPanelLayout(layout: Layout) {
   const win = mainWindow;
   if (!win || win.isDestroyed()) return;
 
+  console.log(
+    `[layout] apply ${layout} (was ${currentLayout}); bounds ` +
+      `${JSON.stringify(win.getBounds())}; remembered ${JSON.stringify(preCompactBounds)}`,
+  );
   currentLayout = layout;
 
   if (layout === 'compact') {

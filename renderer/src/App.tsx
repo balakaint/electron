@@ -39,7 +39,17 @@ function AppShell() {
   const [tab, setTab] = useState<ListKey>('classic');
   const [theme, setThemeState] = useState<Theme>('focus');
   const [lang, setLang] = useState<Lang>('en');
-  const [layout, setLayoutState] = useState<PanelLayout>('full');
+  // null until settings answer. Defaulting to 'full' meant every launch
+  // mounted all three panels and fired ~30 requests (six projects ×
+  // subtasks/circle/activity) before the real layout arrived and threw
+  // two of them away — and in compact it did that inside a 420px window,
+  // which is what "panel 1 and 2 are there but invisible" looked like.
+  //
+  // Legacy builds panel 3 synchronously and defers 1 and 2 for the same
+  // reason, in its own words: panel 3 "is the one panel compact layout
+  // actually shows on every launch — the only thing on the critical path
+  // to a usable window."
+  const [layout, setLayoutState] = useState<PanelLayout | null>(null);
   const [onboarded, setOnboarded] = useState<boolean | null>(null); // null = not loaded yet
   // Stored as "when it was opened" rather than a boolean, so the stack
   // above can order them; null means closed.
@@ -94,6 +104,7 @@ function AppShell() {
       // the flag on disk still says compact. The next launch then docked
       // to 420px and rendered three columns into it, with nothing to
       // undock them.
+      console.log(`[layout] settings say ${s.panel_layout}; asserting it`);
       setLayoutState(s.panel_layout);
       window.api.setPanelLayout(s.panel_layout);
       setOnboarded(s.onboarded);
@@ -117,6 +128,7 @@ function AppShell() {
   // position" rather than a panel you can work beside.
   const setLayout = (next: PanelLayout) => {
     if (next === layout) return;
+    console.log(`[layout] ${layout ?? 'unknown'} -> ${next}`);
     setLayoutState(next);
     window.api.setPanelLayout(next);
     settingsApi.update({ panel_layout: next });
@@ -127,7 +139,9 @@ function AppShell() {
   // explains why — a fixed ±1 clamps at index 0 and the control dies in
   // the collapsed state.
   const toggleFocusMode = () => setLayout(layout === 'compact' ? 'full' : 'compact');
+
   const compact = layout === 'compact';
+  // Unknown counts as hidden, so nothing mounts on a guess.
   const showP1 = layout === 'full';
   const showP2 = layout === 'full' || layout === 'partial';
 
