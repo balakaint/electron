@@ -27,12 +27,16 @@ import { useL } from '../i18n';
 type View = 'classic' | 'focus';
 
 export default function Panel3({
+  focusVersion,
+  onFocusChanged,
   view,
   onSelectView,
   compact,
   onToggleLayout,
   onOpenQuarterly,
 }: {
+  focusVersion: number;
+  onFocusChanged: () => void;
   view: View;
   onSelectView: (v: View) => void;
   compact: boolean;
@@ -119,7 +123,7 @@ export default function Panel3({
         ) : (
           <>
             {progress && <TodayProgressBar entries={order} progress={progress} />}
-            <TaskList listKey="focus" />
+            <TaskList listKey="focus" focusVersion={focusVersion} onFocusChanged={onFocusChanged} />
           </>
         )}
       </div>

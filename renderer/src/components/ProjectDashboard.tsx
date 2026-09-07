@@ -93,6 +93,15 @@ function ProjectCard({
       .catch(() => {
         setStrikeFlash(pid);
         setTimeout(() => setStrikeFlash(null), 1500);
+        // Resync, or the button that just failed stays enabled and the
+        // next click fails identically. `focusTasks` is fetched by the
+        // panel above and is what decides whether today is full, so a
+        // task struck anywhere ELSE — the STRIKE card, the task list —
+        // leaves this copy stale: the chip still reads "+ STRIKE", the
+        // server still says 409, and clicking produces nothing visible
+        // but another rejected request. A 409 is the server telling us
+        // this view is out of date, so treat it as one.
+        onChanged();
       });
   };
 
@@ -418,12 +427,18 @@ function ProjectCard({
 // them here is what made this column read as a dashboard rather than
 // the list of projects it is.
 export default function ProjectDashboard({
+  focusVersion,
+  onFocusChanged,
   onOpenAnalysis,
   onOpenJourney,
   onSelectGoals,
   goalsProject,
   openProject,
 }: {
+  // Bumped by panel 3 when it writes to the focus list; see App.tsx.
+  focusVersion: number;
+  // Called when THIS panel writes, so panel 3 re-fetches.
+  onFocusChanged: () => void;
   onOpenAnalysis: (key: ProjectKey) => void;
   onOpenJourney: (key: ProjectKey) => void;
   onSelectGoals: (key: ProjectKey) => void;
@@ -441,9 +456,22 @@ export default function ProjectDashboard({
     // Fetched once here (not per-card) so every "+ STRIKE" chip agrees
     // about which subtasks are already committed and how full today is.
     tasksApi.list('focus').then(setFocusTasks);
+    // Every write in this panel goes through onChanged (= refresh), so
+    // this one line tells panel 3 about all of them. No loop: this panel
+    // listens to a different counter than the one it bumps.
+    onFocusChanged();
   };
 
   useEffect(refresh, []);
+
+  // Panel 3 struck, completed or deleted something; the "+ STRIKE" chips
+  // are computed from this list, so they are now wrong until we re-read.
+  useEffect(() => {
+    if (focusVersion === 0) return;
+    tasksApi.list('focus').then(setFocusTasks);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusVersion]);
+
   useAutoTimer(openProject, order, refresh);
 
   return (

@@ -33,7 +33,17 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function TaskList({ listKey }: { listKey: ListKey }) {
+export default function TaskList({
+  listKey,
+  focusVersion = 0,
+  onFocusChanged = () => {},
+}: {
+  listKey: ListKey;
+  // Bumped by the OTHER panel when it writes to this list; see App.tsx.
+  focusVersion?: number;
+  // Called when THIS panel writes, so the other one re-fetches.
+  onFocusChanged?: () => void;
+}) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -49,7 +59,23 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const { push: pushUndo } = useUndo();
 
-  const refresh = () => tasksApi.list(listKey).then(setTasks);
+  // Every write in this component funnels through refresh(), so telling
+  // the other panel here covers all of them at once. Safe from looping
+  // because this panel listens to a DIFFERENT counter than the one it
+  // bumps — it never re-fetches in response to its own write.
+  const refresh = () =>
+    tasksApi.list(listKey).then((next) => {
+      setTasks(next);
+      onFocusChanged();
+    });
+
+  // The project cards struck or completed something; our copy is stale.
+  useEffect(() => {
+    if (focusVersion === 0) return;
+    tasksApi.list(listKey).then(setTasks);
+    setNowBump((b) => b + 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusVersion]);
   // NOW's derived pointer depends on strike/done state, which lives
   // server-side — bump this after any action that could change it, so
   // NowCard (a sibling, not a child) knows to refetch.

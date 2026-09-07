@@ -31,6 +31,21 @@ type Overlay =
   | { kind: 'quarterly' };
 
 function AppShell() {
+  // The focus task list is rendered by two panels at once: the project
+  // cards' "+ STRIKE" chips in panel 1, and NOW / STRIKE / LIST in panel
+  // 3. Each fetched its own copy and never heard about the other's
+  // writes, so striking a task in panel 3 left panel 1 believing today
+  // still had room — the chip stayed enabled, the server kept answering
+  // 409, and clicking it did nothing visible except produce another
+  // rejected request.
+  //
+  // Two counters rather than one, so neither panel can react to its own
+  // write: each BUMPS the counter it owns and LISTENS to the other's. A
+  // single shared number would have each panel re-fetching in response
+  // to itself, which is a loop, not a sync.
+  const [panel1Wrote, setPanel1Wrote] = useState(0);
+  const [panel3Wrote, setPanel3Wrote] = useState(0);
+
   const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking');
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   // Which project panel 2 is showing. Persisted server-side already
@@ -275,6 +290,8 @@ function AppShell() {
           // rather than "the window is too narrow".
           <div style={{ overflowY: 'auto', minHeight: 0, minWidth: 0 }}>
             <ProjectDashboard
+              focusVersion={panel3Wrote}
+              onFocusChanged={() => setPanel1Wrote((v) => v + 1)}
               onOpenAnalysis={(k) => setOverlay({ kind: 'analysis', project: k })}
               onOpenJourney={(k) => setOverlay({ kind: 'journey', project: k })}
               onSelectGoals={selectGoalsProject}
@@ -348,6 +365,8 @@ function AppShell() {
       />
           </div>
           <Panel3
+            focusVersion={panel1Wrote}
+            onFocusChanged={() => setPanel3Wrote((v) => v + 1)}
             view={tab}
             onSelectView={setTab}
             compact={compact}
