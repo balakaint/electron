@@ -191,7 +191,12 @@ const SCREENS = [
 ];
 
 async function clickByText(page, text) {
-  const el = page.locator(`button:has-text("${text}")`).first();
+  // EXACT, not :has-text(). :has-text is a case-insensitive SUBSTRING
+  // match, so clicking "PLAN" also matched the "92-day plan 0/6 · 23d
+  // left" link and opened the quarterly overlay. The audit then measured
+  // a screen it had not asked for, reported a fraction of the findings,
+  // and that looked exactly like a fix working.
+  const el = page.getByRole('button', { name: text, exact: true }).first();
   if (await el.count()) {
     await el.click({ timeout: 3000 }).catch(() => {});
     await sleep(250);
@@ -203,6 +208,25 @@ async function clickByText(page, text) {
 const run = async () => {
   const server = spawn('node', ['tests/serve.mjs', ROOT, String(PORT)], { stdio: 'inherit' });
   await sleep(700);
+
+  // Refuse to run without an engine. Without this the app renders its
+  // "Engine: not responding" shell — 27 elements instead of ~600 — and
+  // the audit reports a handful of findings, which is indistinguishable
+  // from a clean bill of health. That happened here: an engine died
+  // mid-session and the next run showed contrast failures dropping from
+  // 187 to 3, which looked exactly like the fix under test working.
+  try {
+    const probe = await fetch(`${BASE}/health`);
+    if (!probe.ok) throw new Error(`status ${probe.status}`);
+  } catch (e) {
+    server.kill();
+    console.error(
+      `\nNo engine behind ${BASE}/health (${e.message}).\n` +
+        `Start it first:  python python/main.py --port 5180\n` +
+        `An audit without one measures the error screen.\n`,
+    );
+    process.exit(2);
+  }
 
   // playwright-core ships no browser of its own; it drives one that is
   // already on the machine. UX_AUDIT_CHROMIUM names it explicitly, which
@@ -264,6 +288,16 @@ const run = async () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ theme: t }),
         });
+        // panel_layout is PERSISTED in AppState, so whatever the last
+        // run left behind is what the next one opens in. An audit that
+        // silently ran in compact — one panel instead of three — found a
+        // fraction of the elements and read as a large improvement.
+        // Assert the starting state instead of inheriting it.
+        await fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ panel_layout: 'full' }),
+        });
       }, theme);
       await page.goto(BASE, { waitUntil: 'networkidle' });
       await sleep(900);
@@ -271,6 +305,13 @@ const run = async () => {
       for (const screen of SCREENS) {
         for (const [, label] of screen.steps) await clickByText(page, label);
         await sleep(400);
+        // A tripwire, because a quiet report is indistinguishable from a
+        // good one. The whole shell is ~600 elements; a few dozen means
+        // something collapsed and the numbers below mean nothing.
+        const rendered = await page.evaluate(() => document.querySelectorAll('body *').length);
+        if (rendered < 150) {
+          console.log(`  !! ${theme} / ${screen.name}: only ${rendered} elements rendered`);
+        }
         const found = await page.evaluate(COLLECT, { CONTRAST_NORMAL, CONTRAST_LARGE, MIN_TARGET, MIN_FONT });
         for (const f of found) findings.push({ theme, screen: screen.name, severity: SEVERITY[f.rule], ...f });
       }

@@ -367,6 +367,18 @@ export function currentTheme(): Theme {
   return (THEME_ORDER as string[]).includes(t ?? '') ? (t as Theme) : 'focus';
 }
 
+// Is this theme dark? DERIVED from its own background, never a written
+// list. A hand-kept list is what made main.ts call FOCUS dark and put a
+// black title bar over a near-white window; the fix there was a test
+// that reads the palette, and the same fact should not be typed out a
+// third time here.
+export function isDarkTheme(theme: Theme): boolean {
+  const hex = (PALETTES[theme] ?? PALETTES.focus)['--bg'];
+  const ch = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const lin = ch.map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+  return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2] < 0.5;
+}
+
 export function applyTheme(theme: Theme): void {
   const root = document.documentElement;
   const palette = PALETTES[theme] ?? PALETTES.focus;
@@ -374,6 +386,20 @@ export function applyTheme(theme: Theme): void {
     root.style.setProperty(key, value);
   }
   root.setAttribute('data-theme', theme);
+
+  // Tell the browser which way round this theme runs.
+  //
+  // BUG THIS FIXES, found by tests/ux-audit.mjs at 1.02:1 — text that is
+  // not there. Buttons in this app set `color: inherit` (index.css) but
+  // no background, so they keep Chromium's DEFAULT button face. That
+  // default is #EFEFEF unless the page declares color-scheme, so in WAR
+  // ROOM and JOURNEY every unstyled button was near-white #EDEDEF text
+  // on a light grey chip. `color: inherit` reads as obviously correct,
+  // which is why six themes shipped with invisible buttons.
+  //
+  // This also fixes the scrollbars and the native form controls, which
+  // had the same problem for the same reason.
+  root.style.colorScheme = isDarkTheme(theme) ? 'dark' : 'light';
 }
 
 export function nextTheme(current: Theme, direction: 1 | -1 = 1): Theme {
