@@ -81,10 +81,23 @@ function AppShell() {
   };
 
   useEffect(() => {
-    window.api
-      .healthCheck()
-      .then(() => setStatus('ok'))
-      .catch(() => setStatus('error'));
+    // Retried for the same reason as every other startup fetch: a single
+    // early failure used to latch "not responding" for the rest of the
+    // session, on an app that was working perfectly by the time anyone
+    // read it. Reporting a failure nobody has confirmed is worse than
+    // reporting nothing.
+    (async () => {
+      for (let attempt = 0; attempt < 6; attempt++) {
+        try {
+          await window.api.healthCheck();
+          setStatus('ok');
+          return;
+        } catch {
+          await new Promise((r) => setTimeout(r, 500));
+        }
+      }
+      setStatus('error');
+    })();
 
     settingsApi.get().then((s) => {
       setThemeState(s.theme);

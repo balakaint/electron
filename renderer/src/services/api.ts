@@ -55,7 +55,41 @@ declare global {
   }
 }
 
-const req = window.api.request;
+// Every screen fetches on mount, and the window can open before the
+// Python engine is listening: main.ts waits for the engine's READY
+// marker OR five seconds, whichever comes first, and a cold start with
+// migrations to run can exceed that. Without a retry, a request that
+// lands in that gap fails once and the component it belongs to stays
+// empty for the rest of the session — nothing re-fetches.
+//
+// That is not hypothetical: it emptied the whole clock column (day
+// phases, scope stats, deep-work trend) while the projects and goals
+// panels looked fine, purely because those two mount slightly later.
+//
+// So a connection-shaped failure is retried a few times with a short
+// backoff. Only connection failures: a 404 or a 422 is an answer, and
+// repeating it would just delay a real error.
+const RETRY_DELAYS_MS = [150, 400, 900, 1500];
+
+function looksLikeEngineNotUpYet(err: unknown): boolean {
+  const msg = String((err as Error)?.message ?? err);
+  // The IPC bridge rethrows fetch's own failure text; an HTTP answer
+  // arrives as "<status> <body>" instead.
+  return !/^\s*\d{3}\b/.test(msg);
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function req(method: string, path: string, body?: unknown): Promise<unknown> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await window.api.request(method, path, body);
+    } catch (err) {
+      if (attempt >= RETRY_DELAYS_MS.length || !looksLikeEngineNotUpYet(err)) throw err;
+      await sleep(RETRY_DELAYS_MS[attempt]);
+    }
+  }
+}
 
 export const tasksApi = {
   list: (listKey?: ListKey) =>
