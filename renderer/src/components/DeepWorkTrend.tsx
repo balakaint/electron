@@ -93,6 +93,14 @@ export default function DeepWorkTrend() {
   const showZeros = zeros.length <= n * 0.5;
   const weekBandX = n > 7 ? px(Math.max(0, n - 7)) : x1;
 
+  // Three x-axis ticks — first, middle, last — deduplicated, because on
+  // a new install there may be only one or two days of data (the range
+  // is clipped to the earliest day with any activity). At n=1 all three
+  // expressions collapse to 0 and at n=2 two of them do, which produced
+  // duplicate React keys AND drew the same date two or three times on
+  // top of itself.
+  const tickIndices = [...new Set([0, Math.floor(n / 2), n - 1])].sort((a, b) => a - b);
+
   const onMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = svgRef.current!.getBoundingClientRect();
     const relX = ((e.clientX - rect.left) / rect.width) * W;
@@ -173,7 +181,7 @@ export default function DeepWorkTrend() {
 
             <circle cx={px(n - 1)} cy={py(secs[n - 1])} r={2.5} fill="var(--accent)" stroke="var(--surface)" />
 
-            {[0, Math.floor(n / 2), n - 1].map((i) => (
+            {tickIndices.map((i) => (
               <text
                 key={i}
                 x={px(i)}
