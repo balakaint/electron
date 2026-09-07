@@ -387,10 +387,30 @@ function startPythonEngine(): Promise<void> {
 
     pendingRecoveryNotice = recoverDatabaseIfNeeded(dbPath);
 
-    const venvPython = path.join(__dirname, '../../python/.venv/bin/python');
+    // Windows puts a venv's interpreter in Scripts\python.exe; every
+    // other platform uses bin/python. Only the POSIX path was checked,
+    // so on Windows existsSync was always false and this fell through to
+    // the literal string 'python3' — which on Windows is usually not a
+    // real command at all but the Microsoft Store stub, so spawn failed
+    // and the app died on the startup-crash dialog. The fallback has the
+    // same problem: the interpreter on PATH is `python` on Windows.
+    const venvCandidates = [
+      path.join(__dirname, '../../python/.venv/Scripts/python.exe'),
+      path.join(__dirname, '../../python/.venv/bin/python'),
+    ];
+    const isWin = process.platform === 'win32';
+    const venvPython = venvCandidates.find((p) => fs.existsSync(p));
+    // electron-builder gives the packaged sidecar the host's executable
+    // extension. Without it, spawn on Windows looks for an extensionless
+    // file that PyInstaller never produced.
+    const packagedEngine = path.join(
+      process.resourcesPath,
+      'engine',
+      isWin ? 'engine.exe' : 'engine',
+    );
     const command = isDev
-      ? (fs.existsSync(venvPython) ? venvPython : 'python3')
-      : path.join(process.resourcesPath, 'engine', 'engine');
+      ? (venvPython ?? (isWin ? 'python' : 'python3'))
+      : packagedEngine;
     const args = isDev
       ? [path.join(__dirname, '../../python/main.py'), '--port', String(PYTHON_PORT)]
       : ['--port', String(PYTHON_PORT)];
@@ -496,6 +516,32 @@ function createWindow() {
     applyPanelLayout('compact');
   }
 
+  // ── Navigation is not something this window does ────────────────────
+  // There is exactly one document here and it never navigates: every
+  // call to the engine goes over IPC, not over the renderer's own
+  // network stack. So both routes OUT are closed rather than policed.
+  //
+  // Why this matters more than it looks: a window that navigates keeps
+  // its preload, so anything it lands on inherits window.api — the same
+  // bridge that reaches the filesystem and the engine. A stray target=
+  // _blank, a redirect, or a dragged-in link is enough. Denying by
+  // default is the only version of this that stays correct as the
+  // renderer grows.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    // A real external link still works — it just opens in the user's
+    // browser, where it has no bridge to inherit.
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const current = mainWindow?.webContents.getURL() ?? '';
+    // Same-document navigation (hash routing, reloads) is fine; going
+    // anywhere else is not.
+    if (current && new URL(url).origin === new URL(current).origin) return;
+    event.preventDefault();
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+  });
+
   // Debounced the same way as legacy (400ms after the last move/resize)
   // to avoid a disk-write storm while the user is actively dragging.
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -585,10 +631,24 @@ function syncLoginItem(startWithWindows: boolean) {
 // only, wired to the theme picker) — nativeTheme.themeSource is
 // Electron's own cross-platform equivalent for the same native-chrome
 // effect (title bar, window borders, scrollbars) with none of the
-// manual HWND/DwmSetWindowAttribute plumbing. Keep in sync with
-// renderer/src/themes.ts's palette: energy is the port's one light
-// theme, the rest are dark.
-const DARK_THEMES = new Set(['focus', 'warroom', 'journey']);
+// manual HWND/DwmSetWindowAttribute plumbing.
+//
+// BUG THIS FIXES: this set said ['focus', 'warroom', 'journey'] and the
+// comment above it claimed "energy is the port's one light theme, the
+// rest are dark". Both were wrong, and in opposite directions. Reading
+// the actual backgrounds out of renderer/src/themes.ts:
+//
+//     focus     #E8E5E0  light      corporate #E7E2DB  light
+//     warroom   #1A1A1E  DARK       journey   #17211D  DARK
+//     energy    #EBEBEB  light      rize      #E5E7EB  light
+//
+// So FOCUS — a light theme, and the app's default — was getting a black
+// title bar above a near-white window on Windows.
+//
+// The underlying fault is that one fact lived in two places: the palette
+// in themes.ts and a hand-written list here. themes.test.ts now reads
+// themes.ts and fails if this set ever drifts from it again.
+export const DARK_THEMES = new Set(['warroom', 'journey']);
 
 function syncTitleBarTheme(theme: unknown) {
   if (typeof theme !== 'string') return;
@@ -769,10 +829,19 @@ ipcMain.handle(
     });
     if (result.canceled || !result.filePaths[0]) return { ok: false, cancelled: true };
     const folder = result.filePaths[0];
+    // basename, because `filename` crosses the IPC boundary from the
+    // renderer and path.join happily walks upwards: a filename of
+    // "../../../../Windows/System32/drivers/etc/hosts" would have been
+    // written OUTSIDE the folder the user picked. The user chose a
+    // destination; a filename is a name, not a path.
+    const written: string[] = [];
     for (const f of files) {
-      fs.writeFileSync(path.join(folder, f.filename), f.content, 'utf-8');
+      const name = path.basename(String(f.filename ?? '')).trim();
+      if (!name || name === '.' || name === '..') continue;
+      fs.writeFileSync(path.join(folder, name), f.content, 'utf-8');
+      written.push(name);
     }
-    return { ok: true, folder, filenames: files.map((f) => f.filename) };
+    return { ok: true, folder, filenames: written };
   },
 );
 
@@ -782,6 +851,23 @@ ipcMain.handle(
 // directly (same contextIsolation reasoning as export-save), so
 // picking a path and opening it with the OS's own default handler both
 // need a main-process round trip.
+// shell.openPath hands a file to the OS default handler, which for an
+// .exe/.bat/.cmd/.ps1/.lnk means RUNNING it. open-path took whatever
+// string the renderer sent, so an XSS or a bad dependency in the
+// renderer was one IPC call away from launching a program.
+//
+// The obvious fix — only allow paths picked in this session — is wrong:
+// a BA attachment and a Journey cover are stored in the database and
+// opened again weeks later, so that would break the feature it is meant
+// to protect. What actually needs constraining is not WHERE the path
+// came from but WHAT it is: this control exists to open documents, and
+// a document is not an executable.
+const OPENABLE_EXTS = new Set([
+  '.docx', '.doc', '.xlsx', '.xls', '.xlsm', '.csv', '.pdf', '.txt',
+  '.rtf', '.odt', '.ods', '.md',
+  '.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif',
+]);
+
 ipcMain.handle('pick-file', async () => {
   const result = await dialog.showOpenDialog(mainWindow!, {
     title: 'Attach Word / Excel / CSV file',
@@ -798,6 +884,12 @@ ipcMain.handle('pick-file', async () => {
 });
 
 ipcMain.handle('open-path', async (_, filePath: string) => {
+  if (typeof filePath !== 'string' || !filePath) {
+    return { ok: false, error: 'No file path given.' };
+  }
+  if (!OPENABLE_EXTS.has(path.extname(filePath).toLowerCase())) {
+    return { ok: false, error: 'Only documents and images can be opened from here.' };
+  }
   const error = await shell.openPath(filePath);
   return { ok: error === '', error: error || null };
 });
