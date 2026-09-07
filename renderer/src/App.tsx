@@ -230,7 +230,12 @@ function AppShell() {
         }}
       >
         {showP1 && (
-          <div style={{ overflowY: 'auto', minHeight: 0 }}>
+          // minWidth: 0 is not decoration. A grid item's default
+          // min-width is `auto`, so these columns refuse to shrink below
+          // their content and the fixed 545px track pushes them out of
+          // the window instead — which reads as "panel 1 and 2 vanished"
+          // rather than "the window is too narrow".
+          <div style={{ overflowY: 'auto', minHeight: 0, minWidth: 0 }}>
             <ProjectDashboard
               onOpenAnalysis={(k) => setOverlay({ kind: 'analysis', project: k })}
               onOpenJourney={(k) => setOverlay({ kind: 'journey', project: k })}
@@ -243,7 +248,7 @@ function AppShell() {
         {showP1 && <div style={{ background: 'var(--border)' }} />}
 
         {showP2 && (
-          <div style={{ overflowY: 'auto', minHeight: 0, position: 'relative' }}>
+          <div style={{ overflowY: 'auto', minHeight: 0, minWidth: 0, position: 'relative' }}>
             {/* Panel 2's chevron hides panel 1 only — legacy's
                 _toggle_panel1, the middle rung of the ladder. */}
             <button

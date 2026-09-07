@@ -194,6 +194,15 @@ interface WindowState {
   compact?: boolean;
 }
 
+const COMPACT_WIDTH = 420;
+// Three columns: panel 3 is a fixed 545, so a 1200-wide window left
+// panels 1 and 2 about 320 each — narrower than a single project card
+// wants. 1500 gives the two flexible columns room to be read.
+const DEFAULT_WIDTH = 1500;
+const DEFAULT_HEIGHT = 900;
+const FULL_MIN_WIDTH = 900;
+const FULL_MIN_HEIGHT = 600;
+
 // Current layout, and the geometry to return to when leaving compact.
 // Declared here rather than beside applyPanelLayout because
 // saveWindowState needs them, and the two together are what make a
@@ -210,14 +219,49 @@ function getWindowStatePath(): string {
   return path.join(app.getPath('userData'), 'window-state.json');
 }
 
+/**
+ * Repair a window state written before compact stopped persisting its own
+ * docked geometry. Such a file says width 420 with no `compact` flag, so
+ * the window reopens 420 wide in the FULL layout — three columns crammed
+ * into a quarter of the width they need, which renders as a clipped
+ * panel 3 and nothing else.
+ *
+ * minWidth alone does not save this: X11/WSLg does not enforce a window's
+ * minimum size the way Windows and macOS do, so the narrow size survives
+ * to the screen. A genuinely compact window is identified by its flag,
+ * not by being narrow, so widening here cannot affect one.
+ *
+ * Pure and exported so the repair is testable — the state that needs it
+ * only exists on a machine that already ran the broken build.
+ */
+export function healWindowState(state: WindowState): WindowState {
+  if (state.compact || state.width >= FULL_MIN_WIDTH) return state;
+  const { x: _x, y: _y, ...rest } = state;
+  return {
+    ...rest,
+    width: DEFAULT_WIDTH,
+    height: Math.max(state.height, DEFAULT_HEIGHT),
+  };
+}
+
 function loadWindowState(): WindowState {
   try {
-    return JSON.parse(fs.readFileSync(getWindowStatePath(), 'utf-8'));
+    const state: WindowState = JSON.parse(fs.readFileSync(getWindowStatePath(), 'utf-8'));
+
+    // Self-heal a state file written before compact stopped persisting
+    // its own docked geometry. Such a file says width 420 with no
+    // `compact` flag, so the window reopens 420 wide in the FULL layout
+    // — three columns crammed into a quarter of the width they need,
+    // which renders as a clipped panel 3 and nothing else.
+    //
+    // minWidth alone does not save this: X11/WSLg does not enforce a
+    // window's minimum size the way Windows and macOS do, so the narrow
+    // size survives. Widening here is what actually fixes it, and it is
+    // safe because a genuinely compact window is identified by the flag,
+    // not by being narrow.
+    return healWindowState(state);
   } catch {
-    // Three columns: panel 3 is a fixed 545, so a 1200-wide window left
-    // panels 1 and 2 about 320 each — narrower than a single project
-    // card wants. 1500 gives the two flexible columns room to be read.
-    return { width: 1500, height: 900, maximized: false };
+    return { width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT, maximized: false };
   }
 }
 
@@ -458,9 +502,6 @@ function syncTitleBarTheme(theme: unknown) {
 //
 // See docs/ROW10_LAYOUT_NOTE.md for why only two of legacy's three
 // layout rungs are ported.
-const COMPACT_WIDTH = 420;
-const FULL_MIN_WIDTH = 900;
-const FULL_MIN_HEIGHT = 600;
 
 
 function applyPanelLayout(layout: Layout) {

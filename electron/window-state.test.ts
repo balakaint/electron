@@ -18,7 +18,7 @@
  * Found by visual testing, which is the only thing that would have found
  * it: every type check and unit test passed with the bug present.
  */
-import { windowStateToPersist } from './main';
+import { healWindowState, windowStateToPersist } from './main';
 
 let bad = 0;
 const t = (label: string, ok: boolean, detail = '') => {
@@ -73,6 +73,25 @@ const c = windowStateToPersist(
   { bounds: FULL, maximized: true },
 )!;
 t('a maximized window stays maximized in the saved state', c.maximized === true);
+
+// ── healWindowState ──
+// A machine that ran the broken build has {width: 420} with no flag on
+// disk. Reopening from it put three columns in a 420px window.
+const stale = healWindowState({ x: 1500, y: 0, width: 420, height: 1040, maximized: false });
+t('a stale narrow state is widened', stale.width >= 900, String(stale.width));
+t('and its docked position is dropped', stale.x === undefined && stale.y === undefined);
+t('and it keeps a usable height', stale.height >= 900, String(stale.height));
+
+// A genuinely compact state is identified by its flag, not by width, so
+// the repair must leave it alone or compact would stop working.
+const realCompact = healWindowState({ x: 100, y: 60, width: 1400, height: 900, maximized: false, compact: true });
+t('a real compact state is untouched', realCompact.width === 1400 && realCompact.x === 100);
+
+const normal = healWindowState({ x: 100, y: 60, width: 1400, height: 900, maximized: false });
+t('a normal state is untouched', normal.width === 1400 && normal.x === 100);
+
+const small = healWindowState({ width: 899, height: 500, maximized: false });
+t('the boundary is FULL_MIN_WIDTH', small.width >= 900 && small.height >= 900);
 
 console.log(bad ? `FAIL (${bad})` : 'window-state checks clean');
 // Exit before main.ts's module-level engine spawn can fail under the stub.
