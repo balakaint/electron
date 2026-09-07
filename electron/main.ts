@@ -198,7 +198,11 @@ interface WindowState {
 // Declared here rather than beside applyPanelLayout because
 // saveWindowState needs them, and the two together are what make a
 // docked window restorable.
-let currentLayout: 'full' | 'compact' = 'full';
+type Layout = 'full' | 'partial' | 'compact';
+
+// Only compact changes the WINDOW; 'partial' just hides a column, so
+// everything below treats it exactly like 'full'.
+let currentLayout: Layout = 'full';
 let preCompactBounds: Electron.Rectangle | null = null;
 let preCompactMaximized = false;
 
@@ -210,7 +214,10 @@ function loadWindowState(): WindowState {
   try {
     return JSON.parse(fs.readFileSync(getWindowStatePath(), 'utf-8'));
   } catch {
-    return { width: 1200, height: 800, maximized: false };
+    // Three columns: panel 3 is a fixed 545, so a 1200-wide window left
+    // panels 1 and 2 about 320 each — narrower than a single project
+    // card wants. 1500 gives the two flexible columns room to be read.
+    return { width: 1500, height: 900, maximized: false };
   }
 }
 
@@ -232,7 +239,7 @@ function loadWindowState(): WindowState {
  * and keeping the geometry without the flag reopens full every time.
  */
 export function windowStateToPersist(
-  layout: 'full' | 'compact',
+  layout: Layout,
   live: { bounds: Electron.Rectangle; maximized: boolean },
   remembered: { bounds: Electron.Rectangle; maximized: boolean } | null,
 ): WindowState | null {
@@ -331,6 +338,12 @@ function createWindow() {
     height: state.height,
     x: state.x,
     y: state.y,
+    // Below this the three columns stop being readable. Compact lowers
+    // the minimum before docking and raises it again on the way back —
+    // setBounds IS clamped to the minimum size, so leaving this at 900
+    // would silently pin the compact window at 900px instead of 420.
+    minWidth: FULL_MIN_WIDTH,
+    minHeight: FULL_MIN_HEIGHT,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -434,9 +447,11 @@ function syncTitleBarTheme(theme: unknown) {
 // See docs/ROW10_LAYOUT_NOTE.md for why only two of legacy's three
 // layout rungs are ported.
 const COMPACT_WIDTH = 420;
+const FULL_MIN_WIDTH = 900;
+const FULL_MIN_HEIGHT = 600;
 
 
-function applyPanelLayout(layout: 'full' | 'compact') {
+function applyPanelLayout(layout: Layout) {
   const win = mainWindow;
   if (!win || win.isDestroyed()) return;
 
@@ -451,6 +466,10 @@ function applyPanelLayout(layout: 'full' | 'compact') {
       preCompactMaximized = win.isMaximized();
     }
     if (win.isMaximized()) win.unmaximize();
+    // Must come BEFORE setBounds: a window whose minimum width is still
+    // 900 cannot be resized to 420, and the dock would silently land at
+    // 900 with no error to notice.
+    win.setMinimumSize(COMPACT_WIDTH, 400);
     // getDisplayMatching, not getPrimaryDisplay: this is Electron's
     // equivalent of legacy's MonitorFromPoint fix. The primary display's
     // work area is the wrong rectangle the moment the window has been
@@ -464,7 +483,12 @@ function applyPanelLayout(layout: 'full' | 'compact') {
       width: COMPACT_WIDTH,
       height: wa.height,
     });
-  } else if (preCompactBounds) {
+  } else {
+    // Restored first, so the window can actually grow back past 420.
+    win.setMinimumSize(FULL_MIN_WIDTH, FULL_MIN_HEIGHT);
+  }
+
+  if (layout !== 'compact' && preCompactBounds) {
     win.setBounds(preCompactBounds);
     // A window that was maximized before going compact should come back
     // maximized, not merely the size it happened to have underneath.
@@ -474,7 +498,7 @@ function applyPanelLayout(layout: 'full' | 'compact') {
   }
 }
 
-ipcMain.handle('set-panel-layout', async (_, layout: 'full' | 'compact') => {
+ipcMain.handle('set-panel-layout', async (_, layout: Layout) => {
   applyPanelLayout(layout);
   return { ok: true };
 });

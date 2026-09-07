@@ -281,9 +281,9 @@ class AppState(Base):
       component state because it is a working preference — you pick
       "table" to scan twenty plans and expect it still to be table
       tomorrow, exactly as with bdp_sort.
-    - panel_layout: "full" or "compact" — legacy's progressive panel
-      layout, reduced to the two rungs this port's structure can carry
-      (see docs/ROW10_LAYOUT_NOTE.md for why "partial" is not ported).
+    - panel_layout: "full", "partial" or "compact" — legacy's progressive
+      panel layout. All three rungs, since the shell is now the same
+      three columns legacy has (see docs/ROW10_LAYOUT_NOTE.md).
       Same reasoning as bdp_view for storing it rather than keeping it
       in component state: a window you left docked and narrow should
       still be docked and narrow next time.

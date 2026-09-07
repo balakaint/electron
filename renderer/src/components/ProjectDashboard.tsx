@@ -53,11 +53,17 @@ function ProjectCard({
   focusTasks,
   onChanged,
   onOpenAnalysis,
+  onOpenJourney,
+  onSelectGoals,
+  goalsProject,
 }: {
   entry: ProjectOrderEntry;
   focusTasks: Task[];
   onChanged: () => void;
   onOpenAnalysis: (key: ProjectKey) => void;
+  onOpenJourney: (key: ProjectKey) => void;
+  onSelectGoals: (key: ProjectKey) => void;
+  goalsProject: ProjectKey | null;
 }) {
   const { number, project } = entry;
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
@@ -200,8 +206,30 @@ function ProjectCard({
           <button onClick={() => projectsApi.toggleTimer(key).then(onChanged)} title="Start/stop timer">
             {running ? '⏸' : '▶'}
           </button>
+          {/* Legacy's Goals | Analysis | Journey row (6799-6814). "Goals"
+              points PANEL 2 at this project and shows as active while it
+              is doing so — without that state the same three headings in
+              the middle column would silently mean six different things
+              depending on which card you last pressed. Analysis and
+              Journey open over the whole window instead, as legacy opens
+              them in their own windows. */}
+          <button
+            onClick={() => onSelectGoals(key)}
+            aria-pressed={goalsProject === key}
+            title="Show this project's goals in the middle panel"
+            style={{
+              fontSize: 11,
+              fontWeight: goalsProject === key ? 'bold' : 'normal',
+              background: goalsProject === key ? 'var(--accent-light)' : undefined,
+            }}
+          >
+            Goals
+          </button>
           <button onClick={() => onOpenAnalysis(key)} style={{ fontSize: 11 }}>
             Analysis
+          </button>
+          <button onClick={() => onOpenJourney(key)} style={{ fontSize: 11 }}>
+            Journey
           </button>
         </div>
 
@@ -353,38 +381,52 @@ function ProjectCard({
   );
 }
 
-export default function ProjectDashboard() {
+// Panel 1 — the project cards, and nothing else. TODAY PROGRESS and the
+// Deep Work Trend used to live here; both belong to panel 3 in legacy
+// (the trend under the clock, the progress bar on EXECUTE), and having
+// them here is what made this column read as a dashboard rather than
+// the list of projects it is.
+export default function ProjectDashboard({
+  onOpenAnalysis,
+  onOpenJourney,
+  onSelectGoals,
+  goalsProject,
+  openProject,
+}: {
+  onOpenAnalysis: (key: ProjectKey) => void;
+  onOpenJourney: (key: ProjectKey) => void;
+  onSelectGoals: (key: ProjectKey) => void;
+  goalsProject: ProjectKey | null;
+  // Whichever project has a full-window overlay open, so the auto-timer
+  // still starts for it — that behaviour moved to the shell with the
+  // overlays and would otherwise have been silently dropped.
+  openProject: ProjectKey | null;
+}) {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
-  const [progress, setProgress] = useState<TodayProgress | null>(null);
-  const [analysisKey, setAnalysisKey] = useState<ProjectKey | null>(null);
   const [focusTasks, setFocusTasks] = useState<Task[]>([]);
 
   const refresh = () => {
     projectsApi.order().then(setOrder);
-    projectsApi.todayProgress().then(setProgress);
     // Fetched once here (not per-card) so every "+ STRIKE" chip agrees
     // about which subtasks are already committed and how full today is.
     tasksApi.list('focus').then(setFocusTasks);
   };
 
   useEffect(refresh, []);
-  useAutoTimer(analysisKey, order, refresh);
-
-  if (analysisKey) {
-    return <BusinessAnalysisCanvas projectKey={analysisKey} onClose={() => setAnalysisKey(null)} />;
-  }
+  useAutoTimer(openProject, order, refresh);
 
   return (
-    <div style={{ maxWidth: 520 }}>
-      {progress && <TodayProgressBar entries={order} progress={progress} />}
-      <DeepWorkTrend />
+    <div>
       {order.map((entry) => (
         <ProjectCard
           key={entry.project.key}
           entry={entry}
           focusTasks={focusTasks}
           onChanged={refresh}
-          onOpenAnalysis={setAnalysisKey}
+          onOpenAnalysis={onOpenAnalysis}
+          onOpenJourney={onOpenJourney}
+          onSelectGoals={onSelectGoals}
+          goalsProject={goalsProject}
         />
       ))}
     </div>

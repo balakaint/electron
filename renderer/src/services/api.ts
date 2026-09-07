@@ -38,7 +38,7 @@ export interface ExportSaveResult {
   filenames?: string[];
 }
 
-export type PanelLayout = 'full' | 'compact';
+export type PanelLayout = 'full' | 'partial' | 'compact';
 
 declare global {
   interface Window {

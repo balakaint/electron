@@ -55,6 +55,13 @@ t(
   JSON.stringify(reopened),
 );
 
+// 'partial' hides a column but leaves the window alone, so it must
+// persist like 'full' — treating it as compact would freeze the saved
+// geometry the moment the projects panel was collapsed.
+const p = windowStateToPersist('partial', { bounds: FULL, maximized: false }, null)!;
+t('partial persists the live bounds like full', p.width === 1400 && p.x === 100);
+t('partial is not recorded as compact', p.compact === false);
+
 t(
   'compact with nothing remembered writes nothing',
   windowStateToPersist('compact', { bounds: COMPACT, maximized: false }, null) === null,

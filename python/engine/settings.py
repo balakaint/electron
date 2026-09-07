@@ -16,7 +16,11 @@ from database.repository import TaskRepository
 # is legacy's internal key for the theme it labels "EXECUTIVE".
 THEMES = ("focus", "warroom", "energy", "corporate", "journey", "rize")
 LANGS = ("en", "bn")
-PANEL_LAYOUTS = ("full", "compact")
+# Legacy's full _LAYOUT_ORDER. "partial" (panel 1 hidden, panels 2+3
+# shown) was dropped in an earlier pass because the port had no
+# columns to hide; the three-column shell restores the state it
+# describes, so it is a real layout again.
+PANEL_LAYOUTS = ("full", "partial", "compact")
 
 _IDLE_MIN, _IDLE_MAX = 2, 120
 _PHASE_MIN, _PHASE_MAX = 0, 23

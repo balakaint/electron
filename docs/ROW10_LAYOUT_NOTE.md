@@ -1,5 +1,49 @@
 # Row 10 — Progressive panel layout: design note
 
+## SUPERSEDED 2026-09-07 — read this first
+
+The decision recorded below was **wrong**, and the reason is worth
+keeping rather than deleting.
+
+This note argued that legacy's three-column layout could not be ported
+because "the port is not a three-panel window ... reproducing legacy's
+layout literally would mean rebuilding the port's whole navigation
+model". That reasoning treated the port's own page-based navigation as
+the thing to preserve. It was not: it was an artifact of how the port
+had been built so far, and the three-column layout was the actual
+design. Zahid supplied a screenshot of the running legacy app, and the
+answer was immediate — the columns ARE the product.
+
+So the shell was rebuilt to match: panel 1 projects, panel 2 the
+selected project's goals, panel 3 the fixed-width PLAN/EXECUTE column.
+Every panel already existed as a component; only the shell changed.
+
+Consequences of the correction:
+
+- **`partial` is a real layout again.** It was recorded as N/A below on
+  the grounds that "panel 1 hidden, panel 2 shown" was not a state the
+  port could be in. With three columns it plainly is, and it is now
+  supported and persisted like the other two.
+- **Three widgets were in the wrong column.** TODAY PROGRESS and the
+  Deep Work Trend sat in the projects panel; in legacy the trend belongs
+  under the clock in panel 3 and the progress bar belongs to EXECUTE.
+- **The EXECUTE tab was still labelled "Focus".** Legacy renamed it, for
+  a reason it wrote down: "focus" was already spoken for, since Ctrl+F
+  opens Focus Mode, which is the panel collapse.
+- Habits, Business Plan and the 90-Day Plan have no column in the
+  design; they open as full-window overlays from the Tools menu, as
+  legacy opens them in their own windows. Analysis and Journey do the
+  same from a project card's buttons.
+
+The lesson, recorded because it generalises: when a port's structure and
+the original's structure disagree, the original is the specification.
+Asking to see the original UI would have settled this before a line was
+written.
+
+---
+
+## Original note (superseded)
+
 Written before implementing, because this row is the one place where the
 port's structure and legacy's structure genuinely disagree, and the
 disagreement has to be resolved deliberately rather than in passing.

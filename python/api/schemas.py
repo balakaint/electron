@@ -486,7 +486,7 @@ class SectionTitleSet(BaseModel):
 
 ThemeT = Literal["focus", "warroom", "energy", "corporate", "journey", "rize"]
 LangT = Literal["en", "bn"]
-PanelLayoutT = Literal["full", "compact"]
+PanelLayoutT = Literal["full", "partial", "compact"]
 
 
 class SettingsOut(BaseModel):

@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
-import { ListKey, PanelLayout, exportApi, settingsApi } from './services/api';
-import TaskList from './components/TaskList';
-import PlanReview from './components/PlanReview';
+import { ListKey, PanelLayout, ProjectKey, exportApi, goalsApi, settingsApi } from './services/api';
+import Panel3 from './components/Panel3';
+import BusinessAnalysisCanvas from './components/BusinessAnalysisCanvas';
 import ToolsMenu from './components/ToolsMenu';
-import ClockCard from './components/ClockCard';
 import HabitDashboard from './components/HabitDashboard';
 import ProjectDashboard from './components/ProjectDashboard';
 import GoalsPanel from './components/GoalsPanel';
@@ -18,11 +17,25 @@ import { UndoProvider, useUndo } from './undo';
 import { applyTheme, nextTheme, Theme, THEME_LABELS } from './themes';
 import { Lang, LangProvider } from './i18n';
 
-type Page = 'tasks' | 'habits' | 'projects' | 'goals' | 'journey' | 'bdp' | 'quarterly';
+// Legacy's _PANEL3_W / _PANEL_GAP (task_tracker_v3_THEMES.py 1252-1253).
+const PANEL3_W = 545;
+const PANEL_GAP = 7;
+
+// What is covering the three columns, if anything. Analysis and Journey
+// belong to a project; the rest are whole-app screens off the Tools menu.
+type Overlay =
+  | { kind: 'analysis'; project: ProjectKey }
+  | { kind: 'journey'; project: ProjectKey }
+  | { kind: 'habits' }
+  | { kind: 'bdp' }
+  | { kind: 'quarterly' };
 
 function AppShell() {
   const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking');
-  const [page, setPage] = useState<Page>('tasks');
+  const [overlay, setOverlay] = useState<Overlay | null>(null);
+  // Which project panel 2 is showing. Persisted server-side already
+  // (goalsApi.getPanel), so it survives a restart the way legacy's does.
+  const [goalsProject, setGoalsProject] = useState<ProjectKey | null>(null);
   const [tab, setTab] = useState<ListKey>('classic');
   const [theme, setThemeState] = useState<Theme>('focus');
   const [lang, setLang] = useState<Lang>('en');
@@ -67,6 +80,7 @@ function AppShell() {
       setThemeState(s.theme);
       applyTheme(s.theme);
       setLang(s.lang);
+      goalsApi.getPanel().then((gp) => setGoalsProject(gp.project_key));
       // Restore the docked geometry too, not just the hidden content —
       // a window left narrow should come back narrow.
       setLayoutState(s.panel_layout);
@@ -103,6 +117,13 @@ function AppShell() {
   // the collapsed state.
   const toggleFocusMode = () => setLayout(layout === 'compact' ? 'full' : 'compact');
   const compact = layout === 'compact';
+  const showP1 = layout === 'full';
+  const showP2 = layout === 'full' || layout === 'partial';
+
+  const selectGoalsProject = (key: ProjectKey) => {
+    setGoalsProject(key);
+    goalsApi.setPanelProject(key);
+  };
 
   // Which dialogs are open, in the order they were opened. A plain
   // "is anything open" boolean can't answer "close the topmost", which
@@ -166,128 +187,169 @@ function AppShell() {
 
   return (
     <LangProvider lang={lang}>
-    <div style={{ fontFamily: 'sans-serif', padding: compact ? 12 : 24, background: 'var(--bg)', color: 'var(--text)', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-        {/* Legacy's layout chevron, pinned to the corner and showing what
-            THIS click would do next rather than the current state. */}
-        <button
-          onClick={toggleFocusMode}
-          title={compact ? 'Show everything (Ctrl+F)' : 'Focus mode — tasks only, docked (Ctrl+F)'}
-          style={{ fontSize: 12 }}
-        >
-          {compact ? '▶' : '◀'}
-        </button>
-        {!compact && <h1 style={{ margin: 0, flex: 1 }}>Habit OS</h1>}
-        {compact && <span style={{ flex: 1, fontSize: 12, opacity: 0.6 }}>Focus</span>}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {!compact && (
-            <>
-              <button onClick={runExport} disabled={exporting} title="Export a JSON backup + CSV" style={{ fontSize: 12 }}>
-                {exporting ? 'Exporting…' : '⬇ Export Data'}
-              </button>
-              <button onClick={() => cycleTheme(1)} title="Cycle theme (Ctrl+T)" style={{ fontSize: 12 }}>
-                🎨 {THEME_LABELS[theme]}
-              </button>
-            </>
-          )}
-          <ToolsMenu
-            entries={[
-              {
-                icon: '▤',
-                label: 'Business Dev Plan',
-                desc: 'Opportunity tracker and plan canvas',
-                onSelect: () => {
-                  setLayout('full');
-                  setPage('bdp');
-                },
-              },
-              {
-                icon: '❖',
-                label: 'Goal Step',
-                desc: 'Yearly, monthly and weekly goals per project',
-                onSelect: () => {
-                  setLayout('full');
-                  setPage('goals');
-                },
-              },
-              {
-                icon: '◎',
-                label: 'Focus Mode',
-                desc: 'Tasks only, docked to the screen edge  ·  Ctrl+F',
-                onSelect: toggleFocusMode,
-              },
-              {
-                icon: '⚙',
-                label: 'Settings',
-                desc: 'Language, work hours, export, about',
-                onSelect: () => setSettingsOpen(true),
-              },
-            ]}
+    <div
+      style={{
+        fontFamily: 'sans-serif',
+        padding: compact ? 8 : 12,
+        background: 'var(--bg)',
+        color: 'var(--text)',
+        // Fixed to the viewport, not min-height: the three columns each
+        // scroll independently, which is what keeps a long project list
+        // from pushing the clock off screen.
+        height: '100vh',
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
+      {/* ── Three columns, legacy's own layout (_build_ui 3105-3150) ──
+          Panel 1 projects · panel 2 the selected project's goals ·
+          panel 3 the clock/PLAN/EXECUTE column, fixed width.
+
+          Panel 3 is fixed and the other two are flexible because panel 3
+          is the one compact mode keeps: it must not stretch to fill a
+          window the others just left. Legacy's weights are 67:83:50 with
+          a minsize on panel 3; the same shape falls out of two fr
+          columns beside one fixed 545px. */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: [
+            showP1 ? '67fr' : null,
+            showP1 ? '1px' : null,
+            showP2 ? '83fr' : null,
+            showP2 ? '1px' : null,
+            `${PANEL3_W}px`,
+          ]
+            .filter(Boolean)
+            .join(' '),
+          gap: PANEL_GAP,
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        {showP1 && (
+          <div style={{ overflowY: 'auto', minHeight: 0 }}>
+            <ProjectDashboard
+              onOpenAnalysis={(k) => setOverlay({ kind: 'analysis', project: k })}
+              onOpenJourney={(k) => setOverlay({ kind: 'journey', project: k })}
+              onSelectGoals={selectGoalsProject}
+              goalsProject={goalsProject}
+              openProject={overlay && 'project' in overlay ? overlay.project : null}
+            />
+          </div>
+        )}
+        {showP1 && <div style={{ background: 'var(--border)' }} />}
+
+        {showP2 && (
+          <div style={{ overflowY: 'auto', minHeight: 0, position: 'relative' }}>
+            {/* Panel 2's chevron hides panel 1 only — legacy's
+                _toggle_panel1, the middle rung of the ladder. */}
+            <button
+              onClick={() => setLayout(layout === 'full' ? 'partial' : 'full')}
+              title={layout === 'full' ? 'Hide the projects panel' : 'Show the projects panel'}
+              style={{ position: 'absolute', top: 0, left: 0, zIndex: 2, fontSize: 11, padding: '0 4px', lineHeight: '18px' }}
+            >
+              {layout === 'full' ? '◀' : '▶'}
+            </button>
+            <GoalsPanel />
+          </div>
+        )}
+        {showP2 && <div style={{ background: 'var(--border)' }} />}
+
+        <div style={{ minHeight: 0, position: 'relative' }}>
+          {/* Legacy pins the gear to panel 3's top-right corner and has
+              no app header bar of its own — the window's own title bar
+              is the only chrome above the columns. */}
+          <div style={{ position: 'absolute', top: 0, right: 0, zIndex: 3 }}>
+      <ToolsMenu
+        entries={[
+          {
+            icon: '◈',
+            label: 'Life Execution Board',
+            desc: 'Habits, scores and daily journal',
+            onSelect: () => setOverlay({ kind: 'habits' }),
+          },
+          {
+            icon: '▤',
+            label: 'Business Dev Plan',
+            desc: 'Opportunity tracker and plan canvas',
+            onSelect: () => setOverlay({ kind: 'bdp' }),
+          },
+          {
+            icon: '◷',
+            label: '90-Day Plan',
+            desc: 'Quarterly outcomes, actions and if-then plans',
+            onSelect: () => setOverlay({ kind: 'quarterly' }),
+          },
+          {
+            icon: '◐',
+            label: 'Next theme',
+            desc: `Currently ${THEME_LABELS[theme]}  ·  Ctrl+T`,
+            onSelect: () => cycleTheme(1),
+          },
+          {
+            icon: '◎',
+            label: 'Focus Mode',
+            desc: 'Tasks only, docked to the screen edge  ·  Ctrl+F',
+            onSelect: toggleFocusMode,
+          },
+          {
+            icon: '⚙',
+            label: 'Settings',
+            desc: 'Language, work hours, export, about',
+            onSelect: () => setSettingsOpen(true),
+          },
+        ]}
+      />
+          </div>
+          <Panel3
+            view={tab}
+            onSelectView={setTab}
+            compact={compact}
+            onToggleLayout={toggleFocusMode}
           />
         </div>
       </div>
 
-      {exportStatus && <p style={{ fontSize: 12, opacity: 0.7, margin: '8px 0 0' }}>{exportStatus}</p>}
-
-      {/* Compact is task-only: the page nav is the first thing to go,
-          since every other page is by definition not the task list. */}
-      <div style={{ display: compact ? 'none' : 'flex', gap: 8, margin: '16px 0' }}>
-        <button onClick={() => setPage('tasks')} disabled={page === 'tasks'}>
-          Tasks
-        </button>
-        <button onClick={() => setPage('habits')} disabled={page === 'habits'}>
-          Habits
-        </button>
-        <button onClick={() => setPage('projects')} disabled={page === 'projects'}>
-          Projects
-        </button>
-        <button onClick={() => setPage('goals')} disabled={page === 'goals'}>
-          Goals
-        </button>
-        <button onClick={() => setPage('journey')} disabled={page === 'journey'}>
-          Journey
-        </button>
-        <button onClick={() => setPage('bdp')} disabled={page === 'bdp'}>
-          Business Plan
-        </button>
-        <button onClick={() => setPage('quarterly')} disabled={page === 'quarterly'}>
-          90-Day Plan
-        </button>
-      </div>
-
-      {(page === 'tasks' || compact) && (
-        <>
-          {!compact && <ClockCard />}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            <button onClick={() => setTab('classic')} disabled={tab === 'classic'}>
-              Plan
-            </button>
-            <button onClick={() => setTab('focus')} disabled={tab === 'focus'}>
-              Focus
-            </button>
-          </div>
-          <TaskList listKey={tab} />
-          {/* PLAN only. Legacy puts the review card on PLAN's lower half
-              and deliberately not on FOCUS — FOCUS is where you tick
-              things off, PLAN is where you step back and look at the
-              week. */}
-          {tab === 'classic' && !compact && <PlanReview />}
-        </>
+      {/* Overlays. Legacy opens every one of these in its own window;
+          full-window here is the closest equivalent, and it is what the
+          Business Analysis canvas and the Journey timeline need anyway —
+          neither fits a column. */}
+      {overlay && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'var(--bg)',
+            zIndex: 1500,
+            overflowY: 'auto',
+            padding: 24,
+          }}
+        >
+          <button onClick={() => setOverlay(null)} style={{ fontSize: 12, marginBottom: 12 }}>
+            ←  Back
+          </button>
+          {overlay.kind === 'analysis' && (
+            <BusinessAnalysisCanvas projectKey={overlay.project} onClose={() => setOverlay(null)} />
+          )}
+          {overlay.kind === 'journey' && <JourneyPanel />}
+          {overlay.kind === 'habits' && <HabitDashboard />}
+          {overlay.kind === 'bdp' && <BdpPanel />}
+          {overlay.kind === 'quarterly' && <QuarterlyPlanPanel />}
+        </div>
       )}
 
-      {!compact && page === 'habits' && <HabitDashboard />}
-
-      {!compact && page === 'projects' && <ProjectDashboard />}
-
-      {!compact && page === 'goals' && <GoalsPanel />}
-
-      {!compact && page === 'journey' && <JourneyPanel />}
-
-      {!compact && page === 'bdp' && <BdpPanel />}
-
-      {!compact && page === 'quarterly' && <QuarterlyPlanPanel />}
-
-      <p style={{ marginTop: 32, fontSize: 12, opacity: 0.5 }}>Engine: {status}</p>
+      {/* Only shown when there is something to say. A permanent
+          "Engine: ok" line is a strip of chrome that never changes,
+          and in a fixed-height shell it costs a row of the task list. */}
+      {exportStatus && <p style={{ margin: '4px 0 0', fontSize: 11, opacity: 0.7 }}>{exportStatus}</p>}
+      {status !== 'ok' && (
+        <p style={{ margin: '4px 0 0', fontSize: 11, opacity: 0.6 }}>
+          Engine: {status === 'checking' ? 'starting…' : 'not responding'}
+        </p>
+      )}
 
       {onboarded === false && <OnboardingModal onDone={() => setOnboarded(true)} />}
       {shortcutsOpen && <ShortcutsHelp onClose={() => setShortcutsOpen(false)} />}

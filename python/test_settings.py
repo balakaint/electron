@@ -209,20 +209,26 @@ def test_panel_layout_persists_and_validates():
               get_settings(f.repo)["panel_layout"] == "full",
               get_settings(f.repo)["panel_layout"])
 
-        out = update_settings(f.repo, panel_layout="compact")
-        check("panel_layout can be set to compact", out["panel_layout"] == "compact")
-        check("panel_layout persists",
-              get_settings(f.repo)["panel_layout"] == "compact")
+        # All three of legacy's rungs are real now that the shell is the
+        # same three columns legacy has. "partial" was rejected here
+        # while the port had no middle state to be in.
+        for layout in ("compact", "partial", "full"):
+            out = update_settings(f.repo, panel_layout=layout)
+            check(f"panel_layout can be set to {layout}", out["panel_layout"] == layout)
+            check(f"panel_layout {layout} persists",
+                  get_settings(f.repo)["panel_layout"] == layout)
+
+        update_settings(f.repo, panel_layout="compact")
 
         # Rejected, not clamped: an unknown layout is a caller bug, and
         # falling back to "full" silently would leave the window in a
         # state nobody asked for while hiding the mistake.
         try:
-            update_settings(f.repo, panel_layout="partial")
+            update_settings(f.repo, panel_layout="sidebar")
             raised = False
         except ValueError:
             raised = True
-        check("an unported layout ('partial') is rejected", raised)
+        check("an unknown layout is rejected", raised)
         check("a rejected layout leaves the stored one alone",
               get_settings(f.repo)["panel_layout"] == "compact")
 
