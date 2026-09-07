@@ -133,7 +133,7 @@ export default function DeepWorkTrend() {
       </div>
 
       {week && (
-        <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
           {week.has_data
             ? `This week: ${fmtHM(week.total_secs)} · ${week.hit_days} of 7 days on target · best ${
                 week.best_day ? fmtWeekday(week.best_day) : ''
@@ -143,7 +143,7 @@ export default function DeepWorkTrend() {
       )}
 
       {n < 2 ? (
-        <div style={{ textAlign: 'center', padding: 24, fontSize: 12, opacity: 0.6 }}>
+        <div style={{ textAlign: 'center', padding: 24, fontSize: 12, color: 'var(--text-faint)' }}>
           Start a project timer — today lands here
         </div>
       ) : (
@@ -202,7 +202,7 @@ export default function DeepWorkTrend() {
             )}
           </svg>
 
-          <div style={{ fontSize: 11, opacity: 0.7, textAlign: 'center', minHeight: 14 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', minHeight: 14 }}>
             {hoverI !== null ? `${fmtDate(days[hoverI])} · ${fmtHM(secs[hoverI])}` : directionLabel(n, showAvg, secs)}
           </div>
         </>

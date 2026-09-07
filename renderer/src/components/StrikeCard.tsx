@@ -60,7 +60,7 @@ export default function StrikeCard({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ flex: 1, fontSize: 11, fontWeight: 'bold', letterSpacing: 0.5, opacity: 0.7 }}>
+        <span style={{ flex: 1, fontSize: 11, fontWeight: 'bold', letterSpacing: 0.5, color: 'var(--text-muted)' }}>
           {L('STRIKE', 'স্ট্রাইক')}
         </span>
         {/* Legacy 5946-5956 rejected the "n / 3" form: "1/3" was a lie
@@ -83,7 +83,7 @@ export default function StrikeCard({
       </div>
 
       {struck.length === 0 ? (
-        <div style={{ fontSize: 12, opacity: 0.55, padding: '2px 4px 4px' }}>
+        <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: '2px 4px 4px' }}>
           {L('Empty. Choose up to 3 — that is the day.', 'খালি। সর্বোচ্চ ৩টি বাছুন — ওটাই আজকের দিন।')}
         </div>
       ) : (

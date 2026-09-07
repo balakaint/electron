@@ -87,9 +87,9 @@ export default function TodayProgressBar({
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 11, letterSpacing: 0.5, opacity: 0.6, fontWeight: 'bold' }}>TODAY PROGRESS</span>
+        <span style={{ fontSize: 11, letterSpacing: 0.5, color: 'var(--text-faint)', fontWeight: 'bold' }}>TODAY PROGRESS</span>
         <span style={{ fontSize: 12, color: pctColor(pctInt), fontWeight: 'bold' }}>↻ {pctInt}%</span>
-        <span style={{ fontSize: 12, opacity: 0.7 }}>
+        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
           {complete ? `${goalTxt} / ${goalTxt}` : `${Math.floor(minsDone / 60)}h ${minsDone % 60}m / ${goalTxt}`}
         </span>
       </div>
@@ -179,7 +179,7 @@ export default function TodayProgressBar({
         )}
       </div>
 
-      <div style={{ fontSize: 12, opacity: 0.8, marginTop: 4 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
         {complete ? (
           <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>✓ {goalTxt.toUpperCase()} DEEP WORK COMPLETE!</span>
         ) : n > 0 ? (

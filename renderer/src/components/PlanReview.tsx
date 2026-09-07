@@ -69,7 +69,7 @@ function MindsetTab() {
 
   return (
     <div>
-      <div style={{ fontSize: 10, letterSpacing: 0.5, opacity: 0.6, marginBottom: 4 }}>TODAY'S MINDSET</div>
+      <div style={{ fontSize: 10, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: 4 }}>TODAY'S MINDSET</div>
       <textarea
         value={note.value}
         onChange={(e) => note.setValue(e.target.value)}
@@ -86,9 +86,9 @@ function MindsetTab() {
         }}
       />
 
-      <div style={{ fontSize: 10, letterSpacing: 0.5, opacity: 0.6, margin: '12px 0 4px' }}>RECENT</div>
+      <div style={{ fontSize: 10, letterSpacing: 0.5, color: 'var(--text-faint)', margin: '12px 0 4px' }}>RECENT</div>
       {history.length === 0 ? (
-        <div style={{ fontSize: 12, opacity: 0.5 }}>Nothing yet — tomorrow this fills in.</div>
+        <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Nothing yet — tomorrow this fills in.</div>
       ) : (
         // Days with nothing written are skipped rather than shown empty:
         // a run of blank rows reads as a broken widget, not as "you
@@ -96,8 +96,8 @@ function MindsetTab() {
         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px' }}>
           {history.map((h) => (
             <div key={h.day} style={{ display: 'contents' }}>
-              <div style={{ fontSize: 11, opacity: 0.5, whiteSpace: 'nowrap' }}>{h.label}</div>
-              <div style={{ fontSize: 12, opacity: 0.8, whiteSpace: 'pre-wrap' }}>{h.text}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>{h.label}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>{h.text}</div>
             </div>
           ))}
         </div>
@@ -127,7 +127,7 @@ function DisciplineTab() {
         {/* Only shown once there IS a streak. A permanent "0 day streak"
             is a daily reminder of failure, which is the opposite of what
             a habit tracker is for — legacy's own reasoning. */}
-        {streak > 0 && <span style={{ fontSize: 11, opacity: 0.7, marginLeft: 'auto' }}>{streak} day streak</span>}
+        {streak > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>{streak} day streak</span>}
       </div>
 
       {CATEGORIES.map(([cat, label]) => {
@@ -135,7 +135,7 @@ function DisciplineTab() {
         if (rows.length === 0) return null;
         return (
           <div key={cat} style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, opacity: 0.6, marginBottom: 2 }}>{label}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 2 }}>{label}</div>
             {rows.map((h) => (
               <button
                 key={h.id}
@@ -181,7 +181,7 @@ function ConsistencyRow({ project }: { project: Project }) {
     <div style={{ marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 12 }}>
         <span style={{ fontWeight: 'bold', color: project.accent_color }}>{project.name}</span>
-        <span style={{ opacity: 0.6, fontSize: 11, marginLeft: 'auto' }}>
+        <span style={{ color: 'var(--text-faint)', fontSize: 11, marginLeft: 'auto' }}>
           {hits}/30 days · {project.target_minutes}m target
         </span>
       </div>
@@ -218,7 +218,7 @@ function ConsistencyTab() {
   const named = order.filter((e) => e.project.is_named);
 
   if (named.length === 0) {
-    return <div style={{ fontSize: 12, opacity: 0.5 }}>Name a project first — consistency is tracked per project.</div>;
+    return <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Name a project first — consistency is tracked per project.</div>;
   }
   return (
     <div>

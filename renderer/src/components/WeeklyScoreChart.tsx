@@ -50,7 +50,7 @@ export default function WeeklyScoreChart({ week, today }: { week: WeekScore[]; t
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{ fontSize: 11, letterSpacing: 0.5, opacity: 0.6, fontWeight: 'bold', marginBottom: 4 }}>
+      <div style={{ fontSize: 11, letterSpacing: 0.5, color: 'var(--text-faint)', fontWeight: 'bold', marginBottom: 4 }}>
         📊 WEEKLY SCORE
       </div>
 

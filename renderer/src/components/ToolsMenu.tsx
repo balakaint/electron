@@ -102,7 +102,7 @@ export default function ToolsMenu({ entries }: { entries: ToolEntry[] }) {
                 {/* The one-line description is why this is a menu and
                     not a row of icons: it says what the entry does
                     before you commit to clicking it. */}
-                <span style={{ fontSize: 11, opacity: 0.55, display: 'block' }}>{t.desc}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-faint)', display: 'block' }}>{t.desc}</span>
               </span>
             </button>
           ))}

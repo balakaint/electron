@@ -205,7 +205,7 @@ function ProjectCard({
         </div>
 
         {project.collapsed ? (
-          <div onClick={toggleCollapsed} style={{ fontSize: 11, opacity: 0.7, cursor: 'pointer', padding: '2px 0' }}>
+          <div onClick={toggleCollapsed} style={{ fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer', padding: '2px 0' }}>
             {previewText}
           </div>
         ) : (
@@ -344,7 +344,7 @@ function ProjectCard({
             than sitting open on every card — six always-visible inputs
             is most of why this column scrolled. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, marginBottom: 2 }}>
-          <span style={{ opacity: 0.6, letterSpacing: 0.5 }}>TASKS</span>
+          <span style={{ color: 'var(--text-faint)', letterSpacing: 0.5 }}>TASKS</span>
           <span style={{ flex: 1 }} />
           <span style={{ opacity: 0.6 }}>
             {subtasksDone}/{subtasks.length}

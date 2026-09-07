@@ -93,14 +93,14 @@ export default function ClockCard() {
       )}
       <div style={{ fontSize: 30, fontWeight: 'bold', fontFamily: 'monospace', color: 'var(--text)' }}>
         {pad(h12)}:{pad(m)}:{pad(s)}
-        <span style={{ fontSize: 13, opacity: 0.6, marginLeft: 4 }}>{h < 12 ? 'AM' : 'PM'}</span>
+        <span style={{ fontSize: 13, color: 'var(--text-faint)', marginLeft: 4 }}>{h < 12 ? 'AM' : 'PM'}</span>
       </div>
-      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
         {/* Legacy swaps only the weekday NAME, not the whole date line
             (5016): the numeric date below stays as it is in both. */}
         {lang === 'bn' ? bnDayName(now) : now.toLocaleDateString(undefined, { weekday: 'long' })}
       </div>
-      <div style={{ fontSize: 11, opacity: 0.5 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>
         {now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
       </div>
         </div>

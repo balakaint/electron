@@ -215,10 +215,10 @@ export default function HourPlanTab() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-        <span style={{ fontSize: 11, letterSpacing: 0.5, opacity: 0.6 }}>
+        <span style={{ fontSize: 11, letterSpacing: 0.5, color: 'var(--text-faint)' }}>
           {L('TO-DO', 'আজকের কাজ')}
         </span>
-        <span style={{ fontSize: 11, opacity: 0.6 }}>({plan.total_planned})</span>
+        <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>({plan.total_planned})</span>
         <span style={{ flex: 1 }} />
         <span
           style={{

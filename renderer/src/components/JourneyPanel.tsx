@@ -61,7 +61,7 @@ function StageDetail({
           style={{ fontWeight: 'bold', fontSize: 15, border: 'none', background: 'transparent', color: 'var(--text)', flex: 1 }}
         />
         {stage.done && <span style={{ color: 'var(--success)', fontSize: 12 }}>✓ DONE</span>}
-        {isCurrent && !stage.done && <span style={{ fontSize: 11, opacity: 0.7 }}>CURRENT</span>}
+        {isCurrent && !stage.done && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>CURRENT</span>}
       </div>
       <textarea
         value={description}
@@ -87,7 +87,7 @@ function StageDetail({
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>
             TASKS {doneCount}/{stage.tasks.length}
           </div>
           {stage.tasks.map((t) => (
@@ -131,7 +131,7 @@ function StageDetail({
         </div>
 
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>LOG</div>
+          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>LOG</div>
           {stage.logs.map((l) => (
             <div key={l.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
               <button onClick={() => onCycleLog(l.id)} title="Cycle status">
@@ -139,7 +139,7 @@ function StageDetail({
               </button>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12 }}>{l.text}</div>
-                <div style={{ fontSize: 10, opacity: 0.5 }}>{l.date}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{l.date}</div>
               </div>
               <button onClick={() => onDeleteLog(l.id)} title="Delete">✕</button>
             </div>
@@ -301,7 +301,7 @@ export default function JourneyPanel() {
           </button>
         ))}
       </div>
-      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 12 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 12 }}>
         {(activeEntry?.project.name || projectKey).toUpperCase()} — JOURNEY
       </div>
 

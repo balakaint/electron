@@ -18,7 +18,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
           fontSize: 11,
           fontWeight: 'bold',
           letterSpacing: 0.5,
-          opacity: 0.6,
+          color: 'var(--text-faint)',
           borderBottom: '1px solid var(--border)',
           paddingBottom: 4,
           marginBottom: 8,
@@ -238,7 +238,7 @@ export default function SettingsDialog({
           <h2 style={{ margin: 0, fontSize: 16 }}>Settings</h2>
           <button onClick={onClose} title="Close">✕</button>
         </div>
-        <div style={{ fontSize: 11, opacity: 0.5, marginBottom: 12 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 12 }}>
           {saving ? 'Saving…' : 'Every change is saved automatically'}
         </div>
 
@@ -353,7 +353,7 @@ export default function SettingsDialog({
               onClick={() => patch({ start_with_windows: !settings.start_with_windows })}
             />
           </Row>
-          <div style={{ fontSize: 11, opacity: 0.5, marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>
             Saved as a preference only — not yet wired to actually register the app with Windows startup.
           </div>
         </Section>
@@ -367,7 +367,7 @@ export default function SettingsDialog({
               ⬇ Export Data
             </button>
           </div>
-          <div style={{ fontSize: 11, opacity: 0.6, marginTop: 10 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 10 }}>
             Task Tracker · Version {APP_VERSION}
             <br />
             Contact: {APP_CONTACT}
@@ -380,7 +380,7 @@ export default function SettingsDialog({
           >
             Check for Updates
           </button>
-          {updateStatus && <div style={{ fontSize: 11, opacity: 0.8, marginTop: 4 }}>{updateStatus}</div>}
+          {updateStatus && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>{updateStatus}</div>}
         </Section>
       </div>
     </div>

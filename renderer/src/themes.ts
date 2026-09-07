@@ -120,7 +120,19 @@ const BDP_DARK = {
 // --danger — e.g. warroom's habit "success" is cyan-teal (#00D4AA) while
 // its app-wide --success is green; both are legacy-correct for their
 // own screen, just not the same value.
-const PALETTES: Record<Theme, Record<string, string>> = {
+// THREE text tiers, and only three. Measured against BOTH --bg and
+// --surface, because text lands on either:
+//
+//   --text        ~16-19:1   what you read
+//   --text-muted   ~7-9:1    labels, captions, counts
+//   --text-faint     ~5:1    the faintest thing still legible
+//
+// The tiers exist so nothing has to reach for `opacity` to look quiet.
+// Opacity multiplies contrast down invisibly — an 0.45 on --text put
+// "No goals yet" at 2.89:1 — and it is not a decision anyone can review,
+// because the number that ends up on screen appears in no source file.
+// renderer/src/palette.test.ts fails if any tier drifts below its floor.
+export const PALETTES: Record<Theme, Record<string, string>> = {
   focus: {
     '--progress-track': '#E8E5E0',
     '--progress-ring': '#1A1A1A',
@@ -138,6 +150,7 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--surface-2': '#F0EEE9',
     '--text': '#1A1A1A',
     '--text-muted': '#514F4B',
+    '--text-faint': '#6B6964',
     '--border': '#E8E5E0',
     '--accent': '#2960E6',
     '--danger': '#C41E3A',
@@ -149,9 +162,9 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--header-accent': '#2960E6',
     '--running-bg': '#EEF2FF',
     '--phase-sleep': '#1E3A8A',
-    '--phase-morning': '#0D9488',
+    '--phase-morning': '#0B786E',
     '--phase-work': '#D02222',
-    '--phase-evening': '#EA8C1B',
+    '--phase-evening': '#A05E0F',
     '--goal-yearly': '#2960E6',
     '--goal-monthly': '#6D28D9',
     '--goal-weekly': '#0F766E',
@@ -173,6 +186,7 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--surface-2': '#0F0F13',
     '--text': '#EDEDEF',
     '--text-muted': '#A1A1A9',
+    '--text-faint': '#858590',
     '--border': '#242428',
     '--accent': '#22D3EE',
     '--danger': '#F87171',
@@ -183,8 +197,8 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--on-accent': '#0C0C0F',
     '--header-accent': '#FBBF24',
     '--running-bg': '#051015',
-    '--phase-sleep': '#1E40AF',
-    '--phase-morning': '#0E7490',
+    '--phase-sleep': '#6381E4',
+    '--phase-morning': '#1292B5',
     '--phase-work': '#EF4444',
     '--phase-evening': '#F59E0B',
     '--goal-yearly': '#22D3EE',
@@ -208,6 +222,7 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--surface-2': '#F5F5F3',
     '--text': '#111111',
     '--text-muted': '#535353',
+    '--text-faint': '#6B6B6B',
     '--border': '#EBEBEB',
     '--accent': '#D02222',
     '--danger': '#D02222',
@@ -221,7 +236,7 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--phase-sleep': '#1E3A8A',
     '--phase-morning': '#0F766E',
     '--phase-work': '#D02222',
-    '--phase-evening': '#EA580C',
+    '--phase-evening': '#BE480A',
     '--goal-yearly': '#D02222',
     '--goal-monthly': '#A15904',
     '--goal-weekly': '#117B38',
@@ -246,6 +261,7 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--surface-2': '#F5F1EC',
     '--text': '#1C1917',
     '--text-muted': '#55504D',
+    '--text-faint': '#716A66',
     '--border': '#E7E2DB',
     '--accent': '#AE5009',
     '--danger': '#D02222',
@@ -257,9 +273,9 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--header-accent': '#AE5009',
     '--running-bg': '#FFFBEB',
     '--phase-sleep': '#1E3A8A',
-    '--phase-morning': '#0D9488',
+    '--phase-morning': '#0B786E',
     '--phase-work': '#C0392B',
-    '--phase-evening': '#C96A15',
+    '--phase-evening': '#A95912',
     '--goal-yearly': '#AE5009',
     '--goal-monthly': '#1D4ED8',
     '--goal-weekly': '#117B38',
@@ -281,6 +297,7 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--surface-2': '#121715',
     '--text': '#FFFFFF',
     '--text-muted': '#9FC2AE',
+    '--text-faint': '#5F9677',
     '--border': '#2A3731',
     '--accent': '#4CE0A0',
     '--danger': '#F0776B',
@@ -291,7 +308,7 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--on-accent': '#0D1110',
     '--header-accent': '#4CE0A0',
     '--running-bg': '#17211D',
-    '--phase-sleep': '#3B82F6',
+    '--phase-sleep': '#4588F6',
     '--phase-morning': '#2DD4BF',
     '--phase-work': '#F87171',
     '--phase-evening': '#FBBF24',
@@ -322,6 +339,7 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--surface-2': '#FFFFFF',
     '--text': '#111827',
     '--text-muted': '#545964',
+    '--text-faint': '#686F7C',
     '--border': '#E5E7EB',
     '--accent': '#5255EF',
     '--danger': '#D02222',
@@ -333,7 +351,7 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--header-accent': '#5255EF',
     '--running-bg': '#EEF2FF',
     '--phase-sleep': '#312E81',
-    '--phase-morning': '#0D9488',
+    '--phase-morning': '#0B786E',
     '--phase-work': '#D02222',
     '--phase-evening': '#A15904',
     '--goal-yearly': '#5255EF',

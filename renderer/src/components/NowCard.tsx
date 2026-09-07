@@ -66,12 +66,12 @@ export default function NowCard({ refreshSignal, onChanged }: { refreshSignal: n
         background: 'var(--surface)',
       }}
     >
-      <div style={{ fontSize: 11, opacity: 0.6, letterSpacing: 1 }}>{L('NOW', 'এখন')}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-faint)', letterSpacing: 1 }}>{L('NOW', 'এখন')}</div>
       {task ? (
         <>
           <div style={{ fontSize: 18, fontWeight: 'bold', margin: '4px 0' }}>{task.text}</div>
           {task.project && (
-            <div style={{ fontSize: 12, opacity: 0.7 }}>{projects[task.project]?.name || task.project}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{projects[task.project]?.name || task.project}</div>
           )}
           <div style={{ fontSize: 30, fontWeight: 'bold', fontFamily: 'monospace', margin: '6px 0' }}>
             {formatHMS(displaySecs)}
@@ -86,7 +86,7 @@ export default function NowCard({ refreshSignal, onChanged }: { refreshSignal: n
           </div>
         </>
       ) : (
-        <p style={{ opacity: 0.6, fontSize: 13, margin: '8px 0 0' }}>
+        <p style={{ color: 'var(--text-faint)', fontSize: 13, margin: '8px 0 0' }}>
           {L('Pick from MIT, or + STRIKE a task', 'MIT থেকে বাছুন, বা + STRIKE দিন')}
         </p>
       )}

@@ -127,10 +127,10 @@ export default function DayPhaseBars() {
             <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
               <div style={{ width: `${pct}%`, height: '100%', background: PHASE_COLOR[key] }} />
             </div>
-            <span style={{ fontSize: 11, opacity: 0.6, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
               {formatHour(startH)}–{formatHour(endH)}
             </span>
-            <span style={{ fontSize: 11, opacity: 0.6, width: 32, textAlign: 'right' }}>{pct}%</span>
+            <span style={{ fontSize: 11, color: 'var(--text-faint)', width: 32, textAlign: 'right' }}>{pct}%</span>
           </div>
         );
       })}

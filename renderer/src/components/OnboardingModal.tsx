@@ -64,7 +64,7 @@ export default function OnboardingModal({ onDone }: { onDone: () => void }) {
       >
         <div style={{ fontSize: 40, marginBottom: 8 }}>{current.icon}</div>
         <h2 style={{ margin: '0 0 12px 0', fontSize: 18 }}>{current.title}</h2>
-        <p style={{ margin: '0 0 20px 0', fontSize: 14, opacity: 0.8, lineHeight: 1.5 }}>{current.body}</p>
+        <p style={{ margin: '0 0 20px 0', fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.5 }}>{current.body}</p>
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 20 }}>
           {STEPS.map((_, i) => (

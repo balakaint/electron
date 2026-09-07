@@ -86,7 +86,7 @@ function GoalCard({
         <div style={{ width: `${barPct}%`, height: '100%', background: goal.done ? 'var(--success)' : accent }} />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, opacity: 0.6, marginBottom: 4 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>
         <span title={barTooltip}>
           Day {goal.day_number} · {cappedDay}/30
         </span>
@@ -195,7 +195,7 @@ function GoalSection({
             color: 'var(--text)',
           }}
         />
-        <span style={{ fontSize: 11, opacity: 0.6 }}>
+        <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
           {done}/{goals.length}
         </span>
       </div>
@@ -306,7 +306,7 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
         <span style={{ flex: 1, fontWeight: 'bold', color: activeEntry?.project.accent_color }}>
           {(activeEntry?.project.name || shownKey).toUpperCase()}
         </span>
-        <span style={{ opacity: 0.5, letterSpacing: 0.5 }}>GOALS</span>
+        <span style={{ color: 'var(--text-faint)', letterSpacing: 0.5 }}>GOALS</span>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>

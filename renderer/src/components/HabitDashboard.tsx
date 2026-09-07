@@ -108,7 +108,7 @@ export default function HabitDashboard() {
         <ScoreRing score={score} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, opacity: 0.7, whiteSpace: 'nowrap' }}>◎ TODAY I WILL:</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>◎ TODAY I WILL:</span>
             <input
               value={intentionField.value}
               onChange={(e) => intentionField.setValue(e.target.value)}
@@ -132,7 +132,7 @@ export default function HabitDashboard() {
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--habit-warning)' }}>🔥 {streak} days</div>
-          <div style={{ fontSize: 10, opacity: 0.6 }}>STREAK</div>
+          <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>STREAK</div>
           {alertText && (
             <div style={{ fontSize: 11, marginTop: 4, color: alertText.startsWith('⚠') ? 'var(--habit-danger)' : 'var(--habit-success)' }}>
               {alertText}
@@ -192,7 +192,7 @@ export default function HabitDashboard() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
         <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 'bold', opacity: 0.8, marginBottom: 8 }}>📝 END OF DAY REFLECTION</div>
+          <div style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: 8 }}>📝 END OF DAY REFLECTION</div>
           <textarea
             value={reflectionField.value}
             onChange={(e) => reflectionField.setValue(e.target.value)}
@@ -204,7 +204,7 @@ export default function HabitDashboard() {
         </div>
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 'bold', opacity: 0.8, marginBottom: 8 }}>📅 MONTHLY REPORT</div>
+          <div style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: 8 }}>📅 MONTHLY REPORT</div>
           {monthly && (
             <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 6, columnGap: 8, fontSize: 13 }}>
               <span style={{ opacity: 0.6 }}>Avg Score:</span>

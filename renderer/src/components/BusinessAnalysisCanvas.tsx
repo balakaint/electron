@@ -43,7 +43,7 @@ function Field({
 
   return (
     <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 3 }}>{label}</div>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -58,7 +58,7 @@ function Field({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div style={{ marginBottom: 20 }}>
-      <div style={{ fontSize: 13, fontWeight: 'bold', marginBottom: 8, opacity: 0.8 }}>{title}</div>
+      <div style={{ fontSize: 13, fontWeight: 'bold', marginBottom: 8, color: 'var(--text-muted)' }}>{title}</div>
       {children}
     </div>
   );
@@ -176,7 +176,7 @@ export default function BusinessAnalysisCanvas({
         {log.length > 0 && (
           <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 10px 0', fontSize: 12 }}>
             {log.map((entry) => (
-              <li key={entry.id} style={{ padding: '3px 0', opacity: 0.75 }}>
+              <li key={entry.id} style={{ padding: '3px 0', opacity: 0.7 }}>
                 {entry.date}: {entry.from_status} → {entry.to_status}
                 {entry.why && ` — ${entry.why}`}
               </li>
@@ -215,7 +215,7 @@ export default function BusinessAnalysisCanvas({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {nonEmptyBoxes.map((b) => (
               <div key={b.box_index} style={{ border: '1px solid var(--border)', borderRadius: 4, padding: 8 }}>
-                {b.title && <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 4 }}>{b.title}</div>}
+                {b.title && <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>{b.title}</div>}
                 <div style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{b.text}</div>
               </div>
             ))}

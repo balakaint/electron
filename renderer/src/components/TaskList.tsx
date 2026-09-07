@@ -402,7 +402,7 @@ export default function TaskList({
           style={{ fontSize: 12, padding: 5, flex: 1, marginRight: 8 }}
         />
         {pool.length > 0 && (
-          <span style={{ fontSize: 12, opacity: 0.6, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
             {doneCount}/{pool.length} done
           </span>
         )}
@@ -427,7 +427,7 @@ export default function TaskList({
           <div style={{ fontSize: 28, marginBottom: 8 }}>{emptyState.icon}</div>
           <div style={{ fontSize: 14 }}>{emptyState.title}</div>
           {emptyState.subtitle && (
-            <div style={{ fontSize: 11, marginTop: 4, opacity: 0.8 }}>{emptyState.subtitle}</div>
+            <div style={{ fontSize: 11, marginTop: 4, color: 'var(--text-muted)' }}>{emptyState.subtitle}</div>
           )}
           {emptyState.chips.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
@@ -534,7 +534,7 @@ export default function TaskList({
                     ! {Math.floor(t.secs / 60)}m / ~{t.est}m
                   </span>
                 ) : (
-                  <span style={{ fontSize: 12, opacity: 0.7 }}>~{t.est}m</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>~{t.est}m</span>
                 )
               )}
 
@@ -558,13 +558,13 @@ export default function TaskList({
                   ↺
                 </button>
               )}
-              <span style={{ fontSize: 12, opacity: 0.7, width: 44 }}>{formatSecs(t.secs)}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 44 }}>{formatSecs(t.secs)}</span>
 
               {t.sessions.length > 0 && (
                 <button
                   onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}
                   title="View session history"
-                  style={{ fontSize: 10, opacity: 0.7 }}
+                  style={{ fontSize: 10, color: 'var(--text-muted)' }}
                 >
                   {expandedId === t.id ? '▾' : '▸'} {t.sessions.length}
                 </button>
@@ -576,7 +576,7 @@ export default function TaskList({
             </div>
 
             {expandedId === t.id && t.sessions.length > 0 && (
-              <ul style={{ listStyle: 'none', margin: '4px 0 0 32px', padding: 0, fontSize: 11, opacity: 0.75 }}>
+              <ul style={{ listStyle: 'none', margin: '4px 0 0 32px', padding: 0, fontSize: 11, color: 'var(--text-muted)' }}>
                 {[...t.sessions].reverse().map((s, i) => (
                   <li key={i}>{formatSessionSpan(s.start, s.end)}</li>
                 ))}
@@ -604,7 +604,7 @@ export default function TaskList({
             <div style={{ fontSize: 15, fontWeight: 'bold', color: 'var(--warning)', marginBottom: 4 }}>
               ★ WHAT'S TODAY'S MIT?
             </div>
-            <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 12 }}>One Most Important Task. Do it first.</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>One Most Important Task. Do it first.</div>
             {mitPromptTasks.map((t) => (
               <button
                 key={t.id}

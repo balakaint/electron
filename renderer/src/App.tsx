@@ -407,9 +407,9 @@ function AppShell() {
       {/* Only shown when there is something to say. A permanent
           "Engine: ok" line is a strip of chrome that never changes,
           and in a fixed-height shell it costs a row of the task list. */}
-      {exportStatus && <p style={{ margin: '4px 0 0', fontSize: 11, opacity: 0.7 }}>{exportStatus}</p>}
+      {exportStatus && <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>{exportStatus}</p>}
       {status !== 'ok' && (
-        <p style={{ margin: '4px 0 0', fontSize: 11, opacity: 0.6 }}>
+        <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>
           Engine: {status === 'checking' ? 'starting…' : 'not responding'}
         </p>
       )}
