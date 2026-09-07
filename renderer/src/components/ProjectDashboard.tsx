@@ -188,34 +188,11 @@ function ProjectCard({
             placeholder={`PROJECT ${number}`}
             style={{ flex: 1, fontWeight: 'bold', fontSize: 15, border: 'none', background: 'transparent', color: project.accent_color }}
           />
-          <button onClick={() => projectsApi.toggleTimer(key).then(onChanged)} title="Start/stop timer">
-            {running ? '⏸' : '▶'}
-          </button>
-          {/* Legacy's Goals | Analysis | Journey row (6799-6814). "Goals"
-              points PANEL 2 at this project and shows as active while it
-              is doing so — without that state the same three headings in
-              the middle column would silently mean six different things
-              depending on which card you last pressed. Analysis and
-              Journey open over the whole window instead, as legacy opens
-              them in their own windows. */}
-          <button
-            onClick={() => onSelectGoals(key)}
-            aria-pressed={goalsProject === key}
-            title="Show this project's goals in the middle panel"
-            style={{
-              fontSize: 11,
-              fontWeight: goalsProject === key ? 'bold' : 'normal',
-              background: goalsProject === key ? 'var(--accent-light)' : undefined,
-            }}
-          >
-            Goals
-          </button>
-          <button onClick={() => onOpenAnalysis(key)} style={{ fontSize: 11 }}>
-            Analysis
-          </button>
-          <button onClick={() => onOpenJourney(key)} style={{ fontSize: 11 }}>
-            Journey
-          </button>
+          {/* Nothing else on this row. Legacy is explicit about why
+              (6713-6719): the buttons used to sit here, and sharing the
+              row with a fixed-width cluster "clipped longer project
+              names". It did here too — "SHIP SPARE EXPORT CAN GENER…".
+              The title owns its row; the buttons moved down. */}
         </div>
 
         {project.collapsed ? (
@@ -251,39 +228,106 @@ function ProjectCard({
           value={noteField.value}
           onChange={(e) => noteField.setValue(e.target.value)}
           onBlur={noteField.flush}
-          rows={3}
+          rows={5}
           placeholder="Jot something down…"
           style={{ width: '100%', fontSize: 12, padding: 6, marginBottom: 8, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(noteField.state) }}
         />
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, fontSize: 12 }}>
-          <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
-            <div style={{ width: `${pct}%`, height: '100%', background: project.accent_color }} />
+        {/* Legacy's _actrow (6714-6829), which is a two-sided row and not
+            a progress bar: the timer box on the LEFT, the three page
+            links on the RIGHT. It sits under the notes because legacy
+            moved it out of the header — see the note up there.
+
+            The fill line is short and above the timer, not a full-width
+            bar across the row (6725-6727, width=118). It is the "this
+            one is running" signal for the button directly beneath it, so
+            it is scoped to that button rather than to the whole card. */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 10, fontSize: 12 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ width: 118, height: 3, background: 'var(--border)', overflow: 'hidden', marginBottom: 3 }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: project.accent_color }} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button
+                onClick={() => projectsApi.toggleTimer(key).then(onChanged)}
+                title="Start / stop working on this project"
+                aria-pressed={running}
+                style={{
+                  background: running ? project.accent_color : 'transparent',
+                  color: running ? 'var(--on-accent)' : project.accent_color,
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                }}
+              >
+                {running ? '⏸' : '▶'}
+              </button>
+              {/* Elapsed AND target, because "a target you set in a
+                  different panel is a target you forget you set"
+                  (6759-6766). Clicking cycles it — the same
+                  click-to-cycle idiom as task urgency and the Circle
+                  cadence chip, so no stepper and no dialog. The −/+
+                  buttons that used to sit here are a control legacy does
+                  not put on the card; the cycle wraps past 120 back to
+                  15, so nothing is unreachable without them. */}
+              <button
+                onClick={() =>
+                  projectsApi
+                    .bumpTarget(key, nextProjectTarget(project.target_minutes) - project.target_minutes)
+                    .then(onChanged)
+                }
+                title={`Time today / daily target — click to cycle ${PROJ_TARGETS.join('/')} min`}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: running ? project.accent_color : 'inherit',
+                  font: 'inherit',
+                  padding: 0,
+                  cursor: 'pointer',
+                  opacity: running ? 1 : 0.75,
+                }}
+              >
+                {formatSecs(project.secs_today)} / {project.target_minutes}m
+              </button>
+            </div>
           </div>
-          <span>
-            {formatSecs(project.secs_today)} /{' '}
+
+          {/* Legacy's _navrow (6800-6828). Named, not glyphs: these open
+              the two pages the app is built around and were once hidden
+              behind ▤ and ❖. "Goals" points PANEL 2 at this project and
+              renders filled while it is doing so, "so the card itself
+              answers whose goals am I looking at". */}
+          <div style={{ display: 'flex', gap: 4 }}>
             <button
-              onClick={() =>
-                projectsApi
-                  .bumpTarget(key, nextProjectTarget(project.target_minutes) - project.target_minutes)
-                  .then(onChanged)
-              }
-              title={`Daily target — click to cycle ${PROJ_TARGETS.join('/')} min`}
+              onClick={() => onSelectGoals(key)}
+              aria-pressed={goalsProject === key}
+              title="Show this project's short / mid / long term goals in panel 2"
               style={{
+                fontSize: 11,
+                background: goalsProject === key ? project.accent_color : 'transparent',
+                color: goalsProject === key ? 'var(--on-accent)' : undefined,
                 border: 'none',
-                background: 'transparent',
-                color: 'inherit',
-                font: 'inherit',
-                padding: 0,
                 cursor: 'pointer',
-                textDecoration: 'underline dotted',
+                padding: '4px 8px',
               }}
             >
-              {project.target_minutes}m
+              Goals
             </button>
-          </span>
-          <button onClick={() => projectsApi.bumpTarget(key, -15).then(onChanged)} title="Decrease daily target">−</button>
-          <button onClick={() => projectsApi.bumpTarget(key, 15).then(onChanged)} title="Increase daily target">+</button>
+            <button
+              onClick={() => onOpenAnalysis(key)}
+              title="Business Analysis — idea, numbers, decision"
+              style={{ fontSize: 11, background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+            >
+              Analysis
+            </button>
+            <button
+              onClick={() => onOpenJourney(key)}
+              title="Product Journey — the dated record of what you tried"
+              style={{ fontSize: 11, background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px 8px' }}
+            >
+              Journey
+            </button>
+          </div>
         </div>
 
         {/* Legacy's TASKS header row: label, done-count, "+ task"

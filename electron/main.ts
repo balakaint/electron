@@ -321,7 +321,56 @@ function saveWindowState(win: BrowserWindow) {
 
 let pendingRecoveryNotice: string | null = null;
 
+// The window is deliberately allowed to open before the engine answers
+// (see the fail-safe in startPythonEngine): a visible shell beats a
+// blank screen, and a missed READY marker must never hang the app.
+//
+// But "the window may open early" was being paid for by every fetch in
+// the app. A cold start with migrations to run took ~10s on WSL, so the
+// first seconds produced a wall of ECONNREFUSED — one per mounted
+// component, plus the startup settings sync — and each one was a real
+// failure that a component had to survive on its own.
+//
+// The gap belongs here, in the one place that knows when the engine came
+// up, not in fifty call sites. Requests arriving early wait for READY
+// instead of being refused. The renderer's retry stays as a backstop for
+// the case this cannot cover (the engine dying and being restarted), but
+// it is no longer what makes a cold start work.
+let engineListening: Promise<void> = Promise.resolve();
+let markEngineListening: () => void = () => {};
+let markEngineFailed: (err: Error) => void = () => {};
+
+// Long enough to cover a slow cold start with migrations; short enough
+// that a genuinely dead engine surfaces as an error instead of a UI that
+// waits forever with no explanation.
+const ENGINE_WAIT_MS = 90_000;
+
+async function awaitEngine(): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    await Promise.race([
+      engineListening,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Engine did not start within ${ENGINE_WAIT_MS / 1000}s`)),
+          ENGINE_WAIT_MS,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 function startPythonEngine(): Promise<void> {
+  engineListening = new Promise<void>((ready, failed) => {
+    markEngineListening = ready;
+    markEngineFailed = failed;
+  });
+  // Nothing awaits this until a request arrives; without a handler an
+  // early rejection would be an unhandled promise rejection.
+  engineListening.catch(() => {});
+
   return new Promise((resolve, reject) => {
     const isDev = !app.isPackaged;
     const dbPath = path.join(getUserDataDir(), 'app.db');
@@ -345,6 +394,11 @@ function startPythonEngine(): Promise<void> {
     const onReady = (data: Buffer) => {
       const msg = data.toString();
       process.stdout.write(`[python] ${msg}`);
+      if (msg.includes('READY')) {
+        // Always, even if the fail-safe already opened the window: THIS
+        // is the moment queued requests may proceed.
+        markEngineListening();
+      }
       if (!started && msg.includes('READY')) {
         started = true;
         rotateBackups(dbPath);
@@ -359,6 +413,7 @@ function startPythonEngine(): Promise<void> {
       process.stderr.write(`[python:err] ${text}`);
     });
     pythonProcess.on('error', (err) => {
+      markEngineFailed(err);
       if (!started) reject(err);
     });
     pythonProcess.on('exit', (code) => {
@@ -368,11 +423,18 @@ function startPythonEngine(): Promise<void> {
       // exception handler, which treats "failed before the main loop
       // opened" as fatal rather than something to quietly retry.
       if (!started) {
-        reject(new Error(`Python engine exited with code ${code} before starting:\n\n${stderrLog}`));
+        const err = new Error(
+          `Python engine exited with code ${code} before starting:\n\n${stderrLog}`,
+        );
+        markEngineFailed(err);
+        reject(err);
       }
     });
 
-    // Fail-safe: don't hang forever if the READY marker is missed.
+    // Fail-safe: show the window even if the READY marker is missed.
+    // It deliberately does NOT mark the engine as listening — that is
+    // what this timeout used to imply, and the ECONNREFUSED storm was
+    // the app acting on that false claim.
     setTimeout(() => {
       if (!started) {
         started = true;
@@ -617,6 +679,7 @@ ipcMain.handle('set-panel-layout', async (_, layout: Layout) => {
 });
 
 ipcMain.handle('health-check', async () => {
+  await awaitEngine();
   const res = await fetch(`${BASE()}/health`);
   return res.json();
 });
@@ -627,6 +690,7 @@ ipcMain.handle(
     if (!ALLOWED_METHODS.has(method) || !reqPath.startsWith('/api/')) {
       throw new Error(`Blocked request: ${method} ${reqPath}`);
     }
+    await awaitEngine();
     const res = await fetch(`${BASE()}${reqPath}`, {
       method,
       headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
@@ -766,7 +830,8 @@ app.whenReady().then(async () => {
   // launch itself has to re-assert whatever was last saved, in case the
   // OS entry was ever cleared out from under the app (e.g. a user
   // reinstall, or a Windows "clean startup" tool).
-  fetch(`${BASE()}/api/settings`)
+  awaitEngine()
+    .then(() => fetch(`${BASE()}/api/settings`))
     .then((res) => res.json() as Promise<Record<string, unknown>>)
     .then((settings) => {
       syncLoginItem(Boolean(settings.start_with_windows));
