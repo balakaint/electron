@@ -81,10 +81,21 @@ function AppShell() {
       applyTheme(s.theme);
       setLang(s.lang);
       goalsApi.getPanel().then((gp) => setGoalsProject(gp.project_key));
-      // Restore the docked geometry too, not just the hidden content —
-      // a window left narrow should come back narrow.
+      // AppState is the single source of truth for the layout, and this
+      // asserts it on every load — including when it says "full".
+      //
+      // It used to fire only for 'compact', which left the two stores
+      // able to disagree in one direction and never be corrected.
+      // window-state.json carries its own `compact` flag so the main
+      // process can dock before Python is even up (without it the window
+      // visibly flashes full-size first), and the two can drift: the
+      // geometry save is debounced 400ms, so toggling out of compact and
+      // quitting inside that window persists panel_layout="full" while
+      // the flag on disk still says compact. The next launch then docked
+      // to 420px and rendered three columns into it, with nothing to
+      // undock them.
       setLayoutState(s.panel_layout);
-      if (s.panel_layout === 'compact') window.api.setPanelLayout('compact');
+      window.api.setPanelLayout(s.panel_layout);
       setOnboarded(s.onboarded);
     });
   }, []);

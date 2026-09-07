@@ -420,6 +420,21 @@ function createWindow() {
   mainWindow.on('maximize', debouncedSaveState);
   mainWindow.on('unmaximize', debouncedSaveState);
 
+  // Flush on close, cancelling the pending debounce. Without this a
+  // change made inside the last 400ms is simply lost — and the case that
+  // actually bit was leaving compact and quitting straight after, which
+  // persisted the app's layout as "full" while the window file still
+  // said compact. The renderer now corrects that mismatch on load, but
+  // writing the right thing in the first place is better than repairing
+  // it afterwards.
+  mainWindow.on('close', () => {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) saveWindowState(mainWindow);
+  });
+
   // Matches legacy's _bind_context_menu (Cut/Copy/Paste/Select All on
   // every text widget, app-wide): unlike a regular Chrome tab, a bare
   // BrowserWindow shows no context menu at all on right-click unless
