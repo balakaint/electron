@@ -396,6 +396,18 @@ function createWindow() {
     ]).popup({ window: mainWindow! });
   });
 
+  // No application menu. Legacy has no menu bar at all — its whole
+  // chrome is the window's own title bar — and Electron's default
+  // File/Edit/View/Window/Help strip is pure boilerplate that would
+  // announce "this is an Electron app" above every screen.
+  //
+  // Only the MENU is removed, not the shortcuts it happened to carry:
+  // Cut/Copy/Paste stay live through the context-menu handler above and
+  // through Chromium's built-in accelerators, and everything this app
+  // actually binds (Ctrl+T/Z/F/W, F1, Escape) is handled in the
+  // renderer, so none of it depends on this template.
+  Menu.setApplicationMenu(null);
+
   const isDev = !app.isPackaged;
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');

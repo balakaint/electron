@@ -2,10 +2,22 @@ import { useEffect, useState } from 'react';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { Goal, GoalHorizon, GoalPanel, ProjectKey, ProjectOrderEntry, goalsApi, projectsApi } from '../services/api';
 
-const HORIZONS: { key: GoalHorizon; label: string; accent: string }[] = [
-  { key: 'yearly', label: 'YEARLY', accent: 'var(--goal-yearly)' },
-  { key: 'monthly', label: 'MONTHLY', accent: 'var(--goal-monthly)' },
-  { key: 'weekly', label: 'WEEKLY', accent: 'var(--goal-weekly)' },
+// Labels and glyphs are legacy's, from every theme's own SECTIONS entry
+// (e.g. ("yearly", "SHORT TERM GOAL", ..., "◈")). The stored KEYS stay
+// yearly/monthly/weekly — they are internal and never shown, and
+// renaming them would invalidate saved data for a label change.
+//
+// The names read backwards on purpose: the YEARLY row is "SHORT TERM
+// GOAL". That is legacy's framing, not a mix-up — the horizon is how
+// long the goal runs, the label is how near the work is.
+//
+// `weight` is legacy's 50/25/25 height split. weight alone would divide
+// only the leftover space, so sections with similar content came out
+// near-equal; these are explicit fractions of the column instead.
+const HORIZONS: { key: GoalHorizon; label: string; glyph: string; accent: string; weight: number }[] = [
+  { key: 'yearly', label: 'SHORT TERM GOAL', glyph: '◈', accent: 'var(--goal-yearly)', weight: 50 },
+  { key: 'monthly', label: 'MID TERM GOAL', glyph: '❖', accent: 'var(--goal-monthly)', weight: 25 },
+  { key: 'weekly', label: 'LONG TERM GOAL', glyph: '◆', accent: 'var(--goal-weekly)', weight: 25 },
 ];
 
 function GoalCard({
@@ -107,6 +119,8 @@ function todayIso(): string {
 function GoalSection({
   horizon,
   label,
+  glyph,
+  weight,
   accent,
   goals,
   onAdd,
@@ -119,6 +133,8 @@ function GoalSection({
 }: {
   horizon: GoalHorizon;
   label: string;
+  glyph: string;
+  weight: number;
   accent: string;
   goals: Goal[];
   onAdd: (text: string, startDate: string) => void;
@@ -147,9 +163,25 @@ function GoalSection({
   };
 
   return (
-    <div style={{ flex: 1, minWidth: 240, background: 'var(--surface)', borderRadius: 8, padding: 10 }}>
+    <div
+      style={{
+        // The 50/25/25 split, and each section scrolls inside itself so a
+        // long SHORT TERM list cannot push MID and LONG off the panel.
+        flex: `${weight} 1 0`,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        // Legacy draws a full-height accent rail down the section's left
+        // edge, not a small chip beside the title.
+        borderLeft: `3px solid ${accent}`,
+        borderRadius: 4,
+        padding: 10,
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-        <div style={{ width: 4, height: 14, background: accent, borderRadius: 2 }} />
+        <span style={{ color: accent, fontSize: 12 }}>{glyph}</span>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -168,6 +200,16 @@ function GoalSection({
         </span>
       </div>
 
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+      {goals.length === 0 && (
+        // Legacy names the empty state rather than leaving a blank box —
+        // an empty section and a broken one look identical otherwise.
+        <div style={{ textAlign: 'center', opacity: 0.45, padding: '16px 0' }}>
+          <div style={{ fontSize: 20 }}>◎</div>
+          <div style={{ fontSize: 13, fontWeight: 'bold', margin: '4px 0 2px' }}>No goals yet</div>
+          <div style={{ fontSize: 11 }}>Click + Add to create your first goal.</div>
+        </div>
+      )}
       {goals.map((g) => (
         <GoalCard
           key={g.id}
@@ -180,6 +222,7 @@ function GoalSection({
           onEditStartDate={(date) => onEditStartDate(g.id, date)}
         />
       ))}
+      </div>
 
       <form onSubmit={submitAdd} style={{ display: 'flex', gap: 4, marginTop: 4 }}>
         <input
@@ -201,7 +244,11 @@ function GoalSection({
   );
 }
 
-export default function GoalsPanel() {
+// `projectKey` is owned by the shell, because panel 1's Goals button is
+// what changes it. Reading it once on mount (as this did) meant pressing
+// Goals on another card updated the server and the button's highlight
+// while this panel went on showing the previous project's goals.
+export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | null }) {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
   const [panel, setPanel] = useState<GoalPanel | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -210,23 +257,23 @@ export default function GoalsPanel() {
 
   useEffect(() => {
     projectsApi.order().then(setOrder);
+  }, []);
+
+  // Re-runs whenever the shell points this panel at another project.
+  // getPanel is still the source for the section titles, and it also
+  // covers the first render, before the shell has loaded settings.
+  useEffect(() => {
     goalsApi.getPanel().then((p) => {
       setPanel(p);
-      refreshGoals(p.project_key);
+      refreshGoals(projectKey ?? p.project_key);
     });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectKey]);
 
   if (!panel) return <div>Loading…</div>;
 
-  const switchProject = (key: ProjectKey) => {
-    if (key === panel.project_key) return;
-    goalsApi.setPanelProject(key).then((p) => {
-      setPanel(p);
-      refreshGoals(key);
-    });
-  };
-
-  const activeEntry = order.find((e) => e.project.key === panel.project_key);
+  const shownKey = projectKey ?? panel.project_key;
+  const activeEntry = order.find((e) => e.project.key === shownKey);
 
   const sectionTitle: Record<GoalHorizon, string | null> = {
     yearly: panel.sec_title_yearly,
@@ -235,38 +282,45 @@ export default function GoalsPanel() {
   };
 
   return (
-    <div style={{ maxWidth: 960 }}>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
-        {order.map((entry) => (
-          <button
-            key={entry.project.key}
-            onClick={() => switchProject(entry.project.key)}
-            disabled={entry.project.key === panel.project_key}
-            style={{
-              fontSize: 12,
-              borderColor: entry.project.accent_color,
-              background: entry.project.key === panel.project_key ? entry.project.accent_color : 'transparent',
-              color: entry.project.key === panel.project_key ? 'var(--on-accent)' : 'var(--text)',
-            }}
-          >
-            {entry.number}. {entry.project.name}
-          </button>
-        ))}
-      </div>
-      <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 12 }}>
-        {(activeEntry?.project.name || panel.project_key).toUpperCase()} — GOALS
+    // Fills the column and lets the three sections divide its height,
+    // rather than sitting at a fixed max-width inside it.
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, paddingLeft: 22 }}>
+      {/* The project chips that used to sit here are gone. Panel 1's
+          Goals button is the switch — legacy has exactly one control for
+          this, and two of them disagreeing about which project is
+          selected is worse than a click saved. */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 8,
+          fontSize: 12,
+          marginBottom: 10,
+          paddingBottom: 4,
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        {/* Whose goals these are. Without it the same three headings
+            silently mean six different things depending on which card
+            was pressed last, and nothing on screen says which. */}
+        <span style={{ flex: 1, fontWeight: 'bold', color: activeEntry?.project.accent_color }}>
+          {(activeEntry?.project.name || shownKey).toUpperCase()}
+        </span>
+        <span style={{ opacity: 0.5, letterSpacing: 0.5 }}>GOALS</span>
       </div>
 
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        {HORIZONS.map(({ key, label, accent }) => (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
+        {HORIZONS.map(({ key, label, glyph, accent, weight }) => (
           <GoalSection
             key={key}
             horizon={key}
             label={sectionTitle[key] || label}
+            glyph={glyph}
+            weight={weight}
             accent={accent}
             goals={goals.filter((g) => g.horizon === key)}
             onAdd={(text, startDate) =>
-              goalsApi.create(panel.project_key, key, text, startDate).then(() => refreshGoals(panel.project_key))
+              goalsApi.create(shownKey, key, text, startDate).then(() => refreshGoals(shownKey))
             }
             onToggle={(id) => goalsApi.toggle(id).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))}
             onDelete={(id) => goalsApi.remove(id).then(() => setGoals((gs) => gs.filter((x) => x.id !== id)))}

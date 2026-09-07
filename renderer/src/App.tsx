@@ -251,9 +251,9 @@ function AppShell() {
               title={layout === 'full' ? 'Hide the projects panel' : 'Show the projects panel'}
               style={{ position: 'absolute', top: 0, left: 0, zIndex: 2, fontSize: 11, padding: '0 4px', lineHeight: '18px' }}
             >
-              {layout === 'full' ? '◀' : '▶'}
+              {layout === 'full' ? '▶' : '◀'}
             </button>
-            <GoalsPanel />
+            <GoalsPanel projectKey={goalsProject} />
           </div>
         )}
         {showP2 && <div style={{ background: 'var(--border)' }} />}

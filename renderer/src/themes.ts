@@ -15,13 +15,20 @@ export const THEME_LABELS: Record<Theme, string> = {
   rize: 'Rize',
 };
 
-// focus/warroom/energy/journey's core 7 tokens (bg/surface/surface-2/
-// text/text-muted/border/accent) are a "reasonable subset" reinterpretation
-// of legacy's palette, not its exact swatches (see git history) — kept
-// as-is rather than overwritten, to avoid an unrequested visual change to
-// 4 already-shipped themes. corporate (Executive) and rize are net-new,
-// so every one of their tokens is legacy's actual hex value
-// (task_tracker_v3_THEMES.py lines 830-943).
+// Every palette is now legacy's own, read straight from its THEMES dict
+// (task_tracker_v3_THEMES.py 721-944).
+//
+// focus/warroom/energy/journey previously carried a "reasonable subset"
+// reinterpretation instead, on the reasoning that overwriting four
+// already-shipped themes was an unrequested visual change. Comparing the
+// two apps side by side showed what that actually cost: legacy's FOCUS
+// is a light, warm-paper theme (#F7F6F3 with a slate-blue accent) and
+// the port rendered it near-black, so the same theme name produced two
+// apps that did not look related. WAR ROOM was worse than a shade off —
+// its accent is cyan in legacy and had become red here, which also
+// explains why its DONE_GREEN looked wrong enough to be "corrected" in
+// an earlier pass. That correction is reverted with this: with the real
+// cyan accent back, legacy's cyan done-state is right after all.
 //
 // The 8 tokens beyond the original 7 (danger/warning/success/accent-2/
 // accent-light/on-accent/header-accent/running-bg) are new in this pass.
@@ -126,21 +133,21 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--habit-success': '#2D6A4F',
     '--habit-warning': '#92400E',
     '--habit-danger': '#9B2335',
-    '--bg': '#0f1115',
-    '--surface': '#171a21',
-    '--surface-2': '#1d212b',
-    '--text': '#e8e8ea',
-    '--text-muted': '#9aa0ab',
-    '--border': '#2a2e37',
-    '--accent': '#4f8cff',
+    '--bg': '#F7F6F3',
+    '--surface': '#FFFFFF',
+    '--surface-2': '#F0EEE9',
+    '--text': '#1A1A1A',
+    '--text-muted': '#514F4B',
+    '--border': '#E8E5E0',
+    '--accent': '#2960E6',
     '--danger': '#C41E3A',
     '--warning': '#926200',
     '--success': '#117B38',
-    '--accent-2': '#3f74d1',
-    '--accent-light': '#16233f',
-    '--on-accent': '#ffffff',
-    '--header-accent': '#4f8cff',
-    '--running-bg': '#16233f',
+    '--accent-2': '#2D5DD4',
+    '--accent-light': '#EEF2FF',
+    '--on-accent': '#FFFFFF',
+    '--header-accent': '#2960E6',
+    '--running-bg': '#EEF2FF',
     '--phase-sleep': '#1E3A8A',
     '--phase-morning': '#0D9488',
     '--phase-work': '#D02222',
@@ -161,27 +168,21 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--habit-success': '#00D4AA',
     '--habit-warning': '#FFB800',
     '--habit-danger': '#FF4D6D',
-    '--bg': '#1a0e0e',
-    '--surface': '#241414',
-    '--surface-2': '#2c1717',
-    '--text': '#f0e4e4',
-    '--text-muted': '#b89a9a',
-    '--border': '#3a2020',
-    '--accent': '#c0392b',
+    '--bg': '#0C0C0F',
+    '--surface': '#141417',
+    '--surface-2': '#0F0F13',
+    '--text': '#EDEDEF',
+    '--text-muted': '#A1A1A9',
+    '--border': '#242428',
+    '--accent': '#22D3EE',
     '--danger': '#F87171',
     '--warning': '#FBBF24',
-    // NOT legacy's DONE_GREEN (#22D3EE, cyan) — that value is
-    // accent-derived in legacy (warroom's own accent IS cyan there), not
-    // an independent status color the way focus/energy's DONE_GREEN is.
-    // Since the port's warroom accent is red, copying it verbatim would
-    // show cyan "done" states in a red-branded theme. Uses the same
-    // universal green focus/energy actually use instead.
-    '--success': '#117B38',
-    '--accent-2': '#a5301f',
-    '--accent-light': '#331512',
-    '--on-accent': '#ffffff',
-    '--header-accent': '#c0392b',
-    '--running-bg': '#331512',
+    '--success': '#22D3EE',
+    '--accent-2': '#06B6D4',
+    '--accent-light': '#061820',
+    '--on-accent': '#0C0C0F',
+    '--header-accent': '#FBBF24',
+    '--running-bg': '#051015',
     '--phase-sleep': '#1E40AF',
     '--phase-morning': '#0E7490',
     '--phase-work': '#EF4444',
@@ -202,21 +203,21 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--habit-success': '#059669',
     '--habit-warning': '#A15904',
     '--habit-danger': '#D02222',
-    '--bg': '#fff8ec',
-    '--surface': '#ffffff',
-    '--surface-2': '#fff1d6',
-    '--text': '#2b2110',
-    '--text-muted': '#8a7b5c',
-    '--border': '#eddcb5',
-    '--accent': '#e08a1e',
+    '--bg': '#FAFAF8',
+    '--surface': '#FFFFFF',
+    '--surface-2': '#F5F5F3',
+    '--text': '#111111',
+    '--text-muted': '#535353',
+    '--border': '#EBEBEB',
+    '--accent': '#D02222',
     '--danger': '#D02222',
     '--warning': '#A15904',
     '--success': '#117B38',
-    '--accent-2': '#c07316',
-    '--accent-light': '#fbe6c4',
-    '--on-accent': '#2b2110',
-    '--header-accent': '#e08a1e',
-    '--running-bg': '#fbe6c4',
+    '--accent-2': '#B91C1C',
+    '--accent-light': '#FEE2E2',
+    '--on-accent': '#FFFFFF',
+    '--header-accent': '#D02222',
+    '--running-bg': '#FEE2E2',
     '--phase-sleep': '#1E3A8A',
     '--phase-morning': '#0F766E',
     '--phase-work': '#D02222',
@@ -275,21 +276,21 @@ const PALETTES: Record<Theme, Record<string, string>> = {
     '--habit-success': '#4CE0A0',
     '--habit-warning': '#F5C451',
     '--habit-danger': '#F0776B',
-    '--bg': '#0b1a1a',
-    '--surface': '#122626',
-    '--surface-2': '#163030',
-    '--text': '#dff5f0',
-    '--text-muted': '#8fb8b2',
-    '--border': '#1e3a3a',
-    '--accent': '#2fb8a6',
+    '--bg': '#0D1110',
+    '--surface': '#161B19',
+    '--surface-2': '#121715',
+    '--text': '#FFFFFF',
+    '--text-muted': '#9FC2AE',
+    '--border': '#2A3731',
+    '--accent': '#4CE0A0',
     '--danger': '#F0776B',
     '--warning': '#F5C451',
     '--success': '#4CE0A0',
-    '--accent-2': '#26978a',
-    '--accent-light': '#12302c',
-    '--on-accent': '#ffffff',
-    '--header-accent': '#2fb8a6',
-    '--running-bg': '#12302c',
+    '--accent-2': '#38B384',
+    '--accent-light': '#17211D',
+    '--on-accent': '#0D1110',
+    '--header-accent': '#4CE0A0',
+    '--running-bg': '#17211D',
     '--phase-sleep': '#3B82F6',
     '--phase-morning': '#2DD4BF',
     '--phase-work': '#F87171',

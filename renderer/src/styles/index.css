@@ -16,3 +16,22 @@ body {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+
+/* Form controls do not inherit font-family from their parent — the
+   browser gives inputs and textareas its own defaults, which is why
+   QUICK NOTES and every "Add …" field rendered in a monospace face
+   while the rest of the app was sans-serif. Inheriting is what makes
+   the app look like one piece. */
+input,
+textarea,
+select,
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* The clock is the one place a fixed-width face is wanted, so the
+   digits do not jitter as they tick. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

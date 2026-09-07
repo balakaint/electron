@@ -67,7 +67,10 @@ export default function Panel3({
           lineHeight: '18px',
         }}
       >
-        {compact ? '▶' : '◀'}
+        {/* Legacy: `text="▶" if _shown else "◀"` — the arrow shows the
+            state of the panels this button controls, so it reads ▶ while
+            they are visible. Both chevrons were inverted. */}
+        {compact ? '◀' : '▶'}
       </button>
 
       <div style={{ display: 'flex', gap: 4, marginBottom: 10, paddingLeft: 24 }}>
