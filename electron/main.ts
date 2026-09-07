@@ -553,24 +553,49 @@ function applyPanelLayout(layout: Layout) {
       preCompactBounds = win.getBounds();
       preCompactMaximized = win.isMaximized();
     }
-    if (win.isMaximized()) win.unmaximize();
-    // Must come BEFORE setBounds: a window whose minimum width is still
-    // 900 cannot be resized to 420, and the dock would silently land at
-    // 900 with no error to notice.
-    win.setMinimumSize(COMPACT_WIDTH, 400);
-    // getDisplayMatching, not getPrimaryDisplay: this is Electron's
-    // equivalent of legacy's MonitorFromPoint fix. The primary display's
-    // work area is the wrong rectangle the moment the window has been
-    // dragged to a second monitor, and the symptom — docking to the
-    // wrong screen, or the taskbar overlapping the bottom — is
-    // confusing enough that legacy left a paragraph about it.
-    const wa = screen.getDisplayMatching(win.getBounds()).workArea;
-    win.setBounds({
-      x: wa.x + wa.width - COMPACT_WIDTH,
-      y: wa.y,
-      width: COMPACT_WIDTH,
-      height: wa.height,
-    });
+    const dock = () => {
+      if (win.isDestroyed()) return;
+      // Must come BEFORE setBounds: a window whose minimum width is
+      // still 900 cannot be resized to 420, and the dock would silently
+      // land at 900 with no error to notice.
+      win.setMinimumSize(COMPACT_WIDTH, 400);
+      // getDisplayMatching, not getPrimaryDisplay: this is Electron's
+      // equivalent of legacy's MonitorFromPoint fix. The primary
+      // display's work area is the wrong rectangle the moment the window
+      // has been dragged to a second monitor, and the symptom — docking
+      // to the wrong screen, or the taskbar overlapping the bottom — is
+      // confusing enough that legacy left a paragraph about it.
+      const wa = screen.getDisplayMatching(win.getBounds()).workArea;
+      win.setBounds({
+        x: wa.x + wa.width - COMPACT_WIDTH,
+        y: wa.y,
+        width: COMPACT_WIDTH,
+        height: wa.height,
+      });
+    };
+
+    if (win.isMaximized()) {
+      // unmaximize() is not synchronous under X11/WSLg: it asks the
+      // window manager, which restores its own remembered position
+      // afterwards — landing on top of a setBounds issued immediately
+      // after, so the window ended up 420 wide (that part is ours) at
+      // the WM's x (that part is not). Docking from a NON-maximized
+      // window always worked, which is what identified this.
+      //
+      // Waiting for the event does the same thing correctly, with a
+      // timed fallback for window managers that never emit it. The
+      // fallback checks the width first, so a dock that already
+      // succeeded is not redone.
+      win.once('unmaximize', dock);
+      win.unmaximize();
+      setTimeout(() => {
+        if (!win.isDestroyed() && currentLayout === 'compact' && win.getBounds().width !== COMPACT_WIDTH) {
+          dock();
+        }
+      }, 250);
+    } else {
+      dock();
+    }
   } else {
     // Restored first, so the window can actually grow back past 420.
     win.setMinimumSize(FULL_MIN_WIDTH, FULL_MIN_HEIGHT);
