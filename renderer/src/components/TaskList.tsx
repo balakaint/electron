@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DayView, ListKey, STRIKE_MAX, Task, nowApi, tasksApi } from '../services/api';
 import { useUndo } from '../undo';
 import NowCard from './NowCard';
+import StrikeCard from './StrikeCard';
 
 function formatSecs(secs: number): string {
   const total = Math.round(secs);
@@ -54,7 +55,19 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
   // NowCard (a sibling, not a child) knows to refetch.
   const bumpNow = () => setNowBump((b) => b + 1);
 
-  const struckCount = tasks.filter((t) => t.strike).length;
+  // NOW's id, so the STRIKE card can tint the selected row. NowCard
+  // fetches this too, but it is a sibling, not a parent — sharing the
+  // fetch would mean lifting NowCard's whole state up for one number.
+  const [nowId, setNowId] = useState<number | null>(null);
+  useEffect(() => {
+    if (listKey !== 'focus') return;
+    nowApi.get().then((t) => setNowId(t?.id ?? null));
+  }, [listKey, nowBump]);
+
+  const setNow = (id: number) => nowApi.setNow(id).then(() => bumpNow());
+
+  const struck = tasks.filter((t) => t.strike);
+  const struckCount = struck.length;
 
   const toggleStrike = (id: number) => {
     tasksApi
@@ -323,6 +336,22 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
 
       {listKey === 'focus' && <NowCard refreshSignal={nowBump} onChanged={refresh} />}
 
+      {/* Above the pool, as in legacy: "the three you committed to and
+          the pool you promote them FROM are one decision; splitting them
+          across two tabs meant picking today's work needed a tab switch
+          each time." The flash message (the 3/3-full warning) shows in
+          place of the count, which is where the eye already is. */}
+      {listKey === 'focus' && dayView === 'today' && (
+        <StrikeCard
+          struck={struck}
+          nowId={nowId}
+          flash={flash}
+          onToggleDone={toggleDone}
+          onUnstrike={toggleStrike}
+          onSetNow={setNow}
+        />
+      )}
+
       <input
         value={title}
         onChange={(e) => setTitleState(e.target.value)}
@@ -370,11 +399,6 @@ export default function TaskList({ listKey }: { listKey: ListKey }) {
         <button type="submit">Add</button>
       </form>
 
-      {listKey === 'focus' && (
-        <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
-          {flash ?? `Today's commitments: ${struckCount}/${STRIKE_MAX}`}
-        </div>
-      )}
 
       {loading ? (
         <p>Loading…</p>
