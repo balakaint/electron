@@ -150,7 +150,7 @@ export default function Panel3({
           was missing. Measured: the gear ran 1461-1488 and the EXECUTE
           button 1230-1488 — identical right edges, so the gear sat on
           top of the selected button's fill. */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 12, paddingLeft: 24, paddingRight: 32 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 12, paddingLeft: 32, paddingRight: 32 }}>
         {(
           [
             ['classic', L('PLAN', 'পরিকল্পনা')],

@@ -538,7 +538,7 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
   return (
     // Fills the column and lets the three sections divide its height,
     // rather than sitting at a fixed max-width inside it.
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflowY: 'auto', paddingLeft: 24, paddingRight: 4 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflowY: 'auto', paddingLeft: 32, paddingRight: 4 }}>
       {/* The project chips that used to sit here are gone. Panel 1's
           Goals button is the switch — legacy has exactly one control for
           this, and two of them disagreeing about which project is

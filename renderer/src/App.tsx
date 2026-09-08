@@ -167,7 +167,20 @@ function AppShell() {
   // toggle off the CURRENT state, not a fixed step. Its own comment
   // explains why — a fixed ±1 clamps at index 0 and the control dies in
   // the collapsed state.
-  const toggleFocusMode = () => setLayout(layout === 'compact' ? 'full' : 'compact');
+  // Panel 3's chevron: hide BOTH side panels, or bring them back.
+  // Legacy's _toggle_panel2 — a real toggle on current visibility, not a
+  // fixed step, "because a fixed step is what broke this from the
+  // default compact state".
+  const togglePanels = () => setLayout(layout === 'compact' ? 'full' : 'compact');
+
+  // Ctrl+F is NOT the same function, and legacy keeps them apart
+  // deliberately (_toggle_focus_mode, 15803): it jumps between compact
+  // and full only. From PARTIAL — panel 1 hidden, panel 2 showing — the
+  // chevron's answer is "hide the rest too" and Ctrl+F's is "give me
+  // everything back". This port had both wired to the chevron's
+  // version, so Ctrl+F out of partial threw away the panel you were
+  // reading instead of restoring the one you had hidden.
+  const toggleFocusMode = () => setLayout(layout === 'full' ? 'compact' : 'full');
 
   const compact = layout === 'compact';
   // Unknown counts as hidden, so nothing mounts on a guess.
@@ -378,7 +391,7 @@ function AppShell() {
             view={tab}
             onSelectView={setTab}
             compact={compact}
-            onToggleLayout={toggleFocusMode}
+            onToggleLayout={togglePanels}
             onOpenQuarterly={() => setOverlay({ kind: 'quarterly' })}
           />
         </div>
