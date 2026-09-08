@@ -167,39 +167,23 @@ function AppShell() {
   // toggle off the CURRENT state, not a fixed step. Its own comment
   // explains why — a fixed ±1 clamps at index 0 and the control dies in
   // the collapsed state.
-  // Panel 3's chevron is a STEPPER: one click is one rung of the ladder
-  // — full, partial, compact — and it reverses at the ends, the way a
-  // blind does.
-  //
-  // Legacy toggles straight between full and compact, and its own
-  // comment explains why it is not a fixed ±1 step: "a fixed step is
-  // what broke this from the default compact state — direction=-1 from
-  // idx 0 clamps to 0 forever". That is an argument against a step with
-  // no memory, not against stepping. Remembering which way you were
-  // going, and flipping at each end, cannot clamp: from full the only
-  // move is closing, from compact the only move is opening, and partial
-  // continues whichever you were doing.
-  //
-  // The middle rung is worth reaching by one click, which a jump never
-  // gives you: partial is panel 2 + panel 3 at 1280px, the shape for
-  // working on one project's goals beside the clock.
-  const [stepDir, setStepDir] = useState<'closing' | 'opening'>('closing');
-  const nextStepDir: 'closing' | 'opening' =
-    layout === 'full' ? 'closing' : layout === 'compact' ? 'opening' : stepDir;
-  const stepPanels = () => {
-    setStepDir(nextStepDir);
-    if (nextStepDir === 'closing') setLayout(layout === 'full' ? 'partial' : 'compact');
-    else setLayout(layout === 'compact' ? 'partial' : 'full');
-  };
-
-  // Ctrl+F is NOT the same function, and legacy keeps them apart
-  // deliberately (_toggle_focus_mode, 15803): it jumps between compact
-  // and full only. From PARTIAL — panel 1 hidden, panel 2 showing — the
+  // Ctrl+F is NOT the same command, and legacy keeps them apart
+  // (_toggle_focus_mode, 15803): it jumps between compact and full
+  // only. From PARTIAL — panel 1 hidden, panel 2 showing — the
   // chevron's answer is "hide the rest too" and Ctrl+F's is "give me
-  // everything back". This port had both wired to the chevron's
-  // version, so Ctrl+F out of partial threw away the panel you were
-  // reading instead of restoring the one you had hidden.
+  // everything back".
   const toggleFocusMode = () => setLayout(layout === 'full' ? 'compact' : 'full');
+
+  // Panel 3's chevron: both side panels, at once. Legacy's
+  // _toggle_panel2 (15786) — compact if either is showing, else full.
+  //
+  // I built this as a stepper — full, partial, compact, one rung a
+  // click — after Zahid asked for one. He then showed me the original
+  // running beside this port, and one click from collapsed opens BOTH
+  // panels there. So this goes back. Partial is not lost: panel 2's own
+  // chevron is the control for it, which is the division legacy draws —
+  // one button per thing it hides, not one button that walks a ladder.
+  const togglePanels = () => setLayout(layout === 'compact' ? 'full' : 'compact');
 
   const compact = layout === 'compact';
   // Unknown counts as hidden, so nothing mounts on a guess.
@@ -378,10 +362,10 @@ function AppShell() {
               title={layout === 'full' ? 'Hide the projects panel' : 'Show the projects panel'}
               style={{ position: 'absolute', top: 0, left: 0, zIndex: 2, fontSize: 12, padding: 0, width: 24, height: 24 }}
             >
-              {/* What the click DOES: ◀ collapses the panel to its left,
-                  ▶ brings it back. Drawn the other way round it reads as
-                  a promise to open something that is already open. */}
-              {layout === 'full' ? '◀' : '▶'}
+              {/* Same direction rule as panel 3's: the panel this hides
+                  is to the LEFT, so ▶ sends it away and ◀ brings it
+                  back. Legacy's own glyph. */}
+              {layout === 'full' ? '▶' : '◀'}
             </button>
             <GoalsPanel projectKey={goalsProject} />
           </section>
@@ -439,17 +423,17 @@ function AppShell() {
             onFocusChanged={() => setPanel3Wrote((v) => v + 1)}
             view={tab}
             onSelectView={setTab}
-            stepGlyph={nextStepDir === 'closing' ? '◀' : '▶'}
-            stepTitle={
-              nextStepDir === 'closing'
-                ? layout === 'full'
-                  ? 'Hide the projects panel'
-                  : 'Hide the goals panel too'
-                : layout === 'compact'
-                  ? 'Show the goals panel'
-                  : 'Show the projects panel'
-            }
-            onToggleLayout={stepPanels}
+            // The arrow is a DIRECTION, not a state and not an action.
+            // The panels live to the LEFT of this one, so ◀ is "they
+            // come back" and ▶ is "they go away" — which is exactly
+            // what legacy draws (▶ while they are visible) and why the
+            // original reads right even though the glyph matches the
+            // state. I inverted both chevrons on the theory that an
+            // arrow should show the action; it should show which way
+            // the panels MOVE, and that is the opposite.
+            stepGlyph={compact ? '◀' : '▶'}
+            stepTitle={compact ? 'Show all panels (Ctrl+F)' : 'Focus mode — this panel only (Ctrl+F)'}
+            onToggleLayout={togglePanels}
             onOpenQuarterly={() => setOverlay({ kind: 'quarterly' })}
           />
         </section>
