@@ -1,6 +1,9 @@
 import type { Theme } from '../themes';
 
 export type ListKey = 'classic' | 'focus';
+// EXECUTE's three tabs. Stored keys, so they must match FOCUS_TABS in
+// python/engine/settings.py.
+export type FocusTab = 'hours' | 'mit' | 'list';
 export type Urgency = 'low' | 'med' | 'high';
 export type DayView = 'today' | 'tomorrow';
 
@@ -508,6 +511,7 @@ export interface Settings {
   currency: string;
   start_with_windows: boolean;
   panel_layout: PanelLayout;
+  focus_tab: FocusTab;
 }
 
 export type SettingsPatch = Partial<
@@ -525,6 +529,7 @@ export type SettingsPatch = Partial<
     | 'currency'
     | 'start_with_windows'
     | 'panel_layout'
+    | 'focus_tab'
   >
 >;
 

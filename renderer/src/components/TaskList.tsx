@@ -29,10 +29,17 @@ function todayIso(): string {
 
 export default function TaskList({
   listKey,
+  dayView: dayViewProp,
   focusVersion = 0,
   onFocusChanged = () => {},
 }: {
   listKey: ListKey;
+  // When EXECUTE drives this from its tab strip, the day is the TAB —
+  // MIT is today, TASK LIST is tomorrow — so the list must not also
+  // carry its own today/tomorrow switch. Two controls for one piece of
+  // state is how they drift apart. Left undefined, the list owns the
+  // choice as before (PLAN's classic list still does).
+  dayView?: DayView;
   // Bumped by the OTHER panel when it writes to this list; see App.tsx.
   focusVersion?: number;
   // Called when THIS panel writes, so the other one re-fetches.
@@ -42,7 +49,8 @@ export default function TaskList({
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState<string | null>(null);
-  const [dayView, setDayViewState] = useState<DayView>('today');
+  const [ownDayView, setDayViewState] = useState<DayView>('today');
+  const dayView = dayViewProp ?? ownDayView;
   const [nowBump, setNowBump] = useState(0);
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -339,7 +347,7 @@ export default function TaskList({
 
   return (
     <div style={{ maxWidth: 560 }}>
-      {listKey === 'classic' && (
+      {listKey === 'classic' && dayViewProp === undefined && (
         <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
           {(['today', 'tomorrow'] as const).map((view) => (
             <button
@@ -354,7 +362,9 @@ export default function TaskList({
         </div>
       )}
 
-      {listKey === 'focus' && <NowCard refreshSignal={nowBump} onChanged={refresh} />}
+      {/* NOW is rendered by Panel3, above the tab strip — it is the one
+          thing you are doing, and it must not depend on which tab is
+          open. It used to live here, which put it inside a tab. */}
 
       {/* Above the pool, as in legacy: "the three you committed to and
           the pool you promote them FROM are one decision; splitting them

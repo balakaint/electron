@@ -338,6 +338,10 @@ class AppState(Base):
     bdp_sort: Mapped[str] = mapped_column(String, default="manual")
     bdp_view: Mapped[str] = mapped_column(String, default="card")
     panel_layout: Mapped[str] = mapped_column(String, default="full")
+    # Which of EXECUTE's three tabs is showing. Legacy persists this
+    # (its `focus_tab`) rather than resetting to HOURS each launch: the
+    # tab you work in is a preference, not a per-session accident.
+    focus_tab: Mapped[str] = mapped_column(String, default="hours")
     q90_cycle_start: Mapped[str | None] = mapped_column(String, nullable=True)
     q90_cycle_days: Mapped[int] = mapped_column(Integer, default=90)
     task_title_classic_today: Mapped[str | None] = mapped_column(String, nullable=True)

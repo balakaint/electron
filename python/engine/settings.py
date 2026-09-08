@@ -21,6 +21,10 @@ LANGS = ("en", "bn")
 # columns to hide; the three-column shell restores the state it
 # describes, so it is a real layout again.
 PANEL_LAYOUTS = ("full", "partial", "compact")
+# EXECUTE's three tabs, in the order the day asks for them: the hours
+# you have, the few things that matter in them, then everything else
+# you wrote down (legacy 5170-5189).
+FOCUS_TABS = ("hours", "mit", "list")
 
 _IDLE_MIN, _IDLE_MAX = 2, 120
 _PHASE_MIN, _PHASE_MAX = 0, 23
@@ -45,6 +49,7 @@ def get_settings(repo: TaskRepository) -> dict:
         "currency": state.currency,
         "start_with_windows": state.start_with_windows,
         "panel_layout": state.panel_layout,
+        "focus_tab": state.focus_tab,
     }
 
 
@@ -78,6 +83,7 @@ def update_settings(
     currency: str | None = None,
     start_with_windows: bool | None = None,
     panel_layout: str | None = None,
+    focus_tab: str | None = None,
 ) -> dict:
     """Patch only the provided fields — matches the legacy dialog's
     single "Save Settings" applying every row at once, but as a partial
@@ -122,6 +128,10 @@ def update_settings(
         if panel_layout not in PANEL_LAYOUTS:
             raise ValueError(f"panel_layout must be one of {PANEL_LAYOUTS}")
         state.panel_layout = panel_layout
+    if focus_tab is not None:
+        if focus_tab not in FOCUS_TABS:
+            raise ValueError(f"focus_tab must be one of {FOCUS_TABS}")
+        state.focus_tab = focus_tab
 
     repo.save_app_state(state)
     return get_settings(repo)
