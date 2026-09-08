@@ -57,16 +57,16 @@ export default function OnboardingModal({ onDone }: { onDone: () => void }) {
           color: 'var(--text)',
           border: '1px solid var(--border)',
           borderRadius: 10,
-          padding: 28,
+          padding: 32,
           width: 360,
           textAlign: 'center',
         }}
       >
         <div style={{ fontSize: 40, marginBottom: 8 }}>{current.icon}</div>
         <h2 style={{ margin: '0 0 12px 0', fontSize: 18 }}>{current.title}</h2>
-        <p style={{ margin: '0 0 20px 0', fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.5 }}>{current.body}</p>
+        <p style={{ margin: '0 0 24px 0', fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.5 }}>{current.body}</p>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 20 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 24 }}>
           {STEPS.map((_, i) => (
             <span
               key={i}

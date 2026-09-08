@@ -64,7 +64,7 @@ export default function ToolsMenu({ entries }: { entries: ToolEntry[] }) {
             position: 'absolute',
             top: '100%',
             right: 0,
-            marginTop: 2,
+            marginTop: 4,
             minWidth: 260,
             background: 'var(--surface)',
             border: '1px solid var(--border)',
@@ -92,7 +92,7 @@ export default function ToolsMenu({ entries }: { entries: ToolEntry[] }) {
                 background: 'transparent',
                 color: 'var(--text)',
                 font: 'inherit',
-                padding: '7px 10px',
+                padding: '8px 12px',
                 cursor: 'pointer',
               }}
             >

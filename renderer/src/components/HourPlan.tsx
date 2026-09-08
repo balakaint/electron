@@ -84,7 +84,7 @@ function Row({
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0' }}>
       <button
         onClick={filled ? onToggle : undefined}
         // Nothing to tick on an empty hour, so the control is genuinely
@@ -297,7 +297,7 @@ export default function HourPlanTab({
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
         <span style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)' }}>
           {L('TO-DO', 'আজকের কাজ')}
         </span>
@@ -349,7 +349,7 @@ export default function HourPlanTab({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 5,
+                gap: 4,
                 padding: '4px 8px',
                 cursor: 'pointer',
                 userSelect: 'none',

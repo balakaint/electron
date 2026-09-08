@@ -159,7 +159,7 @@ function GoalRow({
     return (
       <div
         className="goal-row"
-        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 2px', borderRadius: 4 }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 4px', borderRadius: 4 }}
       >
         {tick}
         {/* The name is the click target, not the whole row: a row-level
@@ -177,7 +177,7 @@ function GoalRow({
             background: 'transparent',
             font: 'inherit',
             fontSize: 13,
-            padding: '5px 0',
+            padding: '4px 0',
             cursor: 'pointer',
             color: goal.done ? 'var(--text-faint)' : 'var(--text)',
             textDecoration: goal.done ? 'line-through' : 'none',
@@ -219,8 +219,8 @@ function GoalRow({
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${accent}`,
         borderRadius: 6,
-        padding: '6px 8px',
-        margin: '2px 0',
+        padding: '8px 8px',
+        margin: '4px 0',
       }}
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
     >
@@ -253,14 +253,14 @@ function GoalRow({
         {del}
       </div>
 
-      <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden', margin: '6px 0' }}>
+      <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden', margin: '8px 0' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: barColor }} />
       </div>
 
       {/* Dates as words. Nine native date inputs at 95px each turned the
           panel into a form; the picker belongs in the one place you are
           actually setting a date. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-muted)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-muted)' }}>
         <span>started</span>
         <input
           type="date"
@@ -268,7 +268,7 @@ function GoalRow({
           onChange={(e) => setStartDate(e.target.value)}
           onBlur={() => startDate !== goal.start_date && onEditStartDate(startDate)}
           title="Start date"
-          style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 3, background: 'transparent', color: 'inherit', padding: '3px 4px' }}
+          style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 3, background: 'transparent', color: 'inherit', padding: '4px 4px' }}
         />
         <span>· day {goal.day_number} of {GOAL_WINDOW} · ends {plusDays(goal.start_date, GOAL_WINDOW)}</span>
         {goal.done && goal.done_date && (
@@ -285,8 +285,8 @@ function GoalRow({
         style={{
           width: '100%',
           fontSize: 12,
-          padding: 5,
-          marginTop: 6,
+          padding: 4,
+          marginTop: 8,
           resize: 'vertical',
           boxSizing: 'border-box',
           ...savedFlashStyle(noteField.state),
@@ -367,7 +367,7 @@ function GoalSection({
         flexDirection: 'column',
         maxHeight: `${weight}%`,
         minHeight: 0,
-        marginBottom: 14,
+        marginBottom: 16,
       }}
     >
       {/* The header carries the count AND the add control. There used to
@@ -378,10 +378,10 @@ function GoalSection({
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 7,
-          padding: '0 2px 5px',
+          gap: 8,
+          padding: '0 4px 4px',
           borderBottom: '1px solid var(--border)',
-          marginBottom: 2,
+          marginBottom: 4,
         }}
       >
         <span style={{ color: accent, fontSize: 12 }}>{glyph}</span>
@@ -416,7 +416,7 @@ function GoalSection({
             border: 'none',
             background: 'transparent',
             color: accent,
-            padding: '5px 0',
+            padding: '4px 0',
           }}
         />
         <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
@@ -446,7 +446,7 @@ function GoalSection({
       </div>
 
       {composing && (
-        <form onSubmit={submitAdd} style={{ display: 'flex', gap: 4, margin: '4px 0 2px' }}>
+        <form onSubmit={submitAdd} style={{ display: 'flex', gap: 4, margin: '4px 0 4px' }}>
           <input
             value={newText}
             autoFocus
@@ -473,7 +473,7 @@ function GoalSection({
           // One muted line. Three stacked illustrated empty states was
           // the app apologising three times on a panel that is empty
           // only until you have used it once.
-          <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: '8px 2px' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: '8px 4px' }}>
             Nothing here yet — <span style={{ color: 'var(--accent)' }}>+</span> to add one.
           </div>
         )}
@@ -537,7 +537,7 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
   return (
     // Fills the column and lets the three sections divide its height,
     // rather than sitting at a fixed max-width inside it.
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflowY: 'auto', paddingLeft: 22, paddingRight: 4 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflowY: 'auto', paddingLeft: 24, paddingRight: 4 }}>
       {/* The project chips that used to sit here are gone. Panel 1's
           Goals button is the switch — legacy has exactly one control for
           this, and two of them disagreeing about which project is
@@ -548,7 +548,7 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
           alignItems: 'baseline',
           gap: 8,
           fontSize: 12,
-          marginBottom: 10,
+          marginBottom: 12,
           paddingBottom: 4,
           borderBottom: '1px solid var(--border)',
         }}

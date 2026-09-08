@@ -42,14 +42,14 @@ function Field({
   const { value: text, setValue: setText, flush, state } = useAutosave(value, onSave);
 
   return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 3 }}>{label}</div>
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>{label}</div>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         onBlur={flush}
         rows={2}
-        style={{ width: '100%', fontSize: 13, padding: 6, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(state) }}
+        style={{ width: '100%', fontSize: 13, padding: 8, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(state) }}
       />
     </div>
   );
@@ -57,7 +57,7 @@ function Field({
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 20 }}>
+    <div style={{ marginBottom: 24 }}>
       <div style={{ fontSize: 13, fontWeight: 'bold', marginBottom: 8, color: 'var(--text-muted)' }}>{title}</div>
       {children}
     </div>
@@ -152,14 +152,14 @@ export default function BusinessAnalysisCanvas({
 
       <Section title="DECISION">
         <Field label="WHY THIS DECISION?" value={ba.decision_why} onSave={(v) => save('decision_why', v)} />
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           {DECISION_STATUSES.map((s) => (
             <button
               key={s}
               onClick={() => toggleStatus(s)}
               style={{
                 flex: 1,
-                padding: '6px 4px',
+                padding: '8px 4px',
                 fontSize: 12,
                 fontWeight: ba.decision_status === s ? 'bold' : 'normal',
                 background: ba.decision_status === s ? STATUS_COLOR[s] : 'transparent',
@@ -174,9 +174,9 @@ export default function BusinessAnalysisCanvas({
         </div>
 
         {log.length > 0 && (
-          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 10px 0', fontSize: 12 }}>
+          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 12px 0', fontSize: 12 }}>
             {log.map((entry) => (
-              <li key={entry.id} style={{ padding: '3px 0', opacity: 0.7 }}>
+              <li key={entry.id} style={{ padding: '4px 0', opacity: 0.7 }}>
                 {entry.date}: {entry.from_status} → {entry.to_status}
                 {entry.why && ` — ${entry.why}`}
               </li>
@@ -187,14 +187,14 @@ export default function BusinessAnalysisCanvas({
 
       <Section title="NEXT">
         <Field label="NEXT MOST IMPORTANT ACTION" value={ba.next_action} onSave={(v) => save('next_action', v)} />
-        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           {PRIORITIES.map((p) => (
             <button
               key={p}
               onClick={() => togglePriority(p)}
               style={{
                 flex: 1,
-                padding: '6px 4px',
+                padding: '8px 4px',
                 fontSize: 12,
                 fontWeight: ba.next_priority === p ? 'bold' : 'normal',
                 background: ba.next_priority === p ? PRIORITY_COLOR[p] : 'transparent',

@@ -129,7 +129,7 @@ export default function DeepWorkTrend() {
               key={d}
               onClick={() => changeTrendDays(d)}
               disabled={trendDays === d}
-              style={{ fontSize: 12, height: 24, padding: '0 10px' }}
+              style={{ fontSize: 12, height: 24, padding: '0 12px' }}
             >
               {d}d
             </button>
@@ -138,7 +138,7 @@ export default function DeepWorkTrend() {
       </div>
 
       {week && (
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
           {week.has_data
             ? `This week: ${fmtHM(week.total_secs)} · ${week.hit_days} of 7 days on target · best ${
                 week.best_day ? fmtWeekday(week.best_day) : ''

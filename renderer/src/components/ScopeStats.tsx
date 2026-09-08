@@ -50,7 +50,7 @@ export default function ScopeStats() {
   ];
 
   return (
-    <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
       {cards.map((c) => (
         <div
           key={c.cap}
@@ -59,7 +59,7 @@ export default function ScopeStats() {
             background: 'var(--bg)',
             border: '1px solid var(--border)',
             borderRadius: 6,
-            padding: '6px 4px',
+            padding: '8px 4px',
             textAlign: 'center',
           }}
         >

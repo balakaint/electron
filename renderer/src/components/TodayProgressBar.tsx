@@ -122,7 +122,7 @@ export default function TodayProgressBar({
         }
         style={{
           display: 'flex',
-          gap: 2,
+          gap: 4,
           height: H,
           background: 'var(--progress-track)',
           boxShadow: ring,

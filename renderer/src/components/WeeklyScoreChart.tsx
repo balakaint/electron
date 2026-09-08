@@ -116,7 +116,7 @@ export default function WeeklyScoreChart({ week, today }: { week: WeekScore[]; t
         ))}
       </svg>
 
-      <div style={{ display: 'flex', gap: 12, fontSize: 12, marginTop: 2 }}>
+      <div style={{ display: 'flex', gap: 12, fontSize: 12, marginTop: 4 }}>
         <span style={{ color: 'var(--habit-success)' }}>◈ Best: {best}%</span>
         <span style={{ color: 'var(--habit-danger)' }}>📉 Worst: {worst}%</span>
       </div>

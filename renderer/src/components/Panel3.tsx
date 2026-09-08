@@ -48,7 +48,7 @@ const FOCUS_TABS: [FocusTab, string, string][] = [
 function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) => void }) {
   const L = useL();
   return (
-    <div role="tablist" style={{ display: 'flex', marginBottom: 10 }}>
+    <div role="tablist" style={{ display: 'flex', marginBottom: 12 }}>
       {FOCUS_TABS.map(([key, en, bn]) => {
         const on = tab === key;
         return (
@@ -59,7 +59,7 @@ function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) =
             onClick={() => onSelect(key)}
             style={{
               flex: 1,
-              padding: '6px 0 5px',
+              padding: '8px 0 4px',
               fontSize: 12,
               letterSpacing: 0.5,
               fontWeight: on ? 'bold' : 'normal',
@@ -150,7 +150,7 @@ export default function Panel3({
           was missing. Measured: the gear ran 1461-1488 and the EXECUTE
           button 1230-1488 — identical right edges, so the gear sat on
           top of the selected button's fill. */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 10, paddingLeft: 24, paddingRight: 30 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 12, paddingLeft: 24, paddingRight: 32 }}>
         {(
           [
             ['classic', L('PLAN', 'পরিকল্পনা')],
@@ -163,7 +163,7 @@ export default function Panel3({
             aria-pressed={view === key}
             style={{
               flex: 1,
-              padding: '6px 0',
+              padding: '8px 0',
               fontWeight: 'bold',
               fontSize: 12,
               letterSpacing: 0.5,
@@ -206,8 +206,8 @@ export default function Panel3({
                 have you spent" are one thought, and a second bordered
                 card for two short rows would cost ~14px of chrome to say
                 so (legacy 5023-5027). */}
-            <div style={{ border: '1px solid var(--border)', background: 'var(--surface)', padding: 10, marginBottom: 10 }}>
-              <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: 6 }}>
+            <div style={{ border: '1px solid var(--border)', background: 'var(--surface)', padding: 12, marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: 8 }}>
                 {/* "Tuesday, 8 Sep 2026" — legacy's own order
                     (f"{dayname}, {now.day} {now.strftime('%b %Y')}",
                     5020). toLocaleDateString with the default locale

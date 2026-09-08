@@ -10,7 +10,7 @@ function PromptField({ value, rows, onSave }: { value: string; rows: number; onS
       onChange={(e) => f.setValue(e.target.value)}
       onBlur={f.flush}
       rows={rows}
-      style={{ width: '100%', fontSize: 13, padding: 6, boxSizing: 'border-box', resize: 'vertical', ...savedFlashStyle(f.state) }}
+      style={{ width: '100%', fontSize: 13, padding: 8, boxSizing: 'border-box', resize: 'vertical', ...savedFlashStyle(f.state) }}
     />
   );
 }
@@ -63,15 +63,15 @@ function CycleEditor({ panel, onSet, onClose }: { panel: Q90Panel; onSet: (start
 
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12, marginBottom: 12, background: 'var(--surface)' }}>
-      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 6 }}>HOW LONG IS ONE CYCLE?</div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 8 }}>HOW LONG IS ONE CYCLE?</div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
         {PRESETS.map((p) => (
           <button
             key={p}
             onClick={() => setLen(String(p))}
             style={{
               fontSize: 12,
-              padding: '4px 10px',
+              padding: '4px 12px',
               background: String(p) === len ? 'var(--accent)' : undefined,
               color: String(p) === len ? 'var(--on-accent)' : undefined,
             }}
@@ -89,7 +89,7 @@ function CycleEditor({ panel, onSet, onClose }: { panel: Q90Panel; onSet: (start
         />
         <span style={{ fontSize: 12, color: 'var(--text-faint)', alignSelf: 'center' }}>days</span>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 6 }}>STARTS ON</div>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 8 }}>STARTS ON</div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input type="date" value={start} onChange={(e) => setStart(e.target.value)} style={{ fontSize: 12, padding: 4 }} />
         <button onClick={submit} style={{ fontSize: 12, fontWeight: 'bold' }}>
@@ -124,7 +124,7 @@ function AreaAccordion({
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${isOpen ? 'var(--accent)' : 'var(--border)'}`,
         borderRadius: 6,
-        marginBottom: 6,
+        marginBottom: 8,
         overflow: 'hidden',
       }}
     >
@@ -136,7 +136,7 @@ function AreaAccordion({
           alignItems: 'center',
           gap: 8,
           width: '100%',
-          padding: '8px 10px',
+          padding: '8px 12px',
           border: 'none',
           borderRadius: 0,
           cursor: 'pointer',
@@ -154,8 +154,8 @@ function AreaAccordion({
         <div style={{ padding: '4px 12px 12px' }}>
           <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 8px' }}>{area.description}</p>
           {PROMPTS.map((p) => (
-            <div key={p.field} style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 2 }}>{p.question(cycleDays)}</div>
+            <div key={p.field} style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>{p.question(cycleDays)}</div>
               <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>{p.hint}</div>
               <PromptField
                 value={area[p.field]}
@@ -201,7 +201,7 @@ export default function QuarterlyPlanPanel() {
 
   return (
     <div style={{ maxWidth: 640 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 2 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
         <h2 style={{ margin: 0, fontSize: 18 }}>{panel.cycle_days}-DAY PLAN</h2>
         <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
           {panel.areas_done}/{panel.areas_total} areas set

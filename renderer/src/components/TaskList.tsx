@@ -492,7 +492,7 @@ export default function TaskList({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="⌕ Search tasks…"
-          style={{ fontSize: 12, padding: 5, width: '100%', marginBottom: 8, height: 26 }}
+          style={{ fontSize: 12, padding: 4, width: '100%', marginBottom: 8, height: 26 }}
         />
       )}
 
@@ -518,12 +518,12 @@ export default function TaskList({
             <div style={{ fontSize: 12, marginTop: 4, color: 'var(--text-muted)' }}>{emptyState.subtitle}</div>
           )}
           {emptyState.chips.length > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
               {emptyState.chips.map((chip) => (
                 <button
                   key={chip}
                   onClick={() => quickAddChip(chip)}
-                  style={{ fontSize: 12, padding: '4px 10px', borderRadius: 12 }}
+                  style={{ fontSize: 12, padding: '4px 12px', borderRadius: 12 }}
                 >
                   {chip}
                 </button>
@@ -600,7 +600,7 @@ export default function TaskList({
                     if (e.key === 'Enter') commitEdit(t);
                     if (e.key === 'Escape') setEditingId(null);
                   }}
-                  style={{ flex: 1, minWidth: 0, fontSize: 14, padding: 2, height: 24 }}
+                  style={{ flex: 1, minWidth: 0, fontSize: 14, padding: 4, height: 24 }}
                 />
               ) : (
                 <span
@@ -634,7 +634,7 @@ export default function TaskList({
                 <button
                   onClick={() => cycleUrgency(t.id)}
                   title="Cycle priority"
-                  style={{ color: URGENCY_COLOR.high, fontSize: 12, height: 24, padding: '0 6px', flex: 'none' }}
+                  style={{ color: URGENCY_COLOR.high, fontSize: 12, height: 24, padding: '0 8px', flex: 'none' }}
                 >
                   HIGH
                 </button>
@@ -697,7 +697,7 @@ export default function TaskList({
                       ? `Already ${STRIKE_MAX}/${STRIKE_MAX} — today is full`
                       : "Commit this to today's 3"
                   }
-                  style={{ fontSize: 12, height: 24, padding: '0 6px', flex: 'none' }}
+                  style={{ fontSize: 12, height: 24, padding: '0 8px', flex: 'none' }}
                 >
                   + STRIKE
                 </button>
@@ -727,7 +727,7 @@ export default function TaskList({
             </div>
 
             {expandedId === t.id && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0 2px 15px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0 4px 16px', flexWrap: 'wrap' }}>
                 {!q && (
                   <>
                     <button onClick={() => moveTask(t.id, -1)} disabled={isFirst} title="Move up" style={{ width: 24, height: 24, padding: 0 }}>
@@ -789,7 +789,7 @@ export default function TaskList({
             zIndex: 100,
           }}
         >
-          <div style={{ background: 'var(--surface)', borderRadius: 8, padding: 20, width: 320 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 8, padding: 24, width: 320 }}>
             <div style={{ fontSize: 15, fontWeight: 'bold', color: 'var(--warning)', marginBottom: 4 }}>
               ★ WHAT'S TODAY'S MIT?
             </div>
@@ -798,7 +798,7 @@ export default function TaskList({
               <button
                 key={t.id}
                 onClick={() => pickMitPrompt(t)}
-                style={{ display: 'block', width: '100%', textAlign: 'left', fontSize: 13, padding: '6px 8px', marginBottom: 2 }}
+                style={{ display: 'block', width: '100%', textAlign: 'left', fontSize: 13, padding: '8px 8px', marginBottom: 4 }}
               >
                 ☆ {t.text.slice(0, 44)}
               </button>

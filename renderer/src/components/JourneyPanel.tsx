@@ -70,10 +70,10 @@ function StageDetail({
         onBlur={() => description !== stage.description && onRename(name, description)}
         placeholder="Description…"
         rows={2}
-        style={{ width: '100%', fontSize: 12, padding: 4, resize: 'vertical', boxSizing: 'border-box', marginBottom: 10 }}
+        style={{ width: '100%', fontSize: 12, padding: 4, resize: 'vertical', boxSizing: 'border-box', marginBottom: 12 }}
       />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
         <button onClick={onToggleGate} disabled={!gate.trim()} title={gate.trim() ? 'Toggle gate' : 'Write a gate first'}>
           {stage.gate_done ? '✓' : '○'}
         </button>
@@ -92,7 +92,7 @@ function StageDetail({
             TASKS {doneCount}/{stage.tasks.length}
           </div>
           {stage.tasks.map((t) => (
-            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <button onClick={() => onToggleTask(t.id)} title="Toggle done" style={{ width: 20 }}>
                 {t.done ? '✓' : '○'}
               </button>
@@ -134,7 +134,7 @@ function StageDetail({
         <div style={{ flex: 1, minWidth: 220 }}>
           <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>LOG</div>
           {stage.logs.map((l) => (
-            <div key={l.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
+            <div key={l.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
               <button onClick={() => onCycleLog(l.id)} title="Cycle status">
                 <StatusDot status={l.status} />
               </button>
@@ -199,7 +199,7 @@ function CoverImage({
         title="Add a cover image"
         style={{
           fontSize: 12,
-          padding: '10px 12px',
+          padding: '12px 12px',
           border: '1px dashed var(--border)',
           borderRadius: 8,
           background: 'var(--surface)',
@@ -234,10 +234,10 @@ function CoverImage({
           background: 'linear-gradient(to bottom, transparent 45%, var(--surface) 100%)',
         }}
       />
-      <button onClick={onPick} title="Change cover image" style={{ position: 'absolute', bottom: 6, right: 34, fontSize: 12, padding: '2px 6px' }}>
+      <button onClick={onPick} title="Change cover image" style={{ position: 'absolute', bottom: 6, right: 34, fontSize: 12, padding: '4px 8px' }}>
         Change
       </button>
-      <button onClick={onRemove} title="Remove cover image" style={{ position: 'absolute', bottom: 6, right: 6, fontSize: 12, padding: '2px 6px' }}>
+      <button onClick={onRemove} title="Remove cover image" style={{ position: 'absolute', bottom: 6, right: 6, fontSize: 12, padding: '4px 8px' }}>
         ✕
       </button>
     </div>
@@ -285,7 +285,7 @@ export default function JourneyPanel() {
 
   return (
     <div style={{ maxWidth: 900 }}>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
         {order.map((entry) => (
           <button
             key={entry.project.key}
@@ -328,7 +328,7 @@ export default function JourneyPanel() {
           border: 'none',
           background: 'transparent',
           color: 'var(--text)',
-          marginBottom: 6,
+          marginBottom: 8,
           padding: 0,
           boxSizing: 'border-box',
         }}
@@ -373,9 +373,9 @@ export default function JourneyPanel() {
             background: 'var(--surface)',
             border: '1px solid var(--border)',
             borderRadius: 6,
-            padding: '6px 10px',
+            padding: '8px 12px',
             fontSize: 12,
-            marginBottom: 10,
+            marginBottom: 12,
           }}
         >
           {toast}

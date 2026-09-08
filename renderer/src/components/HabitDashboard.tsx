@@ -104,9 +104,9 @@ export default function HabitDashboard() {
 
   return (
     <div style={{ maxWidth: 720 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 24 }}>
         <ScoreRing score={score} />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>◎ TODAY I WILL:</span>
             <input
@@ -115,7 +115,7 @@ export default function HabitDashboard() {
               onBlur={intentionField.flush}
               onKeyDown={(e) => e.key === 'Enter' && intentionField.flush()}
               placeholder="Today I will…"
-              style={{ flex: 1, padding: 6, ...savedFlashStyle(intentionField.state) }}
+              style={{ flex: 1, padding: 8, ...savedFlashStyle(intentionField.state) }}
             />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -126,7 +126,7 @@ export default function HabitDashboard() {
               onBlur={winField.flush}
               onKeyDown={(e) => e.key === 'Enter' && winField.flush()}
               placeholder="What went well today?"
-              style={{ flex: 1, padding: 6, ...savedFlashStyle(winField.state) }}
+              style={{ flex: 1, padding: 8, ...savedFlashStyle(winField.state) }}
             />
           </div>
         </div>
@@ -163,7 +163,7 @@ export default function HabitDashboard() {
               </div>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {catHabits.map((h) => (
-                  <li key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' }}>
+                  <li key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
                     <button
                       onClick={() => habitsApi.toggle(h.id, TODAY).then(refresh)}
                       title="Toggle done"
@@ -206,7 +206,7 @@ export default function HabitDashboard() {
         <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
           <div style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: 8 }}>📅 MONTHLY REPORT</div>
           {monthly && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 6, columnGap: 8, fontSize: 13 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 8, columnGap: 8, fontSize: 13 }}>
               <span style={{ opacity: 0.6 }}>Avg Score:</span>
               <span style={{ fontWeight: 'bold' }}>{monthly.avg_score}/100</span>
               <span style={{ opacity: 0.6 }}>Streak:</span>

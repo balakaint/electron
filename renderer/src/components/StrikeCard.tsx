@@ -95,7 +95,7 @@ export default function StrikeCard({
         // and the empty card is the same shape as the full one — so
         // striking a task fills a slot you were already looking at
         // instead of replacing one thing with a different thing.
-        <div style={{ padding: '2px 2px 4px' }}>
+        <div style={{ padding: '4px 4px 4px' }}>
           {[1, 2, 3].map((n) => (
             <div
               key={n}
@@ -105,7 +105,7 @@ export default function StrikeCard({
                 gap: 8,
                 height: 26,
                 paddingLeft: 8,
-                marginBottom: 2,
+                marginBottom: 4,
                 border: '1px dashed var(--border)',
                 color: 'var(--text-faint)',
                 fontSize: 12,
@@ -131,8 +131,8 @@ export default function StrikeCard({
                 alignItems: 'center',
                 gap: 4,
                 position: 'relative',
-                padding: '4px 2px 4px 8px',
-                marginBottom: 2,
+                padding: '4px 4px 4px 8px',
+                marginBottom: 4,
                 cursor: t.done ? 'default' : 'pointer',
                 // Two tones, not three: "selected" and "not".
                 background: isNow ? 'var(--accent-light)' : 'transparent',
@@ -171,7 +171,7 @@ export default function StrikeCard({
                   background: 'transparent',
                   color: t.mit ? 'var(--warning)' : 'var(--text-faint)',
                   cursor: 'pointer',
-                  padding: '0 2px',
+                  padding: '0 4px',
                   fontSize: 14,
                   width: 24,
                   height: 24,

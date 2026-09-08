@@ -103,7 +103,7 @@ export default function DayPhaseBars() {
         const [startH, endH] = bounds[key];
         const pct = Math.round(progresses[i] * 100);
         return (
-          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <span
               style={{
                 width: 10,

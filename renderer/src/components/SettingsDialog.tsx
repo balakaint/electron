@@ -12,7 +12,7 @@ function formatPhase(hour: number): string {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 18 }}>
+    <div style={{ marginBottom: 16 }}>
       <div
         style={{
           fontSize: 12,
@@ -33,7 +33,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '6px 0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 0' }}>
       <span style={{ fontSize: 13 }}>{label}</span>
       <div>{children}</div>
     </div>
@@ -86,7 +86,7 @@ function Stepper({
   format?: (v: number) => string;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <button onClick={() => onChange(Math.max(min, value - 1))} title="Decrease" style={{ width: 24 }}>
         −
       </button>
@@ -107,7 +107,7 @@ function Stepper({
 // judging a theme BEFORE applying it — a name alone tells you nothing.
 function ThemePicker({ value, onSelect }: { value: Theme; onSelect: (t: Theme) => void }) {
   return (
-    <div role="radiogroup" aria-label="Theme" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <div role="radiogroup" aria-label="Theme" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {THEME_ORDER.map((t) => {
         const on = t === value;
         return (
@@ -120,7 +120,7 @@ function ThemePicker({ value, onSelect }: { value: Theme; onSelect: (t: Theme) =
               display: 'flex',
               alignItems: 'center',
               gap: 8,
-              padding: '3px 4px',
+              padding: '4px 4px',
               background: on ? 'var(--accent-light)' : 'transparent',
               border: '1px solid transparent',
               borderRadius: 4,
@@ -256,7 +256,7 @@ export default function SettingsDialog({
                     onLangChange(v);
                   }}
                   disabled={settings.lang === v}
-                  style={{ fontSize: 12, padding: '3px 8px' }}
+                  style={{ fontSize: 12, padding: '4px 8px' }}
                 >
                   {v === 'en' ? 'English' : 'বাংলা'}
                 </button>
@@ -353,13 +353,13 @@ export default function SettingsDialog({
               onClick={() => patch({ start_with_windows: !settings.start_with_windows })}
             />
           </Row>
-          <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 4 }}>
             Saved as a preference only — not yet wired to actually register the app with Windows startup.
           </div>
         </Section>
 
         <Section title="More">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button onClick={() => { onClose(); onOpenShortcuts(); }} style={{ textAlign: 'left', fontSize: 13 }}>
               ⌨ Keyboard Shortcuts
             </button>
@@ -367,7 +367,7 @@ export default function SettingsDialog({
               ⬇ Export Data
             </button>
           </div>
-          <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 10 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 12 }}>
             Task Tracker · Version {APP_VERSION}
             <br />
             Contact: {APP_CONTACT}

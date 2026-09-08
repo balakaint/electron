@@ -32,7 +32,7 @@ function Chip({ label, color, onClick }: { label: string; color: string; onClick
         display: 'inline-block',
         fontSize: 12,
         fontWeight: 'bold',
-        padding: '2px 8px',
+        padding: '4px 8px',
         borderRadius: 10,
         color: '#fff',
         background: color,
@@ -54,7 +54,7 @@ function Stars({
   label: string;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
       <span style={{ opacity: 0.6, width: 70 }}>{label}</span>
       <button onClick={() => onChange(Math.max(1, value - 1))} title={`Decrease ${label}`} style={{ width: 20 }}>
         −
@@ -90,7 +90,7 @@ function ChoiceRow<T extends string>({
           disabled={o === value}
           style={{
             fontSize: 12,
-            padding: '2px 8px',
+            padding: '4px 8px',
             borderRadius: 10,
             border: 'none',
             background: o === value ? colors[o] : 'var(--surface-2)',
@@ -135,8 +135,8 @@ function TextField({
     },
   };
   return (
-    <div style={{ marginBottom: 6 }}>
-      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 2 }}>{label}</div>
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>{label}</div>
       {multiline ? <textarea {...common} rows={2} /> : <input {...common} />}
     </div>
   );
@@ -162,7 +162,7 @@ function ActionsChecklist({
         NEXT ACTIONS {plan.next_actions.filter((a) => a.done).length}/{plan.next_actions.length}
       </div>
       {plan.next_actions.map((a) => (
-        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+        <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <button onClick={() => onToggle(a.id)} title="Toggle done" style={{ width: 18 }}>
             {a.done ? '✓' : '○'}
           </button>
@@ -226,11 +226,11 @@ function PlanDetail({
   return (
     <>
           <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 2 }}>STATUS</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>STATUS</div>
             <ChoiceRow options={STATUSES} value={plan.status} colors={STATUS_COLOR} onChange={(v) => onPatch({ status: v })} />
           </div>
           <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 2 }}>PRIORITY</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>PRIORITY</div>
             <ChoiceRow options={PRIORITIES} value={plan.priority} colors={PRIORITY_COLOR} onChange={(v) => onPatch({ priority: v })} />
           </div>
           <TextField label="Opportunity — why is this worth your time?" value={plan.opportunity} multiline onSave={(v) => onPatch({ opportunity: v })} />
@@ -244,7 +244,7 @@ function PlanDetail({
             <TextField label="Supplier" value={plan.supplier} onSave={(v) => onPatch({ supplier: v })} />
             <TextField label="Timeline (e.g. 3 Months)" value={plan.timeline} onSave={(v) => onPatch({ timeline: v })} />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '8px 0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '8px 0' }}>
             <Stars label="Potential" value={plan.potential} onChange={(v) => onPatch({ potential: v })} />
             <Stars label="Difficulty" value={plan.difficulty} onChange={(v) => onPatch({ difficulty: v })} />
           </div>
@@ -306,13 +306,13 @@ function PlanCard({
         borderLeft: `3px solid ${STATUS_COLOR[plan.status]}`,
         borderRadius: 8,
         padding: 12,
-        marginBottom: 10,
+        marginBottom: 12,
         background: 'var(--surface)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         {sort === 'manual' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <button onClick={() => onMove(-1)} disabled={isFirst} title="Move up" style={{ width: 22, fontSize: 12 }}>
               ▲
             </button>
@@ -336,13 +336,13 @@ function PlanCard({
               marginBottom: 4,
             }}
           />
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
             <Chip label={plan.status} color={STATUS_COLOR[plan.status]} />
             <Chip label={plan.priority} color={PRIORITY_COLOR[plan.priority]} />
             {plan.market && <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{plan.market}</span>}
             {plan.timeline && <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>· {plan.timeline}</span>}
           </div>
-          {plan.opportunity && <p style={{ fontSize: 13, margin: '0 0 6px' }}>{plan.opportunity}</p>}
+          {plan.opportunity && <p style={{ fontSize: 13, margin: '0 0 8px' }}>{plan.opportunity}</p>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: 4 }}>
@@ -368,7 +368,7 @@ function PlanCard({
       </div>
 
       {expanded && (
-        <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+        <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
           <PlanDetail
             plan={plan}
             onPatch={onPatch}
@@ -468,7 +468,7 @@ function PlanPage({
           borderBottom: `2px solid ${STATUS_COLOR[plan.status]}`,
           background: 'transparent',
           color: 'var(--text)',
-          padding: '0 0 6px',
+          padding: '0 0 8px',
           marginBottom: 16,
         }}
       />
@@ -539,7 +539,7 @@ function TableRow({ plan, onOpen }: { plan: BdpPlan; onOpen: () => void }) {
         fontSize: 12,
       }}
     >
-      <div style={{ padding: '6px 8px', minWidth: 0 }}>
+      <div style={{ padding: '8px 8px', minWidth: 0 }}>
         <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {plan.title}
         </div>
@@ -548,10 +548,10 @@ function TableRow({ plan, onOpen }: { plan: BdpPlan; onOpen: () => void }) {
           {plan.market ? ` · ${plan.market}` : ''}
         </div>
       </div>
-      <div style={{ padding: '6px 8px', borderLeft: '1px solid var(--border)', opacity: plan.supplier ? 1 : 0.4, minWidth: 0 }}>
+      <div style={{ padding: '8px 8px', borderLeft: '1px solid var(--border)', opacity: plan.supplier ? 1 : 0.4, minWidth: 0 }}>
         {plan.supplier || '—'}
       </div>
-      <div style={{ padding: '6px 8px', borderLeft: '1px solid var(--border)', minWidth: 0 }}>
+      <div style={{ padding: '8px 8px', borderLeft: '1px solid var(--border)', minWidth: 0 }}>
         <span style={{ opacity: plan.timeline ? 1 : 0.4 }}>{plan.timeline || '—'}</span>
         {acts.length > 0 && (
           <span style={{ opacity: 0.6 }}>
@@ -582,8 +582,8 @@ function ListRow({ plan, index, onOpen }: { plan: BdpPlan; index: number; onOpen
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${STATUS_COLOR[plan.status]}`,
         background: 'var(--surface)',
-        padding: '5px 8px',
-        marginBottom: 2,
+        padding: '4px 8px',
+        marginBottom: 4,
         cursor: 'pointer',
         fontSize: 12,
       }}
@@ -718,12 +718,12 @@ export default function BdpPanel() {
 
   return (
     <div style={{ maxWidth: view === 'card' ? 820 : 980 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 10 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="⌕ Search plans…"
-          style={{ fontSize: 12, padding: 5, minWidth: 160 }}
+          style={{ fontSize: 12, padding: 4, minWidth: 160 }}
         />
         <select value={fStatus} onChange={(e) => setFStatus(e.target.value as BdpStatus | 'All')} style={{ fontSize: 12 }}>
           <option value="All">All statuses</option>
@@ -752,7 +752,7 @@ export default function BdpPanel() {
         <button onClick={() => changeSort(sort === 'manual' ? 'priority' : 'manual')} style={{ fontSize: 12 }}>
           ⇅ {sort === 'manual' ? 'Manual' : 'Priority'}
         </button>
-        <div role="radiogroup" aria-label="View" style={{ display: 'flex', gap: 2, marginLeft: 'auto' }}>
+        <div role="radiogroup" aria-label="View" style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
           {(['card', 'table', 'list'] as BdpView[]).map((v) => (
             <button
               key={v}
@@ -778,12 +778,12 @@ export default function BdpPanel() {
         </div>
       </div>
 
-      <form onSubmit={submitNew} style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+      <form onSubmit={submitNew} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           placeholder="+ New plan — business name…"
-          style={{ flex: 1, fontSize: 13, padding: 6 }}
+          style={{ flex: 1, fontSize: 13, padding: 8 }}
         />
         <button type="submit">Add</button>
       </form>

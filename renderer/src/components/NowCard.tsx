@@ -23,7 +23,7 @@ function StartButton({ label, title, onClick }: { label: string; title: string; 
         flex: 1,
         minWidth: 0,
         height: 30,
-        padding: '0 10px',
+        padding: '0 12px',
         textAlign: 'left',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
@@ -155,7 +155,7 @@ export default function NowCard({
           {task.project && (
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{projects[task.project]?.name || task.project}</div>
           )}
-          <div style={{ fontSize: 30, fontWeight: 'bold', fontFamily: 'monospace', margin: '6px 0' }}>
+          <div style={{ fontSize: 30, fontWeight: 'bold', fontFamily: 'monospace', margin: '8px 0' }}>
             {formatHMS(displaySecs)}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
@@ -186,7 +186,7 @@ export default function NowCard({
         // The label shares the row with its control: an empty card holds
         // one thing, and giving that one thing a heading costs a whole
         // line to caption a single button.
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, color: 'var(--text-faint)', letterSpacing: 1, flex: 'none' }}>
             {L('NOW', 'এখন')}
           </span>
@@ -200,7 +200,7 @@ export default function NowCard({
             <button
               onClick={onGoToMit}
               title="Commit to up to three tasks for today"
-              style={{ flex: 1, height: 30, padding: '0 10px', textAlign: 'left', cursor: 'pointer' }}
+              style={{ flex: 1, height: 30, padding: '0 12px', textAlign: 'left', cursor: 'pointer' }}
             >
               {L("Choose today's 3 →", 'আজকের ৩টি বাছুন →')}
             </button>

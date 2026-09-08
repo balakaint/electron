@@ -157,9 +157,9 @@ function ProjectCard({
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          padding: '5px 6px',
+          padding: '4px 8px',
           borderRadius: 6,
-          marginBottom: 1,
+          marginBottom: 2,
           border: '1px solid transparent',
           // A running project must not look like an idle one. It used to.
           background: running ? 'var(--running-bg)' : 'transparent',
@@ -202,7 +202,7 @@ function ProjectCard({
             background: 'transparent',
             font: 'inherit',
             fontSize: 13,
-            padding: '5px 0',
+            padding: '4px 0',
             cursor: 'pointer',
             color: 'var(--text)',
             overflow: 'hidden',
@@ -260,7 +260,7 @@ function ProjectCard({
       style={{
         border: `1px solid ${project.accent_color}55`,
         borderRadius: 8,
-        marginBottom: 10,
+        marginBottom: 12,
         overflow: 'hidden',
         opacity: project.done_today ? 0.7 : 1,
       }}
@@ -329,7 +329,7 @@ function ProjectCard({
             card whether or not there was anything in it. A note is read
             far more often than it is written, so at rest it is the words
             themselves, sized to what you actually wrote. */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 3 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
           <input
             value={noteTitle}
             onChange={(e) => setNoteTitle(e.target.value)}
@@ -358,7 +358,7 @@ function ProjectCard({
                 color: 'var(--text-faint)',
                 fontSize: 12,
                 cursor: 'pointer',
-                padding: '0 6px',
+                padding: '0 8px',
                 height: 24,
               }}
             >
@@ -380,7 +380,7 @@ function ProjectCard({
             // reserving five rows for a note that is usually two.
             rows={Math.min(8, Math.max(1, noteField.value.split('\n').length))}
             placeholder="Jot something down…"
-            style={{ width: '100%', fontSize: 12, padding: 6, marginBottom: 8, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(noteField.state) }}
+            style={{ width: '100%', fontSize: 12, padding: 8, marginBottom: 8, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(noteField.state) }}
           />
         ) : (
           <div
@@ -408,9 +408,9 @@ function ProjectCard({
             bar across the row (6725-6727, width=118). It is the "this
             one is running" signal for the button directly beneath it, so
             it is scoped to that button rather than to the whole card. */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, marginBottom: 10, fontSize: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 12, fontSize: 12 }}>
           <div style={{ flex: 1 }}>
-            <div style={{ width: 118, height: 3, background: 'var(--border)', overflow: 'hidden', marginBottom: 3 }}>
+            <div style={{ width: 118, height: 3, background: 'var(--border)', overflow: 'hidden', marginBottom: 4 }}>
               <div style={{ width: `${pct}%`, height: '100%', background: project.accent_color }} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -503,7 +503,7 @@ function ProjectCard({
             (6848-6862). The add field lives behind that button rather
             than sitting open on every card — six always-visible inputs
             is most of why this column scrolled. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginBottom: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 4 }}>
           <span style={{ color: 'var(--text-faint)', letterSpacing: 0.5 }}>TASKS</span>
           <span style={{ flex: 1 }} />
           {/* Muted, not dimmed. --text-muted is chosen to clear 4.5:1
@@ -531,7 +531,7 @@ function ProjectCard({
             return (
               <li
                 key={s.pid}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '2px 0' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0' }}
               >
                 {/* Legacy gives every task row a 3px strip in the
                     project's colour, going muted once it is done
@@ -568,7 +568,7 @@ function ProjectCard({
                     onClick={() => strikeSubtask(s.pid)}
                     disabled={onToday || (full && !onToday)}
                     title={onToday ? 'Already on today’s list' : 'Commit to today’s 3'}
-                    style={{ fontSize: 12, height: 24, padding: '0 6px', flex: 'none', opacity: onToday ? 0.7 : 1, color: onToday ? accentText(project.accent_color) : undefined }}
+                    style={{ fontSize: 12, height: 24, padding: '0 8px', flex: 'none', opacity: onToday ? 0.7 : 1, color: onToday ? accentText(project.accent_color) : undefined }}
                   >
                     {strikeFlash === s.pid ? 'DAY FULL' : onToday ? '✓ ON TODAY' : '+ STRIKE'}
                   </button>
@@ -598,7 +598,7 @@ function ProjectCard({
           </div>
         )}
         {addingTask && (
-          <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+          <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
             <input
               autoFocus
               value={newSubtask}

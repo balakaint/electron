@@ -94,7 +94,7 @@ function MindsetTab() {
         // Days with nothing written are skipped rather than shown empty:
         // a run of blank rows reads as a broken widget, not as "you
         // didn't write anything on Tuesday". Legacy does the same.
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px' }}>
           {history.map((h) => (
             <div key={h.day} style={{ display: 'contents' }}>
               <div style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>{h.label}</div>
@@ -136,7 +136,7 @@ function DisciplineTab() {
         if (rows.length === 0) return null;
         return (
           <div key={cat} style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 2 }}>{label}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>{label}</div>
             {rows.map((h) => (
               <button
                 key={h.id}
@@ -144,7 +144,7 @@ function DisciplineTab() {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 6,
+                  gap: 8,
                   width: '100%',
                   textAlign: 'left',
                   border: 'none',
@@ -152,7 +152,7 @@ function DisciplineTab() {
                   color: 'inherit',
                   font: 'inherit',
                   fontSize: 12,
-                  padding: '2px 0',
+                  padding: '4px 0',
                   cursor: 'pointer',
                   opacity: h.done ? 0.55 : 1,
                 }}
@@ -180,7 +180,7 @@ function ConsistencyRow({ project }: { project: Project }) {
 
   return (
     <div style={{ marginBottom: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12 }}>
         <span style={{ fontWeight: 'bold', color: accentText(project.accent_color) }}>{project.name}</span>
         <span style={{ color: 'var(--text-faint)', fontSize: 12, marginLeft: 'auto' }}>
           {hits}/30 days · {project.target_minutes}m target
@@ -191,7 +191,7 @@ function ConsistencyRow({ project }: { project: Project }) {
           middle of a forwards run of days, and the block is twice as
           tall, so fewer projects fit on screen together. Comparing
           projects is the whole point of this tab. */}
-      <div style={{ display: 'flex', gap: 1, marginTop: 2 }}>
+      <div style={{ display: 'flex', gap: 2, marginTop: 4 }}>
         {activity.map((a) => (
           <div
             key={a.day}
@@ -281,8 +281,8 @@ export default function PlanReview({ onOpenQuarterly }: { onOpenQuarterly: () =>
   const [tab, setTab] = useState<Tab>('today');
 
   return (
-    <div style={{ marginTop: 20, border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
-      <div role="tablist" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 10 }}>
+    <div style={{ marginTop: 24, border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
+      <div role="tablist" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }}>
         {TABS.map(([key, label]) => (
           <button
             key={key}
@@ -292,7 +292,7 @@ export default function PlanReview({ onOpenQuarterly }: { onOpenQuarterly: () =>
             style={{
               fontSize: 12,
               height: 24,
-              padding: '0 10px',
+              padding: '0 12px',
               fontWeight: tab === key ? 'bold' : 'normal',
               background: tab === key ? 'var(--accent-light)' : undefined,
             }}
