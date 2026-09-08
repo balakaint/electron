@@ -21,11 +21,22 @@ function nextCadence(current: number): number {
   return i === -1 ? 7 : CADENCE_PRESETS[(i + 1) % CADENCE_PRESETS.length];
 }
 
-export default function CircleSection({ projectKey }: { projectKey: ProjectKey }) {
+export default function CircleSection({
+  projectKey,
+  onCount,
+}: {
+  projectKey: ProjectKey;
+  /** Lets the card around this one show an empty rail when nobody is listed. */
+  onCount?: (n: number) => void;
+}) {
   const [people, setPeople] = useState<CirclePerson[]>([]);
   const [newPerson, setNewPerson] = useState('');
 
-  const refresh = () => circleApi.list(projectKey).then(setPeople);
+  const refresh = () =>
+    circleApi.list(projectKey).then((rows) => {
+      setPeople(rows);
+      onCount?.(rows.length);
+    });
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps

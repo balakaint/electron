@@ -101,7 +101,21 @@ function Field({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, flex: 1 }}>
-      <div style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: 2 }}>
+      {/* THE LABEL DOES NOT SHOUT.
+          It was 12px BOLD while the answer under it was 13px regular —
+          so on a page whose entire content is what you wrote, the
+          questions were heavier than the answers, and fifteen bold
+          labels were the loudest thing on screen. A label names a slot;
+          it is read once and then never again. */}
+      <div
+        style={{
+          fontSize: 12,
+          fontWeight: 500,
+          letterSpacing: 0.4,
+          color: 'var(--text-muted)',
+          marginBottom: 2,
+        }}
+      >
         {label}
       </div>
       <textarea
@@ -118,7 +132,8 @@ function Field({
           flex: 1,
           width: '100%',
           minHeight: 0,
-          fontSize: 13,
+          // Bigger than its own label, which is the whole point.
+          fontSize: 14,
           padding: '2px 0',
           border: 'none',
           borderBottom: `1px solid ${focused ? accent : 'var(--border)'}`,
@@ -137,11 +152,14 @@ function Field({
 function Card({
   title,
   accent,
+  filled = true,
   children,
   style,
 }: {
   title: string;
   accent: string;
+  /** Has anything been written in this card? Drives the rail. */
+  filled?: boolean;
   children: React.ReactNode;
   style?: React.CSSProperties;
 }) {
@@ -154,22 +172,38 @@ function Card({
         minWidth: 0,
         background: 'var(--surface)',
         border: '1px solid var(--border)',
-        borderLeft: `4px solid ${accent}`,
+        // THE RAIL REPORTS WHETHER THE CARD HAS ANYTHING IN IT.
+        //
+        // Legacy's _bar_col_for: full accent when the section has
+        // content, blended toward the border when it does not. This port
+        // painted every rail at full strength, so a canvas with two
+        // sections filled looked exactly like one with six — on a page
+        // whose whole job is showing you which questions you have not
+        // answered yet. It is the cheapest signal on the page and it was
+        // the one missing.
+        borderLeft: `4px solid ${filled ? accent : `color-mix(in srgb, ${accent} 30%, var(--border))`}`,
         ...style,
       }}
     >
+      {/* Level 1. Coloured and ruled off, so it cannot be mistaken for
+          the field labels underneath — they were 13px bold and 12px bold,
+          one pixel and no other difference apart, which is two levels
+          collapsed into one. Colour and a divider separate them without
+          making the title bigger than the content. */}
       <div
         style={{
           fontSize: 13,
           fontWeight: 'bold',
-          letterSpacing: 0.5,
-          padding: '8px 12px 4px',
-          color: 'var(--text)',
+          letterSpacing: 0.8,
+          padding: '8px 12px',
+          color: filled ? accent : 'var(--text-muted)',
+          borderBottom: '1px solid var(--border)',
+          flex: 'none',
         }}
       >
         {title}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, padding: '0 12px 12px', flex: 1 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, padding: '12px 12px 12px', flex: 1 }}>
         {children}
       </div>
     </div>
@@ -185,6 +219,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
   // One "Saved" for the page, in the header, as legacy has it — rather
   // than a flash on each of the fifteen fields.
   const [savedAt, setSavedAt] = useState(0);
+  const [peopleCount, setPeopleCount] = useState(0);
 
   const refresh = () => {
     businessAnalysisApi.get(projectKey).then(setBa);
@@ -226,6 +261,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
     });
 
   const nonEmptyBoxes = boxes.filter((b) => b.title.trim() || b.text.trim());
+  const any = (...vals: string[]) => vals.some((v) => (v || '').trim().length > 0);
   // Newest last in storage; the collapsed view shows the most recent.
   const shown = historyOpen ? [...log].reverse() : log.slice(-1);
 
@@ -260,15 +296,12 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
             + Attach Word/Excel
           </button>
         )}
-        <span
-          style={{
-            fontSize: 12,
-            color: savedAt ? 'var(--success)' : 'var(--text-faint)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          ✓ Saved
-        </span>
+        {/* Only after something has actually been saved. It used to
+            render on load, telling you a page you had not touched was
+            saved — a status that is always on is not a status. */}
+        {savedAt > 0 && (
+          <span style={{ fontSize: 12, color: 'var(--success)', whiteSpace: 'nowrap' }}>✓ Saved</span>
+        )}
         {/* No Back button here: the overlay this page opens inside
             already pins one to its top-left corner, and two of them
             three inches apart is the app asking the same question
@@ -288,7 +321,12 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
           gap: 8,
         }}
       >
-        <Card title="IDEA" accent="var(--ba-idea)" style={{ gridColumn: '1 / -1' }}>
+        <Card
+          title="IDEA"
+          accent="var(--ba-idea)"
+          filled={any(ba.idea_business, ba.idea_problem, ba.idea_customer, ba.idea_goal)}
+          style={{ gridColumn: '1 / -1' }}
+        >
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, flex: 1, minHeight: 0 }}>
             <Field label="BUSINESS IDEA" accent="var(--ba-idea)" value={ba.idea_business} onSave={(v) => save('idea_business', v)} onSaved={markSaved} />
             <Field label="PROBLEM IT SOLVES" accent="var(--ba-idea)" value={ba.idea_problem} onSave={(v) => save('idea_problem', v)} onSaved={markSaved} />
@@ -297,7 +335,11 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
           </div>
         </Card>
 
-        <Card title="ANALYSIS" accent="var(--ba-upside)">
+        <Card
+          title="ANALYSIS"
+          accent="var(--ba-upside)"
+          filled={any(ba.an_market, ba.an_competition, ba.an_strength, ba.an_risk)}
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
             <Field label="MARKET OPPORTUNITY" accent="var(--ba-upside)" value={ba.an_market} onSave={(v) => save('an_market', v)} onSaved={markSaved} />
             <Field label="COMPETITION" accent="var(--ba-upside)" value={ba.an_competition} onSave={(v) => save('an_competition', v)} onSaved={markSaved} />
@@ -306,7 +348,11 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
           </div>
         </Card>
 
-        <Card title="FINANCIAL REALITY" accent="var(--ba-money)">
+        <Card
+          title="FINANCIAL REALITY"
+          accent="var(--ba-money)"
+          filled={any(ba.fin_investment, ba.fin_cost, ba.fin_revenue, ba.fin_profit)}
+        >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
             <Field label="INVESTMENT" accent="var(--ba-money)" value={ba.fin_investment} onSave={(v) => save('fin_investment', v)} onSaved={markSaved} />
             <Field label="COST" accent="var(--ba-money)" value={ba.fin_cost} onSave={(v) => save('fin_cost', v)} onSaved={markSaved} />
@@ -315,7 +361,12 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
           </div>
         </Card>
 
-        <Card title="DECISION" accent="var(--ba-decide)" style={{ gridColumn: '1 / -1' }}>
+        <Card
+          title="DECISION"
+          accent="var(--ba-decide)"
+          filled={any(ba.decision_status, ba.decision_why)}
+          style={{ gridColumn: '1 / -1' }}
+        >
           {/* Chips FIRST. The port put "why this decision?" above the
               decision itself, which asks for the reason before the
               judgement it is a reason for. */}
@@ -379,7 +430,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
           )}
         </Card>
 
-        <Card title="NEXT ACTION" accent="var(--ba-do)">
+        <Card title="NEXT ACTION" accent="var(--ba-do)" filled={any(ba.next_action)}>
           <Field label="NEXT MOST IMPORTANT ACTION" accent="var(--ba-do)" value={ba.next_action} onSave={(v) => save('next_action', v)} onSaved={markSaved} />
           {/* Priority and deadline on ONE row under the action, as
               legacy has them (11011) — they are properties of the line
@@ -423,8 +474,8 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
           </div>
         </Card>
 
-        <Card title="PEOPLE" accent="var(--ba-decide)">
-          <CircleSection projectKey={projectKey} />
+        <Card title="PEOPLE" accent="var(--ba-decide)" filled={peopleCount > 0}>
+          <CircleSection projectKey={projectKey} onCount={setPeopleCount} />
         </Card>
 
         {nonEmptyBoxes.length > 0 && (
