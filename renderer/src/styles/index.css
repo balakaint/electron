@@ -35,3 +35,22 @@ button {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* Destructive actions do not need to be visible at rest.
+   The goal panel used to draw a boxed ✕ in the top-right corner of every
+   card — twelve of them on screen at once, giving delete the most
+   prominent position on the most-read surface in the app. It appears on
+   hover, and on :focus-within so a keyboard user still reaches it; both
+   are states inline styles cannot express, which is why this lives here
+   and not in the component. */
+.goal-x {
+  opacity: 0;
+  transition: opacity 0.12s ease-out;
+}
+.goal-row:hover .goal-x,
+.goal-row:focus-within .goal-x {
+  opacity: 1;
+}
+.goal-row:hover {
+  background: var(--surface);
+}

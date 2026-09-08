@@ -35,9 +35,46 @@ const HORIZONS: { key: GoalHorizon; label: string; glyph: string; accent: string
   { key: 'weekly', label: 'YEARLY GOAL', glyph: '◆', accent: 'var(--goal-weekly)', weight: 25 },
 ];
 
-function GoalCard({
+// Legacy caps the progress bar at a 30-day window, and the API's
+// day_number counts from the goal's start date.
+const GOAL_WINDOW = 30;
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function shortDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.getDate()} ${d.toLocaleDateString(undefined, { month: 'short' })}`;
+}
+
+function plusDays(iso: string, n: number): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  d.setDate(d.getDate() + n);
+  return shortDate(d.toISOString().slice(0, 10));
+}
+
+// ONE LINE AT REST, the rest on demand.
+//
+// This used to render every goal as a full editing form at all times: a
+// notes textarea, a native date picker and a delete button on each one,
+// whether or not you were editing. Measured on the running app, six
+// goals cost 926px and still scrolled, nine date inputs at 95px each,
+// and five of the six note boxes were empty — a third of the panel spent
+// telling you that you had written nothing.
+//
+// The panel is read many times a day and edited rarely, so the resting
+// state is the one to optimise. A goal at rest is a tick, its name, a
+// progress spark and its day count. Opening it is what reveals the
+// editor, and only one is open at a time.
+function GoalRow({
   goal,
   accent,
+  open,
+  onOpen,
+  onClose,
   onToggle,
   onDelete,
   onEditText,
@@ -46,6 +83,9 @@ function GoalCard({
 }: {
   goal: Goal;
   accent: string;
+  open: boolean;
+  onOpen: () => void;
+  onClose: () => void;
   onToggle: () => void;
   onDelete: () => void;
   onEditText: (text: string) => void;
@@ -59,60 +99,180 @@ function GoalCard({
   useEffect(() => setText(goal.text), [goal.text]);
   useEffect(() => setStartDate(goal.start_date), [goal.start_date]);
 
-  const cappedDay = Math.min(goal.day_number, 30);
-  const barPct = (cappedDay / 30) * 100;
-  const barTooltip = `Day ${goal.day_number} of 30 — ${cappedDay}/30 progress`;
+  const capped = Math.min(goal.day_number, GOAL_WINDOW);
+  const pct = (capped / GOAL_WINDOW) * 100;
+  const barColor = goal.done ? 'var(--success)' : accent;
+  const dayLabel = `d${goal.day_number}${goal.day_number <= GOAL_WINDOW ? `/${GOAL_WINDOW}` : ''}`;
+
+  const tick = (
+    <button
+      onClick={onToggle}
+      title={goal.done ? 'Mark not done' : 'Mark done'}
+      aria-pressed={goal.done}
+      style={{
+        width: 24,
+        height: 24,
+        flex: 'none',
+        border: 'none',
+        background: 'transparent',
+        cursor: 'pointer',
+        color: goal.done ? 'var(--success)' : 'var(--text-faint)',
+        fontSize: 14,
+        padding: 0,
+      }}
+    >
+      {goal.done ? '✓' : '○'}
+    </button>
+  );
+
+  // Hover-and-focus, via a class rather than inline styles, because
+  // inline CSS cannot express :hover or :focus-within. Delete was the
+  // most prominent thing in every card — a boxed ✕ in the top-right
+  // corner of each one, twelve on screen at once. It is still reachable
+  // by keyboard (focus-within shows it), just no longer shouting.
+  const del = (
+    <button
+      className="goal-x"
+      onClick={(e) => {
+        e.stopPropagation();
+        onDelete();
+      }}
+      title="Delete this goal"
+      style={{
+        width: 24,
+        height: 24,
+        flex: 'none',
+        border: 'none',
+        background: 'transparent',
+        color: 'var(--text-muted)',
+        cursor: 'pointer',
+        fontSize: 12,
+        padding: 0,
+      }}
+    >
+      ✕
+    </button>
+  );
+
+  if (!open) {
+    return (
+      <div
+        className="goal-row"
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 2px', borderRadius: 4 }}
+      >
+        {tick}
+        {/* The name is the click target, not the whole row: a row-level
+            role="button" would nest the tick and the delete inside it,
+            which is invalid and makes both ambiguous to a screen
+            reader. */}
+        <button
+          onClick={onOpen}
+          title="Open this goal"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            textAlign: 'left',
+            border: 'none',
+            background: 'transparent',
+            font: 'inherit',
+            fontSize: 13,
+            padding: '5px 0',
+            cursor: 'pointer',
+            color: goal.done ? 'var(--text-faint)' : 'var(--text)',
+            textDecoration: goal.done ? 'line-through' : 'none',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {goal.text}
+        </button>
+        <span
+          title={`Day ${goal.day_number} of ${GOAL_WINDOW}`}
+          style={{ width: 64, height: 4, background: 'var(--border)', borderRadius: 2, flex: 'none', overflow: 'hidden' }}
+        >
+          <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: barColor }} />
+        </span>
+        <span
+          style={{
+            width: 52,
+            textAlign: 'right',
+            flex: 'none',
+            fontSize: 12,
+            fontFamily: 'monospace',
+            color: 'var(--text-faint)',
+          }}
+        >
+          {dayLabel}
+        </span>
+        {del}
+      </div>
+    );
+  }
 
   return (
     <div
+      className="goal-row"
       style={{
+        background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${accent}`,
         borderRadius: 6,
-        padding: 8,
-        marginBottom: 8,
-        opacity: goal.done ? 0.7 : 1,
+        padding: '6px 8px',
+        margin: '2px 0',
       }}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <button onClick={onToggle} title="Toggle done" style={{ width: 22 }}>
-          {goal.done ? '✓' : '○'}
-        </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {tick}
         <input
           value={text}
+          autoFocus
           onChange={(e) => setText(e.target.value)}
-          onBlur={() => text.trim() && text !== goal.text && onEditText(text)}
+          onBlur={() => text.trim() && text !== goal.text && onEditText(text.trim())}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           style={{
             flex: 1,
+            minWidth: 0,
             border: 'none',
             background: 'transparent',
             color: 'var(--text)',
             fontSize: 13,
-            textDecoration: goal.done ? 'line-through' : 'none',
+            fontWeight: 'bold',
+            padding: '4px 0',
           }}
         />
-        <button onClick={onDelete} title="Delete">✕</button>
+        <button
+          onClick={onClose}
+          title="Close"
+          style={{ width: 24, height: 24, border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+        >
+          ⌃
+        </button>
+        {del}
       </div>
 
-      <div
-        title={barTooltip}
-        style={{ height: 4, background: 'var(--border)', borderRadius: 2, margin: '6px 0', overflow: 'hidden', cursor: 'default' }}
-      >
-        <div style={{ width: `${barPct}%`, height: '100%', background: goal.done ? 'var(--success)' : accent }} />
+      <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden', margin: '6px 0' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: barColor }} />
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>
-        <span title={barTooltip}>
-          Day {goal.day_number} · {cappedDay}/30
-        </span>
+      {/* Dates as words. Nine native date inputs at 95px each turned the
+          panel into a form; the picker belongs in the one place you are
+          actually setting a date. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-muted)' }}>
+        <span>started</span>
         <input
           type="date"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
           onBlur={() => startDate !== goal.start_date && onEditStartDate(startDate)}
-          style={{ fontSize: 11, border: 'none', background: 'transparent', color: 'inherit', padding: 0 }}
+          title="Start date"
+          style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 3, background: 'transparent', color: 'inherit', padding: '3px 4px' }}
         />
-        {goal.done && goal.done_date && <span>✓ {goal.done_date}</span>}
+        <span>· day {goal.day_number} of {GOAL_WINDOW} · ends {plusDays(goal.start_date, GOAL_WINDOW)}</span>
+        {goal.done && goal.done_date && (
+          <span style={{ color: 'var(--success)' }}>· ✓ {shortDate(goal.done_date)}</span>
+        )}
       </div>
 
       <textarea
@@ -121,14 +281,18 @@ function GoalCard({
         onBlur={noteField.flush}
         placeholder="Notes…"
         rows={2}
-        style={{ width: '100%', fontSize: 12, padding: 4, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(noteField.state) }}
+        style={{
+          width: '100%',
+          fontSize: 12,
+          padding: 5,
+          marginTop: 6,
+          resize: 'vertical',
+          boxSizing: 'border-box',
+          ...savedFlashStyle(noteField.state),
+        }}
       />
     </div>
   );
-}
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function GoalSection({
@@ -138,6 +302,8 @@ function GoalSection({
   weight,
   accent,
   goals,
+  openId,
+  onOpenChange,
   onAdd,
   onToggle,
   onDelete,
@@ -152,6 +318,8 @@ function GoalSection({
   weight: number;
   accent: string;
   goals: Goal[];
+  openId: number | null;
+  onOpenChange: (id: number | null) => void;
   onAdd: (text: string, startDate: string) => void;
   onToggle: (id: number) => void;
   onDelete: (id: number) => void;
@@ -161,12 +329,14 @@ function GoalSection({
   onRenameTitle: (title: string) => void;
 }) {
   const [title, setTitle] = useState(label);
+  const [composing, setComposing] = useState(false);
   const [newText, setNewText] = useState('');
   const [newDate, setNewDate] = useState(todayIso);
 
   useEffect(() => setTitle(label), [label]);
 
   const done = goals.filter((g) => g.done).length;
+  const openCount = goals.length - done;
 
   const submitAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,99 +345,146 @@ function GoalSection({
     onAdd(t, newDate || todayIso());
     setNewText('');
     setNewDate(todayIso());
+    // Stays open: adding one goal is usually adding three.
   };
 
   return (
+    // Sections size to their CONTENT now, and the panel scrolls as one
+    // column. The 50/25/25 split it used to carry was there because a
+    // goal was a 130px card and a long section really could push the
+    // other two off screen. With one-line rows that reversed: three
+    // 30px rows were being given half of a 900px panel, so the top
+    // section held 90px of goals and 360px of nothing. Weight is kept in
+    // the props as the max share a section may take before it scrolls
+    // inside itself, which is the case the split was protecting against.
     <div
       style={{
-        // The 50/25/25 split, and each section scrolls inside itself so a
-        // long list in the top section cannot push the other two off the
-        // panel.
-        flex: `${weight} 1 0`,
-        minHeight: 0,
+        flex: 'none',
         display: 'flex',
         flexDirection: 'column',
-        background: 'var(--surface)',
-        border: '1px solid var(--border)',
-        // Legacy draws a full-height accent rail down the section's left
-        // edge, not a small chip beside the title.
-        borderLeft: `3px solid ${accent}`,
-        borderRadius: 4,
-        padding: 10,
+        maxHeight: `${weight}%`,
+        minHeight: 0,
+        marginBottom: 14,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-        <span style={{ color: accent, fontSize: 12 }}>{glyph}</span>
+      {/* The header carries the count AND the add control. There used to
+          be a permanent composer under every section — three text
+          fields, three date pickers and three Add buttons on screen for
+          one action. */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 7,
+          padding: '0 2px 5px',
+          borderBottom: '1px solid var(--border)',
+          marginBottom: 2,
+        }}
+      >
+        <span style={{ color: accent, fontSize: 11 }}>{glyph}</span>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onBlur={() => onRenameTitle(title.trim())}
+          title="Rename this section"
           style={{
             flex: 1,
+            minWidth: 0,
             fontWeight: 'bold',
-            fontSize: 13,
+            fontSize: 12,
+            letterSpacing: 0.6,
             border: 'none',
             background: 'transparent',
-            color: 'var(--text)',
+            color: accent,
+            padding: '5px 0',
           }}
         />
-        <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
           {done}/{goals.length}
+          {openCount > 0 && goals.length > 0 ? ` · ${openCount} open` : ''}
         </span>
+        <button
+          onClick={() => setComposing((v) => !v)}
+          aria-expanded={composing}
+          title={`Add a ${label.toLowerCase()}`}
+          style={{
+            width: 24,
+            height: 24,
+            flex: 'none',
+            border: 'none',
+            background: composing ? 'var(--accent-light)' : 'transparent',
+            borderRadius: 4,
+            color: composing ? 'var(--accent)' : 'var(--text-muted)',
+            fontSize: 15,
+            lineHeight: 1,
+            cursor: 'pointer',
+            padding: 0,
+          }}
+        >
+          +
+        </button>
       </div>
+
+      {composing && (
+        <form onSubmit={submitAdd} style={{ display: 'flex', gap: 4, margin: '4px 0 2px' }}>
+          <input
+            value={newText}
+            autoFocus
+            onChange={(e) => setNewText(e.target.value)}
+            onKeyDown={(e) => e.key === 'Escape' && setComposing(false)}
+            placeholder="What are you aiming at?"
+            style={{ flex: 1, fontSize: 12, padding: 4, minWidth: 0 }}
+          />
+          <input
+            type="date"
+            value={newDate}
+            onChange={(e) => setNewDate(e.target.value)}
+            title="Start date"
+            style={{ fontSize: 12, padding: 4, width: 116 }}
+          />
+          <button type="submit" style={{ fontSize: 12 }}>
+            Add
+          </button>
+        </form>
+      )}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-      {goals.length === 0 && (
-        // Legacy names the empty state rather than leaving a blank box —
-        // an empty section and a broken one look identical otherwise.
-        <div style={{ textAlign: 'center', opacity: 0.45, padding: '16px 0' }}>
-          <div style={{ fontSize: 20 }}>◎</div>
-          <div style={{ fontSize: 13, fontWeight: 'bold', margin: '4px 0 2px' }}>No goals yet</div>
-          <div style={{ fontSize: 11 }}>Click + Add to create your first goal.</div>
-        </div>
-      )}
-      {goals.map((g) => (
-        <GoalCard
-          key={g.id}
-          goal={g}
-          accent={accent}
-          onToggle={() => onToggle(g.id)}
-          onDelete={() => onDelete(g.id)}
-          onEditText={(text) => onEditText(g.id, text)}
-          onEditNote={(note) => onEditNote(g.id, note)}
-          onEditStartDate={(date) => onEditStartDate(g.id, date)}
-        />
-      ))}
+        {goals.length === 0 && !composing && (
+          // One muted line. Three stacked illustrated empty states was
+          // the app apologising three times on a panel that is empty
+          // only until you have used it once.
+          <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: '8px 2px' }}>
+            Nothing here yet — <span style={{ color: 'var(--accent)' }}>+</span> to add one.
+          </div>
+        )}
+        {goals.map((g) => (
+          <GoalRow
+            key={g.id}
+            goal={g}
+            accent={accent}
+            open={openId === g.id}
+            onOpen={() => onOpenChange(g.id)}
+            onClose={() => onOpenChange(null)}
+            onToggle={() => onToggle(g.id)}
+            onDelete={() => onDelete(g.id)}
+            onEditText={(text) => onEditText(g.id, text)}
+            onEditNote={(note) => onEditNote(g.id, note)}
+            onEditStartDate={(date) => onEditStartDate(g.id, date)}
+          />
+        ))}
       </div>
-
-      <form onSubmit={submitAdd} style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-        <input
-          value={newText}
-          onChange={(e) => setNewText(e.target.value)}
-          placeholder="+ Add goal…"
-          style={{ flex: 1, fontSize: 12, padding: 4, minWidth: 0 }}
-        />
-        <input
-          type="date"
-          value={newDate}
-          onChange={(e) => setNewDate(e.target.value)}
-          title="Start date"
-          style={{ fontSize: 12, padding: 4, width: 118 }}
-        />
-        <button type="submit">Add</button>
-      </form>
     </div>
   );
 }
 
-// `projectKey` is owned by the shell, because panel 1's Goals button is
-// what changes it. Reading it once on mount (as this did) meant pressing
-// Goals on another card updated the server and the button's highlight
-// while this panel went on showing the previous project's goals.
 export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | null }) {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
   const [panel, setPanel] = useState<GoalPanel | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
+  // ONE open goal across the whole panel, not one per section. Two open
+  // editors would be two places to look for the thing you are editing,
+  // and the panel is 545px wide — there is room for exactly one.
+  const [openGoalId, setOpenGoalId] = useState<number | null>(null);
 
   const refreshGoals = (key: ProjectKey) => goalsApi.list(key).then(setGoals);
 
@@ -300,7 +517,7 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
   return (
     // Fills the column and lets the three sections divide its height,
     // rather than sitting at a fixed max-width inside it.
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, paddingLeft: 22 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflowY: 'auto', paddingLeft: 22, paddingRight: 4 }}>
       {/* The project chips that used to sit here are gone. Panel 1's
           Goals button is the switch — legacy has exactly one control for
           this, and two of them disagreeing about which project is
@@ -335,11 +552,20 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
             weight={weight}
             accent={accent}
             goals={goals.filter((g) => g.horizon === key)}
+            openId={openGoalId}
+            onOpenChange={setOpenGoalId}
             onAdd={(text, startDate) =>
               goalsApi.create(shownKey, key, text, startDate).then(() => refreshGoals(shownKey))
             }
             onToggle={(id) => goalsApi.toggle(id).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))}
-            onDelete={(id) => goalsApi.remove(id).then(() => setGoals((gs) => gs.filter((x) => x.id !== id)))}
+            onDelete={(id) =>
+              goalsApi.remove(id).then(() => {
+                setGoals((gs) => gs.filter((x) => x.id !== id));
+                // Deleting the goal that is open would otherwise leave
+                // the panel holding an id that no longer resolves.
+                setOpenGoalId((cur) => (cur === id ? null : cur));
+              })
+            }
             onEditText={(id, text) =>
               goalsApi.edit(id, { text }).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))
             }

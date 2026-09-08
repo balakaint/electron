@@ -392,7 +392,7 @@ function ProjectCard({
                     had it hard-coded in the same colour the app uses for
                     risk and delete-hover, and "DAY 37" is a neutral fact
                     that does not get more alarming as it grows. */}
-                <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                   {dayNumber(s.added_date)}
                 </span>
                 {!s.done && (
