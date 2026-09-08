@@ -458,7 +458,7 @@ function AppShell() {
             ←  Back
           </button>
           {overlay.kind === 'analysis' && (
-            <BusinessAnalysisCanvas projectKey={overlay.project} onClose={() => setOverlay(null)} />
+            <BusinessAnalysisCanvas projectKey={overlay.project} />
           )}
           {overlay.kind === 'journey' && <JourneyPanel />}
           {overlay.kind === 'habits' && <HabitDashboard />}

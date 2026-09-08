@@ -283,6 +283,7 @@ export interface CirclePerson {
 
 export const projectsApi = {
   order: () => req('GET', '/api/projects/order') as Promise<ProjectOrderEntry[]>,
+  get: (key: ProjectKey) => req('GET', `/api/projects/${key}`) as Promise<Project>,
   todayProgress: () => req('GET', '/api/projects/today-progress') as Promise<TodayProgress>,
   update: (key: ProjectKey, patch: Partial<Pick<Project, 'name' | 'note' | 'detail_note' | 'note_title' | 'collapsed'>>) =>
     req('PUT', `/api/projects/${key}`, patch) as Promise<Project>,

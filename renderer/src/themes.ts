@@ -70,6 +70,18 @@ export const THEME_LABELS: Record<Theme, string> = {
 // 11019-11020) and reuses them unchanged across every theme, unlike
 // every other token above. HIGH reuses NO-GO's red and MED reuses
 // VALIDATE's orange in legacy too — not a coincidence introduced here.
+// The five section accents on the Business Analysis page, straight from
+// legacy (10313-10317) and, like the status colours below, the same on
+// every theme. Each names what its section is FOR: what the thing is,
+// the opportunity, the money, the judgement, what happens next.
+const BA_SECTION_COLORS = {
+  '--ba-idea': '#4C6EF5',
+  '--ba-upside': '#0CA678',
+  '--ba-money': '#F08C00',
+  '--ba-decide': '#7048E8',
+  '--ba-do': '#2F9E44',
+};
+
 const BA_STATUS_COLORS = {
   '--ba-go': '#2F9E44',
   '--ba-validate': '#F08C00',
@@ -137,6 +149,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#E8E5E0',
     '--progress-ring': '#1A1A1A',
     ...BA_STATUS_COLORS,
+    ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#185FA5',
     '--habit-health': '#2D6A4F',
@@ -173,6 +186,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#1A1A1E',
     '--progress-ring': '#FFFFFF',
     ...BA_STATUS_COLORS,
+    ...BA_SECTION_COLORS,
     ...BDP_DARK,
     '--habit-money': '#58A6FF',
     '--habit-health': '#00D4AA',
@@ -209,6 +223,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#EBEBEB',
     '--progress-ring': '#111111',
     ...BA_STATUS_COLORS,
+    ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#185FA5',
     '--habit-health': '#059669',
@@ -248,6 +263,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#E7E2DB',
     '--progress-ring': '#1C1917',
     ...BA_STATUS_COLORS,
+    ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#0C4A6E',
     '--habit-health': '#059669',
@@ -284,6 +300,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#17211D',
     '--progress-ring': '#FFFFFF',
     ...BA_STATUS_COLORS,
+    ...BA_SECTION_COLORS,
     ...BDP_DARK,
     '--habit-money': '#4CE0A0',
     '--habit-health': '#38B384',
@@ -326,6 +343,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#E5E7EB',
     '--progress-ring': '#111827',
     ...BA_STATUS_COLORS,
+    ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#0C4A6E',
     '--habit-health': '#059669',

@@ -40,10 +40,27 @@ export default function CircleSection({ projectKey }: { projectKey: ProjectKey }
     });
   };
 
+  // No heading of its own. Its only caller is the PEOPLE card on the
+  // Business Analysis page, which is already titled — a "CIRCLE" label
+  // inside a card called PEOPLE is the same thing named twice, and the
+  // second name is the one nobody uses. The add row also goes FIRST, as
+  // legacy has it: the list grows downward from the field that fills it.
   return (
-    <div style={{ marginTop: 16 }}>
-      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4, letterSpacing: 0.5 }}>CIRCLE</div>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 8, flex: 'none' }}>
+        <input
+          aria-label="Add a person to this project"
+          value={newPerson}
+          onChange={(e) => setNewPerson(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && add()}
+          placeholder="Add person…"
+          style={{ flex: 1, fontSize: 12, padding: 4, height: 24 }}
+        />
+        <button onClick={add} title="Add person" style={{ height: 24, padding: '0 8px', fontSize: 12 }}>
+          + add
+        </button>
+      </div>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0, overflowY: 'auto', minHeight: 0, flex: 1 }}>
         {people.map((p) => (
           <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '4px 0' }}>
             <span
@@ -72,18 +89,6 @@ export default function CircleSection({ projectKey }: { projectKey: ProjectKey }
           </li>
         ))}
       </ul>
-      <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-        <input
-          value={newPerson}
-          onChange={(e) => setNewPerson(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-          placeholder="Add person…"
-          style={{ flex: 1, fontSize: 12, padding: 4 }}
-        />
-        <button onClick={add} title="Add person">
-          +
-        </button>
-      </div>
     </div>
   );
 }
