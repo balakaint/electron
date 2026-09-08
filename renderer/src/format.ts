@@ -33,9 +33,23 @@ export function formatSecs(secs: number): string {
  * cycle through (15/30/45/60/90/120) and the number you picked is the
  * number you should see.
  */
-export function projTimeText(secs: number, targetMinutes: number): string {
+/**
+ * Just the elapsed half — "15m", "1h 05m".
+ *
+ * The collapsed project row shows this and not the pair. The row
+ * already carries a filled progress bar, which IS elapsed-against-target
+ * drawn rather than written; printing "0m / 2h" beside it says the same
+ * thing twice and costs 40px of a name column that was truncating
+ * "PRODUCT PHOTOS" to "PRODUCT PHO…". The target survives in the row's
+ * tooltip, where it is one hover away and costs nothing.
+ */
+export function elapsedText(secs: number): string {
   const m = Math.floor(Math.max(0, secs) / 60);
-  const elapsed = m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
+  return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
+}
+
+export function projTimeText(secs: number, targetMinutes: number): string {
+  const elapsed = elapsedText(secs);
   const target =
     targetMinutes >= 60 && targetMinutes % 60 === 0 ? `${targetMinutes / 60}h` : `${targetMinutes}m`;
   return `${elapsed} / ${target}`;
