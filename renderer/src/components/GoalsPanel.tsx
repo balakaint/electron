@@ -2,22 +2,37 @@ import { useEffect, useState } from 'react';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { Goal, GoalHorizon, GoalPanel, ProjectKey, ProjectOrderEntry, goalsApi, projectsApi } from '../services/api';
 
-// Labels and glyphs are legacy's, from every theme's own SECTIONS entry
-// (e.g. ("yearly", "SHORT TERM GOAL", ..., "◈")). The stored KEYS stay
-// yearly/monthly/weekly — they are internal and never shown, and
-// renaming them would invalidate saved data for a label change.
+// ⚠ READ THE KEYS CAREFULLY BEFORE CHANGING ANYTHING HERE.
 //
-// The names read backwards on purpose: the YEARLY row is "SHORT TERM
-// GOAL". That is legacy's framing, not a mix-up — the horizon is how
-// long the goal runs, the label is how near the work is.
+// The `key` and the `label` do NOT correspond, and that is deliberate in
+// two separate layers.
+//
+// Legacy shipped SHORT / MID / LONG TERM against keys yearly / monthly /
+// weekly, already crossed: the horizon is how long the goal runs, the
+// label is how near the work is. Zahid then asked for the defaults to
+// read WEEKLY / MONTHLY / YEARLY top to bottom, which crosses them the
+// rest of the way — the top row's key is `yearly` and it now says
+// "WEEKLY GOAL".
+//
+// That looks like a bug and it is not one, so: DO NOT "fix" it by
+// renaming the keys or reordering this array. The keys are the stored
+// horizon on every Goal row and the column names behind
+// sec_title_yearly / _monthly / _weekly. Swapping them would move every
+// existing goal to a different section of the screen — a data reshuffle
+// dressed up as a label change. The words on screen are the only thing
+// that changed here.
+//
+// These are DEFAULTS. Each heading is editable and the custom title is
+// stored per horizon, so `sectionTitle[key] || label` means anyone who
+// has already renamed a section keeps their name.
 //
 // `weight` is legacy's 50/25/25 height split. weight alone would divide
 // only the leftover space, so sections with similar content came out
 // near-equal; these are explicit fractions of the column instead.
 const HORIZONS: { key: GoalHorizon; label: string; glyph: string; accent: string; weight: number }[] = [
-  { key: 'yearly', label: 'SHORT TERM GOAL', glyph: '◈', accent: 'var(--goal-yearly)', weight: 50 },
-  { key: 'monthly', label: 'MID TERM GOAL', glyph: '❖', accent: 'var(--goal-monthly)', weight: 25 },
-  { key: 'weekly', label: 'LONG TERM GOAL', glyph: '◆', accent: 'var(--goal-weekly)', weight: 25 },
+  { key: 'yearly', label: 'WEEKLY GOAL', glyph: '◈', accent: 'var(--goal-yearly)', weight: 50 },
+  { key: 'monthly', label: 'MONTHLY GOAL', glyph: '❖', accent: 'var(--goal-monthly)', weight: 25 },
+  { key: 'weekly', label: 'YEARLY GOAL', glyph: '◆', accent: 'var(--goal-weekly)', weight: 25 },
 ];
 
 function GoalCard({
@@ -166,7 +181,8 @@ function GoalSection({
     <div
       style={{
         // The 50/25/25 split, and each section scrolls inside itself so a
-        // long SHORT TERM list cannot push MID and LONG off the panel.
+        // long list in the top section cannot push the other two off the
+        // panel.
         flex: `${weight} 1 0`,
         minHeight: 0,
         display: 'flex',
