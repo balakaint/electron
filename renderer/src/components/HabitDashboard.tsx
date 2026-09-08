@@ -108,7 +108,7 @@ export default function HabitDashboard() {
         <ScoreRing score={score} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>◎ TODAY I WILL:</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>◎ TODAY I WILL:</span>
             <input
               value={intentionField.value}
               onChange={(e) => intentionField.setValue(e.target.value)}
@@ -119,7 +119,7 @@ export default function HabitDashboard() {
             />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, opacity: 0.7, whiteSpace: 'nowrap', color: 'var(--habit-success)' }}>◈ TODAY'S WIN:</span>
+            <span style={{ fontSize: 12, opacity: 0.7, whiteSpace: 'nowrap', color: 'var(--habit-success)' }}>◈ TODAY'S WIN:</span>
             <input
               value={winField.value}
               onChange={(e) => winField.setValue(e.target.value)}
@@ -132,9 +132,9 @@ export default function HabitDashboard() {
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 20, fontWeight: 'bold', color: 'var(--habit-warning)' }}>🔥 {streak} days</div>
-          <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>STREAK</div>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>STREAK</div>
           {alertText && (
-            <div style={{ fontSize: 11, marginTop: 4, color: alertText.startsWith('⚠') ? 'var(--habit-danger)' : 'var(--habit-success)' }}>
+            <div style={{ fontSize: 12, marginTop: 4, color: alertText.startsWith('⚠') ? 'var(--habit-danger)' : 'var(--habit-success)' }}>
               {alertText}
             </div>
           )}

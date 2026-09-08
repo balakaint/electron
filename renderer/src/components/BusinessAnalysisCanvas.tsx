@@ -43,7 +43,7 @@ function Field({
 
   return (
     <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 3 }}>{label}</div>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 3 }}>{label}</div>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -117,12 +117,12 @@ export default function BusinessAnalysisCanvas({
             onClick={openAttach}
             onDoubleClick={detachFile}
             title="Click to open · double-click to detach"
-            style={{ fontSize: 11, marginRight: 8 }}
+            style={{ fontSize: 12, marginRight: 8 }}
           >
             + {ba.attach_path.split(/[\\/]/).pop()?.slice(0, 24)}
           </button>
         ) : (
-          <button onClick={pickAttach} title="Link a supporting Word/Excel/CSV file" style={{ fontSize: 11, marginRight: 8 }}>
+          <button onClick={pickAttach} title="Link a supporting Word/Excel/CSV file" style={{ fontSize: 12, marginRight: 8 }}>
             + Attach Word/Excel
           </button>
         )}
@@ -215,7 +215,7 @@ export default function BusinessAnalysisCanvas({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {nonEmptyBoxes.map((b) => (
               <div key={b.box_index} style={{ border: '1px solid var(--border)', borderRadius: 4, padding: 8 }}>
-                {b.title && <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>{b.title}</div>}
+                {b.title && <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>{b.title}</div>}
                 <div style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{b.text}</div>
               </div>
             ))}

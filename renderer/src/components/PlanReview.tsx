@@ -11,6 +11,7 @@ import {
   quarterlyApi,
 } from '../services/api';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
+import { accentText } from '../themes';
 import HourPlanTab from './HourPlan';
 
 // Legacy's PLAN review card (task_tracker_v3_THEMES.py 3585-3955): a
@@ -69,7 +70,7 @@ function MindsetTab() {
 
   return (
     <div>
-      <div style={{ fontSize: 10, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: 4 }}>TODAY'S MINDSET</div>
+      <div style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: 4 }}>TODAY'S MINDSET</div>
       <textarea
         value={note.value}
         onChange={(e) => note.setValue(e.target.value)}
@@ -86,7 +87,7 @@ function MindsetTab() {
         }}
       />
 
-      <div style={{ fontSize: 10, letterSpacing: 0.5, color: 'var(--text-faint)', margin: '12px 0 4px' }}>RECENT</div>
+      <div style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)', margin: '12px 0 4px' }}>RECENT</div>
       {history.length === 0 ? (
         <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Nothing yet — tomorrow this fills in.</div>
       ) : (
@@ -96,7 +97,7 @@ function MindsetTab() {
         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 10px' }}>
           {history.map((h) => (
             <div key={h.day} style={{ display: 'contents' }}>
-              <div style={{ fontSize: 11, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>{h.label}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>{h.label}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'pre-wrap' }}>{h.text}</div>
             </div>
           ))}
@@ -127,7 +128,7 @@ function DisciplineTab() {
         {/* Only shown once there IS a streak. A permanent "0 day streak"
             is a daily reminder of failure, which is the opposite of what
             a habit tracker is for — legacy's own reasoning. */}
-        {streak > 0 && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>{streak} day streak</span>}
+        {streak > 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto' }}>{streak} day streak</span>}
       </div>
 
       {CATEGORIES.map(([cat, label]) => {
@@ -135,7 +136,7 @@ function DisciplineTab() {
         if (rows.length === 0) return null;
         return (
           <div key={cat} style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 2 }}>{label}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 2 }}>{label}</div>
             {rows.map((h) => (
               <button
                 key={h.id}
@@ -180,8 +181,8 @@ function ConsistencyRow({ project }: { project: Project }) {
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 12 }}>
-        <span style={{ fontWeight: 'bold', color: project.accent_color }}>{project.name}</span>
-        <span style={{ color: 'var(--text-faint)', fontSize: 11, marginLeft: 'auto' }}>
+        <span style={{ fontWeight: 'bold', color: accentText(project.accent_color) }}>{project.name}</span>
+        <span style={{ color: 'var(--text-faint)', fontSize: 12, marginLeft: 'auto' }}>
           {hits}/30 days · {project.target_minutes}m target
         </span>
       </div>
@@ -259,7 +260,7 @@ function QuarterLink({ onOpen }: { onOpen: () => void }) {
       title="Open the quarterly plan"
       style={{
         marginLeft: 'auto',
-        fontSize: 11,
+        fontSize: 12,
         border: 'none',
         background: 'transparent',
         // Muted once something is planned; the accent is a nudge for an
@@ -267,6 +268,8 @@ function QuarterLink({ onOpen }: { onOpen: () => void }) {
         color: panel.areas_done ? 'var(--text-muted)' : 'var(--accent)',
         cursor: 'pointer',
         whiteSpace: 'nowrap',
+        height: 24,
+        padding: '0 4px',
       }}
     >
       {panel.cycle_days}-day plan {panel.areas_done}/{panel.areas_total} · {tail} ›
@@ -288,6 +291,8 @@ export default function PlanReview({ onOpenQuarterly }: { onOpenQuarterly: () =>
             onClick={() => setTab(key)}
             style={{
               fontSize: 12,
+              height: 24,
+              padding: '0 10px',
               fontWeight: tab === key ? 'bold' : 'normal',
               background: tab === key ? 'var(--accent-light)' : undefined,
             }}

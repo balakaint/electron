@@ -63,7 +63,7 @@ function CycleEditor({ panel, onSet, onClose }: { panel: Q90Panel; onSet: (start
 
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12, marginBottom: 12, background: 'var(--surface)' }}>
-      <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>HOW LONG IS ONE CYCLE?</div>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 6 }}>HOW LONG IS ONE CYCLE?</div>
       <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
         {PRESETS.map((p) => (
           <button
@@ -87,9 +87,9 @@ function CycleEditor({ panel, onSet, onClose }: { panel: Q90Panel; onSet: (start
           max={CYCLE_MAX}
           style={{ width: 70, fontSize: 12, padding: 4 }}
         />
-        <span style={{ fontSize: 11, color: 'var(--text-faint)', alignSelf: 'center' }}>days</span>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)', alignSelf: 'center' }}>days</span>
       </div>
-      <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>STARTS ON</div>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 6 }}>STARTS ON</div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input type="date" value={start} onChange={(e) => setStart(e.target.value)} style={{ fontSize: 12, padding: 4 }} />
         <button onClick={submit} style={{ fontSize: 12, fontWeight: 'bold' }}>
@@ -145,18 +145,18 @@ function AreaAccordion({
           textAlign: 'left',
         }}
       >
-        <span style={{ fontSize: 11, color: 'var(--text-faint)', width: 12 }}>{isOpen ? '▾' : '▸'}</span>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)', width: 12 }}>{isOpen ? '▾' : '▸'}</span>
         <span style={{ fontSize: 14 }}>{area.glyph}</span>
         <span style={{ fontWeight: 'bold', fontSize: 13, flex: 1 }}>{area.label}</span>
-        {!isOpen && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{clip(area.out, 46)}</span>}
+        {!isOpen && <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{clip(area.out, 46)}</span>}
       </button>
       {isOpen && (
         <div style={{ padding: '4px 12px 12px' }}>
-          <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: '0 0 8px' }}>{area.description}</p>
+          <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 8px' }}>{area.description}</p>
           {PROMPTS.map((p) => (
             <div key={p.field} style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 2 }}>{p.question(cycleDays)}</div>
-              <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>{p.hint}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>{p.hint}</div>
               <PromptField
                 value={area[p.field]}
                 rows={p.rows}

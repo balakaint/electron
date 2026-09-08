@@ -309,7 +309,7 @@ function AppShell() {
             <button
               onClick={() => setLayout(layout === 'full' ? 'partial' : 'full')}
               title={layout === 'full' ? 'Hide the projects panel' : 'Show the projects panel'}
-              style={{ position: 'absolute', top: 0, left: 0, zIndex: 2, fontSize: 11, padding: '0 4px', lineHeight: '18px' }}
+              style={{ position: 'absolute', top: 0, left: 0, zIndex: 2, fontSize: 12, padding: 0, width: 24, height: 24 }}
             >
               {layout === 'full' ? '▶' : '◀'}
             </button>
@@ -407,9 +407,9 @@ function AppShell() {
       {/* Only shown when there is something to say. A permanent
           "Engine: ok" line is a strip of chrome that never changes,
           and in a fixed-height shell it costs a row of the task list. */}
-      {exportStatus && <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>{exportStatus}</p>}
+      {exportStatus && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>{exportStatus}</p>}
       {status !== 'ok' && (
-        <p style={{ margin: '4px 0 0', fontSize: 11, color: 'var(--text-faint)' }}>
+        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>
           Engine: {status === 'checking' ? 'starting…' : 'not responding'}
         </p>
       )}

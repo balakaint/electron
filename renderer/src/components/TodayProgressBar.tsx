@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ProjectOrderEntry, TodayProgress } from '../services/api';
-import { PB_RAMPS, currentTheme } from '../themes';
+import { PB_RAMPS, accentText, currentTheme, inkOn } from '../themes';
 
 const H = 22;
 
@@ -93,7 +93,7 @@ export default function TodayProgressBar({
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 11, letterSpacing: 0.5, color: 'var(--text-faint)', fontWeight: 'bold' }}>TODAY PROGRESS</span>
+        <span style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)', fontWeight: 'bold' }}>TODAY PROGRESS</span>
         {/* The standalone "↻ 12%" is gone. This card was saying the same
             day four ways: a percentage, this time pair, the segmented
             bar, and "n/6 projects today" underneath. Three of those
@@ -174,13 +174,21 @@ export default function TodayProgressBar({
                 />
                 {/* The number matches the badge on the project card, so
                     the eye can jump from "4 is empty" to the right card.
-                    Anonymous segments answer only half the question. */}
+                    Anonymous segments answer only half the question.
+
+                    Its colour is chosen against whatever is actually
+                    UNDER it. A centred number sits on the fill once the
+                    fill passes halfway and on the bare track before
+                    that, and the old rule — white when full enough,
+                    otherwise the raw accent — got both ends wrong: white
+                    on a light theme's track measured 1.1:1, and the raw
+                    accent on a dark theme's 2.6:1. */}
                 <span
                   style={{
                     position: 'relative',
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: 'bold',
-                    color: f > 0.55 ? '#FFFFFF' : p.accent_color,
+                    color: f > 0.55 ? inkOn(p.accent_color) : accentText(p.accent_color, '--progress-track'),
                     lineHeight: 1,
                   }}
                 >

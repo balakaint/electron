@@ -133,9 +133,10 @@ export default function Panel3({
           top: 0,
           left: 0,
           zIndex: 2,
-          fontSize: 11,
+          fontSize: 12,
           padding: '0 4px',
-          lineHeight: '18px',
+          width: 24,
+          height: 24,
         }}
       >
         {/* Legacy: `text="▶" if _shown else "◀"` — the arrow shows the

@@ -62,7 +62,7 @@ export default function StrikeCard({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ flex: 1, fontSize: 11, fontWeight: 'bold', letterSpacing: 0.5, color: 'var(--text-muted)' }}>
+        <span style={{ flex: 1, fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5, color: 'var(--text-muted)' }}>
           {L('STRIKE', 'স্ট্রাইক')}
         </span>
         {/* Legacy 5946-5956 rejected the "n / 3" form: "1/3" was a lie
@@ -74,7 +74,7 @@ export default function StrikeCard({
             and all of it is done; an empty day is not a finished one. */}
         <span
           style={{
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 'bold',
             color: struck.length > 0 && doneCount === struck.length ? 'var(--success)' : undefined,
             opacity: struck.length > 0 && doneCount === struck.length ? 1 : 0.7,
@@ -211,7 +211,7 @@ export default function StrikeCard({
               </span>
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontFamily: 'monospace',
                   color: isRunning(t) ? 'var(--danger)' : undefined,
                   opacity: isRunning(t) ? 1 : 0.6,

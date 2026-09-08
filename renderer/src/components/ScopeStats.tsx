@@ -63,7 +63,7 @@ export default function ScopeStats() {
             textAlign: 'center',
           }}
         >
-          <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{c.cap}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{c.cap}</div>
           <div style={{ fontSize: c.val.length > 10 ? 11 : 14, fontWeight: 'bold', color: c.accent ? 'var(--accent)' : 'var(--text)' }}>
             {c.val}
           </div>

@@ -515,7 +515,7 @@ export default function TaskList({
           <div style={{ fontSize: 28, marginBottom: 8 }}>{emptyState.icon}</div>
           <div style={{ fontSize: 14 }}>{emptyState.title}</div>
           {emptyState.subtitle && (
-            <div style={{ fontSize: 11, marginTop: 4, color: 'var(--text-muted)' }}>{emptyState.subtitle}</div>
+            <div style={{ fontSize: 12, marginTop: 4, color: 'var(--text-muted)' }}>{emptyState.subtitle}</div>
           )}
           {emptyState.chips.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 12, flexWrap: 'wrap' }}>
@@ -523,7 +523,7 @@ export default function TaskList({
                 <button
                   key={chip}
                   onClick={() => quickAddChip(chip)}
-                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 12 }}
+                  style={{ fontSize: 12, padding: '4px 10px', borderRadius: 12 }}
                 >
                   {chip}
                 </button>
@@ -624,7 +624,7 @@ export default function TaskList({
               {t.hour_slot_id !== null && hourLabelFor(t) && (
                 <span
                   title="Started from your hour plan"
-                  style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-faint)', flex: 'none' }}
+                  style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--text-faint)', flex: 'none' }}
                 >
                   {hourLabelFor(t)}
                 </span>
@@ -634,7 +634,7 @@ export default function TaskList({
                 <button
                   onClick={() => cycleUrgency(t.id)}
                   title="Cycle priority"
-                  style={{ color: URGENCY_COLOR.high, fontSize: 11, height: 24, padding: '0 6px', flex: 'none' }}
+                  style={{ color: URGENCY_COLOR.high, fontSize: 12, height: 24, padding: '0 6px', flex: 'none' }}
                 >
                   HIGH
                 </button>
@@ -642,7 +642,7 @@ export default function TaskList({
 
               {t.est > 0 && !t.done && (
                 t.secs > t.est * 60 ? (
-                  <span style={{ fontSize: 11, color: 'var(--danger)', flex: 'none' }} title="Over the time-box">
+                  <span style={{ fontSize: 12, color: 'var(--danger)', flex: 'none' }} title="Over the time-box">
                     ! {Math.floor(t.secs / 60)}m / ~{t.est}m
                   </span>
                 ) : (
@@ -651,7 +651,7 @@ export default function TaskList({
               )}
 
               {listKey === 'classic' && dayView === 'tomorrow' && (
-                <button onClick={() => sendToToday(t)} title="Move to today" style={{ fontSize: 11, height: 24, flex: 'none' }}>
+                <button onClick={() => sendToToday(t)} title="Move to today" style={{ fontSize: 12, height: 24, flex: 'none' }}>
                   → Today
                 </button>
               )}
@@ -697,7 +697,7 @@ export default function TaskList({
                       ? `Already ${STRIKE_MAX}/${STRIKE_MAX} — today is full`
                       : "Commit this to today's 3"
                   }
-                  style={{ fontSize: 10, height: 24, padding: '0 6px', flex: 'none' }}
+                  style={{ fontSize: 12, height: 24, padding: '0 6px', flex: 'none' }}
                 >
                   + STRIKE
                 </button>
@@ -707,7 +707,20 @@ export default function TaskList({
                 onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}
                 aria-expanded={expandedId === t.id}
                 title="More — reorder, priority, sessions, delete"
-                style={{ width: 24, height: 24, padding: 0, flex: 'none', color: 'var(--text-muted)' }}
+                // Explicitly transparent. A button with no background of
+                // its own keeps Chromium's default face, which under
+                // color-scheme:dark is #6B6B6B — and --text-muted on
+                // that measured 2.08:1. Every icon button in this app
+                // paints its own background for exactly this reason.
+                style={{
+                  width: 24,
+                  height: 24,
+                  padding: 0,
+                  flex: 'none',
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text-muted)',
+                }}
               >
                 ⋯
               </button>
@@ -728,7 +741,7 @@ export default function TaskList({
                 <button
                   onClick={() => cycleUrgency(t.id)}
                   title="Cycle priority"
-                  style={{ color: URGENCY_COLOR[t.urgency], fontSize: 11, height: 24, padding: '0 8px' }}
+                  style={{ color: URGENCY_COLOR[t.urgency], fontSize: 12, height: 24, padding: '0 8px' }}
                 >
                   {t.urgency.toUpperCase()}
                 </button>
@@ -736,15 +749,15 @@ export default function TaskList({
                     to throw away — an always-on destructive control does
                     nothing useful on a fresh task. */}
                 {t.secs > 0 && (
-                  <button onClick={() => resetTaskTimer(t)} title="Reset this task's timer" style={{ height: 24, padding: '0 8px', fontSize: 11 }}>
+                  <button onClick={() => resetTaskTimer(t)} title="Reset this task's timer" style={{ height: 24, padding: '0 8px', fontSize: 12 }}>
                     ↺ reset
                   </button>
                 )}
-                <button onClick={() => deleteTask(t)} title="Delete this task" style={{ height: 24, padding: '0 8px', fontSize: 11 }}>
+                <button onClick={() => deleteTask(t)} title="Delete this task" style={{ height: 24, padding: '0 8px', fontSize: 12 }}>
                   ✕ delete
                 </button>
                 {t.sessions.length > 0 && (
-                  <span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 4 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-faint)', marginLeft: 4 }}>
                     {t.sessions.length} session{t.sessions.length === 1 ? '' : 's'}
                   </span>
                 )}
@@ -752,7 +765,7 @@ export default function TaskList({
             )}
 
             {expandedId === t.id && t.sessions.length > 0 && (
-              <ul style={{ listStyle: 'none', margin: '4px 0 0 32px', padding: 0, fontSize: 11, color: 'var(--text-muted)' }}>
+              <ul style={{ listStyle: 'none', margin: '4px 0 0 32px', padding: 0, fontSize: 12, color: 'var(--text-muted)' }}>
                 {[...t.sessions].reverse().map((s, i) => (
                   <li key={i}>{formatSessionSpan(s.start, s.end)}</li>
                 ))}
@@ -780,7 +793,7 @@ export default function TaskList({
             <div style={{ fontSize: 15, fontWeight: 'bold', color: 'var(--warning)', marginBottom: 4 }}>
               ★ WHAT'S TODAY'S MIT?
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12 }}>One Most Important Task. Do it first.</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>One Most Important Task. Do it first.</div>
             {mitPromptTasks.map((t) => (
               <button
                 key={t.id}
@@ -792,7 +805,7 @@ export default function TaskList({
             ))}
             <button
               onClick={() => setMitPromptTasks(null)}
-              style={{ display: 'block', margin: '10px auto 0', fontSize: 11, opacity: 0.6, border: 'none', background: 'none' }}
+              style={{ display: 'block', margin: '10px auto 0', fontSize: 12, opacity: 0.6, border: 'none', background: 'none' }}
             >
               Skip today
             </button>

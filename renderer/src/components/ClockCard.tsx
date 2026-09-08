@@ -100,7 +100,7 @@ export default function ClockCard() {
             (5016): the numeric date below stays as it is in both. */}
         {lang === 'bn' ? bnDayName(now) : now.toLocaleDateString(undefined, { weekday: 'long' })}
       </div>
-      <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
         {now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
       </div>
         </div>

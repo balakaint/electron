@@ -42,7 +42,7 @@ export default function CircleSection({ projectKey }: { projectKey: ProjectKey }
 
   return (
     <div style={{ marginTop: 16 }}>
-      <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4, letterSpacing: 0.5 }}>CIRCLE</div>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4, letterSpacing: 0.5 }}>CIRCLE</div>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {people.map((p) => (
           <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '2px 0' }}>
@@ -59,7 +59,7 @@ export default function CircleSection({ projectKey }: { projectKey: ProjectKey }
             <button
               onClick={() => circleApi.update(p.id, { cadence_days: nextCadence(p.cadence_days) }).then(refresh)}
               title="How often you want to be in touch — click to change"
-              style={{ fontSize: 11, color: 'var(--text-muted)' }}
+              style={{ fontSize: 12, color: 'var(--text-muted)' }}
             >
               every {p.cadence_days}d
             </button>

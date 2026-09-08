@@ -433,3 +433,135 @@ export function themeSwatch(theme: Theme): [string, string, string, string] {
   const p = PALETTES[theme] ?? PALETTES.focus;
   return [p['--bg'], p['--surface'], p['--accent'], p['--text']];
 }
+
+// ─── Readable ink ────────────────────────────────────────────────────
+//
+// THE PROBLEM THIS SOLVES, and why it belongs here and not in the
+// components. Every project carries its own accent colour, chosen from
+// a GitHub-ish palette that was picked to look right as a FILL. Painted
+// as TEXT on a dark theme those same colours are unreadable: the audit
+// measured `#0550AE` on WAR ROOM's `#0C0C0F` at 2.57:1 against a 4.5:1
+// requirement, and forty-odd findings were that one mistake repeated
+// per project, per screen, per theme.
+//
+// The tempting fix is to pick darker-theme variants of the six accents.
+// That is the same mistake with more entries: the accent is a value the
+// USER can set per project, so any hand-written table is wrong for the
+// seventh colour. The right shape is a function of the colour and the
+// surface it lands on, computed at paint time.
+//
+// Two functions, because there are two situations and they are opposite:
+//   inkOn(bg)          text drawn ON a filled accent — pick black or
+//                      white, whichever the fill can carry.
+//   readableInk(c, bg) the accent drawn AS text on a surface — keep the
+//                      hue, move the lightness until it clears the bar.
+//
+// Non-text uses of an accent — bars, rails, chips, the fill itself —
+// are deliberately untouched. WCAG 1.4.3 is about text, and washing out
+// a 3px rail to satisfy a rule that does not apply to it would trade a
+// real quality for an imaginary one.
+
+function toRgb(color: string): [number, number, number] | null {
+  const hex = color.trim();
+  if (/^#[0-9a-f]{6}$/i.test(hex)) {
+    return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
+  }
+  if (/^#[0-9a-f]{3}$/i.test(hex)) {
+    return [1, 2, 3].map((i) => parseInt(hex[i] + hex[i], 16)) as [number, number, number];
+  }
+  const m = hex.match(/^rgba?\(([^)]+)\)$/i);
+  if (m) {
+    const parts = m[1].split(',').map((p) => parseFloat(p));
+    if (parts.length >= 3) return [parts[0], parts[1], parts[2]];
+  }
+  return null;
+}
+
+function relLuminance([r, g, b]: [number, number, number]): number {
+  const lin = [r, g, b]
+    .map((c) => c / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)));
+  return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2];
+}
+
+export function contrastRatio(a: string, b: string): number {
+  const ra = toRgb(a);
+  const rb = toRgb(b);
+  if (!ra || !rb) return 21;
+  const la = relLuminance(ra);
+  const lb = relLuminance(rb);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/** Black or white — whichever is readable on this fill. Legacy's _ink. */
+export function inkOn(background: string): string {
+  return contrastRatio('#FFFFFF', background) >= contrastRatio('#000000', background)
+    ? '#FFFFFF'
+    : '#000000';
+}
+
+/**
+ * The same colour, moved far enough in lightness to be readable as text
+ * on `surface`. Hue and saturation are preserved, so a project still
+ * reads as ITS colour — it is the same blue, lit for the room it is in.
+ *
+ * Walks in 4% steps away from the surface's own luminance and stops at
+ * the first value that clears the bar, so a colour that already passes
+ * is returned untouched and one that barely fails moves barely at all.
+ */
+export function readableInk(color: string, surface: string, target = 4.5): string {
+  const rgb = toRgb(color);
+  const surf = toRgb(surface);
+  if (!rgb || !surf) return color;
+  if (contrastRatio(color, surface) >= target) return color;
+
+  const [h, s, l] = rgbToHsl(rgb);
+  const towardLight = relLuminance(surf) < 0.5;
+  for (let step = 1; step <= 25; step++) {
+    const next = towardLight ? Math.min(1, l + step * 0.04) : Math.max(0, l - step * 0.04);
+    const candidate = hslToHex(h, s, next);
+    if (contrastRatio(candidate, surface) >= target) return candidate;
+  }
+  // Nothing in this hue clears the bar (a very dark surface and a very
+  // dark hue) — fall back to plain readable ink rather than shipping
+  // something that fails.
+  return inkOn(surface);
+}
+
+function rgbToHsl([r, g, b]: [number, number, number]): [number, number, number] {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) / 6;
+  else if (max === gn) h = ((bn - rn) / d + 2) / 6;
+  else h = ((rn - gn) / d + 4) / 6;
+  return [h, s, l];
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const f = (n: number) => {
+    const k = (n + h * 12) % 12;
+    const a = s * Math.min(l, 1 - l);
+    const v = l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+    return Math.round(255 * v);
+  };
+  return `#${[f(0), f(8), f(4)].map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * The colour text should be, for an accent painted on the app's card
+ * surface in the CURRENT theme. This is the call sites' entry point:
+ * they hold a project's accent and want the readable version of it,
+ * and they should not each be looking up which theme is on.
+ */
+export function accentText(accent: string, on = '--surface'): string {
+  const palette = PALETTES[currentTheme()] ?? PALETTES.focus;
+  return readableInk(accent, palette[on] ?? palette['--surface'] ?? '#FFFFFF');
+}

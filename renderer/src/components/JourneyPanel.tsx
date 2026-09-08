@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { inkOn } from '../themes';
 import { Journey, JourneyStage, ProjectKey, ProjectOrderEntry, journeyApi, projectsApi } from '../services/api';
 import { useAutoTimer } from '../useAutoTimer';
 
@@ -61,7 +62,7 @@ function StageDetail({
           style={{ fontWeight: 'bold', fontSize: 15, border: 'none', background: 'transparent', color: 'var(--text)', flex: 1 }}
         />
         {stage.done && <span style={{ color: 'var(--success)', fontSize: 12 }}>✓ DONE</span>}
-        {isCurrent && !stage.done && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>CURRENT</span>}
+        {isCurrent && !stage.done && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>CURRENT</span>}
       </div>
       <textarea
         value={description}
@@ -87,7 +88,7 @@ function StageDetail({
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>
             TASKS {doneCount}/{stage.tasks.length}
           </div>
           {stage.tasks.map((t) => (
@@ -131,7 +132,7 @@ function StageDetail({
         </div>
 
         <div style={{ flex: 1, minWidth: 220 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>LOG</div>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>LOG</div>
           {stage.logs.map((l) => (
             <div key={l.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
               <button onClick={() => onCycleLog(l.id)} title="Cycle status">
@@ -139,7 +140,7 @@ function StageDetail({
               </button>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12 }}>{l.text}</div>
-                <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{l.date}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{l.date}</div>
               </div>
               <button onClick={() => onDeleteLog(l.id)} title="Delete">✕</button>
             </div>
@@ -197,7 +198,7 @@ function CoverImage({
         onClick={onPick}
         title="Add a cover image"
         style={{
-          fontSize: 11,
+          fontSize: 12,
           padding: '10px 12px',
           border: '1px dashed var(--border)',
           borderRadius: 8,
@@ -233,10 +234,10 @@ function CoverImage({
           background: 'linear-gradient(to bottom, transparent 45%, var(--surface) 100%)',
         }}
       />
-      <button onClick={onPick} title="Change cover image" style={{ position: 'absolute', bottom: 6, right: 34, fontSize: 10, padding: '2px 6px' }}>
+      <button onClick={onPick} title="Change cover image" style={{ position: 'absolute', bottom: 6, right: 34, fontSize: 12, padding: '2px 6px' }}>
         Change
       </button>
-      <button onClick={onRemove} title="Remove cover image" style={{ position: 'absolute', bottom: 6, right: 6, fontSize: 10, padding: '2px 6px' }}>
+      <button onClick={onRemove} title="Remove cover image" style={{ position: 'absolute', bottom: 6, right: 6, fontSize: 12, padding: '2px 6px' }}>
         ✕
       </button>
     </div>
@@ -294,14 +295,14 @@ export default function JourneyPanel() {
               fontSize: 12,
               borderColor: entry.project.accent_color,
               background: entry.project.key === projectKey ? entry.project.accent_color : 'transparent',
-              color: entry.project.key === projectKey ? 'var(--on-accent)' : 'var(--text)',
+              color: entry.project.key === projectKey ? inkOn(entry.project.accent_color) : 'var(--text)',
             }}
           >
             {entry.number}. {entry.project.name}
           </button>
         ))}
       </div>
-      <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 12 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 12 }}>
         {(activeEntry?.project.name || projectKey).toUpperCase()} — JOURNEY
       </div>
 
@@ -347,7 +348,7 @@ export default function JourneyPanel() {
             onClick={() => journeyApi.openAttachFile(journey.attach_file)}
             onDoubleClick={() => apply(journeyApi.updateMeta(projectKey, { attach_file: '' }))}
             title="Click to open · double-click to detach"
-            style={{ fontSize: 11 }}
+            style={{ fontSize: 12 }}
           >
             + {journey.attach_file.split(/[\\/]/).pop()?.slice(0, 24)}
           </button>
@@ -359,7 +360,7 @@ export default function JourneyPanel() {
               })
             }
             title="Link a supporting Word/Excel/CSV file"
-            style={{ fontSize: 11 }}
+            style={{ fontSize: 12 }}
           >
             + Attach Word/Excel
           </button>
@@ -388,7 +389,7 @@ export default function JourneyPanel() {
             onClick={() => setActiveStage(s.stage_index)}
             disabled={s.stage_index === activeStage}
             style={{
-              fontSize: 11,
+              fontSize: 12,
               padding: '4px 8px',
               opacity: s.done ? 1 : 0.8,
               fontWeight: s.stage_index === journey.current_stage ? 'bold' : 'normal',

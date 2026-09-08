@@ -30,7 +30,7 @@ function Chip({ label, color, onClick }: { label: string; color: string; onClick
       onClick={onClick}
       style={{
         display: 'inline-block',
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: 'bold',
         padding: '2px 8px',
         borderRadius: 10,
@@ -89,7 +89,7 @@ function ChoiceRow<T extends string>({
           onClick={() => onChange(o)}
           disabled={o === value}
           style={{
-            fontSize: 11,
+            fontSize: 12,
             padding: '2px 8px',
             borderRadius: 10,
             border: 'none',
@@ -136,7 +136,7 @@ function TextField({
   };
   return (
     <div style={{ marginBottom: 6 }}>
-      <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 2 }}>{label}</div>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 2 }}>{label}</div>
       {multiline ? <textarea {...common} rows={2} /> : <input {...common} />}
     </div>
   );
@@ -158,7 +158,7 @@ function ActionsChecklist({
   const [text, setText] = useState('');
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 4 }}>
+      <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>
         NEXT ACTIONS {plan.next_actions.filter((a) => a.done).length}/{plan.next_actions.length}
       </div>
       {plan.next_actions.map((a) => (
@@ -226,11 +226,11 @@ function PlanDetail({
   return (
     <>
           <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 2 }}>STATUS</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 2 }}>STATUS</div>
             <ChoiceRow options={STATUSES} value={plan.status} colors={STATUS_COLOR} onChange={(v) => onPatch({ status: v })} />
           </div>
           <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-faint)', marginBottom: 2 }}>PRIORITY</div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 2 }}>PRIORITY</div>
             <ChoiceRow options={PRIORITIES} value={plan.priority} colors={PRIORITY_COLOR} onChange={(v) => onPatch({ priority: v })} />
           </div>
           <TextField label="Opportunity — why is this worth your time?" value={plan.opportunity} multiline onSave={(v) => onPatch({ opportunity: v })} />
@@ -313,10 +313,10 @@ function PlanCard({
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
         {sort === 'manual' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <button onClick={() => onMove(-1)} disabled={isFirst} title="Move up" style={{ width: 22, fontSize: 11 }}>
+            <button onClick={() => onMove(-1)} disabled={isFirst} title="Move up" style={{ width: 22, fontSize: 12 }}>
               ▲
             </button>
-            <button onClick={() => onMove(1)} disabled={isLast} title="Move down" style={{ width: 22, fontSize: 11 }}>
+            <button onClick={() => onMove(1)} disabled={isLast} title="Move down" style={{ width: 22, fontSize: 12 }}>
               ▼
             </button>
           </div>
@@ -339,28 +339,28 @@ function PlanCard({
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
             <Chip label={plan.status} color={STATUS_COLOR[plan.status]} />
             <Chip label={plan.priority} color={PRIORITY_COLOR[plan.priority]} />
-            {plan.market && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{plan.market}</span>}
-            {plan.timeline && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>· {plan.timeline}</span>}
+            {plan.market && <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{plan.market}</span>}
+            {plan.timeline && <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>· {plan.timeline}</span>}
           </div>
           {plan.opportunity && <p style={{ fontSize: 13, margin: '0 0 6px' }}>{plan.opportunity}</p>}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: 4 }}>
-            <button onClick={() => setExpanded((v) => !v)} style={{ fontSize: 11 }}>
+            <button onClick={() => setExpanded((v) => !v)} style={{ fontSize: 12 }}>
               {expanded ? 'Collapse ▲' : 'Details ▼'}
             </button>
-            <button onClick={onOpen} title="Open full page" style={{ fontSize: 11 }}>
+            <button onClick={onOpen} title="Open full page" style={{ fontSize: 12 }}>
               ⤢
             </button>
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
-            <button onClick={onDuplicate} title="Duplicate" style={{ fontSize: 11 }}>
+            <button onClick={onDuplicate} title="Duplicate" style={{ fontSize: 12 }}>
               ⧉
             </button>
-            <button onClick={onArchive} title="Archive" style={{ fontSize: 11 }}>
+            <button onClick={onArchive} title="Archive" style={{ fontSize: 12 }}>
               🗄
             </button>
-            <button onClick={onDelete} title="Delete" style={{ fontSize: 11 }}>
+            <button onClick={onDelete} title="Delete" style={{ fontSize: 12 }}>
               ✕
             </button>
           </div>
@@ -438,7 +438,7 @@ function PlanPage({
         <button onClick={onClose} style={{ fontSize: 12 }}>
           ←  All plans
         </button>
-        <span style={{ flex: 1, fontSize: 11, color: 'var(--text-faint)' }}>
+        <span style={{ flex: 1, fontSize: 12, color: 'var(--text-faint)' }}>
           {index + 1} of {total}
         </span>
         {/* Prev/Next wrap, as legacy's _sibling does with its modulo —
@@ -509,7 +509,7 @@ function TableHeader() {
             // Muted, not full strength: a column header is read once to
             // learn the layout and should never again compete with the
             // plan titles under it.
-            fontSize: 10,
+            fontSize: 12,
             letterSpacing: 0.5,
             color: 'var(--text-faint)',
             padding: '4px 8px',
@@ -543,7 +543,7 @@ function TableRow({ plan, onOpen }: { plan: BdpPlan; onOpen: () => void }) {
         <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {plan.title}
         </div>
-        <div style={{ color: 'var(--text-faint)', fontSize: 11 }}>
+        <div style={{ color: 'var(--text-faint)', fontSize: 12 }}>
           {plan.status} · {plan.priority}
           {plan.market ? ` · ${plan.market}` : ''}
         </div>
@@ -591,7 +591,7 @@ function ListRow({ plan, index, onOpen }: { plan: BdpPlan; index: number; onOpen
       <span style={{ fontWeight: 'bold', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {index}. {plan.title}
       </span>
-      <span style={{ color: 'var(--text-faint)', fontSize: 11, whiteSpace: 'nowrap' }}>{bits.join('   |   ')}</span>
+      <span style={{ color: 'var(--text-faint)', fontSize: 12, whiteSpace: 'nowrap' }}>{bits.join('   |   ')}</span>
     </div>
   );
 }

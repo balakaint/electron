@@ -121,11 +121,16 @@ export default function DeepWorkTrend() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
         <div style={{ fontSize: 13, fontWeight: 'bold' }}>
           Deep Work Trend
-          {streak > 0 && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 'normal', color: 'var(--accent)' }}>🔥 {streak}d streak</span>}
+          {streak > 0 && <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 'normal', color: 'var(--accent)' }}>🔥 {streak}d streak</span>}
         </div>
         <div style={{ display: 'flex', gap: 4 }}>
           {([30, 90] as const).map((d) => (
-            <button key={d} onClick={() => changeTrendDays(d)} disabled={trendDays === d} style={{ fontSize: 11 }}>
+            <button
+              key={d}
+              onClick={() => changeTrendDays(d)}
+              disabled={trendDays === d}
+              style={{ fontSize: 12, height: 24, padding: '0 10px' }}
+            >
               {d}d
             </button>
           ))}
@@ -202,7 +207,7 @@ export default function DeepWorkTrend() {
             )}
           </svg>
 
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', minHeight: 14 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', minHeight: 14 }}>
             {hoverI !== null ? `${fmtDate(days[hoverI])} · ${fmtHM(secs[hoverI])}` : directionLabel(n, showAvg, secs)}
           </div>
         </>

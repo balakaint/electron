@@ -17,6 +17,7 @@ import DeepWorkTrend from './DeepWorkTrend';
 import TodayProgressBar from './TodayProgressBar';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { dayNumber, elapsedText, projTimeText } from '../format';
+import { accentText, inkOn } from '../themes';
 
 
 // Legacy's _PROJ_TARGETS (task_tracker_v3_THEMES.py 2760). Its own note
@@ -175,10 +176,14 @@ function ProjectCard({
             flex: 'none',
             borderRadius: 5,
             background: project.accent_color,
-            color: 'var(--on-accent)',
+            // Ink chosen against THIS project's colour, not the theme's
+            // accent: --on-accent is right for the theme accent and
+            // wrong for six user-set ones. The purple chip measured
+            // 2.57:1 before this.
+            color: inkOn(project.accent_color),
             display: 'grid',
             placeItems: 'center',
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 'bold',
             cursor: 'pointer',
             userSelect: 'none',
@@ -220,7 +225,7 @@ function ProjectCard({
             flex: 'none',
             fontSize: 12,
             fontFamily: 'monospace',
-            color: running ? project.accent_color : 'var(--text-faint)',
+            color: running ? accentText(project.accent_color) : 'var(--text-faint)',
             fontWeight: running ? 'bold' : 'normal',
           }}
         >
@@ -239,9 +244,9 @@ function ProjectCard({
             borderRadius: 5,
             border: 'none',
             cursor: 'pointer',
-            fontSize: 11,
+            fontSize: 12,
             background: running ? project.accent_color : 'transparent',
-            color: running ? 'var(--on-accent)' : 'var(--text-muted)',
+            color: running ? inkOn(project.accent_color) : 'var(--text-muted)',
           }}
         >
           {running ? '⏸' : '▶'}
@@ -279,7 +284,7 @@ function ProjectCard({
               height: 22,
               borderRadius: 4,
               background: project.accent_color,
-              color: 'var(--on-accent)',
+              color: inkOn(project.accent_color),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -338,7 +343,7 @@ function ProjectCard({
               letterSpacing: 0.5,
               border: 'none',
               background: 'transparent',
-              color: project.accent_color,
+              color: accentText(project.accent_color),
               padding: '0',
               height: 24,
             }}
@@ -415,10 +420,11 @@ function ProjectCard({
                 aria-pressed={running}
                 style={{
                   background: running ? project.accent_color : 'transparent',
-                  color: running ? 'var(--on-accent)' : project.accent_color,
+                  color: running ? inkOn(project.accent_color) : accentText(project.accent_color),
                   border: 'none',
                   cursor: 'pointer',
-                  padding: '4px 8px',
+                  padding: '0 8px',
+                  height: 24,
                 }}
               >
                 {running ? '⏸' : '▶'}
@@ -441,7 +447,7 @@ function ProjectCard({
                 style={{
                   border: 'none',
                   background: 'transparent',
-                  color: running ? project.accent_color : 'inherit',
+                  color: running ? accentText(project.accent_color) : 'inherit',
                   font: 'inherit',
                   padding: '0 4px',
                   height: 24,
@@ -465,9 +471,9 @@ function ProjectCard({
               aria-pressed={goalsProject === key}
               title="Show this project's short / mid / long term goals in panel 2"
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 background: goalsProject === key ? project.accent_color : 'transparent',
-                color: goalsProject === key ? 'var(--on-accent)' : undefined,
+                color: goalsProject === key ? inkOn(project.accent_color) : undefined,
                 border: 'none',
                 cursor: 'pointer',
                 padding: '0 8px',
@@ -479,14 +485,14 @@ function ProjectCard({
             <button
               onClick={() => onOpenAnalysis(key)}
               title="Business Analysis — idea, numbers, decision"
-              style={{ fontSize: 11, background: 'transparent', border: 'none', cursor: 'pointer', padding: '0 8px', height: 24 }}
+              style={{ fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', padding: '0 8px', height: 24 }}
             >
               Analysis
             </button>
             <button
               onClick={() => onOpenJourney(key)}
               title="Product Journey — the dated record of what you tried"
-              style={{ fontSize: 11, background: 'transparent', border: 'none', cursor: 'pointer', padding: '0 8px', height: 24 }}
+              style={{ fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', padding: '0 8px', height: 24 }}
             >
               Journey
             </button>
@@ -497,16 +503,21 @@ function ProjectCard({
             (6848-6862). The add field lives behind that button rather
             than sitting open on every card — six always-visible inputs
             is most of why this column scrolled. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, marginBottom: 2 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginBottom: 2 }}>
           <span style={{ color: 'var(--text-faint)', letterSpacing: 0.5 }}>TASKS</span>
           <span style={{ flex: 1 }} />
-          <span style={{ opacity: 0.6 }}>
+          {/* Muted, not dimmed. --text-muted is chosen to clear 4.5:1
+              on the card surface; multiplying it by 0.6 measured 4.4:1
+              and 4.5:1 on two light themes — a rule failed by a hair is
+              still failed, and the dimming bought nothing the colour was
+              not already saying. */}
+          <span style={{ color: 'var(--text-muted)' }}>
             {subtasksDone}/{subtasks.length}
           </span>
           <button
             onClick={() => setAddingTask((v) => !v)}
             title="Add a task to this project"
-            style={{ fontSize: 11, height: 24, padding: '0 8px' }}
+            style={{ fontSize: 12, height: 24, padding: '0 8px' }}
           >
             + task
           </button>
@@ -557,7 +568,7 @@ function ProjectCard({
                     onClick={() => strikeSubtask(s.pid)}
                     disabled={onToday || (full && !onToday)}
                     title={onToday ? 'Already on today’s list' : 'Commit to today’s 3'}
-                    style={{ fontSize: 10, height: 24, padding: '0 6px', flex: 'none', opacity: onToday ? 0.7 : 1, color: onToday ? project.accent_color : undefined }}
+                    style={{ fontSize: 12, height: 24, padding: '0 6px', flex: 'none', opacity: onToday ? 0.7 : 1, color: onToday ? accentText(project.accent_color) : undefined }}
                   >
                     {strikeFlash === s.pid ? 'DAY FULL' : onToday ? '✓ ON TODAY' : '+ STRIKE'}
                   </button>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
+import { accentText } from '../themes';
 import { Goal, GoalHorizon, GoalPanel, ProjectKey, ProjectOrderEntry, goalsApi, projectsApi } from '../services/api';
 
 // ⚠ READ THE KEYS CAREFULLY BEFORE CHANGING ANYTHING HERE.
@@ -383,7 +384,7 @@ function GoalSection({
           marginBottom: 2,
         }}
       >
-        <span style={{ color: accent, fontSize: 11 }}>{glyph}</span>
+        <span style={{ color: accent, fontSize: 12 }}>{glyph}</span>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -555,7 +556,7 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
         {/* Whose goals these are. Without it the same three headings
             silently mean six different things depending on which card
             was pressed last, and nothing on screen says which. */}
-        <span style={{ flex: 1, fontWeight: 'bold', color: activeEntry?.project.accent_color }}>
+        <span style={{ flex: 1, fontWeight: 'bold', color: activeEntry ? accentText(activeEntry.project.accent_color) : undefined }}>
           {(activeEntry?.project.name || shownKey).toUpperCase()}
         </span>
         <span style={{ color: 'var(--text-faint)', letterSpacing: 0.5 }}>GOALS</span>

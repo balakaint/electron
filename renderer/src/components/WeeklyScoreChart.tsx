@@ -50,7 +50,7 @@ export default function WeeklyScoreChart({ week, today }: { week: WeekScore[]; t
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{ fontSize: 11, letterSpacing: 0.5, color: 'var(--text-faint)', fontWeight: 'bold', marginBottom: 4 }}>
+      <div style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)', fontWeight: 'bold', marginBottom: 4 }}>
         📊 WEEKLY SCORE
       </div>
 
@@ -116,7 +116,7 @@ export default function WeeklyScoreChart({ week, today }: { week: WeekScore[]; t
         ))}
       </svg>
 
-      <div style={{ display: 'flex', gap: 12, fontSize: 11, marginTop: 2 }}>
+      <div style={{ display: 'flex', gap: 12, fontSize: 12, marginTop: 2 }}>
         <span style={{ color: 'var(--habit-success)' }}>◈ Best: {best}%</span>
         <span style={{ color: 'var(--habit-danger)' }}>📉 Worst: {worst}%</span>
       </div>

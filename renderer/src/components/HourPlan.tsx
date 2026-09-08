@@ -223,7 +223,7 @@ function Row({
           border: 'none',
           background: 'transparent',
           padding: 0,
-          fontSize: 11,
+          fontSize: 12,
           cursor: 'pointer',
           color: 'var(--text-muted)',
           visibility: filled ? 'visible' : 'hidden',
@@ -298,14 +298,14 @@ export default function HourPlanTab({
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6 }}>
-        <span style={{ fontSize: 11, letterSpacing: 0.5, color: 'var(--text-faint)' }}>
+        <span style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)' }}>
           {L('TO-DO', 'আজকের কাজ')}
         </span>
-        <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>({plan.total_planned})</span>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>({plan.total_planned})</span>
         <span style={{ flex: 1 }} />
         <span
           style={{
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 'bold',
             color:
               plan.total_planned > 0 && plan.total_done === plan.total_planned
@@ -355,7 +355,7 @@ export default function HourPlanTab({
                 userSelect: 'none',
               }}
             >
-              <span style={{ color, fontSize: 11 }}>{shown ? '▾' : '▸'}</span>
+              <span style={{ color, fontSize: 12 }}>{shown ? '▾' : '▸'}</span>
               {/* Names and counts step up; the captions around them stay
                   small. The block name used to be the same size as the
                   task text inside it, so nothing led the eye anywhere. */}

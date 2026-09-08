@@ -147,7 +147,7 @@ export default function NowCard({
       }}
     >
       {task && (
-        <div style={{ fontSize: 11, color: 'var(--text-faint)', letterSpacing: 1 }}>{L('NOW', 'এখন')}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-faint)', letterSpacing: 1 }}>{L('NOW', 'এখন')}</div>
       )}
       {task ? (
         <>
@@ -187,7 +187,7 @@ export default function NowCard({
         // one thing, and giving that one thing a heading costs a whole
         // line to caption a single button.
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-faint)', letterSpacing: 1, flex: 'none' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-faint)', letterSpacing: 1, flex: 'none' }}>
             {L('NOW', 'এখন')}
           </span>
           {thisHour ? (

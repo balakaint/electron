@@ -66,6 +66,31 @@ const COLLECT = ({ CONTRAST_NORMAL, CONTRAST_LARGE, MIN_TARGET, MIN_FONT }) => {
   // nearest ancestor with a non-transparent background — not the
   // element's own, which is usually transparent.
   const backdrop = (el) => {
+    // What is ACTUALLY painted behind this text, which is not always an
+    // ancestor. The ancestor walk alone reported the progress bar's
+    // segment numbers as white-on-track at 1.2:1: the coloured fill they
+    // sit on is an absolutely-positioned SIBLING, invisible to a walk
+    // that only climbs. elementsFromPoint returns the real paint stack
+    // at a point, so ask it first and keep the walk as the fallback for
+    // anything off-screen or zero-sized.
+    // The element's OWN background wins, when it has one: a chip that
+    // paints itself is the surface its own label sits on. Asking the
+    // paint stack first got this backwards and reported every filled
+    // chip against the card behind it.
+    const own = parse(getComputedStyle(el).backgroundColor);
+    if (own && own.a > 0.99) return own;
+
+    const box = el.getBoundingClientRect();
+    if (box.width > 0 && box.height > 0) {
+      const cx = box.left + box.width / 2;
+      const cy = box.top + box.height / 2;
+      const stack = document.elementsFromPoint(cx, cy);
+      for (const n of stack) {
+        if (n === el || el.contains(n)) continue;
+        const c = parse(getComputedStyle(n).backgroundColor);
+        if (c && c.a > 0.99) return c;
+      }
+    }
     let n = el;
     while (n && n !== document.documentElement) {
       const c = parse(getComputedStyle(n).backgroundColor);
