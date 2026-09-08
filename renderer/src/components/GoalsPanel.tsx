@@ -298,6 +298,7 @@ function GoalRow({
 function GoalSection({
   horizon,
   label,
+  defaultLabel,
   glyph,
   weight,
   accent,
@@ -314,6 +315,7 @@ function GoalSection({
 }: {
   horizon: GoalHorizon;
   label: string;
+  defaultLabel: string;
   glyph: string;
   weight: number;
   accent: string;
@@ -385,7 +387,24 @@ function GoalSection({
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          onBlur={() => onRenameTitle(title.trim())}
+          // BUG THIS FIXES: this fired on EVERY blur, so merely clicking
+          // into a heading and out again persisted whatever it happened
+          // to be showing — including the default. Once the old default
+          // "MID TERM GOAL" was written into sec_title_monthly, it was a
+          // custom title, and changing the default could never reach it
+          // again. Two of three sections picked up the new names and the
+          // middle one did not, which is what it looked like from
+          // outside: a rename that half worked.
+          //
+          // So: persist only a real change, and treat "typed the default
+          // back in" as clearing the override rather than as a custom
+          // title that happens to match. An empty string clears it
+          // server-side, which is what restores default-following.
+          onBlur={() => {
+            const next = title.trim();
+            if (next === label) return;
+            onRenameTitle(next === defaultLabel ? '' : next);
+          }}
           title="Rename this section"
           style={{
             flex: 1,
@@ -548,6 +567,7 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
             key={key}
             horizon={key}
             label={sectionTitle[key] || label}
+            defaultLabel={label}
             glyph={glyph}
             weight={weight}
             accent={accent}
