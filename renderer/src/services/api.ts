@@ -696,6 +696,8 @@ export const exportApi = {
 };
 
 export interface HourSlot {
+  // Null for an hour nothing was ever written in.
+  id: number | null;
   hour: number;
   text: string;
   done: boolean;

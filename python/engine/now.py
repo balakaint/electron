@@ -52,10 +52,20 @@ class NowEngine:
             # clock.
             if t is not None and not t.done and (t.strike or t.hour_slot_id is not None):
                 return t
-        for t in struck_tasks_in_view(self.tasks):
-            if not t.done:
-                return t
-        return None
+        open_struck = [t for t in struck_tasks_in_view(self.tasks) if not t.done]
+        if not open_struck:
+            return None
+        # The star picks which of the three comes first.
+        #
+        # MIT used to be a control with no consequence: you could star a
+        # task and nothing on screen changed, while STRIKE — a different
+        # control, on the same row, in a different shape — was what
+        # actually decided the day. Two priority systems, one of them
+        # inert. It now means "first of the three", which is the one job
+        # a single-select flag can do that a three-item list cannot do
+        # for itself, and it is the reason NOW opens on the right task in
+        # the morning instead of whichever was committed earliest.
+        return next((t for t in open_struck if t.mit), open_struck[0])
 
     def set_now(self, task_id: int) -> Task | None:
         """Point at a task explicitly. Matches _set_now: any running

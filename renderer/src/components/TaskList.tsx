@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { DayView, ListKey, STRIKE_MAX, Task, nowApi, tasksApi } from '../services/api';
+import { DayView, ListKey, STRIKE_MAX, Task, hoursApi, nowApi, tasksApi } from '../services/api';
 import { useUndo } from '../undo';
 import NowCard from './NowCard';
 import { formatSecs } from '../format';
@@ -15,13 +15,33 @@ function formatSessionSpan(start: number, end: number | null): string {
   return `${formatClock(start)} – ${formatClock(end)} (${formatSecs(end - start)})`;
 }
 
-// Matches legacy exactly (task_tracker_v3_THEMES.py lines 9614-9620):
-// high=RED, med=YELLOW, low=CARD_BORDER.
+// Legacy (task_tracker_v3_THEMES.py 9614-9620) paints high=RED,
+// med=YELLOW, low=CARD_BORDER, and prints the level as a word on every
+// row. Both halves of that are kept where they belong and dropped where
+// they are not: the word survives inside the row's ⋯ panel, where you
+// go to CHANGE the level, and the colour survives as the row's left
+// edge — but only for high.
+//
+// The reason is that `med` is the DEFAULT. Every task starts there, so
+// an amber badge and an amber rail appeared on every row of the list,
+// and four identical warnings are not a warning. A default has to be
+// silent for the exception to be audible.
 const URGENCY_COLOR: Record<Task['urgency'], string> = {
   low: 'var(--border)',
   med: 'var(--warning)',
   high: 'var(--danger)',
 };
+
+// What the row's 3px edge shows: nothing unless you deliberately raised
+// the task above the default.
+function railColor(t: Task): string {
+  if (t.done || t.urgency !== 'high') return 'var(--border)';
+  return 'var(--danger)';
+}
+
+// Below this many tasks the list is short enough to read, so the
+// search box would be chrome for its own sake.
+const SEARCH_FROM = 8;
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -93,6 +113,26 @@ export default function TaskList({
   }, [listKey, nowBump]);
 
   const setNow = (id: number) => nowApi.setNow(id).then(() => bumpNow());
+
+  // Which hour each hour-started task came from. One fetch, only on the
+  // screen that can show such a task; the pair (hour_slot_id -> hour)
+  // does not exist on the task itself because the LINK deliberately
+  // keys the row, not the (day, hour) a carried entry would outgrow.
+  const [hourOf, setHourOf] = useState<Record<number, number>>({});
+  useEffect(() => {
+    if (listKey !== 'focus' || dayView !== 'today') return;
+    hoursApi.get(todayIso()).then((plan) => {
+      const map: Record<number, number> = {};
+      plan.blocks.forEach((b) => b.hours.forEach((h) => { if (h.id !== null) map[h.id] = h.hour; }));
+      setHourOf(map);
+    });
+  }, [listKey, dayView, focusVersion, nowBump]);
+  const hourLabelFor = (t: Task): string | null => {
+    if (t.hour_slot_id === null) return null;
+    const h = hourOf[t.hour_slot_id];
+    if (h === undefined) return null;
+    return `${String(h % 12 || 12).padStart(2, '0')}:00 ${h < 12 ? 'AM' : 'PM'}`;
+  };
 
   const struck = tasks.filter((t) => t.strike);
   const struckCount = struck.length;
@@ -305,7 +345,17 @@ export default function TaskList({
   // exactly that (_render_tasks: "tasks = [x for x in tasks if not
   // x.get('strike')]"). Tomorrow has no STRIKE card to relate to, so
   // its pool keeps every task regardless of strike.
-  const pool = listKey === 'focus' && dayView === 'today' ? tasks.filter((t) => !t.strike) : tasks;
+  //
+  // NOW's task is excluded for the same reason. Since a task can now
+  // reach NOW without being struck (started from an hour), the strike
+  // test alone stopped covering it: pressing play on 09:00 put the task
+  // in the NOW card AND left it in the pool below, on screen twice with
+  // two sets of controls — exactly the duplication the rule above
+  // exists to prevent.
+  const pool =
+    listKey === 'focus' && dayView === 'today'
+      ? tasks.filter((t) => !t.strike && t.id !== nowId)
+      : tasks;
   const sorted = [...pool].sort((a, b) => Number(a.done) - Number(b.done));
   const q = query.trim().toLowerCase();
   const visible = q ? sorted.filter((t) => t.text.toLowerCase().includes(q)) : sorted;
@@ -379,9 +429,14 @@ export default function TaskList({
           onToggleDone={toggleDone}
           onUnstrike={toggleStrike}
           onSetNow={setNow}
+          onSetMit={setMit}
         />
       )}
 
+      {/* Heading and count on one row. With the search box gone below
+          for short lists, "0/3 done" was left floating on a line of its
+          own between the heading and the add box, captioning nothing. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
       <input
         value={title}
         onChange={(e) => setTitleState(e.target.value)}
@@ -399,24 +454,32 @@ export default function TaskList({
           background: 'transparent',
           color: 'var(--text)',
           padding: 0,
-          marginBottom: 8,
-          width: '100%',
+          flex: 1,
+          minWidth: 0,
+          height: 24,
         }}
       />
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="⌕ Search tasks…"
-          style={{ fontSize: 12, padding: 5, flex: 1, marginRight: 8 }}
-        />
         {pool.length > 0 && (
-          <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap', flex: 'none' }}>
             {doneCount}/{pool.length} done
           </span>
         )}
       </div>
+
+      {/* The search box appears when there is something to search.
+          Four tasks do not need a filter, and a permanent 30px input
+          above four rows is the same trade the empty note textarea was
+          making on the project cards. Once it is on screen it stays,
+          even if a filter empties the list — pulling the control out
+          from under the query you just typed is worse than the 30px. */}
+      {(pool.length >= SEARCH_FROM || q) && (
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="⌕ Search tasks…"
+          style={{ fontSize: 12, padding: 5, width: '100%', marginBottom: 8, height: 26 }}
+        />
+      )}
 
       <form onSubmit={addTask} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input
@@ -470,41 +533,47 @@ export default function TaskList({
                 opacity: t.done ? 0.5 : 1,
               }}
             >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {!q && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <button onClick={() => moveTask(t.id, -1)} disabled={isFirst} title="Move up" style={{ width: 18, fontSize: 9, lineHeight: 1 }}>
-                    ▲
-                  </button>
-                  <button onClick={() => moveTask(t.id, 1)} disabled={isLast} title="Move down" style={{ width: 18, fontSize: 9, lineHeight: 1 }}>
-                    ▼
-                  </button>
-                </div>
-              )}
+            {/* ONE ROW, ONE TASK.
+                Measured before this change: ▲▼ ○ ☆ ◇ MED ▶ ↺ 24:29 ›1 ✕
+                took ~250px of a 545px panel, leaving ~180px for the only
+                part you actually read — so "DEEP WORK: pricing model"
+                wrapped onto two lines. Every control drew at the same
+                weight, so nothing on the row said which of the eight
+                mattered.
 
-              <button onClick={() => toggleDone(t.id)} title="Toggle done" style={{ width: 24 }}>
+                This app has already solved this once. Legacy's project
+                card (6713-6719): "the buttons used to sit here, and
+                sharing the row with a fixed-width cluster clipped longer
+                project names... The title owns its row; the buttons
+                moved down." Same fix, same reason.
+
+                What stays: done, the name, its time-box, its clock, play
+                and + STRIKE — tick it, read it, time it, commit it. What
+                moves behind ⋯: reorder, priority, timer reset, session
+                history, delete. Not hover — legacy rejected hover-only
+                for the hour-clear button, "findable by accident and
+                unreachable by keyboard or touch" — a real button that
+                opens a real second line. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* Priority is a 3px edge, not a chip. `med` is the
+                  DEFAULT, so every task was wearing an amber MED badge:
+                  four identical warnings on four rows, which is no
+                  warning at all. Only high — the one that is a
+                  deliberate statement — still says so in words. */}
+              <span
+                title={`Priority: ${t.urgency}`}
+                style={{
+                  width: 3,
+                  alignSelf: 'stretch',
+                  minHeight: 20,
+                  flex: 'none',
+                  background: railColor(t),
+                }}
+              />
+
+              <button onClick={() => toggleDone(t.id)} title="Toggle done" style={{ width: 24, height: 24, padding: 0, flex: 'none' }}>
                 {t.done ? '✓' : '○'}
               </button>
-
-              <button onClick={() => setMit(t)} title="Most Important Task" style={{ color: t.mit ? 'var(--warning)' : undefined }}>
-                {t.mit ? '★' : '☆'}
-              </button>
-
-              {listKey === 'focus' && (
-                <button
-                  onClick={() => toggleStrike(t.id)}
-                  title="Commit to today's 3"
-                  style={{ color: t.strike ? 'var(--danger)' : undefined }}
-                >
-                  {t.strike ? '◆' : '◇'}
-                </button>
-              )}
-
-              {listKey === 'focus' && t.strike && !t.done && (
-                <button onClick={() => pointNow(t.id)} title="Point NOW at this task" style={{ fontSize: 11 }}>
-                  → NOW
-                </button>
-              )}
 
               {editingId === t.id ? (
                 <input
@@ -516,7 +585,7 @@ export default function TaskList({
                     if (e.key === 'Enter') commitEdit(t);
                     if (e.key === 'Escape') setEditingId(null);
                   }}
-                  style={{ flex: 1, fontSize: 14, padding: 2 }}
+                  style={{ flex: 1, minWidth: 0, fontSize: 14, padding: 2, height: 24 }}
                 />
               ) : (
                 <span
@@ -524,6 +593,7 @@ export default function TaskList({
                   title="Double-click to edit"
                   style={{
                     flex: 1,
+                    minWidth: 0,
                     textDecoration: t.done ? 'line-through' : 'none',
                     cursor: 'text',
                   }}
@@ -532,58 +602,124 @@ export default function TaskList({
                 </span>
               )}
 
-              {listKey === 'classic' && dayView === 'tomorrow' && (
-                <button onClick={() => sendToToday(t)} title="Move to today" style={{ fontSize: 11 }}>
-                  → Today
+              {/* Where this came from, when it came from an hour. One
+                  fact, no new control: a task that appeared here because
+                  you pressed play on 09:00 should say so, or the list
+                  looks like it grew a row by itself. */}
+              {t.hour_slot_id !== null && hourLabelFor(t) && (
+                <span
+                  title="Started from your hour plan"
+                  style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-faint)', flex: 'none' }}
+                >
+                  {hourLabelFor(t)}
+                </span>
+              )}
+
+              {t.urgency === 'high' && !t.done && (
+                <button
+                  onClick={() => cycleUrgency(t.id)}
+                  title="Cycle priority"
+                  style={{ color: URGENCY_COLOR.high, fontSize: 11, height: 24, padding: '0 6px', flex: 'none' }}
+                >
+                  HIGH
                 </button>
               )}
 
               {t.est > 0 && !t.done && (
                 t.secs > t.est * 60 ? (
-                  <span style={{ fontSize: 11, color: 'var(--danger)' }} title="Over the time-box">
+                  <span style={{ fontSize: 11, color: 'var(--danger)', flex: 'none' }} title="Over the time-box">
                     ! {Math.floor(t.secs / 60)}m / ~{t.est}m
                   </span>
                 ) : (
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>~{t.est}m</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', flex: 'none' }}>~{t.est}m</span>
                 )
               )}
 
-              <button
-                onClick={() => cycleUrgency(t.id)}
-                title="Cycle priority"
-                style={{ color: URGENCY_COLOR[t.urgency], fontSize: 12 }}
-              >
-                {t.urgency.toUpperCase()}
-              </button>
+              {listKey === 'classic' && dayView === 'tomorrow' && (
+                <button onClick={() => sendToToday(t)} title="Move to today" style={{ fontSize: 11, height: 24, flex: 'none' }}>
+                  → Today
+                </button>
+              )}
 
-              <button onClick={() => tasksApi.toggleTimer(t.id).then(refresh)} title="Start/stop timer">
+              <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--text-muted)', width: 44, textAlign: 'right', flex: 'none' }}>
+                {formatSecs(t.secs)}
+              </span>
+
+              <button
+                onClick={() => tasksApi.toggleTimer(t.id).then(refresh)}
+                title="Start/stop timer"
+                style={{ width: 24, height: 24, padding: 0, flex: 'none' }}
+              >
                 {t.sessions.length > 0 && t.sessions[t.sessions.length - 1].end === null ? '⏸' : '▶'}
               </button>
-              {/* Legacy's ▶/↺/✕ button row (9947-9948). The reset only
-                  appears once there is time to throw away — an always-on
-                  destructive control beside ▶ is easy to hit by accident
-                  and does nothing useful on a fresh task. */}
-              {t.secs > 0 && (
-                <button onClick={() => resetTaskTimer(t)} title="Reset this task's timer">
-                  ↺
-                </button>
-              )}
-              <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 44 }}>{formatSecs(t.secs)}</span>
 
-              {t.sessions.length > 0 && (
+              {/* Named, not a diamond. The project cards have said
+                  "+ STRIKE" on this exact action since the port began;
+                  this row said "◇". One concept, two spellings, in one
+                  app — and the shape was the only clue that the card
+                  above was even fillable. */}
+              {listKey === 'focus' && !t.done && (
                 <button
-                  onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}
-                  title="View session history"
-                  style={{ fontSize: 10, color: 'var(--text-muted)' }}
+                  onClick={() => toggleStrike(t.id)}
+                  disabled={struckCount >= STRIKE_MAX}
+                  title={
+                    struckCount >= STRIKE_MAX
+                      ? `Already ${STRIKE_MAX}/${STRIKE_MAX} — today is full`
+                      : "Commit this to today's 3"
+                  }
+                  style={{ fontSize: 10, height: 24, padding: '0 6px', flex: 'none' }}
                 >
-                  {expandedId === t.id ? '▾' : '▸'} {t.sessions.length}
+                  + STRIKE
                 </button>
               )}
 
-              <button onClick={() => deleteTask(t)} title="Delete">
-                ✕
+              <button
+                onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}
+                aria-expanded={expandedId === t.id}
+                title="More — reorder, priority, sessions, delete"
+                style={{ width: 24, height: 24, padding: 0, flex: 'none', color: 'var(--text-muted)' }}
+              >
+                ⋯
               </button>
             </div>
+
+            {expandedId === t.id && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 0 2px 15px', flexWrap: 'wrap' }}>
+                {!q && (
+                  <>
+                    <button onClick={() => moveTask(t.id, -1)} disabled={isFirst} title="Move up" style={{ width: 24, height: 24, padding: 0 }}>
+                      ▲
+                    </button>
+                    <button onClick={() => moveTask(t.id, 1)} disabled={isLast} title="Move down" style={{ width: 24, height: 24, padding: 0 }}>
+                      ▼
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => cycleUrgency(t.id)}
+                  title="Cycle priority"
+                  style={{ color: URGENCY_COLOR[t.urgency], fontSize: 11, height: 24, padding: '0 8px' }}
+                >
+                  {t.urgency.toUpperCase()}
+                </button>
+                {/* Legacy's ↺ (9947-9948) appears only once there is time
+                    to throw away — an always-on destructive control does
+                    nothing useful on a fresh task. */}
+                {t.secs > 0 && (
+                  <button onClick={() => resetTaskTimer(t)} title="Reset this task's timer" style={{ height: 24, padding: '0 8px', fontSize: 11 }}>
+                    ↺ reset
+                  </button>
+                )}
+                <button onClick={() => deleteTask(t)} title="Delete this task" style={{ height: 24, padding: '0 8px', fontSize: 11 }}>
+                  ✕ delete
+                </button>
+                {t.sessions.length > 0 && (
+                  <span style={{ fontSize: 11, color: 'var(--text-faint)', marginLeft: 4 }}>
+                    {t.sessions.length} session{t.sessions.length === 1 ? '' : 's'}
+                  </span>
+                )}
+              </div>
+            )}
 
             {expandedId === t.id && t.sessions.length > 0 && (
               <ul style={{ listStyle: 'none', margin: '4px 0 0 32px', padding: 0, fontSize: 11, color: 'var(--text-muted)' }}>

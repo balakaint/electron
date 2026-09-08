@@ -703,6 +703,11 @@ class Q90CycleSet(BaseModel):
 
 
 class HourSlotOut(BaseModel):
+    # The row's own id. A task started from an hour carries it back
+    # (Task.hour_slot_id), and the MIT list needs the pair to say WHICH
+    # hour a task came from — otherwise a row that appeared because you
+    # pressed play on 09:00 looks like the list grew a task by itself.
+    id: int | None = None
     hour: int
     text: str
     done: bool

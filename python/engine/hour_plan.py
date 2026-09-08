@@ -112,7 +112,15 @@ class HourPlanEngine:
                     planned += 1
                     if is_done:
                         done += 1
-                hours.append({"hour": h, "text": text, "done": is_done, "repeat": repeats})
+                hours.append(
+                    {
+                        "id": row.id if row is not None else None,
+                        "hour": h,
+                        "text": text,
+                        "done": is_done,
+                        "repeat": repeats,
+                    }
+                )
             total_done += done
             total_planned += planned
             blocks.append(
@@ -138,7 +146,7 @@ class HourPlanEngine:
         if not 0 <= hour <= 23:
             raise ValueError(f"hour must be 0-23, got {hour}")
         row = self.repo.set_hour_slot(day, hour, text=text, done=done, repeat=repeat)
-        return {"hour": row.hour, "text": row.text, "done": row.done, "repeat": row.repeat}
+        return {"id": row.id, "hour": row.hour, "text": row.text, "done": row.done, "repeat": row.repeat}
 
     def clear_slot(self, day: str, hour: int) -> dict:
         # Clearing the text ends the carry too — the repository drops

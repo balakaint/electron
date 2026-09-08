@@ -38,6 +38,7 @@ export default function StrikeCard({
   onToggleDone,
   onUnstrike,
   onSetNow,
+  onSetMit,
 }: {
   struck: Task[];
   nowId: number | null;
@@ -45,6 +46,7 @@ export default function StrikeCard({
   onToggleDone: (id: number) => void;
   onUnstrike: (id: number) => void;
   onSetNow: (id: number) => void;
+  onSetMit: (t: Task) => void;
 }) {
   const L = useL();
   const doneCount = struck.filter((t) => t.done).length;
@@ -83,8 +85,36 @@ export default function StrikeCard({
       </div>
 
       {struck.length === 0 ? (
-        <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: '2px 4px 4px' }}>
-          {L('Empty. Choose up to 3 — that is the day.', 'খালি। সর্বোচ্চ ৩টি বাছুন — ওটাই আজকের দিন।')}
+        // Three empty slots, not a sentence about three.
+        //
+        // "Empty. Choose up to 3 — that is the day." was an instruction
+        // with no control beside it, and the control it referred to was
+        // an unlabelled ◇ on a row below. The card that names this whole
+        // tab neither showed the three nor offered a way to pick them.
+        // Drawn as slots, the ceiling is structure rather than a claim,
+        // and the empty card is the same shape as the full one — so
+        // striking a task fills a slot you were already looking at
+        // instead of replacing one thing with a different thing.
+        <div style={{ padding: '2px 2px 4px' }}>
+          {[1, 2, 3].map((n) => (
+            <div
+              key={n}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                height: 26,
+                paddingLeft: 8,
+                marginBottom: 2,
+                border: '1px dashed var(--border)',
+                color: 'var(--text-faint)',
+                fontSize: 12,
+              }}
+            >
+              <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{n}</span>
+              {n === 1 && <span>{L('+ STRIKE a task below', 'নিচ থেকে + STRIKE দিন')}</span>}
+            </div>
+          ))}
         </div>
       ) : (
         struck.map((t) => {
@@ -123,6 +153,32 @@ export default function StrikeCard({
                   background: t.done ? 'var(--border)' : 'var(--success)',
                 }}
               />
+              {/* The star moved here from the pool below, because what
+                  it means only exists here: FIRST OF THE THREE. In the
+                  pool it sat beside ◇ as a second, weaker way to say
+                  "important" — two priority controls of the same size on
+                  one row, one of which changed nothing on screen. NOW
+                  opens on the starred task, so this is the control that
+                  decides what you see when you sit down. */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetMit(t);
+                }}
+                title={t.mit ? 'First of the three — NOW opens here' : 'Make this the first of the three'}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: t.mit ? 'var(--warning)' : 'var(--text-faint)',
+                  cursor: 'pointer',
+                  padding: '0 2px',
+                  fontSize: 14,
+                  width: 24,
+                  height: 24,
+                }}
+              >
+                {t.mit ? '★' : '☆'}
+              </button>
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -134,8 +190,10 @@ export default function StrikeCard({
                   background: 'transparent',
                   color: t.done ? 'var(--success)' : 'var(--text-muted, inherit)',
                   cursor: 'pointer',
-                  padding: '0 2px',
+                  padding: 0,
                   fontSize: 14,
+                  width: 24,
+                  height: 24,
                 }}
               >
                 {t.done ? '✓' : '□'}
@@ -177,8 +235,10 @@ export default function StrikeCard({
                   color: 'inherit',
                   opacity: 0.6,
                   cursor: 'pointer',
-                  padding: '0 4px',
+                  padding: 0,
                   fontSize: 14,
+                  width: 24,
+                  height: 24,
                 }}
               >
                 −

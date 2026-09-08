@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useL } from '../i18n';
-import { HourSlot, Project, Task, hoursApi, nowApi, projectsApi, tasksApi } from '../services/api';
+import { HourSlot, Project, Task, hoursApi, nowApi, projectsApi } from '../services/api';
 
 function todayIso(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -57,8 +57,6 @@ export default function NowCard({
   const [task, setTask] = useState<Task | null>(null);
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [displaySecs, setDisplaySecs] = useState(0);
-  // What you have already committed to today, for the empty state only.
-  const [struck, setStruck] = useState<Task[]>([]);
   // What you wrote in the hour you are in, if anything.
   const [thisHour, setThisHour] = useState<HourSlot | null>(null);
   const [hour, setHour] = useState(new Date().getHours());
@@ -69,7 +67,13 @@ export default function NowCard({
       // Only the empty card needs this, so only the empty card pays for
       // it: a running NOW never renders the chooser.
       if (t === null) {
-        tasksApi.listStrike().then((all) => setStruck(all.filter((x) => !x.done)));
+        // Nothing struck and open — the server derives NOW from exactly
+        // that, so reaching here means the committed list is empty or
+        // finished. An earlier version of this card also offered "start
+        // the one struck task" and "pick from your N": both were dead
+        // code, because a struck open task makes /api/now non-null and
+        // this branch never runs at all.
+        //
         // HOURS is where this user actually plans the day, so an empty
         // NOW asks it first: if you wrote something in the hour you are
         // standing in, that IS the answer to "what now" and the card
@@ -128,8 +132,6 @@ export default function NowCard({
 
   const toggleRun = () => nowApi.toggleRun().then(() => { refresh(); onChanged(); });
   const complete = () => nowApi.complete().then(() => { refresh(); onChanged(); });
-  const startTask = (id: number) =>
-    nowApi.setNow(id).then(() => nowApi.toggleRun()).then(() => { refresh(); onChanged(); });
   const startHour = (h: number) =>
     nowApi.startHour(todayIso(), h).then(() => { refresh(); onChanged(); });
 
@@ -172,19 +174,14 @@ export default function NowCard({
         // whole argument is one task and one gesture, the card that
         // opens the day offered no gesture at all.
         //
-        // It is one line and one control now, and the control is chosen
-        // by where the answer actually is:
-        //
-        //   1. Something written in the hour you are standing in. That
-        //      IS "what now" — HOURS is where this day was planned, and
-        //      making you cross to another tab to start what you already
-        //      wrote is the friction this whole card exists to remove.
-        //   2. Otherwise, exactly one committed task still open: no
-        //      decision left, so the button just starts it.
-        //   3. Otherwise there IS a decision, and the card hands you to
-        //      MIT rather than listing the options here — legacy's
-        //      warning about the review card applies word for word,
-        //      "two places to look for the same four items".
+        // It is one line and one control now. Something written in the
+        // hour you are standing in IS "what now" — HOURS is where this
+        // day gets planned, and crossing to another tab to start what
+        // you already wrote is the friction this card exists to remove.
+        // Otherwise the control hands you to MIT, where the three get
+        // chosen; it does not list them here, because legacy's warning
+        // about the review card applies word for word — "two places to
+        // look for the same four items".
         //
         // The label shares the row with its control: an empty card holds
         // one thing, and giving that one thing a heading costs a whole
@@ -199,25 +196,13 @@ export default function NowCard({
               title="Start what you planned for this hour"
               onClick={() => startHour(thisHour.hour)}
             />
-          ) : struck.length === 1 ? (
-            <StartButton
-              label={struck[0].text}
-              title="Start the one task you committed to"
-              onClick={() => startTask(struck[0].id)}
-            />
           ) : (
             <button
               onClick={onGoToMit}
-              title={
-                struck.length > 1
-                  ? "Choose which of today's tasks to start"
-                  : 'Commit to up to three tasks for today'
-              }
+              title="Commit to up to three tasks for today"
               style={{ flex: 1, height: 30, padding: '0 10px', textAlign: 'left', cursor: 'pointer' }}
             >
-              {struck.length > 1
-                ? L(`Pick from your ${struck.length} →`, `আপনার ${struck.length}টি থেকে বাছুন →`)
-                : L("Choose today's 3 →", 'আজকের ৩টি বাছুন →')}
+              {L("Choose today's 3 →", 'আজকের ৩টি বাছুন →')}
             </button>
           )}
         </div>

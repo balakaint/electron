@@ -153,6 +153,55 @@ def test_a_carried_entry_is_startable_on_a_later_day():
         check("  on today, not the day it was written", slot.done_day == TODAY, str(slot.done_day))
 
 
+def test_the_star_decides_which_of_the_three_now_opens_on():
+    """MIT used to be a control with no consequence — you could star a
+    task and nothing on screen changed. It now means "first of the
+    three", which is what makes NOW open on the right one in the
+    morning rather than on whichever was committed earliest."""
+    with FreshDB() as f:
+        from database.models import Task
+        import time as _t
+        # A fresh DB has never had a strike-reset day stamped, so the
+        # first read of NOW would clear every strike as a day rollover.
+        # Stamp today first — the app does this the moment anything
+        # touches strike state.
+        from engine.tasks import reset_strike_if_new_day
+        reset_strike_if_new_day(f.tasks)
+
+        ids = []
+        for i, text in enumerate(("committed first", "committed second", "committed third")):
+            t = f.tasks.add(
+                Task(
+                    id=int(_t.time() * 1000) + i,
+                    list_key="focus",
+                    text=text,
+                    done=False,
+                    secs=0.0,
+                    sessions=[],
+                    est=0,
+                    mit=False,
+                    day=TODAY,
+                    urgency="med",
+                    strike=True,
+                )
+            )
+            ids.append(t.id)
+
+        check("with no star, NOW takes the first committed",
+              f.now.get().text == "committed first", f.now.get().text)
+
+        third = f.tasks.get(ids[2])
+        third.mit = True
+        f.tasks.save(third)
+        check("starring the third makes NOW open on it",
+              f.now.get().text == "committed third", f.now.get().text)
+
+        third.done = True
+        f.tasks.save(third)
+        check("  and finishing it falls back to the order",
+              f.now.get().text == "committed first", f.now.get().text)
+
+
 def main() -> int:
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
