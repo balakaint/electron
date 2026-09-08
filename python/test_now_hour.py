@@ -153,6 +153,45 @@ def test_a_carried_entry_is_startable_on_a_later_day():
         check("  on today, not the day it was written", slot.done_day == TODAY, str(slot.done_day))
 
 
+def test_play_on_an_unstruck_task_becomes_now():
+    """The bug this covers, in the user's words: "task 3 top timer ea
+    ashe na". Play on a task that is not one of today's three used to
+    run a private per-row clock while NOW went on saying "Choose today's
+    3" — a screen with a running timer and no answer to what am I doing.
+    An explicit pointer is now honoured for any unfinished task; the
+    ceiling of three is a promise about the DAY, not a lock on the
+    clock."""
+    with FreshDB() as f:
+        from database.models import Task
+        import time as _t
+        from engine.tasks import reset_strike_if_new_day, struck_tasks_in_view
+        reset_strike_if_new_day(f.tasks)
+        t = f.tasks.add(
+            Task(
+                id=int(_t.time() * 1000),
+                list_key="focus",
+                text="Task 3",
+                done=False,
+                secs=0.0,
+                sessions=[],
+                est=0,
+                mit=False,
+                day=TODAY,
+                urgency="high",
+                strike=False,
+            )
+        )
+        f.now.set_now(t.id)
+        cur = f.now.get()
+        check("NOW accepts a task that is not struck", cur is not None and cur.text == "Task 3")
+        check("  without spending a strike", len(struck_tasks_in_view(f.tasks)) == 0)
+        f.now.toggle_run()
+        cur = f.now.get()
+        check("  and its clock runs on NOW", bool(cur.sessions) and cur.sessions[-1]["end"] is None)
+        f.now.complete()
+        check("  completing it clears NOW", f.now.get() is None)
+
+
 def test_the_star_decides_which_of_the_three_now_opens_on():
     """MIT used to be a control with no consequence — you could star a
     task and nothing on screen changed. It now means "first of the

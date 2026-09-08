@@ -114,6 +114,21 @@ export default function TaskList({
 
   const setNow = (id: number) => nowApi.setNow(id).then(() => bumpNow());
 
+  // Play on a Focus row = make this NOW and run it. setNow stops
+  // whatever clock was running first (that is its own contract), so this
+  // is start, switch and pause in one control: pressing it on the task
+  // already running pauses that task rather than restarting it.
+  const startHere = (t: Task) => {
+    const running = t.sessions.length > 0 && t.sessions[t.sessions.length - 1].end === null;
+    const act = running
+      ? nowApi.toggleRun()
+      : nowApi.setNow(t.id).then(() => nowApi.toggleRun());
+    return act.then(() => {
+      refresh();
+      bumpNow();
+    });
+  };
+
   // Which hour each hour-started task came from. One fetch, only on the
   // screen that can show such a task; the pair (hour_slot_id -> hour)
   // does not exist on the task itself because the LINK deliberately
@@ -645,9 +660,24 @@ export default function TaskList({
                 {formatSecs(t.secs)}
               </span>
 
+              {/* On the EXECUTE list, play means "I am working on this
+                  NOW" — it points the card at the top of the panel at
+                  this task and starts its clock there. It used to start
+                  a private per-row timer instead, so a task could be
+                  running for twenty minutes while NOW, three inches
+                  above it, still said "Choose today's 3". One screen
+                  cannot hold a running clock and no answer to what am I
+                  doing.
+                  PLAN's classic list keeps the independent timer that
+                  legacy gives it — "one clock at a time" is NOW's rule
+                  and NOW is not on that screen. */}
               <button
-                onClick={() => tasksApi.toggleTimer(t.id).then(refresh)}
-                title="Start/stop timer"
+                onClick={() =>
+                  listKey === 'focus'
+                    ? startHere(t)
+                    : tasksApi.toggleTimer(t.id).then(refresh)
+                }
+                title={listKey === 'focus' ? 'Work on this now' : 'Start/stop timer'}
                 style={{ width: 24, height: 24, padding: 0, flex: 'none' }}
               >
                 {t.sessions.length > 0 && t.sessions[t.sessions.length - 1].end === null ? '⏸' : '▶'}

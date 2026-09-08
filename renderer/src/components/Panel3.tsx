@@ -249,7 +249,15 @@ export default function Panel3({
                 listKey="focus"
                 dayView="today"
                 focusVersion={focusVersion}
-                onFocusChanged={onFocusChanged}
+                // NOW is a SIBLING of this list, not its child, so a
+                // write here reached panel 1 but never reached the card
+                // directly above. Striking a task from MIT put it in the
+                // STRIKE card and left NOW still saying "Choose today's
+                // 3" until something unrelated happened to refresh it.
+                onFocusChanged={() => {
+                  onFocusChanged();
+                  setNowBump((b) => b + 1);
+                }}
               />
             )}
             {tab === 'list' && (
@@ -257,7 +265,10 @@ export default function Panel3({
                 listKey="focus"
                 dayView="tomorrow"
                 focusVersion={focusVersion}
-                onFocusChanged={onFocusChanged}
+                onFocusChanged={() => {
+                  onFocusChanged();
+                  setNowBump((b) => b + 1);
+                }}
               />
             )}
           </>

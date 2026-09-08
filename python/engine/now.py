@@ -41,16 +41,21 @@ class NowEngine:
         state = self.tasks.get_app_state()
         if state.now_task_id is not None:
             t = self.tasks.get(state.now_task_id)
-            # An explicit pointer qualifies if it is struck OR if it came
-            # from an hour you planned. The hour route deliberately does
-            # NOT strike: STRIKE is the hard ceiling of three for the
-            # day, and a day written out hour by hour can easily hold
-            # eight entries. Making "start this hour" consume one of the
-            # three would put a limit on the plan that the plan was never
-            # meant to have. The ceiling still means what it always
-            # meant — it is the MIT tab's promise, not a lock on the
-            # clock.
-            if t is not None and not t.done and (t.strike or t.hour_slot_id is not None):
+            # An explicit pointer is honoured for any unfinished task,
+            # full stop. It used to also require the task to be struck,
+            # which quietly turned the STRIKE ceiling into a lock on the
+            # clock: press play on a task that was not one of the three
+            # and it ran with NOW still saying "Choose today's 3", so the
+            # screen had a running timer and no answer to what am I
+            # doing. Two different questions — "is this one of today's
+            # three" and "is this what I am working on right now" — were
+            # being answered by one flag.
+            #
+            # The ceiling is unchanged; it is the MIT tab's promise about
+            # the DAY, not a rule about the clock. And the pointer still
+            # heals itself: a completed or deleted task simply stops
+            # qualifying, which is how legacy avoids a dangling id.
+            if t is not None and not t.done:
                 return t
         open_struck = [t for t in struck_tasks_in_view(self.tasks) if not t.done]
         if not open_struck:
