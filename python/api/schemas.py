@@ -73,6 +73,7 @@ class TaskOut(BaseModel):
     strike: bool
     project: str | None
     psrc: str | None
+    hour_slot_id: int | None = None
     sort_order: int
 
 

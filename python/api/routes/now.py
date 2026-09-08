@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from api.schemas import TaskOut
 from database.connection import get_db
-from database.repository import ProjectRepository, TaskRepository
+from database.repository import HourPlanRepository, ProjectRepository, TaskRepository
 from engine.now import NowEngine
 from engine.tasks import STRIKE_MAX, StrikeLimitReached
 
@@ -15,7 +15,7 @@ strike_router = APIRouter(prefix="/api/projects", tags=["now"])
 
 
 def get_engine(db: Session = Depends(get_db)) -> NowEngine:
-    return NowEngine(TaskRepository(db), ProjectRepository(db))
+    return NowEngine(TaskRepository(db), ProjectRepository(db), HourPlanRepository(db))
 
 
 @router.get("", response_model=TaskOut | None)
@@ -34,6 +34,17 @@ def toggle_run(engine: NowEngine = Depends(get_engine)):
 @router.post("/complete", response_model=TaskOut | None)
 def complete(engine: NowEngine = Depends(get_engine)):
     return engine.complete()
+
+
+# Before /{task_id}: "hour" is not an int, but the string path has to be
+# declared first anyway — the same ordering rule the toggle-run and
+# complete routes above are subject to.
+@router.post("/hour/{day}/{hour}", response_model=TaskOut | None)
+def start_hour(day: str, hour: int, engine: NowEngine = Depends(get_engine)):
+    try:
+        return engine.start_hour(day, hour)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
 
 
 @router.post("/{task_id}", response_model=TaskOut | None)

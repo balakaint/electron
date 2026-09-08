@@ -235,7 +235,13 @@ function Row({
   );
 }
 
-export default function HourPlanTab() {
+export default function HourPlanTab({
+  refreshSignal = 0,
+  onChanged,
+}: {
+  refreshSignal?: number;
+  onChanged?: () => void;
+}) {
   const L = useL();
   const [plan, setPlan] = useState<HourPlanData | null>(null);
   // In memory, deliberately not persisted. Legacy's reason: "auto-collapse
@@ -253,6 +259,15 @@ export default function HourPlanTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [day]);
 
+  // NOW can now finish an hour (completing a task started from one ticks
+  // it back), so this list goes stale the moment that happens. Same
+  // signal Panel 3 already passes NOW itself.
+  useEffect(() => {
+    if (refreshSignal === 0) return;
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal]);
+
   // Cheap: one comparison a minute, so crossing into a new hour moves
   // the NOW badge and the live row without a reload.
   useEffect(() => {
@@ -269,8 +284,16 @@ export default function HourPlanTab() {
 
   if (!plan) return null;
 
+  // Every write tells the card above too. Without this, writing an
+  // entry into the hour you are standing in leaves NOW still offering
+  // "Choose today's 3" — it read the hour once and had no reason to
+  // look again until the clock crossed into the next one.
   const set = (hour: number, patch: { text?: string; done?: boolean; repeat?: boolean }) =>
-    hoursApi.set(day, hour, patch).then(refresh);
+    hoursApi.set(day, hour, patch).then((r) => {
+      refresh();
+      onChanged?.();
+      return r;
+    });
 
   return (
     <div>

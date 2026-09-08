@@ -78,6 +78,14 @@ class TaskRepository:
         stmt = select(Task).where(Task.psrc == pid)
         return self.db.scalars(stmt).first()
 
+    def get_by_hour_slot(self, slot_id: int) -> Task | None:
+        """The live Focus task started from hour-plan row `slot_id`, if
+        any. Same shape as get_by_psrc and for the same reason: pressing
+        play twice on one hour must find the task it made the first
+        time, not stack up a second copy with its own clock."""
+        stmt = select(Task).where(Task.hour_slot_id == slot_id)
+        return self.db.scalars(stmt).first()
+
     def get_app_state(self) -> AppState:
         return _get_app_state(self.db)
 
@@ -694,6 +702,13 @@ class HourPlanRepository:
         # belongs to.
         taken = {r.hour for r in rows}
         return list(rows) + [r for r in carried if r.hour not in taken]
+
+    def get_hour_slot(self, slot_id: int) -> HourSlot | None:
+        """One row by its own id. Needed because a task started from an
+        hour remembers the ROW, not the (day, hour) pair: a carried entry
+        keeps the day it was written on, so storing today's date would
+        stop pointing at it the moment the clock passed midnight."""
+        return self.db.get(HourSlot, slot_id)
 
     def set_hour_slot(
         self,

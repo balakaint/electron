@@ -25,6 +25,15 @@ class Task(Base):
     strike: Mapped[bool] = mapped_column(Boolean, default=False)
     project: Mapped[str | None] = mapped_column(ForeignKey("projects.key"), nullable=True)
     psrc: Mapped[str | None] = mapped_column(ForeignKey("project_subtasks.pid"), nullable=True)
+    # The hour-plan row this task was started from, if it was.
+    #
+    # A task can reach the Focus list two ways now. "+ STRIKE" promotes a
+    # project subtask and sets `psrc`; pressing play on an hour you wrote
+    # promotes THAT and sets this. Both are the same idea — the thing you
+    # planned somewhere else, now being worked on — and both need the
+    # link for the same reason: finishing it here has to tick it there,
+    # or the plan and the work drift apart within a day.
+    hour_slot_id: Mapped[int | None] = mapped_column(ForeignKey("hour_slots.id"), nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 

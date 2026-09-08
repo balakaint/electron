@@ -23,9 +23,12 @@ class NowEngine:
     everything else is derived live from Task/Project, same split
     legacy keeps between _now_id and _now_task()."""
 
-    def __init__(self, task_repo: TaskRepository, project_repo: ProjectRepository):
+    def __init__(self, task_repo: TaskRepository, project_repo: ProjectRepository, hour_repo=None):
         self.tasks = task_repo
         self.projects = project_repo
+        # Optional so every existing construction site keeps working;
+        # only start_hour and the write-back in complete() need it.
+        self.hours = hour_repo
 
     def get(self) -> Task | None:
         """An explicit pointer wins only while it still qualifies
@@ -38,7 +41,16 @@ class NowEngine:
         state = self.tasks.get_app_state()
         if state.now_task_id is not None:
             t = self.tasks.get(state.now_task_id)
-            if t is not None and t.strike and not t.done:
+            # An explicit pointer qualifies if it is struck OR if it came
+            # from an hour you planned. The hour route deliberately does
+            # NOT strike: STRIKE is the hard ceiling of three for the
+            # day, and a day written out hour by hour can easily hold
+            # eight entries. Making "start this hour" consume one of the
+            # three would put a limit on the plan that the plan was never
+            # meant to have. The ceiling still means what it always
+            # meant — it is the MIT tab's promise, not a lock on the
+            # clock.
+            if t is not None and not t.done and (t.strike or t.hour_slot_id is not None):
                 return t
         for t in struck_tasks_in_view(self.tasks):
             if not t.done:
@@ -102,9 +114,70 @@ class NowEngine:
         t.done = True
         self.tasks.save(t)
         sync_project_row(self.projects, t)
+        # Finishing here ticks the hour it came from. Without this the
+        # plan and the work disagree the moment you use both: HOURS would
+        # still show the entry open, with its circle waiting for a second
+        # click that means exactly what the first one meant.
+        if t.hour_slot_id is not None and self.hours is not None:
+            slot = self.hours.get_hour_slot(t.hour_slot_id)
+            if slot is not None:
+                self.hours.set_hour_slot(_today(), slot.hour, done=True)
         state = self.tasks.get_app_state()
         state.now_task_id = None
         self.tasks.save_app_state(state)
+        return self.get()
+
+    def start_hour(self, day: str, hour: int) -> Task:
+        """Start the thing you wrote in an hour.
+
+        This is what makes HOURS a place you can work FROM rather than
+        only plan in. The entry becomes a real Focus task so it gets the
+        machinery every other task already has — one clock at a time, the
+        linked project's timer, COMPLETE — and it carries hour_slot_id so
+        finishing it ticks the hour back.
+
+        Re-pressing play on the same hour finds the task it made the
+        first time (get_by_hour_slot) and refreshes its text, exactly as
+        strike_project_task does for a subtask. Editing the hour after
+        starting it should not leave a task running under the old
+        wording.
+        """
+        if self.hours is None:
+            raise ValueError("Hour plan not available")
+        slot = next((s for s in self.hours.hour_slots(day) if s.hour == hour), None)
+        if slot is None or not (slot.text or "").strip():
+            raise ValueError("Nothing planned in that hour")
+
+        task = self.tasks.get_by_hour_slot(slot.id)
+        if task is not None and not task.done:
+            task.text = slot.text
+            task.day = _today()
+            self.tasks.save(task)
+        else:
+            task = self.tasks.add(
+                Task(
+                    id=int(time.time() * 1000),
+                    list_key="focus",
+                    text=slot.text,
+                    done=False,
+                    secs=0.0,
+                    sessions=[],
+                    est=0,
+                    mit=False,
+                    day=_today(),
+                    urgency="med",
+                    # NOT struck — see the note in get().
+                    strike=False,
+                    project=None,
+                    psrc=None,
+                    hour_slot_id=slot.id,
+                )
+            )
+
+        self.set_now(task.id)
+        cur = self.get()
+        if cur is not None and not _is_running(cur):
+            self.toggle_run()
         return self.get()
 
     def strike_project_task(self, pid: str) -> Task:

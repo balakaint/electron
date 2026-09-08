@@ -26,6 +26,9 @@ export interface Task {
   strike: boolean;
   project: string | null;
   psrc: string | null;
+  // Set when this task was started from an hour you planned, so
+  // finishing it can tick that hour back.
+  hour_slot_id: number | null;
   sort_order: number;
 }
 
@@ -309,6 +312,10 @@ export const nowApi = {
   get: () => req('GET', '/api/now') as Promise<Task | null>,
   setNow: (taskId: number) => req('POST', `/api/now/${taskId}`) as Promise<Task | null>,
   toggleRun: () => req('POST', '/api/now/toggle-run') as Promise<Task | null>,
+  // Promote the entry written in one hour into the task NOW points at,
+  // and start its clock.
+  startHour: (day: string, hour: number) =>
+    req('POST', `/api/now/hour/${day}/${hour}`) as Promise<Task | null>,
   complete: () => req('POST', '/api/now/complete') as Promise<Task | null>,
 };
 

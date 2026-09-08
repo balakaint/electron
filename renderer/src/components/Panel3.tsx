@@ -241,7 +241,9 @@ export default function Panel3({
               <FocusTabs tab={tab} onSelect={selectTab} />
             )}
 
-            {tab === 'hours' && <HourPlanTab />}
+            {tab === 'hours' && (
+              <HourPlanTab refreshSignal={nowBump} onChanged={() => setNowBump((b) => b + 1)} />
+            )}
             {tab === 'mit' && (
               <TaskList
                 listKey="focus"
