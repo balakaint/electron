@@ -248,6 +248,9 @@ function layoutWidth(layout: Layout, workAreaWidth: number): number {
 // Only compact changes the WINDOW; 'partial' just hides a column, so
 // everything below treats it exactly like 'full'.
 let currentLayout: Layout = 'full';
+// Timers that re-assert a dock after the window manager has had its
+// say. See applyPanelLayout.
+let redockTimers: ReturnType<typeof setTimeout>[] = [];
 let preCompactBounds: Electron.Rectangle | null = null;
 let preCompactMaximized = false;
 
@@ -751,23 +754,56 @@ function applyPanelLayout(layout: Layout) {
     if (layout === 'full') win.setMinimumSize(FULL_MIN_WIDTH, FULL_MIN_HEIGHT);
   };
 
+  // RE-ASSERT, because setBounds is a request, not a fact.
+  //
+  // THE BUG THIS FIXES: the window opened at the LEFT edge of the screen
+  // at the docked width. The log showed our own correct call —
+  // {"x":1335,"width":585} on a 1920 screen — and the window at x=0
+  // anyway. Under X11/WSLg (and Windows' own resize animation)
+  // unmaximize is asynchronous: the window manager restores ITS
+  // remembered geometry after we have already moved the window, so the
+  // width we set survives and the position we set does not. Half-applied
+  // is the worst outcome, because it looks like the formula is wrong
+  // when the formula was right.
+  //
+  // Legacy hits the same thing and answers it the same way (16053): two
+  // delayed re-asserts, and the previous transition's timers cancelled
+  // first — "they were never cancelled, so two layout changes inside
+  // 220ms left the earlier one's timers still armed, and they fire LAST,
+  // slamming the window back to the width the user just moved away
+  // from".
+  //
+  // The check is on POSITION as well as width. The old fallback compared
+  // width alone, so exactly this case — right size, wrong place — was
+  // read as "already docked" and left alone.
+  const reassert = () => {
+    for (const t of redockTimers) clearTimeout(t);
+    redockTimers = [60, 220, 500].map((ms) =>
+      setTimeout(() => {
+        if (win.isDestroyed() || currentLayout !== layout) return;
+        const wa = screen.getDisplayMatching(win.getBounds()).workArea;
+        const width = layoutWidth(layout, wa.width);
+        const b = win.getBounds();
+        if (b.width !== width || Math.abs(b.x - (wa.x + wa.width - width)) > 2) dock();
+      }, ms),
+    );
+  };
+
   if (win.isMaximized()) {
     // unmaximize() is not synchronous under X11/WSLg: it asks the window
     // manager, which restores its own remembered position afterwards —
-    // landing on top of a setBounds issued immediately after. Docking
-    // from a NON-maximized window always worked, which is what
-    // identified this. Waiting for the event does the same thing
-    // correctly, with a timed fallback for window managers that never
-    // emit it; the fallback re-checks the width so a dock that already
-    // succeeded is not redone.
-    const want = () => layoutWidth(layout, screen.getDisplayMatching(win.getBounds()).workArea.width);
-    win.once('unmaximize', dock);
+    // landing on top of a setBounds issued immediately after. Waiting
+    // for the event does the same thing correctly; the re-asserts cover
+    // window managers that never emit it, and everything after.
+    win.once('unmaximize', () => {
+      dock();
+      reassert();
+    });
     win.unmaximize();
-    setTimeout(() => {
-      if (!win.isDestroyed() && currentLayout === layout && win.getBounds().width !== want()) dock();
-    }, 250);
+    reassert();
   } else {
     dock();
+    reassert();
   }
 }
 
