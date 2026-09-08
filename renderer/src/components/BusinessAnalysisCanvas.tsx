@@ -5,7 +5,6 @@ import {
   BusinessAnalysis,
   DecisionLogEntry,
   DecisionStatus,
-  LegacyBox,
   NextPriority,
   Project,
   ProjectKey,
@@ -214,7 +213,6 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
   const [ba, setBa] = useState<BusinessAnalysis | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [log, setLog] = useState<DecisionLogEntry[]>([]);
-  const [boxes, setBoxes] = useState<LegacyBox[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   // One "Saved" for the page, in the header, as legacy has it — rather
   // than a flash on each of the fifteen fields.
@@ -228,7 +226,6 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
 
   useEffect(() => {
     refresh();
-    businessAnalysisApi.getLegacyBoxes(projectKey).then(setBoxes);
     projectsApi.get(projectKey).then(setProject);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectKey]);
@@ -260,7 +257,6 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
       if (path) save('attach_path', path);
     });
 
-  const nonEmptyBoxes = boxes.filter((b) => b.title.trim() || b.text.trim());
   const any = (...vals: string[]) => vals.some((v) => (v || '').trim().length > 0);
   // Newest last in storage; the collapsed view shows the most recent.
   const shown = historyOpen ? [...log].reverse() : log.slice(-1);
@@ -317,6 +313,17 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
           minHeight: 0,
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
+            // Exactly four rows, and nothing may add a fifth.
+          //
+          // THE BUG THIS FIXES. LEGACY NOTES was a sixth card with no row
+          // of its own, so the grid gave it an IMPLICIT row sized to its
+          // content — eight boxes tall. The four `fr` rows above then
+          // divided whatever was left, which crushed them: PROBLEM IT
+          // SOLVES was sliced in half at the IDEA card's bottom edge and
+          // the ANALYSIS and FINANCIAL fields collapsed to a couple of
+          // pixels with scroll nubs. A card outside the row template does
+          // not just appear at the bottom; it takes its height off
+          // everything above it.
           gridTemplateRows: '1fr 2fr auto 2fr',
           gap: 8,
         }}
@@ -478,20 +485,6 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
           <CircleSection projectKey={projectKey} onCount={setPeopleCount} />
         </Card>
 
-        {nonEmptyBoxes.length > 0 && (
-          <Card title="LEGACY NOTES (read-only)" accent="var(--ba-neutral)" style={{ gridColumn: '1 / -1' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, overflowY: 'auto' }}>
-              {nonEmptyBoxes.map((b) => (
-                <div key={b.box_index} style={{ border: '1px solid var(--border)', padding: 8 }}>
-                  {b.title && (
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{b.title}</div>
-                  )}
-                  <div style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{b.text}</div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
       </div>
     </div>
   );
