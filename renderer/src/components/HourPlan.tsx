@@ -53,6 +53,7 @@ function Row({
   onClear: () => void;
   onToggleRepeat: () => void;
 }) {
+  const L = useL();
   const [text, setText] = useState(slot.text);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [clock, setClock] = useState(liveClock);
@@ -91,7 +92,9 @@ function Row({
         disabled={!filled}
         title={filled ? (slot.done ? 'Mark not done' : 'Mark done') : ''}
         style={{
-          width: 20,
+          width: 24,
+          height: 24,
+          flex: 'none',
           border: 'none',
           background: 'transparent',
           padding: 0,
@@ -99,8 +102,11 @@ function Row({
           cursor: filled ? 'pointer' : 'default',
           color: slot.done ? 'var(--success)' : 'var(--text-muted)',
           // The inert circle may fade all the way back: WCAG exempts
-          // inactive controls from the text-contrast rule.
-          opacity: slot.done ? 1 : lit ? 0.75 : 0.3,
+          // inactive controls from the text-contrast rule. A row you
+          // HAVE written in is not inert — its circle is the tick you
+          // came to press — so it gets full strength. At 0.75 it
+          // measured 3.83-4.04:1 on the light themes.
+          opacity: filled ? 1 : isNow ? 0.75 : 0.3,
         }}
       >
         {slot.done ? '✓' : '○'}
@@ -116,7 +122,13 @@ function Row({
           fontSize: isNow ? 13 : 12,
           fontWeight: isNow ? 'bold' : 'normal',
           color: isNow ? color : 'var(--text-muted)',
-          opacity: isNow || filled ? 1 : 0.75,
+          // No opacity dimming. --text-muted is chosen to clear 4.5:1 on
+          // every theme's surface; multiplying it by 0.75 dropped these
+          // labels to 3.83-4.04:1 on all four light themes. The empty
+          // rows already recede three other ways — no rule under the
+          // input, the circle at 0.3, the repeat and clear buttons
+          // hidden — so this fourth cue was buying nothing and costing
+          // the one thing on the row you have to be able to read.
           whiteSpace: 'nowrap',
         }}
       >
@@ -125,6 +137,13 @@ function Row({
 
       <input
         value={text}
+        // The hour you are in is the loudest line on this panel — 14px,
+        // bold, in the block's own colour — and while it was empty it
+        // was the loudest line saying nothing. Emphasis has to be
+        // earned: as a question it is, as a blank rule it is not. Only
+        // this row gets the placeholder; twenty-four of them would be
+        // the column of hairlines legacy already removed.
+        placeholder={isNow && !filled ? L('What are you doing this hour?', 'এই ঘণ্টায় কী?') : ''}
         onChange={(e) => {
           setText(e.target.value);
           save(e.target.value);
@@ -150,7 +169,8 @@ function Row({
           fontSize: isNow ? 14 : 13,
           fontWeight: isNow ? 'bold' : 'normal',
           textDecoration: slot.done ? 'line-through' : undefined,
-          padding: '2px 4px',
+          padding: '0 4px',
+          height: 24,
         }}
       />
 
@@ -174,7 +194,9 @@ function Row({
             : 'Keep this on every day until it is finished'
         }
         style={{
-          width: 20,
+          width: 24,
+          height: 24,
+          flex: 'none',
           border: 'none',
           background: 'transparent',
           padding: 0,
@@ -195,7 +217,9 @@ function Row({
         onClick={onClear}
         title="Clear this hour"
         style={{
-          width: 18,
+          width: 24,
+          height: 24,
+          flex: 'none',
           border: 'none',
           background: 'transparent',
           padding: 0,
@@ -273,11 +297,18 @@ export default function HourPlanTab() {
 
       {plan.blocks.map((b) => {
         const isNow = b.key === plan.current_block;
-        // Only the block you are IN is open by default — but any of them
-        // opens on a click, "because planning tonight at 10am is the
-        // whole point of having the block, and a section that refuses to
-        // open is a section you stop trusting".
-        const shown = open[b.key] ?? isNow;
+        // Open by default if you are IN it, or if you WROTE something in
+        // it. Legacy opens only the current block, and the reasoning is
+        // sound — but it is the wrong axis. An empty block hides nothing
+        // by staying shut; a block with something written in it hides
+        // exactly the thing you opened the app to see. Measured: the
+        // header said "TO-DO (2) · 0/2 done" while both items sat inside
+        // collapsed blocks and 456px of the panel below them was blank.
+        // Any block still opens on a click, "because planning tonight at
+        // 10am is the whole point of having the block, and a section
+        // that refuses to open is a section you stop trusting".
+        const openByDefault = isNow || b.planned > 0;
+        const shown = open[b.key] ?? openByDefault;
         const color = `var(--phase-${b.key})`;
         return (
           <div
@@ -291,7 +322,7 @@ export default function HourPlanTab() {
             }}
           >
             <div
-              onClick={() => setOpen((o) => ({ ...o, [b.key]: !(o[b.key] ?? isNow) }))}
+              onClick={() => setOpen((o) => ({ ...o, [b.key]: !(o[b.key] ?? openByDefault) }))}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -306,17 +337,19 @@ export default function HourPlanTab() {
                   small. The block name used to be the same size as the
                   task text inside it, so nothing led the eye anywhere. */}
               <span style={{ color, fontSize: 13, fontWeight: 'bold' }}>{b.name}</span>
+              {/* A dot, not the word NOW. "NOW" is the card pinned above
+                  the tabs and it answers WHICH TASK you are on; this
+                  badge answers WHICH PART OF THE DAY you are in. Two
+                  different questions wearing the same word on one
+                  screen made both of them vaguer. The dot, the tint and
+                  the running clock in the row below already say it. */}
               {isNow && (
                 <span
-                  style={{
-                    background: color,
-                    color: 'var(--on-accent)',
-                    fontSize: 9,
-                    fontWeight: 'bold',
-                    padding: '1px 4px',
-                  }}
+                  title="You are in this part of the day now"
+                  aria-label="current block"
+                  style={{ color, fontSize: 12, lineHeight: 1 }}
                 >
-                  NOW
+                  ●
                 </span>
               )}
               <span style={{ flex: 1 }} />

@@ -144,7 +144,12 @@ export default function Panel3({
         {compact ? '◀' : '▶'}
       </button>
 
-      <div style={{ display: 'flex', gap: 4, marginBottom: 10, paddingLeft: 24 }}>
+      {/* paddingLeft clears the collapse chevron pinned top-left; the
+          RIGHT padding clears the gear pinned top-right by App.tsx, and
+          was missing. Measured: the gear ran 1461-1488 and the EXECUTE
+          button 1230-1488 — identical right edges, so the gear sat on
+          top of the selected button's fill. */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 10, paddingLeft: 24, paddingRight: 30 }}>
         {(
           [
             ['classic', L('PLAN', 'পরিকল্পনা')],
@@ -223,7 +228,14 @@ export default function Panel3({
                 single thing you are doing; hiding it behind a tab would
                 make the answer to "what now" depend on which tab you
                 last clicked (legacy 5177-5180). */}
-            <NowCard refreshSignal={nowBump} onChanged={() => setNowBump((b) => b + 1)} />
+            <NowCard
+              refreshSignal={nowBump}
+              onChanged={() => setNowBump((b) => b + 1)}
+              // An empty NOW with a real choice to make hands you over
+              // to the tab where that choice is made, rather than
+              // reprinting the list here.
+              onGoToMit={() => selectTab('mit')}
+            />
 
             {tab && (
               <FocusTabs tab={tab} onSelect={selectTab} />

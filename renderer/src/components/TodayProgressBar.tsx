@@ -25,13 +25,19 @@ function meaningful(secsToday: number, targetMinutes: number): boolean {
   return secsToday >= Math.max(300, targetMinutes * 60 * 0.25);
 }
 
-// Legacy _update_progress_labels: green >= 70, amber >= 40, else red.
-// The amber is legacy's own literal rather than --warning, which varies
-// per theme — this readout is a fixed three-step scale, not themed.
+// Legacy paints this readout green >= 70, amber >= 40, else red
+// (_update_progress_labels). The green stays; the amber and the red do
+// not, and the reason is what moving the colour onto the numbers made
+// visible: at 7:31am, 45 minutes into a 5h 15m day, the line rendered
+// "0h 45m / 5h 15m" in alarm red. You are not behind at 7:31am — you
+// have barely started, which is what the number already says. A scale
+// that is red for most of every morning is a scale you learn to ignore,
+// and then it is not there for you in the evening either.
+//
+// So: green only where it is news, default ink everywhere else. The
+// exact percentage is one hover away in the title.
 function pctColor(pct: number): string {
-  if (pct >= 70) return 'var(--success)';
-  if (pct >= 40) return '#A15904';
-  return 'var(--danger)';
+  return pct >= 70 ? 'var(--success)' : 'var(--text)';
 }
 
 export default function TodayProgressBar({
@@ -88,8 +94,21 @@ export default function TodayProgressBar({
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
         <span style={{ fontSize: 11, letterSpacing: 0.5, color: 'var(--text-faint)', fontWeight: 'bold' }}>TODAY PROGRESS</span>
-        <span style={{ fontSize: 12, color: pctColor(pctInt), fontWeight: 'bold' }}>↻ {pctInt}%</span>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+        {/* The standalone "↻ 12%" is gone. This card was saying the same
+            day four ways: a percentage, this time pair, the segmented
+            bar, and "n/6 projects today" underneath. Three of those
+            answer different questions — the bar says WHICH project got
+            skipped, the pair says HOW MUCH time, the count says how many
+            got real work (a stricter test than the bar's fill, see
+            meaningful() above). The percentage was the bar's own fill
+            and this pair's own ratio, written out a third time.
+            Its one irreplaceable job was the green/amber/red signal, so
+            that moved onto the numbers instead of being deleted with
+            them. */}
+        <span
+          title={`${pctInt}% of today's goal`}
+          style={{ fontSize: 12, color: pctColor(pctInt), fontWeight: 'bold' }}
+        >
           {complete ? `${goalTxt} / ${goalTxt}` : `${Math.floor(minsDone / 60)}h ${minsDone % 60}m / ${goalTxt}`}
         </span>
       </div>
