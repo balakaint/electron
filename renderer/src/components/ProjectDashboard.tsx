@@ -16,11 +16,8 @@ import BusinessAnalysisCanvas from './BusinessAnalysisCanvas';
 import DeepWorkTrend from './DeepWorkTrend';
 import TodayProgressBar from './TodayProgressBar';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
+import { dayNumber, projTimeText } from '../format';
 
-function formatSecs(secs: number): string {
-  const mins = Math.round(secs / 60);
-  return `${mins}m`;
-}
 
 // Legacy's _PROJ_TARGETS (task_tracker_v3_THEMES.py 2760). Its own note
 // on why presets and not free typing: "the useful answers to 'how long a
@@ -128,7 +125,7 @@ function ProjectCard({
   // shows the same line as one worked an hour ago; the minutes can't).
   const pending = subtasks.filter((s) => !s.done);
   const subtasksDone = subtasks.length - pending.length;
-  const previewBits = [`${formatSecs(project.secs_today)} / ${project.target_minutes}m`];
+  const previewBits = [projTimeText(project.secs_today, project.target_minutes)];
   if (subtasks.length > 0) previewBits.push(`${subtasks.length - pending.length}/${subtasks.length}`);
   const previewTail =
     subtasks.length === 0
@@ -296,7 +293,7 @@ function ProjectCard({
                   opacity: running ? 1 : 0.75,
                 }}
               >
-                {formatSecs(project.secs_today)} / {project.target_minutes}m
+                {projTimeText(project.secs_today, project.target_minutes)}
               </button>
             </div>
           </div>
@@ -364,11 +361,40 @@ function ProjectCard({
             const onToday = committed !== undefined && committed.strike && !committed.done;
             const full = focusTasks.filter((t) => t.strike && !t.done).length >= STRIKE_MAX;
             return (
-              <li key={s.pid} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '2px 0' }}>
-                <button onClick={() => projectsApi.toggleSubtask(s.pid).then(refreshSubtasks)} title="Toggle done" style={{ width: 18 }}>
-                  {s.done ? '✓' : '○'}
+              <li
+                key={s.pid}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '2px 0' }}
+              >
+                {/* Legacy gives every task row a 3px strip in the
+                    project's colour, going muted once it is done
+                    (6999-7002). It is what makes a list of tasks read as
+                    belonging to the card above it. */}
+                <span
+                  style={{
+                    width: 3,
+                    alignSelf: 'stretch',
+                    minHeight: 16,
+                    background: s.done ? 'var(--border)' : project.accent_color,
+                  }}
+                />
+                <button
+                  onClick={() => projectsApi.toggleSubtask(s.pid).then(refreshSubtasks)}
+                  title="Toggle done"
+                  style={{ width: 18 }}
+                >
+                  {/* A box, not a circle — legacy uses a real checkbox
+                      here, and the STRIKE rows in panel 3 already use
+                      □/✓. One tick idiom across the app. */}
+                  {s.done ? '✓' : '□'}
                 </button>
                 <span style={{ flex: 1, textDecoration: s.done ? 'line-through' : 'none' }}>{s.text}</span>
+                {/* How long this has been open. Muted, not red: legacy
+                    had it hard-coded in the same colour the app uses for
+                    risk and delete-hover, and "DAY 37" is a neutral fact
+                    that does not get more alarming as it grows. */}
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  {dayNumber(s.added_date)}
+                </span>
                 {!s.done && (
                   <button
                     onClick={() => strikeSubtask(s.pid)}
