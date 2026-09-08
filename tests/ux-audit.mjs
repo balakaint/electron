@@ -296,6 +296,8 @@ const run = async () => {
       readImage: async () => null,
       openPath: async () => ({ ok: true, error: null }),
       setPanelLayout: async () => ({ ok: true }),
+        windowControl: async () => ({ maximised: false }),
+        windowState: async () => ({ maximised: false, platform: 'win32' }),
     };
   });
   const findings = [];

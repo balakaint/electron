@@ -57,6 +57,8 @@ declare global {
       pickImage: () => Promise<string | null>;
       readImage: (filePath: string) => Promise<string | null>;
       setPanelLayout: (layout: PanelLayout) => Promise<{ ok: true }>;
+      windowControl: (action: 'minimise' | 'maximise' | 'close') => Promise<{ maximised: boolean }>;
+      windowState: () => Promise<{ maximised: boolean; platform: string }>;
     };
   }
 }

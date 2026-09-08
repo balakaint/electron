@@ -492,6 +492,25 @@ function createWindow() {
     // would silently pin the compact window at 900px instead of 420.
     minWidth: FULL_MIN_WIDTH,
     minHeight: FULL_MIN_HEIGHT,
+    // OUR OWN TITLE BAR.
+    //
+    // The grey OS strip was the loudest thing on screen saying "this was
+    // assembled at home": an app the user pays for is expected to own
+    // the whole rectangle, and every desktop product they already use
+    // does. It also wasted 30px telling them the name of a window they
+    // are looking at, in a font and colour that belong to no theme here.
+    //
+    // The renderer draws it instead (components/TitleBar.tsx) — six
+    // themes, one bar, and the drag region declared in CSS. macOS keeps
+    // its traffic lights, because hiding those is not a style choice
+    // there, it is breaking the platform's only close button.
+    frame: process.platform === 'darwin',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    // Painted before the renderer's first frame. The saved theme lives
+    // in the engine's settings and is not readable this early, so this
+    // follows the OS instead: a wrong guess costs one frame of the wrong
+    // background, an unset one costs a white flash on every dark theme.
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0C0C0F' : '#E8E5E0',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -774,6 +793,24 @@ function applyPanelLayout(layout: Layout) {
     preCompactMaximized = false;
   }
 }
+
+// The three window buttons, and the state the maximise button needs to
+// know which glyph it is. Deliberately thin: the renderer decides what
+// they look like, the main process is the only place that can act on
+// them.
+ipcMain.handle('window-control', async (_, action: 'minimise' | 'maximise' | 'close') => {
+  if (!mainWindow) return { maximised: false };
+  if (action === 'minimise') mainWindow.minimize();
+  else if (action === 'close') mainWindow.close();
+  else if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  else mainWindow.maximize();
+  return { maximised: mainWindow.isMaximized() };
+});
+
+ipcMain.handle('window-state', async () => ({
+  maximised: mainWindow?.isMaximized() ?? false,
+  platform: process.platform,
+}));
 
 ipcMain.handle('set-panel-layout', async (_, layout: Layout) => {
   applyPanelLayout(layout);

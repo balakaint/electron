@@ -3,6 +3,7 @@ import { ListKey, PanelLayout, ProjectKey, exportApi, goalsApi, settingsApi } fr
 import Panel3 from './components/Panel3';
 import BusinessAnalysisCanvas from './components/BusinessAnalysisCanvas';
 import ToolsMenu from './components/ToolsMenu';
+import TitleBar from './components/TitleBar';
 import HabitDashboard from './components/HabitDashboard';
 import ProjectDashboard from './components/ProjectDashboard';
 import GoalsPanel from './components/GoalsPanel';
@@ -240,6 +241,12 @@ function AppShell() {
 
   return (
     <LangProvider lang={lang}>
+    {/* The title bar is OUTSIDE the padded shell, flush to the window's
+        own edges — an inset title bar is a strip of chrome floating in a
+        margin, which reads as a widget rather than as the top of the
+        window. */}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
+    <TitleBar />
     <div
       style={{
         fontFamily: 'sans-serif',
@@ -249,7 +256,8 @@ function AppShell() {
         // Fixed to the viewport, not min-height: the three columns each
         // scroll independently, which is what keeps a long project list
         // from pushing the clock off screen.
-        height: '100vh',
+        flex: 1,
+        minHeight: 0,
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
@@ -427,6 +435,7 @@ function AppShell() {
         />
       )}
       <UndoToast />
+    </div>
     </div>
     </LangProvider>
   );

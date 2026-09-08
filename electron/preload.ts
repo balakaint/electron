@@ -11,4 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   pickImage: () => ipcRenderer.invoke('pick-image'),
   readImage: (filePath: string) => ipcRenderer.invoke('read-image', filePath),
   setPanelLayout: (layout: 'full' | 'partial' | 'compact') => ipcRenderer.invoke('set-panel-layout', layout),
+  windowControl: (action: 'minimise' | 'maximise' | 'close') =>
+    ipcRenderer.invoke('window-control', action),
+  windowState: () => ipcRenderer.invoke('window-state'),
 });

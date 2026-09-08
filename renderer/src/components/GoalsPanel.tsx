@@ -416,7 +416,8 @@ function GoalSection({
             border: 'none',
             background: 'transparent',
             color: accent,
-            padding: '4px 0',
+            padding: 0,
+            height: 24,
           }}
         />
         <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
