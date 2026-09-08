@@ -83,7 +83,8 @@ export default function Panel3({
   onFocusChanged,
   view,
   onSelectView,
-  compact,
+  stepGlyph,
+  stepTitle,
   onToggleLayout,
   onOpenQuarterly,
 }: {
@@ -91,7 +92,8 @@ export default function Panel3({
   onFocusChanged: () => void;
   view: View;
   onSelectView: (v: View) => void;
-  compact: boolean;
+  stepGlyph: '◀' | '▶';
+  stepTitle: string;
   onToggleLayout: () => void;
   onOpenQuarterly: () => void;
 }) {
@@ -127,7 +129,7 @@ export default function Panel3({
           current state. Panel 3's toggles panels 1+2 together. */}
       <button
         onClick={onToggleLayout}
-        title={compact ? 'Show all panels (Ctrl+F)' : 'Focus mode — this panel only (Ctrl+F)'}
+        title={stepTitle}
         style={{
           position: 'absolute',
           top: 0,
@@ -139,10 +141,18 @@ export default function Panel3({
           height: 24,
         }}
       >
-        {/* Legacy: `text="▶" if _shown else "◀"` — the arrow shows the
-            state of the panels this button controls, so it reads ▶ while
-            they are visible. Both chevrons were inverted. */}
-        {compact ? '◀' : '▶'}
+        {/* The arrow shows what THIS CLICK DOES, not what is currently
+            visible. Legacy's code drew the state (▶ while the panels
+            were shown) and its own comment two hundred lines away said
+            it drew the action — the two contradict each other, and the
+            state version is the one people read backwards: everything
+            open, an arrow pointing right, and clicking it closes things.
+
+            It is also a stepper now, not a jump. One click is one rung
+            of the ladder — full, partial, compact — and it reverses at
+            the ends, the way a blind does. Ctrl+F remains the express
+            route between the two extremes. */}
+        {stepGlyph}
       </button>
 
       {/* paddingLeft clears the collapse chevron pinned top-left; the

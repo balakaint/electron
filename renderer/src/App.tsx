@@ -167,11 +167,30 @@ function AppShell() {
   // toggle off the CURRENT state, not a fixed step. Its own comment
   // explains why — a fixed ±1 clamps at index 0 and the control dies in
   // the collapsed state.
-  // Panel 3's chevron: hide BOTH side panels, or bring them back.
-  // Legacy's _toggle_panel2 — a real toggle on current visibility, not a
-  // fixed step, "because a fixed step is what broke this from the
-  // default compact state".
-  const togglePanels = () => setLayout(layout === 'compact' ? 'full' : 'compact');
+  // Panel 3's chevron is a STEPPER: one click is one rung of the ladder
+  // — full, partial, compact — and it reverses at the ends, the way a
+  // blind does.
+  //
+  // Legacy toggles straight between full and compact, and its own
+  // comment explains why it is not a fixed ±1 step: "a fixed step is
+  // what broke this from the default compact state — direction=-1 from
+  // idx 0 clamps to 0 forever". That is an argument against a step with
+  // no memory, not against stepping. Remembering which way you were
+  // going, and flipping at each end, cannot clamp: from full the only
+  // move is closing, from compact the only move is opening, and partial
+  // continues whichever you were doing.
+  //
+  // The middle rung is worth reaching by one click, which a jump never
+  // gives you: partial is panel 2 + panel 3 at 1280px, the shape for
+  // working on one project's goals beside the clock.
+  const [stepDir, setStepDir] = useState<'closing' | 'opening'>('closing');
+  const nextStepDir: 'closing' | 'opening' =
+    layout === 'full' ? 'closing' : layout === 'compact' ? 'opening' : stepDir;
+  const stepPanels = () => {
+    setStepDir(nextStepDir);
+    if (nextStepDir === 'closing') setLayout(layout === 'full' ? 'partial' : 'compact');
+    else setLayout(layout === 'compact' ? 'partial' : 'full');
+  };
 
   // Ctrl+F is NOT the same function, and legacy keeps them apart
   // deliberately (_toggle_focus_mode, 15803): it jumps between compact
@@ -332,7 +351,10 @@ function AppShell() {
               title={layout === 'full' ? 'Hide the projects panel' : 'Show the projects panel'}
               style={{ position: 'absolute', top: 0, left: 0, zIndex: 2, fontSize: 12, padding: 0, width: 24, height: 24 }}
             >
-              {layout === 'full' ? '▶' : '◀'}
+              {/* What the click DOES: ◀ collapses the panel to its left,
+                  ▶ brings it back. Drawn the other way round it reads as
+                  a promise to open something that is already open. */}
+              {layout === 'full' ? '◀' : '▶'}
             </button>
             <GoalsPanel projectKey={goalsProject} />
           </div>
@@ -390,8 +412,17 @@ function AppShell() {
             onFocusChanged={() => setPanel3Wrote((v) => v + 1)}
             view={tab}
             onSelectView={setTab}
-            compact={compact}
-            onToggleLayout={togglePanels}
+            stepGlyph={nextStepDir === 'closing' ? '◀' : '▶'}
+            stepTitle={
+              nextStepDir === 'closing'
+                ? layout === 'full'
+                  ? 'Hide the projects panel'
+                  : 'Hide the goals panel too'
+                : layout === 'compact'
+                  ? 'Show the goals panel'
+                  : 'Show the projects panel'
+            }
+            onToggleLayout={stepPanels}
             onOpenQuarterly={() => setOverlay({ kind: 'quarterly' })}
           />
         </div>

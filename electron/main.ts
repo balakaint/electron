@@ -211,6 +211,7 @@ const COMPACT_WIDTH = PANEL3_W + 40;
 const DEFAULT_WIDTH = 1500;
 const DEFAULT_HEIGHT = 900;
 const FULL_MIN_WIDTH = 900;
+
 const FULL_MIN_HEIGHT = 600;
 
 // Current layout, and the geometry to return to when leaving compact.
@@ -218,6 +219,31 @@ const FULL_MIN_HEIGHT = 600;
 // saveWindowState needs them, and the two together are what make a
 // docked window restorable.
 type Layout = 'full' | 'partial' | 'compact';
+
+// Legacy's _layout_width (15925-15940) — THE definition of how wide the
+// window is in each layout, used by the initial dock and by every arrow
+// click.
+//
+// THE BUG THIS FIXES. This port only ever resized for COMPACT. Hiding
+// panel 1 left the window exactly as wide as it was, so "partial" was a
+// full-screen window with an empty third of it — which is the precise
+// thing legacy calls out as the failure worth avoiding: "a collapsed
+// layout is an actually-narrow window pinned to the right edge of the
+// screen, not empty space with a wandering position". The collapse
+// control looked broken because half of what it does was missing.
+//
+// "full" is the monitor's work area, not a remembered number. Panel 3
+// has a minimum width, so any width short of the screen is taken out of
+// panels 1 and 2 — the two that needed it. Legacy's own note: it used
+// to mean 1600px and left ~320px of a 1920 desktop unused while the
+// flexible panels were visibly cramped.
+const PARTIAL_WIDTH = 1280;
+
+function layoutWidth(layout: Layout, workAreaWidth: number): number {
+  if (layout === 'compact') return COMPACT_WIDTH;
+  if (layout === 'partial') return Math.min(PARTIAL_WIDTH, workAreaWidth);
+  return Math.max(FULL_MIN_WIDTH, workAreaWidth);
+}
 
 // Only compact changes the WINDOW; 'partial' just hides a column, so
 // everything below treats it exactly like 'full'.
@@ -690,107 +716,58 @@ function applyPanelLayout(layout: Layout) {
   const win = mainWindow;
   if (!win || win.isDestroyed()) return;
 
-  console.log(
-    `[layout] apply ${layout} (was ${currentLayout}); bounds ` +
-      `${JSON.stringify(win.getBounds())}; remembered ${JSON.stringify(preCompactBounds)}`,
-  );
+  console.log(`[layout] apply ${layout} (was ${currentLayout}); bounds ${JSON.stringify(win.getBounds())}`);
   currentLayout = layout;
 
-  if (layout === 'compact') {
-    // Guarded: re-applying compact (the renderer re-asserts it once on
-    // load, after the main process has already docked) must not capture
-    // the docked bounds as the thing to restore.
-    const live = win.getBounds();
-    // The guard used to be `preCompactBounds === null` alone, which is
-    // exactly the state on a launch that STARTS compact: the main
-    // process docks early from window-state.json's compact flag, then
-    // the renderer asserts compact again, and this captured the docked
-    // 585px as "the size to restore". Pressing the chevron then put
-    // three columns into a 585px window with no way back — the collapse
-    // control looked broken because it was.
-    //
-    // A window already at the docked width is not a full geometry, so it
-    // is not recorded as one. What gets restored instead is the file's
-    // own geometry, which is the FULL one by construction (see
-    // windowStateToPersist: compact never overwrites it).
-    if (preCompactBounds === null && live.width !== COMPACT_WIDTH) {
-      preCompactBounds = live;
-      preCompactMaximized = win.isMaximized();
-    }
-    const dock = () => {
-      if (win.isDestroyed()) return;
-      // Must come BEFORE setBounds: a window whose minimum width is
-      // still 900 cannot be resized to 420, and the dock would silently
-      // land at 900 with no error to notice.
-      win.setMinimumSize(COMPACT_WIDTH, 400);
-      // getDisplayMatching, not getPrimaryDisplay: this is Electron's
-      // equivalent of legacy's MonitorFromPoint fix. The primary
-      // display's work area is the wrong rectangle the moment the window
-      // has been dragged to a second monitor, and the symptom — docking
-      // to the wrong screen, or the taskbar overlapping the bottom — is
-      // confusing enough that legacy left a paragraph about it.
-      const wa = screen.getDisplayMatching(win.getBounds()).workArea;
-      win.setBounds({
-        x: wa.x + wa.width - COMPACT_WIDTH,
-        y: wa.y,
-        width: COMPACT_WIDTH,
-        height: wa.height,
-      });
-    };
+  // ONE formula for all three rungs, which is the whole point.
+  //
+  // This used to remember the bounds the window had before going
+  // compact and put them back afterwards, and resize for compact only.
+  // Two consequences, both of which read as "the collapse button is
+  // broken": PARTIAL never changed the window at all, so hiding panel 1
+  // left a third of a full-screen window empty; and FULL came back at
+  // whatever size happened to be remembered rather than the screen.
+  //
+  // Legacy does not remember anything — it recomputes deterministically
+  // from the monitor every time (_dock_geometry + _layout_width), which
+  // is both simpler and impossible to desynchronise. So does this now.
+  const dock = () => {
+    if (win.isDestroyed()) return;
+    // getDisplayMatching, not getPrimaryDisplay: Electron's equivalent
+    // of legacy's MonitorFromPoint fix. The primary display's work area
+    // is the wrong rectangle the moment the window has been dragged to a
+    // second monitor, and the symptom — docking to the wrong screen, or
+    // the taskbar overlapping the bottom — is confusing enough that
+    // legacy left a paragraph about it.
+    const wa = screen.getDisplayMatching(win.getBounds()).workArea;
+    const width = layoutWidth(layout, wa.width);
+    // Must come BEFORE setBounds: a window whose minimum width is still
+    // 900 cannot be resized to 585, and the dock would silently land at
+    // 900 with no error to notice.
+    win.setMinimumSize(Math.min(width, FULL_MIN_WIDTH), 400);
+    win.setBounds({ x: wa.x + wa.width - width, y: wa.y, width, height: wa.height });
+    // Restored after the move, so a full window can still be dragged
+    // narrow by hand but not below what the three columns need.
+    if (layout === 'full') win.setMinimumSize(FULL_MIN_WIDTH, FULL_MIN_HEIGHT);
+  };
 
-    if (win.isMaximized()) {
-      // unmaximize() is not synchronous under X11/WSLg: it asks the
-      // window manager, which restores its own remembered position
-      // afterwards — landing on top of a setBounds issued immediately
-      // after, so the window ended up 420 wide (that part is ours) at
-      // the WM's x (that part is not). Docking from a NON-maximized
-      // window always worked, which is what identified this.
-      //
-      // Waiting for the event does the same thing correctly, with a
-      // timed fallback for window managers that never emit it. The
-      // fallback checks the width first, so a dock that already
-      // succeeded is not redone.
-      win.once('unmaximize', dock);
-      win.unmaximize();
-      setTimeout(() => {
-        if (!win.isDestroyed() && currentLayout === 'compact' && win.getBounds().width !== COMPACT_WIDTH) {
-          dock();
-        }
-      }, 250);
-    } else {
-      dock();
-    }
+  if (win.isMaximized()) {
+    // unmaximize() is not synchronous under X11/WSLg: it asks the window
+    // manager, which restores its own remembered position afterwards —
+    // landing on top of a setBounds issued immediately after. Docking
+    // from a NON-maximized window always worked, which is what
+    // identified this. Waiting for the event does the same thing
+    // correctly, with a timed fallback for window managers that never
+    // emit it; the fallback re-checks the width so a dock that already
+    // succeeded is not redone.
+    const want = () => layoutWidth(layout, screen.getDisplayMatching(win.getBounds()).workArea.width);
+    win.once('unmaximize', dock);
+    win.unmaximize();
+    setTimeout(() => {
+      if (!win.isDestroyed() && currentLayout === layout && win.getBounds().width !== want()) dock();
+    }, 250);
   } else {
-    // Restored first, so the window can actually grow back past 420.
-    win.setMinimumSize(FULL_MIN_WIDTH, FULL_MIN_HEIGHT);
-  }
-
-  if (layout !== 'compact') {
-    // Nothing remembered means this session never saw a full window to
-    // remember — it started compact. Fall back to the stored geometry
-    // rather than leaving the window at its docked width, which is what
-    // made expanding do nothing visible.
-    const restore =
-      preCompactBounds ??
-      (win.getBounds().width === COMPACT_WIDTH
-        ? (() => {
-            const st = loadWindowState();
-            return { x: st.x, y: st.y, width: st.width, height: st.height };
-          })()
-        : null);
-    if (restore) {
-      win.setBounds({
-        x: restore.x ?? win.getBounds().x,
-        y: restore.y ?? win.getBounds().y,
-        width: restore.width,
-        height: restore.height,
-      });
-    }
-    // A window that was maximized before going compact should come back
-    // maximized, not merely the size it happened to have underneath.
-    if (preCompactMaximized) win.maximize();
-    preCompactBounds = null;
-    preCompactMaximized = false;
+    dock();
   }
 }
 
