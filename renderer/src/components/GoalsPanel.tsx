@@ -27,13 +27,20 @@ import { Goal, GoalHorizon, GoalPanel, ProjectKey, ProjectOrderEntry, goalsApi, 
 // stored per horizon, so `sectionTitle[key] || label` means anyone who
 // has already renamed a section keeps their name.
 //
-// `weight` is legacy's 50/25/25 height split. weight alone would divide
-// only the leftover space, so sections with similar content came out
-// near-equal; these are explicit fractions of the column instead.
+// `weight` is the share of the column each section gets — 50 / 30 / 20,
+// Zahid's split. It is a real division of the height, not a maximum:
+// the three sections fill the panel exactly and each scrolls inside
+// itself, so the column never ends in blank space and a long week never
+// pushes the year off screen.
+//
+// The sizes say what the horizons are FOR. The week is where the work
+// actually gets decided, so it gets half the column; the year is a
+// direction you check rather than edit, so it gets a fifth. Legacy's
+// 50/25/25 said nearly the same thing with the bottom two tied.
 const HORIZONS: { key: GoalHorizon; label: string; glyph: string; accent: string; weight: number }[] = [
   { key: 'yearly', label: 'WEEKLY GOAL', glyph: '◈', accent: 'var(--goal-yearly)', weight: 50 },
-  { key: 'monthly', label: 'MONTHLY GOAL', glyph: '❖', accent: 'var(--goal-monthly)', weight: 25 },
-  { key: 'weekly', label: 'YEARLY GOAL', glyph: '◆', accent: 'var(--goal-weekly)', weight: 25 },
+  { key: 'monthly', label: 'MONTHLY GOAL', glyph: '❖', accent: 'var(--goal-monthly)', weight: 30 },
+  { key: 'weekly', label: 'YEARLY GOAL', glyph: '◆', accent: 'var(--goal-weekly)', weight: 20 },
 ];
 
 // Legacy caps the progress bar at a 30-day window, and the API's
@@ -352,22 +359,22 @@ function GoalSection({
   };
 
   return (
-    // Sections size to their CONTENT now, and the panel scrolls as one
-    // column. The 50/25/25 split it used to carry was there because a
-    // goal was a 130px card and a long section really could push the
-    // other two off screen. With one-line rows that reversed: three
-    // 30px rows were being given half of a 900px panel, so the top
-    // section held 90px of goals and 360px of nothing. Weight is kept in
-    // the props as the max share a section may take before it scrolls
-    // inside itself, which is the case the split was protecting against.
+    // flexGrow: weight with a ZERO BASIS is what makes the split exact.
+    // With the default `auto` basis each section would first claim its
+    // content's height and the weights would only divide the leftover —
+    // which is how a 50/25/25 split produced three near-equal sections
+    // whenever their contents were similar. From zero, the weights ARE
+    // the proportions.
+    //
+    // The list inside each section carries overflowY, so a section that
+    // holds more than its share scrolls rather than growing: the three
+    // always fill the column and never more than it.
     <div
       style={{
-        flex: 'none',
+        flex: `${weight} 1 0`,
         display: 'flex',
         flexDirection: 'column',
-        maxHeight: `${weight}%`,
         minHeight: 0,
-        marginBottom: 16,
       }}
     >
       {/* The header carries the count AND the add control. There used to
@@ -539,7 +546,11 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
   return (
     // Fills the column and lets the three sections divide its height,
     // rather than sitting at a fixed max-width inside it.
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflowY: 'auto', paddingLeft: 32, paddingRight: 4 }}>
+    // overflow HIDDEN, not auto. A scrolling parent has no definite
+    // height for its children to take a percentage of, so the whole
+    // 50/30/20 split silently degrades to content-sized sections. Each
+    // section scrolls on its own instead.
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', paddingLeft: 32, paddingRight: 4 }}>
       {/* The project chips that used to sit here are gone. Panel 1's
           Goals button is the switch — legacy has exactly one control for
           this, and two of them disagreeing about which project is
