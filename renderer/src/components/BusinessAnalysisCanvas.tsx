@@ -5,6 +5,7 @@ import {
   BusinessAnalysis,
   DecisionLogEntry,
   DecisionStatus,
+  LegacyBox,
   NextPriority,
   Project,
   ProjectKey,
@@ -218,6 +219,10 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
   // than a flash on each of the fifteen fields.
   const [savedAt, setSavedAt] = useState(0);
   const [peopleCount, setPeopleCount] = useState(0);
+  // The fifteen-box version this page replaced. Fetched for its COUNT
+  // only — the notes themselves stay off the canvas until asked for.
+  const [boxes, setBoxes] = useState<LegacyBox[]>([]);
+  const [notesOpen, setNotesOpen] = useState(false);
 
   const refresh = () => {
     businessAnalysisApi.get(projectKey).then(setBa);
@@ -227,6 +232,9 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
   useEffect(() => {
     refresh();
     projectsApi.get(projectKey).then(setProject);
+    businessAnalysisApi
+      .getLegacyBoxes(projectKey)
+      .then((rows) => setBoxes(rows.filter((r) => r.title.trim() || r.text.trim())));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectKey]);
 
@@ -262,7 +270,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
   const shown = historyOpen ? [...log].reverse() : log.slice(-1);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: 8, position: 'relative' }}>
       {/* The project's own name is the page title, with the page name as
           a quiet suffix — legacy's window title and header both read
           "<project>  —  Business Analysis" (10452, 10469). The port
@@ -292,6 +300,30 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
             + Attach Word/Excel
           </button>
         )}
+        {/* The old fifteen boxes, one link away.
+            They used to be a full-width card under the canvas, which
+            gave a read-only dump of a replaced format more room than
+            the analysis it replaced — and, because it sat outside the
+            row template, it took that room OFF the cards above. As a
+            link it costs nothing until you want it. */}
+        {boxes.length > 0 && (
+          <button
+            onClick={() => setNotesOpen(true)}
+            title="The notes from the older fifteen-box version of this page"
+            style={{
+              fontSize: 12,
+              height: 24,
+              padding: '0 8px',
+              border: 'none',
+              background: 'transparent',
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+            }}
+          >
+            ▤ {boxes.length} legacy note{boxes.length === 1 ? '' : 's'}
+          </button>
+        )}
+
         {/* Only after something has actually been saved. It used to
             render on load, telling you a page you had not touched was
             saved — a status that is always on is not a status. */}
@@ -486,6 +518,63 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
         </Card>
 
       </div>
+
+      {/* Over the canvas, not in it. A panel that pushed the grid down
+          would be the same mistake in a different shape — the notes are
+          something you consult and dismiss, so they cover the page and
+          then leave it exactly as it was. */}
+      {notesOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 5,
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 12px',
+              borderBottom: '1px solid var(--border)',
+              flex: 'none',
+            }}
+          >
+            <span style={{ fontSize: 13, fontWeight: 'bold', letterSpacing: 0.8, color: 'var(--text-muted)' }}>
+              LEGACY NOTES
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+              read-only · from the older version of this page
+            </span>
+            <span style={{ flex: 1 }} />
+            <button
+              onClick={() => setNotesOpen(false)}
+              title="Close"
+              style={{ width: 24, height: 24, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
+            >
+              ✕
+            </button>
+          </div>
+          <div style={{ overflowY: 'auto', minHeight: 0, flex: 1, padding: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {boxes.map((b) => (
+                <div key={b.box_index} style={{ border: '1px solid var(--border)', padding: 8 }}>
+                  {b.title && (
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{b.title}</div>
+                  )}
+                  <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{b.text}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
