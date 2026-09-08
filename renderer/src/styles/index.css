@@ -54,3 +54,21 @@ button {
 .goal-row:hover {
   background: var(--surface);
 }
+
+/* Placeholder text is real text, and it was the one kind this project's
+   own auditor could not see.
+   That auditor walks elements that own a TEXT NODE; a placeholder is an
+   attribute, so twelve of them — "PROJECT 1", "QUICK NOTES", "Add a
+   task…", "⌕ Search tasks…" — sat at Chromium's default placeholder
+   colour on all six themes and never appeared in a report that said
+   zero contrast findings. axe-core caught them at "serious".
+
+   --text-faint is the faintest token the palette test allows: it is
+   held at ~5:1 on every theme's surface, which clears 4.5:1 with room
+   to spare while still reading as a prompt rather than as content. The
+   browser applies its own opacity to placeholders by default, so that
+   is reset too — otherwise the token's measured ratio is a fiction. */
+::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}

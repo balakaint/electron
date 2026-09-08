@@ -305,7 +305,15 @@ function AppShell() {
           window the others just left. Legacy's weights are 67:83:50 with
           a minsize on panel 3; the same shape falls out of two fr
           columns beside one fixed 545px. */}
-      <div
+      {/* LANDMARKS.
+          axe reported no main, no h1, and 72 elements sitting outside
+          any landmark — which is not a cosmetic complaint: a screen
+          reader offers "jump to region" as its primary way around an
+          app, and this one offered nothing to jump to. The three columns
+          already ARE regions to anyone who can see them; this says so in
+          markup. Each carries its own name, because "region" without a
+          name is a landmark you cannot choose between. */}
+      <main
         style={{
           display: 'grid',
           gridTemplateColumns: [
@@ -322,13 +330,32 @@ function AppShell() {
           minHeight: 0,
         }}
       >
+        {/* The app's one h1. Visually hidden rather than drawn: the
+            title bar already says HABIT OS to anyone looking at it, and
+            a second copy on screen would be the duplication this project
+            keeps removing. Hidden with a clip rectangle, NOT
+            display:none — the latter takes it out of the accessibility
+            tree too, which is the whole point of having it. */}
+        <h1
+          style={{
+            position: 'absolute',
+            width: 1,
+            height: 1,
+            overflow: 'hidden',
+            clip: 'rect(0 0 0 0)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Habit OS
+        </h1>
+
         {showP1 && (
           // minWidth: 0 is not decoration. A grid item's default
           // min-width is `auto`, so these columns refuse to shrink below
           // their content and the fixed 545px track pushes them out of
           // the window instead — which reads as "panel 1 and 2 vanished"
           // rather than "the window is too narrow".
-          <div style={{ overflowY: 'auto', minHeight: 0, minWidth: 0 }}>
+          <section aria-label="Projects" style={{ overflowY: 'auto', minHeight: 0, minWidth: 0 }}>
             <ProjectDashboard
               focusVersion={panel3Wrote}
               onFocusChanged={() => setPanel1Wrote((v) => v + 1)}
@@ -338,12 +365,12 @@ function AppShell() {
               goalsProject={goalsProject}
               openProject={overlay && 'project' in overlay ? overlay.project : null}
             />
-          </div>
+          </section>
         )}
         {showP1 && <div style={{ background: 'var(--border)' }} />}
 
         {showP2 && (
-          <div style={{ overflowY: 'auto', minHeight: 0, minWidth: 0, position: 'relative' }}>
+          <section aria-label="Goals" style={{ overflowY: 'auto', minHeight: 0, minWidth: 0, position: 'relative' }}>
             {/* Panel 2's chevron hides panel 1 only — legacy's
                 _toggle_panel1, the middle rung of the ladder. */}
             <button
@@ -357,11 +384,11 @@ function AppShell() {
               {layout === 'full' ? '◀' : '▶'}
             </button>
             <GoalsPanel projectKey={goalsProject} />
-          </div>
+          </section>
         )}
         {showP2 && <div style={{ background: 'var(--border)' }} />}
 
-        <div style={{ minHeight: 0, position: 'relative' }}>
+        <section aria-label="Plan and execute" style={{ minHeight: 0, position: 'relative' }}>
           {/* Legacy pins the gear to panel 3's top-right corner and has
               no app header bar of its own — the window's own title bar
               is the only chrome above the columns. */}
@@ -425,8 +452,8 @@ function AppShell() {
             onToggleLayout={stepPanels}
             onOpenQuarterly={() => setOverlay({ kind: 'quarterly' })}
           />
-        </div>
-      </div>
+        </section>
+      </main>
 
       {/* Overlays. Legacy opens every one of these in its own window;
           full-window here is the closest equivalent, and it is what the

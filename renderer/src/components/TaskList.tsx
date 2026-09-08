@@ -453,6 +453,7 @@ export default function TaskList({
           own between the heading and the add box, captioning nothing. */}
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
       <input
+        aria-label="Heading for this list"
         value={title}
         onChange={(e) => setTitleState(e.target.value)}
         onBlur={saveTitle}
@@ -489,6 +490,7 @@ export default function TaskList({
           from under the query you just typed is worse than the 30px. */}
       {(pool.length >= SEARCH_FROM || q) && (
         <input
+          aria-label="Search tasks"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="⌕ Search tasks…"
@@ -498,6 +500,7 @@ export default function TaskList({
 
       <form onSubmit={addTask} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input
+          aria-label="New task"
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -511,7 +514,7 @@ export default function TaskList({
       {loading ? (
         <p>Loading…</p>
       ) : visible.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '24px 0', opacity: 0.7 }}>
+        <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: 28, marginBottom: 8 }}>{emptyState.icon}</div>
           <div style={{ fontSize: 14 }}>{emptyState.title}</div>
           {emptyState.subtitle && (
@@ -545,7 +548,11 @@ export default function TaskList({
                 flexDirection: 'column',
                 padding: '8px 0',
                 borderBottom: '1px solid var(--border)',
-                opacity: t.done ? 0.5 : 1,
+                // Muted by COLOUR, not by opacity. Opacity multiplies
+                // every colour in the row — the strike-through text, the
+                // time, the controls — and drops all of them below
+                // 4.5:1 at once. A done task is still a task you can
+                // read.
               }}
             >
             {/* ONE ROW, ONE TASK.
@@ -592,6 +599,7 @@ export default function TaskList({
 
               {editingId === t.id ? (
                 <input
+                  aria-label="Task text"
                   autoFocus
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
@@ -805,7 +813,7 @@ export default function TaskList({
             ))}
             <button
               onClick={() => setMitPromptTasks(null)}
-              style={{ display: 'block', margin: '10px auto 0', fontSize: 12, opacity: 0.6, border: 'none', background: 'none' }}
+              style={{ display: 'block', margin: '8px auto 0', fontSize: 12, color: 'var(--text-muted)', border: 'none', background: 'none' }}
             >
               Skip today
             </button>

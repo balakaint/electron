@@ -561,7 +561,25 @@ function hslToHex(h: number, s: number, l: number): string {
  * they hold a project's accent and want the readable version of it,
  * and they should not each be looking up which theme is on.
  */
-export function accentText(accent: string, on = '--surface'): string {
+export function accentText(accent: string, on?: string): string {
   const palette = PALETTES[currentTheme()] ?? PALETTES.focus;
-  return readableInk(accent, palette[on] ?? palette['--surface'] ?? '#FFFFFF');
+  if (on) return readableInk(accent, palette[on] ?? palette['--surface'] ?? '#FFFFFF');
+
+  // BOTH surfaces, not one.
+  //
+  // This used to resolve against --surface alone, on the assumption that
+  // accent text sits on a card. Half of it does not: the project cards
+  // draw a border and no background, so their title sits on --bg, and
+  // in the light themes --bg is the DARKER of the two. axe-core caught
+  // twelve inputs still failing after the "fix" for exactly that
+  // reason — the colour cleared the surface it was computed against and
+  // the one it was actually painted on was never checked.
+  //
+  // Which of the two is harsher flips with the theme (a light theme's
+  // --bg is darker than its --surface; a dark theme's is lighter), so
+  // there is no single right one to pick. Clear both.
+  const bg = palette['--bg'] ?? '#FFFFFF';
+  const surface = palette['--surface'] ?? bg;
+  const first = readableInk(accent, bg);
+  return contrastRatio(first, surface) >= 4.5 ? first : readableInk(first, surface);
 }

@@ -117,7 +117,10 @@ export default function TitleBar() {
       .catch(() => {});
 
   return (
-    <div
+    // A <header>, so it is the banner landmark rather than the app's one
+    // piece of content outside any landmark — which is what axe reported
+    // once the three columns became regions.
+    <header
       onDoubleClick={() => !native && control('maximise')}
       style={{
         height: BAR_HEIGHT,
@@ -160,7 +163,7 @@ export default function TitleBar() {
           <ControlButton label={<Cross />} title="Close" onClick={() => control('close')} danger />
         </>
       )}
-    </div>
+    </header>
   );
 }
 

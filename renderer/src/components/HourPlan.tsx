@@ -136,6 +136,7 @@ function Row({
       </span>
 
       <input
+        aria-label="What this hour is for"
         value={text}
         // The hour you are in is the loudest line on this panel — 14px,
         // bold, in the block's own colour — and while it was empty it
@@ -320,17 +321,22 @@ export default function HourPlanTab({
 
       {plan.blocks.map((b) => {
         const isNow = b.key === plan.current_block;
-        // Open by default if you are IN it, or if you WROTE something in
-        // it. Legacy opens only the current block, and the reasoning is
-        // sound — but it is the wrong axis. An empty block hides nothing
-        // by staying shut; a block with something written in it hides
-        // exactly the thing you opened the app to see. Measured: the
-        // header said "TO-DO (2) · 0/2 done" while both items sat inside
-        // collapsed blocks and 456px of the panel below them was blank.
-        // Any block still opens on a click, "because planning tonight at
-        // 10am is the whole point of having the block, and a section
-        // that refuses to open is a section you stop trusting".
-        const openByDefault = isNow || b.planned > 0;
+        // Only the block you are IN opens by itself, and the day resets
+        // that on every launch — nothing here is persisted.
+        //
+        // This briefly opened every block that had something written in
+        // it, on the argument that a collapsed block hides the thing you
+        // came to see. Zahid's correction, and he is right: with entries
+        // in three blocks that is a column you have to scroll, and the
+        // one signal the panel exists to give — WHICH HOUR AM I IN — is
+        // buried in it. The counts on each collapsed header (0/2, 0/1)
+        // already say where the day's work sits; you do not need the
+        // rows to know that.
+        //
+        // A block you open by hand stays open until you close it, so
+        // planning tonight at 10am still works — the override below
+        // simply outranks this default and nothing takes it back.
+        const openByDefault = isNow;
         const shown = open[b.key] ?? openByDefault;
         const color = `var(--phase-${b.key})`;
         return (
@@ -359,7 +365,14 @@ export default function HourPlanTab({
               {/* Names and counts step up; the captions around them stay
                   small. The block name used to be the same size as the
                   task text inside it, so nothing led the eye anywhere. */}
-              <span style={{ color, fontSize: 13, fontWeight: 'bold' }}>{b.name}</span>
+              {/* The block name is a LABEL for the group, not content in
+                  it. At 13px bold and coloured it tied with the live
+                  clock inside the block — two loudest things in one
+                  card, so neither was the entry point. Caption
+                  treatment: same colour, same weight, one step down and
+                  tracked out, which is how a section label says "I name
+                  what follows" instead of competing with it. */}
+              <span style={{ color, fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5 }}>{b.name}</span>
               {/* A dot, not the word NOW. "NOW" is the card pinned above
                   the tabs and it answers WHICH TASK you are on; this
                   badge answers WHICH PART OF THE DAY you are in. Two

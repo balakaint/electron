@@ -386,6 +386,7 @@ function GoalSection({
       >
         <span style={{ color: accent, fontSize: 12 }}>{glyph}</span>
         <input
+          aria-label="Section heading"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           // BUG THIS FIXES: this fired on EVERY blur, so merely clicking

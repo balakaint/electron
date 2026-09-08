@@ -203,7 +203,9 @@ export default function StrikeCard({
                   flex: 1,
                   fontSize: 15,
                   fontWeight: 'bold',
-                  opacity: t.done ? 0.5 : 1,
+                  // See TaskList: dimming the row dims its contrast
+                  // with it. Colour says "done"; opacity says "unreadable".
+                  color: t.done ? 'var(--text-muted)' : undefined,
                   textDecoration: t.done ? 'line-through' : undefined,
                 }}
               >
@@ -213,8 +215,7 @@ export default function StrikeCard({
                 style={{
                   fontSize: 12,
                   fontFamily: 'monospace',
-                  color: isRunning(t) ? 'var(--danger)' : undefined,
-                  opacity: isRunning(t) ? 1 : 0.6,
+                  color: isRunning(t) ? 'var(--danger)' : 'var(--text-muted)',
                 }}
               >
                 {formatSecs(t.secs)}
@@ -232,8 +233,7 @@ export default function StrikeCard({
                 style={{
                   border: 'none',
                   background: 'transparent',
-                  color: 'inherit',
-                  opacity: 0.6,
+                  color: 'var(--text-muted)',
                   cursor: 'pointer',
                   padding: 0,
                   fontSize: 14,

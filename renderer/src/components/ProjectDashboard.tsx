@@ -163,7 +163,13 @@ function ProjectCard({
           border: '1px solid transparent',
           // A running project must not look like an idle one. It used to.
           background: running ? 'var(--running-bg)' : 'transparent',
-          opacity: project.done_today ? 0.75 : 1,
+          // NOT opacity. Dimming a container multiplies EVERY colour
+          // inside it, including the ones the palette was tuned to clear
+          // 4.5:1 — axe caught a project's own accent at 0.7 over white
+          // measuring 3.81:1, and this project's own auditor could not
+          // see it because it reads declared colours, not composited
+          // ones. "Done today" is the ✓ on the number chip instead; the
+          // text stays readable, which is the point of still showing it.
         }}
       >
         <span
@@ -189,7 +195,7 @@ function ProjectCard({
             userSelect: 'none',
           }}
         >
-          {number}
+          {project.done_today ? '✓' : number}
         </span>
         <button
           onClick={toggleCollapsed}
@@ -240,6 +246,7 @@ function ProjectCard({
           title={running ? 'Stop working on this project' : 'Start working on this project'}
           style={{
             width: 24,
+            minWidth: 24,
             height: 24,
             flex: 'none',
             borderRadius: 5,
@@ -263,7 +270,7 @@ function ProjectCard({
         borderRadius: 8,
         marginBottom: 12,
         overflow: 'hidden',
-        opacity: project.done_today ? 0.7 : 1,
+        // See the collapsed row: a dimmed card dims its text too.
       }}
     >
       {/* The 10px top strip is gone. Legacy keeps one because its
@@ -295,15 +302,16 @@ function ProjectCard({
               userSelect: 'none',
             }}
           >
-            {number}
+            {project.done_today ? '✓' : number}
           </span>
           <input
+            aria-label="Project name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             onBlur={saveName}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
             placeholder={`PROJECT ${number}`}
-            style={{ flex: 1, height: 24, fontWeight: 'bold', fontSize: 15, border: 'none', background: 'transparent', color: project.accent_color }}
+            style={{ flex: 1, height: 24, fontWeight: 'bold', fontSize: 15, border: 'none', background: 'transparent', color: accentText(project.accent_color) }}
           />
           <button
             onClick={toggleCollapsed}
@@ -332,6 +340,7 @@ function ProjectCard({
             themselves, sized to what you actually wrote. */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
           <input
+            aria-label="Heading for this project’s note"
             value={noteTitle}
             onChange={(e) => setNoteTitle(e.target.value)}
             onBlur={saveNoteTitle}
@@ -426,6 +435,11 @@ function ProjectCard({
                   cursor: 'pointer',
                   padding: '0 8px',
                   height: 24,
+                  // ⏸ is a NARROWER glyph than ▶ in most faces, so a
+                  // button sized by its content shrinks below the 24px
+                  // minimum the moment the timer starts — the one state
+                  // where you are most likely to reach for it.
+                  minWidth: 24,
                 }}
               >
                 {running ? '⏸' : '▶'}
@@ -601,6 +615,7 @@ function ProjectCard({
         {addingTask && (
           <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
             <input
+              aria-label="New task for this project"
               autoFocus
               value={newSubtask}
               onChange={(e) => setNewSubtask(e.target.value)}

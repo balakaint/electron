@@ -105,6 +105,13 @@ const MEASURE = () => {
     const r = el.getBoundingClientRect();
     return painted && r.height > 40 && r.width > 80;
   });
+  // The app's body size — the size most of its text is. A card whose
+  // largest text IS the body size has no size hierarchy to be at the top
+  // of, so "largest AND bold AND coloured" describes an ordinary label,
+  // not a competing headline. Without this the rule reported every
+  // section label and its count.
+  const bodySize = [...sizes.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 0;
+
   const competing = [];
   for (const card of cards) {
     const inside = texts.filter((t) => card.contains(t) && t !== card);
@@ -112,8 +119,12 @@ const MEASURE = () => {
     // Only the innermost card owning this text, so one row is not
     // reported once per ancestor.
     const own = inside.filter((t) => !cards.some((c) => c !== card && card.contains(c) && c.contains(t)));
-    if (own.length < 2) continue;
+    // Fewer than three texts is a label and a value, not a hierarchy:
+    // "Morning 0/2" has no entry point to get wrong. The rule is about
+    // a card where the reader has to CHOOSE where to start.
+    if (own.length < 3) continue;
     const max = Math.max(...own.map((t) => parseFloat(getComputedStyle(t).fontSize)));
+    if (max <= bodySize) continue;
     const loud = own.filter((t) => {
       const cs = getComputedStyle(t);
       return (

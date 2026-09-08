@@ -121,6 +121,12 @@ const COLLECT = ({ CONTRAST_NORMAL, CONTRAST_LARGE, MIN_TARGET, MIN_FONT }) => {
   for (const el of document.querySelectorAll('body *')) {
     const cs = getComputedStyle(el);
     if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) continue;
+    // The visually-hidden pattern: 1px, clipped away, still in the
+    // accessibility tree. It is deliberately invisible, so measuring it
+    // for truncation or contrast reports a defect in the technique
+    // rather than in the design. (display:none would not do — that
+    // removes it from the tree, which is the whole point of the h1.)
+    if (cs.clip === 'rect(0px, 0px, 0px, 0px)' || cs.clipPath === 'inset(50%)') continue;
     const box = el.getBoundingClientRect();
     if (box.width === 0 || box.height === 0) continue;
 
