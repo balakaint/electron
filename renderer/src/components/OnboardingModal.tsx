@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { settingsApi } from '../services/api';
+import { RADIUS } from '../spacing';
 
 const STEPS = [
   {
@@ -52,18 +53,26 @@ export default function OnboardingModal({ onDone }: { onDone: () => void }) {
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="onboarding-title"
         style={{
           background: 'var(--surface)',
           color: 'var(--text)',
           border: '1px solid var(--border)',
-          borderRadius: 10,
+          borderRadius: RADIUS.card,
           padding: 32,
           width: 360,
           textAlign: 'center',
         }}
       >
-        <div style={{ fontSize: 40, marginBottom: 8 }}>{current.icon}</div>
-        <h2 style={{ margin: '0 0 12px 0', fontSize: 18 }}>{current.title}</h2>
+        <div style={{ fontSize: 30, marginBottom: 8 }}>{current.icon}</div>
+        {/* No role/aria-modal before this — axe's "region" rule (content
+            must sit in a landmark) was really pointing at a real gap: a
+            modal blocking the whole screen with no dialog semantics at
+            all reads to a screen reader as page content, not a dialog it
+            can announce and trap focus in. */}
+        <h2 id="onboarding-title" style={{ margin: '0 0 12px 0', fontSize: 16 }}>{current.title}</h2>
         <p style={{ margin: '0 0 24px 0', fontSize: 14, color: 'var(--text-muted)', lineHeight: 1.5 }}>{current.body}</p>
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginBottom: 24 }}>
@@ -73,7 +82,7 @@ export default function OnboardingModal({ onDone }: { onDone: () => void }) {
               style={{
                 width: 7,
                 height: 7,
-                borderRadius: 4,
+                borderRadius: RADIUS.control,
                 background: i === step ? 'var(--accent)' : 'var(--border)',
               }}
             />

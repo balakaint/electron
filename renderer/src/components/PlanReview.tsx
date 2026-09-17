@@ -282,24 +282,31 @@ export default function PlanReview({ onOpenQuarterly }: { onOpenQuarterly: () =>
 
   return (
     <div style={{ marginTop: 24, border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
-      <div role="tablist" style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }}>
-        {TABS.map(([key, label]) => (
-          <button
-            key={key}
-            role="tab"
-            aria-selected={tab === key}
-            onClick={() => setTab(key)}
-            style={{
-              fontSize: 12,
-              height: 24,
-              padding: '0 12px',
-              fontWeight: tab === key ? 'bold' : 'normal',
-              background: tab === key ? 'var(--accent-light)' : undefined,
-            }}
-          >
-            {label}
-          </button>
-        ))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }}>
+        {/* role="tablist" requires its own children to all be role="tab"
+            — axe-core's aria-required-children, caught at "critical".
+            QuarterLink used to sit inside this div as a fourth child
+            with neither role, which is why it moved out to a sibling
+            here instead of just losing an aria attribute. */}
+        <div role="tablist" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {TABS.map(([key, label]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              style={{
+                fontSize: 12,
+                height: 24,
+                padding: '0 12px',
+                fontWeight: tab === key ? 700 : 400,
+                background: tab === key ? 'var(--accent-light)' : undefined,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <QuarterLink onOpen={onOpenQuarterly} />
       </div>
       {tab === 'today' && <HourPlanTab />}

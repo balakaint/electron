@@ -28,6 +28,11 @@ const PORT = Number(arg('port', 4180));
 const BASE = `http://127.0.0.1:${PORT}`;
 const ROOT = arg('root', 'dist/renderer');
 const THEMES = arg('themes', 'focus,warroom,energy,corporate,journey,rize').split(',');
+// See the matching comment in hierarchy-audit.mjs: this audit writes
+// through the engine it's pointed at (theme, panel_layout, ...), so a
+// real dev session's engine needs a throwaway one on another port
+// instead, not the default 5180.
+const ENGINE = arg('engine', 'http://127.0.0.1:5180');
 
 // ── Thresholds ───────────────────────────────────────────────────────
 // Contrast is WCAG 1.4.3. "Large" is >=24px, or >=18.66px at weight 700
@@ -195,8 +200,22 @@ const COLLECT = ({ CONTRAST_NORMAL, CONTRAST_LARGE, MIN_TARGET, MIN_FONT }) => {
     // that is not scrollable on purpose. This is the check that finds
     // clipped labels — a title cut mid-word is invisible to every other
     // kind of test.
+    //
+    // An ellipsis is ALSO "on purpose": white-space: nowrap + overflow:
+    // hidden + text-overflow: ellipsis is this app's own deliberate
+    // answer to a name too long for its box (project titles, task rows,
+    // subtask lists — dozens of them), paired every time with a title
+    // attribute so the full text is still one hover away. Without this
+    // exemption the check cannot tell that from the bug it actually
+    // exists to catch: a long name with NONE of that, silently forcing
+    // its container wider than the panel around it (what the facebook.
+    // com/reel/… subtask did to this exact list before it had the
+    // pattern at all). Requiring the title keeps the exemption narrow —
+    // ellipsis alone, with the text nowhere else, still gets flagged.
+    const ellipsized =
+      cs.whiteSpace === 'nowrap' && cs.textOverflow === 'ellipsis' && cs.overflow === 'hidden' && !!el.title;
     const scrollable = /auto|scroll/.test(cs.overflow + cs.overflowX + cs.overflowY);
-    if (!scrollable && el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') {
+    if (!scrollable && !ellipsized && el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') {
       if (el.scrollWidth > el.clientWidth + 2 && el.clientWidth > 0) {
         out.push({ rule: 'truncation', selector: selector(el),
                    text: (el.textContent || '').trim().slice(0, 60),
@@ -237,7 +256,7 @@ async function clickByText(page, text) {
 }
 
 const run = async () => {
-  const server = spawn('node', ['tests/serve.mjs', ROOT, String(PORT)], { stdio: 'inherit' });
+  const server = spawn('node', ['tests/serve.mjs', ROOT, String(PORT), ENGINE], { stdio: 'inherit' });
   await sleep(700);
 
   // Refuse to run without an engine. Without this the app renders its
@@ -252,8 +271,8 @@ const run = async () => {
   } catch (e) {
     server.kill();
     console.error(
-      `\nNo engine behind ${BASE}/health (${e.message}).\n` +
-        `Start it first:  python python/main.py --port 5180\n` +
+      `\nNo engine behind ${BASE}/health, proxied to ${ENGINE} (${e.message}).\n` +
+        `Start it first, or pass --engine http://127.0.0.1:<port>.\n` +
         `An audit without one measures the error screen.\n`,
     );
     process.exit(2);

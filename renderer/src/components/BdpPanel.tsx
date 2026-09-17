@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { BdpPlan, BdpPriority, BdpSort, BdpStatus, BdpView, bdpApi } from '../services/api';
+import { RADIUS } from '../spacing';
 
 const STATUSES: BdpStatus[] = ['IDEA', 'OPPORTUNITY', 'RESEARCH', 'PLAN', 'ACTIVE', 'HOLD', 'DONE'];
 const PRIORITIES: BdpPriority[] = ['HIGH', 'MEDIUM', 'LOW'];
@@ -25,16 +26,25 @@ const PRIORITY_COLOR: Record<BdpPriority, string> = {
 };
 
 function Chip({ label, color, onClick }: { label: string; color: string; onClick?: () => void }) {
+  // Hardcoded white read fine on the light bdp palette's darker entries
+  // and was actually unreadable on most of the dark one: measured at
+  // 1.67-2.98:1 against BDP_DARK's colours (warroom/journey), and even
+  // BDP_LIGHT's own --bdp-research fell short at 3.68:1 — a real
+  // contrast bug on every theme, worst on two of them. Each --bdp-*
+  // colour now has a matching -ink token (themes.ts), computed once
+  // against its own fixed value the same way inkOn() would, so this
+  // just asks for the ink that belongs to the colour it was given.
+  const ink = color.replace(/\)$/, '-ink)');
   return (
     <span
       onClick={onClick}
       style={{
         display: 'inline-block',
         fontSize: 12,
-        fontWeight: 'bold',
+        fontWeight: 700,
         padding: '4px 8px',
-        borderRadius: 10,
-        color: '#fff',
+        borderRadius: RADIUS.card,
+        color: ink,
         background: color,
         cursor: onClick ? 'pointer' : 'default',
       }}
@@ -91,7 +101,7 @@ function ChoiceRow<T extends string>({
           style={{
             fontSize: 12,
             padding: '4px 8px',
-            borderRadius: 10,
+            borderRadius: RADIUS.card,
             border: 'none',
             background: o === value ? colors[o] : 'var(--surface-2)',
             color: o === value ? '#fff' : 'var(--text)',
@@ -304,7 +314,7 @@ function PlanCard({
       style={{
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${STATUS_COLOR[plan.status]}`,
-        borderRadius: 8,
+        borderRadius: RADIUS.card,
         padding: 12,
         marginBottom: 12,
         background: 'var(--surface)',
@@ -328,8 +338,8 @@ function PlanCard({
             onBlur={() => title.trim() && title !== plan.title && onPatch({ title: title.trim() })}
             style={{
               width: '100%',
-              fontSize: 15,
-              fontWeight: 'bold',
+              fontSize: 16,
+              fontWeight: 700,
               border: 'none',
               background: 'transparent',
               color: 'var(--text)',
@@ -463,7 +473,7 @@ function PlanPage({
         style={{
           width: '100%',
           fontSize: 24,
-          fontWeight: 'bold',
+          fontWeight: 700,
           border: 'none',
           borderBottom: `2px solid ${STATUS_COLOR[plan.status]}`,
           background: 'transparent',
@@ -540,7 +550,7 @@ function TableRow({ plan, onOpen }: { plan: BdpPlan; onOpen: () => void }) {
       }}
     >
       <div style={{ padding: '8px 8px', minWidth: 0 }}>
-        <div style={{ fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {plan.title}
         </div>
         <div style={{ color: 'var(--text-faint)', fontSize: 12 }}>
@@ -588,7 +598,7 @@ function ListRow({ plan, index, onOpen }: { plan: BdpPlan; index: number; onOpen
         fontSize: 12,
       }}
     >
-      <span style={{ fontWeight: 'bold', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <span style={{ fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {index}. {plan.title}
       </span>
       <span style={{ color: 'var(--text-faint)', fontSize: 12, whiteSpace: 'nowrap' }}>{bits.join('   |   ')}</span>
@@ -768,8 +778,9 @@ export default function BdpPanel() {
               }
               style={{
                 fontSize: 12,
-                fontWeight: view === v ? 'bold' : 'normal',
+                fontWeight: view === v ? 700 : 400,
                 background: view === v ? 'var(--accent-light)' : undefined,
+                borderColor: view === v ? 'var(--accent)' : undefined,
               }}
             >
               {v === 'card' ? '▤' : v === 'table' ? '▦' : '☰'}

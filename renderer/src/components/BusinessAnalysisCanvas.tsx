@@ -475,7 +475,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
               legacy has them (11011) — they are properties of the line
               above, not two more sections. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, flex: 'none' }}>
-            <span style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--text-muted)', marginRight: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginRight: 4 }}>
               PRIORITY
             </span>
             {PRIORITIES.map((p) => {
@@ -489,9 +489,15 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
                     height: 24,
                     padding: '0 8px',
                     fontSize: 12,
-                    fontWeight: 'bold',
+                    fontWeight: 700,
                     background: on ? PRIORITY_COLOR[p] : `color-mix(in srgb, ${PRIORITY_COLOR[p]} 10%, var(--surface))`,
-                    color: on ? '#FFFFFF' : PRIORITY_COLOR[p],
+                    // White measured 2.48:1 on MED's orange and 3.32:1
+                    // on LOW's grey — axe caught it at "serious" — and
+                    // even HIGH's red only just cleared AA at 4.51:1.
+                    // Black clears all three comfortably (4.65/8.46/6.32)
+                    // — these are the app's own fixed BA_STATUS_COLORS,
+                    // not a user colour, so one ink works for all three.
+                    color: on ? '#000000' : PRIORITY_COLOR[p],
                     border: 'none',
                     cursor: 'pointer',
                   }}

@@ -619,6 +619,9 @@ export default function TaskList({
                     minWidth: 0,
                     textDecoration: t.done ? 'line-through' : 'none',
                     cursor: 'text',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   {t.text}

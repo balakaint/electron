@@ -92,7 +92,7 @@ function CycleEditor({ panel, onSet, onClose }: { panel: Q90Panel; onSet: (start
       <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 8 }}>STARTS ON</div>
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input type="date" value={start} onChange={(e) => setStart(e.target.value)} style={{ fontSize: 12, padding: 4 }} />
-        <button onClick={submit} style={{ fontSize: 12, fontWeight: 'bold' }}>
+        <button onClick={submit} style={{ fontSize: 12, fontWeight: 700 }}>
           Set cycle
         </button>
         <button onClick={onClose} style={{ fontSize: 12 }}>

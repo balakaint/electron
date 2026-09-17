@@ -4,7 +4,6 @@ import Panel3 from './components/Panel3';
 import BusinessAnalysisCanvas from './components/BusinessAnalysisCanvas';
 import ToolsMenu from './components/ToolsMenu';
 import TitleBar from './components/TitleBar';
-import HabitDashboard from './components/HabitDashboard';
 import ProjectDashboard from './components/ProjectDashboard';
 import GoalsPanel from './components/GoalsPanel';
 import JourneyPanel from './components/JourneyPanel';
@@ -27,9 +26,23 @@ const PANEL_GAP = 7;
 type Overlay =
   | { kind: 'analysis'; project: ProjectKey }
   | { kind: 'journey'; project: ProjectKey }
-  | { kind: 'habits' }
   | { kind: 'bdp' }
   | { kind: 'quarterly' };
+
+// This whole overlay container sat outside <main> with no role at all —
+// the original page stays mounted underneath (this is a fixed-position
+// cover, not a route change), so a screen reader saw its content as
+// belonging to no landmark, axe's own "region" rule, moderate, on both
+// Business Analysis and Journey. role="dialog" is the correct shape
+// (content still exists behind it, same as OnboardingModal), and a
+// dialog needs a name — one per overlay kind, not a generic "Overlay"
+// that would say nothing useful to whichever of these is showing.
+const OVERLAY_LABEL: Record<Overlay['kind'], string> = {
+  analysis: 'Business Analysis',
+  journey: 'Journey',
+  bdp: 'Income Opportunities',
+  quarterly: '90-Day Plan',
+};
 
 function AppShell() {
   // The focus task list is rendered by two panels at once: the project
@@ -328,6 +341,17 @@ function AppShell() {
             overflow: 'hidden',
             clip: 'rect(0 0 0 0)',
             whiteSpace: 'nowrap',
+            // Clipped to 1x1 either way, so no sighted user's eye can
+            // tell the difference — but the browser's own h1 default
+            // (2em, i.e. 2x whatever the body's font-size is) still
+            // shows up in getComputedStyle, which is exactly what
+            // tests/hierarchy-audit.mjs reads. Without this, this one
+            // invisible element reports a phantom 26px "in use" on every
+            // screen it is mounted on (which, since it lives here in the
+            // app shell, is all of them) forever — fontSize: 13 matches
+            // TYPE_SIZE.sm, the app's own body size, so it stops being a
+            // font-size decision at all.
+            fontSize: 13,
           }}
         >
           Habit OS
@@ -379,12 +403,6 @@ function AppShell() {
           <div style={{ position: 'absolute', top: 0, right: 0, zIndex: 3 }}>
       <ToolsMenu
         entries={[
-          {
-            icon: '◈',
-            label: 'Life Execution Board',
-            desc: 'Habits, scores and daily journal',
-            onSelect: () => setOverlay({ kind: 'habits' }),
-          },
           {
             icon: '▤',
             label: 'Business Dev Plan',
@@ -445,6 +463,9 @@ function AppShell() {
           neither fits a column. */}
       {overlay && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={OVERLAY_LABEL[overlay.kind]}
           style={{
             position: 'fixed',
             inset: 0,
@@ -461,7 +482,6 @@ function AppShell() {
             <BusinessAnalysisCanvas projectKey={overlay.project} />
           )}
           {overlay.kind === 'journey' && <JourneyPanel />}
-          {overlay.kind === 'habits' && <HabitDashboard />}
           {overlay.kind === 'bdp' && <BdpPanel />}
           {overlay.kind === 'quarterly' && <QuarterlyPlanPanel />}
         </div>

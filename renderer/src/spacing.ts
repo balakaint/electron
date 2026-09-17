@@ -41,3 +41,40 @@ export const SPACE = {
 } as const;
 
 export const SPACE_VALUES: number[] = [0, 2, 4, 8, 12, 16, 24, 32];
+
+/**
+ * The corner scale. Three values, for the same reason.
+ *
+ * Counted before this existed: 2, 3, 4, 5, 6, 8, 10, 11, 12 and '50%'
+ * across 43 places — ten different corners in one app. Two cards on one
+ * screen at 6 and 8 do not read as a considered difference; they read
+ * the way 10px and 12px padding read. Worse, the radius was carrying no
+ * meaning at all: a modal, a progress track and a chip could each be any
+ * of the ten.
+ *
+ * Now it says WHAT A THING IS, and there are only three kinds:
+ *
+ *   CONTROL (4)  something you click or type in — buttons, inputs, chips
+ *   CARD (8)     a surface that holds other things — cards, panels,
+ *                modals, popovers
+ *   PILL (999)   a shape whose ends are meant to be round — dots, and
+ *                the 4-6px progress tracks, where any fixed radius is
+ *                either invisible or a full round anyway
+ *
+ * The original is Tkinter and has no rounded corners anywhere, so every
+ * radius in this port is the port's own invention; that is exactly why
+ * it needed a rule rather than a habit.
+ *
+ * tests/radius-check.mjs fails the build on anything else.
+ */
+export const RADIUS = {
+  control: 4,
+  card: 8,
+  pill: 999,
+} as const;
+
+export const RADIUS_VALUES: number[] = [0, 4, 8, 999];
+
+// Font size, weight and letter-spacing moved to renderer/src/typography.ts
+// (TYPE_SIZE / TYPE_WEIGHT / TRACKING) — this file is layout (gaps,
+// corners), that one is type. tests/typography-check.mjs enforces it.

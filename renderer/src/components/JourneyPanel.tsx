@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { inkOn } from '../themes';
 import { Journey, JourneyStage, ProjectKey, ProjectOrderEntry, journeyApi, projectsApi } from '../services/api';
 import { useAutoTimer } from '../useAutoTimer';
+import { RADIUS } from '../spacing';
 
 function StatusDot({ status }: { status: string }) {
   const label = status === 'ok' ? '✓' : status === 'no' ? '✕' : '·';
   const color = status === 'ok' ? 'var(--success)' : status === 'no' ? 'var(--danger)' : 'var(--text)';
   return (
-    <span style={{ color, fontWeight: 'bold', width: 14, display: 'inline-block', textAlign: 'center' }}>
+    <span style={{ color, fontWeight: 700, width: 14, display: 'inline-block', textAlign: 'center' }}>
       {label}
     </span>
   );
@@ -53,13 +54,14 @@ function StageDetail({
   const doneCount = stage.tasks.filter((t) => t.done).length;
 
   return (
-    <div style={{ background: 'var(--surface)', borderRadius: 8, padding: 12 }}>
+    <div style={{ background: 'var(--surface)', borderRadius: RADIUS.card, padding: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <input
+          aria-label="Stage name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={() => (name.trim() !== stage.name || description !== stage.description) && onRename(name, description)}
-          style={{ fontWeight: 'bold', fontSize: 15, border: 'none', background: 'transparent', color: 'var(--text)', flex: 1 }}
+          style={{ fontWeight: 700, fontSize: 16, border: 'none', background: 'transparent', color: 'var(--text)', flex: 1 }}
         />
         {stage.done && <span style={{ color: 'var(--success)', fontSize: 12 }}>✓ DONE</span>}
         {isCurrent && !stage.done && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>CURRENT</span>}
@@ -201,7 +203,7 @@ function CoverImage({
           fontSize: 12,
           padding: '12px 12px',
           border: '1px dashed var(--border)',
-          borderRadius: 8,
+          borderRadius: RADIUS.card,
           background: 'var(--surface)',
           color: 'var(--text)',
           width: '100%',
@@ -218,7 +220,7 @@ function CoverImage({
       style={{
         position: 'relative',
         height: 120,
-        borderRadius: 8,
+        borderRadius: RADIUS.card,
         overflow: 'hidden',
         marginBottom: 12,
         background: 'var(--surface)',
@@ -312,7 +314,7 @@ export default function JourneyPanel() {
           defaultValue={journey.proj_name}
           onBlur={(e) => e.target.value !== journey.proj_name && apply(journeyApi.updateMeta(projectKey, { proj_name: e.target.value }))}
           placeholder="Project name…"
-          style={{ fontSize: 18, fontWeight: 'bold', border: 'none', background: 'transparent', color: 'var(--text)', flex: 1 }}
+          style={{ fontSize: 16, fontWeight: 700, border: 'none', background: 'transparent', color: 'var(--text)', flex: 1 }}
         />
         {journey.launched && <span style={{ fontSize: 12, color: 'var(--success)' }}>🚀 LAUNCHED</span>}
       </div>
@@ -372,7 +374,7 @@ export default function JourneyPanel() {
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: 6,
+            borderRadius: RADIUS.card,
             padding: '8px 12px',
             fontSize: 12,
             marginBottom: 12,
@@ -392,7 +394,7 @@ export default function JourneyPanel() {
               fontSize: 12,
               padding: '4px 8px',
               opacity: s.done ? 1 : 0.8,
-              fontWeight: s.stage_index === journey.current_stage ? 'bold' : 'normal',
+              fontWeight: s.stage_index === journey.current_stage ? 700 : 400,
             }}
             title={s.name}
           >

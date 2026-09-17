@@ -48,6 +48,13 @@ const PORT = Number(arg('port', 4181));
 const BASE = `http://127.0.0.1:${PORT}`;
 const ROOT = arg('root', 'dist/renderer');
 const THEMES = arg('themes', 'focus,warroom,energy,corporate,journey,rize').split(',');
+// serve.mjs's own default (127.0.0.1:5180) is the real app's engine
+// port too — fine when nothing else is running, but this audit writes
+// through it (theme, panel_layout, whatever a crawled screen's own
+// onClick does), so pointing it at a real dev session's engine would
+// mutate real data. --engine lets a throwaway engine on another port
+// stand in without needing the real one stopped.
+const ENGINE = arg('engine', 'http://127.0.0.1:5180');
 
 // Guidance, not law — and the report says so. Sources are the ordinary
 // typographic conventions a design system encodes: a modular scale has
@@ -61,6 +68,28 @@ const SCREENS = [
   { name: 'PLAN · mindset', steps: ['PLAN', 'Mindset'] },
   { name: 'EXECUTE · hours', steps: ['EXECUTE', 'HOURS'] },
   { name: 'EXECUTE · MIT', steps: ['EXECUTE', 'MIT'] },
+  // Second wave (2026-09-17): PLAN/EXECUTE are the two panel-3 tabs;
+  // these three are all full-screen overlays, opened over whatever was
+  // showing and (App.tsx) closed by their own "← Back" button — NOT
+  // Escape, which only closes a separate dialogStack (Settings/
+  // Shortcuts) App.tsx keeps distinct from `overlay`. First attempt used
+  // Escape and got three identical Business-Analysis measurements back
+  // for Business Analysis/Journey/BDP, because the overlay never closed
+  // and every later click silently failed against an obscured target
+  // (Playwright's actionability check waits for visible-and-unobscured,
+  // then times out and no-ops) rather than throwing. HabitDashboard.tsx
+  // is NOT in this list: grep confirms no other file in renderer/src
+  // imports it, so it is unreachable from the running app (mid-flight
+  // habits removal) and there is no button this audit — or a real user —
+  // could click to get there. CircleSection is not its own entry either:
+  // it renders inline inside Business Analysis's own PEOPLE card, so
+  // visiting Analysis already covers it.
+  { name: 'Business Analysis', steps: ['← Back', 'Analysis'] },
+  { name: 'Journey', steps: ['← Back', 'Journey'] },
+  // ToolsMenu's own entries are role="menuitem" (a real ARIA role,
+  // overriding the <button>'s implicit one) — the trigger's own
+  // accessible name is its glyph content ('⚙'), not its title="Tools".
+  { name: 'BDP (Income Opportunities)', steps: ['← Back', '⚙', { label: 'Income Opportunities', role: 'menuitem' }] },
 ];
 
 const AXE = readFileSync('node_modules/axe-core/axe.min.js', 'utf8');
@@ -159,14 +188,14 @@ const MEASURE = () => {
 };
 
 const run = async () => {
-  const server = spawn('node', ['tests/serve.mjs', ROOT, String(PORT)], { stdio: 'inherit' });
+  const server = spawn('node', ['tests/serve.mjs', ROOT, String(PORT), ENGINE], { stdio: 'inherit' });
   await sleep(700);
   try {
     const probe = await fetch(`${BASE}/health`);
     if (!probe.ok) throw new Error(String(probe.status));
   } catch (e) {
     server.kill();
-    console.error(`No engine behind ${BASE}/health (${e.message}). Start python/main.py --port 5180.`);
+    console.error(`No engine behind ${BASE}/health, proxied to ${ENGINE} (${e.message}). Start it, or pass --engine.`);
     process.exit(2);
   }
 
@@ -199,8 +228,24 @@ const run = async () => {
     };
   });
 
-  const click = async (text) => {
-    const el = page.getByRole('button', { name: text, exact: true }).first();
+  // A step is a label (role defaults to 'button') or {label, role} for
+  // anything else — ToolsMenu's own entries render role="menuitem", an
+  // explicit ARIA role which OVERRIDES the implicit role a <button>
+  // would otherwise have, so getByRole('button', ...) silently finds
+  // nothing for them. Same shape of bug as the missing PLAN "Today" tab:
+  // wrong role, not wrong text, and both fail the same way — quietly.
+  const click = async (step) => {
+    // { key: 'Escape' } presses a key instead of clicking — the overlays
+    // (Analysis/Journey/BDP) stay open once opened, and App.tsx's own
+    // close mechanism is Escape for "the topmost thing", not a button
+    // every overlay repeats. Harmless to press with nothing open.
+    if (typeof step === 'object' && step.key) {
+      await page.keyboard.press(step.key);
+      await sleep(250);
+      return;
+    }
+    const { label, role = 'button' } = typeof step === 'string' ? { label: step } : step;
+    const el = page.getByRole(role, { name: label, exact: true }).first();
     if (await el.count()) {
       await el.click({ timeout: 3000 }).catch(() => {});
       await sleep(250);
@@ -223,7 +268,7 @@ const run = async () => {
     await sleep(900);
 
     for (const screen of SCREENS) {
-      for (const label of screen.steps) await click(label);
+      for (const step of screen.steps) await click(step);
       await sleep(350);
       const rendered = await page.evaluate(() => document.querySelectorAll('body *').length);
       if (rendered < 150) {
@@ -233,9 +278,13 @@ const run = async () => {
       const m = await page.evaluate(MEASURE);
       report.screens.push({ theme, screen: screen.name, ...m });
 
-      // axe-core, once per theme on the busiest screen — its rules are
-      // about structure, which does not change between the tabs.
-      if (screen.name === 'EXECUTE · MIT') {
+      // axe-core, once per theme on panel-3's busiest tab plus each of
+      // the three overlays — its rules are about structure, which does
+      // not change between PLAN's own tabs (so one of those is enough),
+      // but an overlay is genuinely different DOM (a dialog-shaped
+      // screen, not a tab), so each earns its own run rather than
+      // inheriting EXECUTE · MIT's clean result on trust.
+      if (['EXECUTE · MIT', 'Business Analysis', 'Journey', 'BDP (Income Opportunities)'].includes(screen.name)) {
         await page.evaluate(AXE);
         const res = await page.evaluate(async () =>
           // eslint-disable-next-line no-undef
@@ -244,7 +293,7 @@ const run = async () => {
             sample: v.nodes.slice(0, 2).map((n) => n.html.slice(0, 90)),
           })),
         );
-        report.axe.push({ theme, violations: res });
+        report.axe.push({ theme, screen: screen.name, violations: res });
       }
     }
   }
@@ -299,14 +348,18 @@ const run = async () => {
   }
 
   console.log('\n═══ AXE-CORE ═══  (WCAG 2.2 A/AA, the parts a DOM measurement cannot infer)\n');
+  // Keyed by rule+screen, not rule alone — the same rule firing on two
+  // different screens (a tab vs. an overlay) is two separate findings,
+  // and merging them would silently drop which one a fix needs to land in.
   const axeSeen = new Map();
   for (const a of report.axe) for (const v of a.violations) {
-    if (!axeSeen.has(v.id)) axeSeen.set(v.id, { ...v, themes: [] });
-    axeSeen.get(v.id).themes.push(a.theme);
+    const k = `${v.id}|${a.screen ?? 'EXECUTE · MIT'}`;
+    if (!axeSeen.has(k)) axeSeen.set(k, { ...v, screen: a.screen ?? 'EXECUTE · MIT', themes: [] });
+    axeSeen.get(k).themes.push(a.theme);
   }
   if (!axeSeen.size) console.log('  no violations');
   for (const v of axeSeen.values()) {
-    console.log(`  [${v.impact}] ${v.id} — ${v.help}`);
+    console.log(`  [${v.impact}] ${v.id} — ${v.help}  (${v.screen})`);
     console.log(`      ${v.nodes} node(s), ${v.themes.length}/${THEMES.length} themes`);
     for (const s of v.sample) console.log(`      ${s}`);
   }
