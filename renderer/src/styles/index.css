@@ -2,8 +2,89 @@
   box-sizing: border-box;
 }
 
+/* BUNDLED BANGLA TYEFACE. Files, not a web request: Noto Sans Bengali
+   ships inside renderer/src/styles/fonts (Google's Noto Project, SIL
+   Open Font License — see fonts/OFL.txt), loaded by Vite as a local
+   asset the same way any imported image is. This is what "'Nirmala UI'
+   in the stack" was supposed to be and could not be: Zahid's dev build
+   runs as a Linux Electron binary under WSL2 (`uname -a` confirmed it,
+   and `fc-list` on that machine has no Bangla-capable font at all —
+   not Nirmala UI, which is a Windows-only file, and not even a Linux
+   substitute like Noto), so no name on the CSS list could ever match
+   there. A bundled font file has no such dependency: it renders
+   identically whether the host is this WSL dev box, a bare Windows
+   machine at a customer's desk (most will already have Nirmala UI, but
+   "most" is not "commercial-grade" — see FEATURE_INVENTORY quality
+   bar), or any future macOS/Linux build. Two weights only (Regular,
+   Bold) — everything this app sets in Bangla is one of those two. */
+@font-face {
+  font-family: 'Noto Sans Bengali';
+  src: url('./fonts/NotoSansBengali-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Sans Bengali';
+  src: url('./fonts/NotoSansBengali-Bold.ttf') format('truetype');
+  font-weight: 600 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* THE APP'S TYPEFACE, take two. The Segoe UI system stack this replaced
+   ("nothing else about this app was as loudly 'old software' as that",
+   see git history) was itself a deliberate fix over a bare
+   `sans-serif` — but a system font is still whatever the OS shipped, not
+   a chosen one, and it's the one thing an otherwise rigorously
+   themed/spaced/contrast-checked app still shared with every unstyled
+   Windows dialog. Plus Jakarta Sans: matched via ui-ux-pro-max's
+   design-system search for "professional productivity dashboard" —
+   SaaS/dashboard mood, built for information-dense screens like this
+   one's. Bundled as static files (three weights: TYPE_WEIGHT in
+   typography.ts only ever asks for 400/600/700 — see that file), same
+   "not a network web font" rule as Noto Sans Bengali above: a download
+   that fails is a layout that jumps, so nothing here can fail to load. */
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('./fonts/plus-jakarta-sans-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('./fonts/plus-jakarta-sans-latin-600-normal.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('./fonts/plus-jakarta-sans-latin-700-normal.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 body {
   margin: 0;
+
+  /* Stack, not one name, for the same reason the old one was: this ships
+     to machines that may not have Plus Jakarta Sans's bundled file load
+     succeed for some reason not yet seen, so Segoe UI/system-ui/Arial
+     remain as the fallback chain rather than a hard cliff to serif
+     default. 'Noto Sans Bengali' stays right after the Latin faces and
+     before the Latin-only floor, for the same per-character fallback
+     reason as before: none of Plus Jakarta Sans/Segoe UI/system-ui draw
+     Bangla glyphs. */
+  font-family: 'Plus Jakarta Sans', 'Segoe UI Variable Text', 'Segoe UI',
+    'Noto Sans Bengali', system-ui, -apple-system, 'Helvetica Neue', Arial,
+    sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 /* Visible focus indicator on every control — browser default focus
@@ -28,6 +109,191 @@ select,
 button {
   font: inherit;
   color: inherit;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────
+   Until this rule existed the app had no button design at all. The rule
+   above handed buttons the app's font and text colour and stopped
+   there, so any button whose component did not set a background inline
+   — the row's ○ ▶ ⋯, "+ STRIKE", "Add", NOW's START and COMPLETE —
+   rendered as a Chromium DEFAULT button: the flat grey slab the browser
+   paints under `color-scheme`, in a colour no palette in themes.ts
+   contains. Two button languages on one screen (theme-token tabs above,
+   OS grey below) is the loudest "unfinished software" signal the
+   EXECUTE screen was sending.
+
+   Three variants, and only three:
+     (default)     secondary — the app's ordinary button
+     .btn-primary  the one action a card exists for
+     .btn-ghost    icon buttons inside a row, which must not out-shout
+                   the text beside them
+
+   Built with color-mix from tokens every palette already defines, so no
+   theme needs a new entry and a new theme gets buttons for free. Radius
+   is 4 and not 8: the cards around them are square (1px border, no
+   radius), and a pill inside a square card reads as imported. */
+button {
+  background: var(--surface-2, var(--surface));
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: background 0.12s ease-out, border-color 0.12s ease-out;
+}
+button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-2, var(--surface)));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+button:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface-2, var(--surface)));
+}
+/* Disabled is stated in colour, not opacity. Opacity multiplies every
+   channel including the ones contrast is measured on, which is how a
+   "greyed out" control becomes an unreadable one — the same bug already
+   fixed on done project cards and done task rows. */
+button:disabled {
+  color: var(--text-faint);
+  border-color: var(--border);
+  background: var(--surface-2, var(--surface));
+  cursor: default;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  font-weight: bold;
+}
+.btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 12%, var(--accent));
+  border-color: color-mix(in srgb, var(--text) 12%, var(--accent));
+}
+.btn-primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 22%, var(--accent));
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: transparent;
+  color: var(--text);
+}
+.btn-ghost:disabled {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* Text fields were in the same state as the buttons: whatever Chromium
+   draws by default, which under a dark color-scheme is a near-black
+   field with a grey hairline that belongs to no palette here. */
+input,
+textarea,
+select {
+  background: var(--surface-2, var(--surface));
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+}
+
+/* Custom date field, CSS-only — Electron is Chromium-only, so the
+   ::-webkit-* pseudo-elements a real cross-browser app couldn't rely on
+   are fair game here. The OS calendar icon (grey/black regardless of
+   theme, the one control that visibly ignored every palette here —
+   --input-color-scheme, themes.ts, fixed its COLOR but not its shape)
+   is made fully transparent and stretched over the whole field, so the
+   pill GoalsPanel already draws around these inputs becomes the entire
+   click target — no boxy icon sitting inside an otherwise plain app
+   control. Clicking anywhere in the pill still opens the native
+   calendar popover; that popover already renders in the right
+   light/dark skin via --input-color-scheme. */
+input[type='date']::-webkit-calendar-picker-indicator {
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+input[type='date'] {
+  position: relative;
+}
+
+/* A goal card opening was an instant swap — the whole editor appeared
+   between one frame and the next, indistinguishable from a layout bug.
+   160ms is the same order of magnitude as this file's other motion
+   (button hover: 0.12s) — quick enough to read as immediate, not a
+   loading state, but no longer literally zero. */
+@keyframes goal-row-open {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.goal-row-open {
+  animation: goal-row-open 160ms ease-out;
+}
+
+/* Morning Ritual's Breathe dot while its 60s timer is running — an
+   emptying/pulsing dot reads as "in progress" without a full ring
+   widget, matching Zahid's morning-activation.html sample exactly. */
+@keyframes ritual-pulse {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+.ritual-pulse {
+  animation: ritual-pulse 4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ritual-pulse {
+    animation: none;
+    opacity: 0.9;
+  }
+}
+
+/* Plain text-link button — morning-activation.html's .link, reused for
+   Morning Ritual's "+ Sleep quality", "I'm ready →", "Skip", etc. */
+.link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+/* A task row should read as its name and its time, not as four
+   controls of equal weight. The controls are quietened with .btn-ghost
+   rather than HIDDEN on hover: legacy rejected hover-only affordances
+   outright for the hour-clear button — "findable by accident and
+   unreachable by keyboard or touch" — and that verdict applies to ⋯
+   just as well. What hover gets instead is the row itself, so the
+   cluster you are about to click is visibly one object. */
+.task-row:hover {
+  background: var(--surface-2, var(--surface));
 }
 
 /* The clock is the one place a fixed-width face is wanted, so the

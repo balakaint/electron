@@ -1,5 +1,5 @@
-"""Idempotent regression test for the 90-Day Quarterly Plan. No pytest
-dependency:
+"""Idempotent regression test for the 90-Day / 112-Day Transformation
+Board. No pytest dependency:
 
     .venv/bin/python test_quarterly.py
 
@@ -60,36 +60,133 @@ def test_default_panel_falls_back_to_calendar_quarter():
         check("all 6 areas present with the right keys", [a["key"] for a in panel["areas"]] == [
             "appearance", "money", "relationship", "health", "social", "mind",
         ])
-        check("fresh panel has 0/6 areas done", panel["areas_done"] == 0 and panel["areas_total"] == 6)
+        check("fresh panel has 0/6 areas done (proven)", panel["areas_done"] == 0 and panel["areas_total"] == 6)
+        check("a fresh area's status is not_started", panel["areas"][0]["status"] == "not_started")
 
 
-def test_set_answer_updates_done_count_only_on_out():
+def test_status_progression_through_the_7_steps():
     with FreshDB() as f:
         import engine.quarterly as q
-        p1 = q.set_answer(f.repo, "money", "act", "save weekly")
-        check("setting 'act' alone does not count as done", p1["areas_done"] == 0)
-        p2 = q.set_answer(f.repo, "money", "out", "72kg")
-        check("setting 'out' counts as done", p2["areas_done"] == 1)
-        money = next(a for a in p2["areas"] if a["key"] == "money")
-        check("both fields persisted on the same area", money["act"] == "save weekly" and money["out"] == "72kg")
+
+        p = q.set_field(f.repo, "money", "current_reality", "12,000 saved")
+        area = next(a for a in p["areas"] if a["key"] == "money")
+        check("current_reality alone is not enough to leave not_started", area["status"] == "not_started")
+
+        p = q.set_field(f.repo, "money", "destination", "50,000 saved")
+        area = next(a for a in p["areas"] if a["key"] == "money")
+        check("current_reality + destination -> defined", area["status"] == "defined")
+
+        p = q.set_field(f.repo, "money", "gap", "38,000 short, no automated saving")
+        area = next(a for a in p["areas"] if a["key"] == "money")
+        check("gap alone without a major change is still defined", area["status"] == "defined")
+
+        p = q.set_major_changes(f.repo, "money", [{"text": "automate a weekly transfer", "done": False}])
+        area = next(a for a in p["areas"] if a["key"] == "money")
+        check("gap + a major change -> planned", area["status"] == "planned")
+
+        p = q.set_field(f.repo, "money", "weekly_lead_behavior", "transfer 500 every Friday")
+        area = next(a for a in p["areas"] if a["key"] == "money")
+        check("a weekly lead behavior -> active", area["status"] == "active")
+
+        p = q.set_achieved(f.repo, "money", True)
+        area = next(a for a in p["areas"] if a["key"] == "money")
+        check("achieved=True without proof does NOT reach proven", area["status"] == "active")
+
+        p = q.set_field(f.repo, "money", "proof", "bank statement shows 50,000")
+        area = next(a for a in p["areas"] if a["key"] == "money")
+        check("achieved + proof -> proven", area["status"] == "proven")
+        check("areas_done counts the proven area", p["areas_done"] == 1)
 
 
-def test_set_answer_rejects_invalid_area_or_field():
+def test_set_field_rejects_invalid_area_or_field():
     with FreshDB() as f:
         import engine.quarterly as q
         try:
-            q.set_answer(f.repo, "not-a-real-area", "out", "x")
+            q.set_field(f.repo, "not-a-real-area", "destination", "x")
             raised = False
         except ValueError:
             raised = True
         check("invalid area raises ValueError", raised)
 
         try:
-            q.set_answer(f.repo, "money", "not-a-real-field", "x")
+            q.set_field(f.repo, "money", "not-a-real-field", "x")
             raised = False
         except ValueError:
             raised = True
         check("invalid field raises ValueError", raised)
+
+        try:
+            q.set_field(f.repo, "money", "out", "x")
+            raised = False
+        except ValueError:
+            raised = True
+        check("the old 'out' field name is no longer accepted", raised)
+
+
+def test_major_changes_capped_at_five_and_ids_assigned():
+    with FreshDB() as f:
+        import engine.quarterly as q
+        panel = q.set_major_changes(f.repo, "health", [{"text": f"change {i}"} for i in range(5)])
+        area = next(a for a in panel["areas"] if a["key"] == "health")
+        check("5 major changes accepted", len(area["major_changes"]) == 5)
+        check("auto-assigned ids are unique", len({c["id"] for c in area["major_changes"]}) == 5)
+
+        try:
+            q.set_major_changes(f.repo, "health", [{"text": f"change {i}"} for i in range(6)])
+            raised = False
+        except ValueError:
+            raised = True
+        check("a 6th major change is rejected", raised)
+
+        panel = q.set_major_changes(f.repo, "health", [{"text": "  "}, {"text": "real one"}])
+        area = next(a for a in panel["areas"] if a["key"] == "health")
+        check("blank-text rows are dropped rather than stored", len(area["major_changes"]) == 1)
+
+
+def test_change_destination_versions_and_archives_history():
+    with FreshDB() as f:
+        import engine.quarterly as q
+        q.set_field(f.repo, "appearance", "current_reality", "unfit, no routine")
+        q.set_field(f.repo, "appearance", "destination", "run a 5k")
+        q.set_achieved(f.repo, "appearance", True)
+        q.set_field(f.repo, "appearance", "proof", "race finisher photo")
+        panel = q.get_panel(f.repo)
+        area = next(a for a in panel["areas"] if a["key"] == "appearance")
+        check("proven before the goal changes", area["status"] == "proven")
+
+        panel = q.change_destination(f.repo, "appearance", "run a 10k", reason="5k felt easy now", evidence="")
+        area = next(a for a in panel["areas"] if a["key"] == "appearance")
+        check("destination updates to the new goal", area["destination"] == "run a 10k")
+        check("goal_version increments", area["goal_version"] == 2)
+        check("old destination archived into goal_history", area["goal_history"][-1]["destination"] == "run a 5k")
+        check("changing destination resets achieved", area["achieved"] is False)
+        check("changing destination resets proof", area["proof"] == "")
+        check("status drops back out of proven", area["status"] != "proven")
+
+        try:
+            q.change_destination(f.repo, "appearance", "", reason="x", evidence="")
+            raised = False
+        except ValueError:
+            raised = True
+        check("an empty new_destination is rejected", raised)
+
+
+def test_reset_strategy_keeps_destination_clears_execution():
+    with FreshDB() as f:
+        import engine.quarterly as q
+        q.set_field(f.repo, "mind", "current_reality", "no study habit")
+        q.set_field(f.repo, "mind", "destination", "finish the certification")
+        q.set_field(f.repo, "mind", "gap", "no scheduled time")
+        q.set_major_changes(f.repo, "mind", [{"text": "block 6am-7am daily"}])
+        q.set_field(f.repo, "mind", "weekly_lead_behavior", "5 study sessions a week")
+
+        panel = q.reset_strategy(f.repo, "mind")
+        area = next(a for a in panel["areas"] if a["key"] == "mind")
+        check("destination survives a strategy reset", area["destination"] == "finish the certification")
+        check("gap is cleared", area["gap"] == "")
+        check("major_changes is cleared", area["major_changes"] == [])
+        check("weekly_lead_behavior is cleared", area["weekly_lead_behavior"] == "")
+        check("status drops back to defined", area["status"] == "defined")
 
 
 def test_cycle_days_clamped():
@@ -104,7 +201,7 @@ def test_cycle_days_clamped():
 def test_set_cycle_moves_answers_to_new_key():
     with FreshDB() as f:
         import engine.quarterly as q
-        q.set_answer(f.repo, "health", "out", "run 5k")
+        q.set_field(f.repo, "health", "destination", "run 5k")
         old_key = q.cycle_key(f.repo)
 
         new_start = str(date.today() + timedelta(days=1))
@@ -112,7 +209,7 @@ def test_set_cycle_moves_answers_to_new_key():
         check("cycle_start moves to the new anchor", panel["cycle_start"] == new_start)
         check("cycle_days updates", panel["cycle_days"] == 45)
         health = next(a for a in panel["areas"] if a["key"] == "health")
-        check("answers carried over to the new cycle key", health["out"] == "run 5k")
+        check("answers carried over to the new cycle key", health["destination"] == "run 5k")
 
         old_answers = f.repo.list_answers(old_key)
         check("old cycle key has no leftover rows after the move", old_answers == [])
@@ -124,13 +221,13 @@ def test_set_cycle_does_not_overwrite_existing_destination_answers():
         from database.models import QuarterlyAnswer
         # Pre-seed an answer directly at the destination cycle key.
         dest_start = str(date.today() + timedelta(days=10))
-        f.repo.add_answer(QuarterlyAnswer(cycle_start=dest_start, area="mind", out="already here"))
+        f.repo.add_answer(QuarterlyAnswer(cycle_start=dest_start, area="mind", destination="already here"))
 
-        q.set_answer(f.repo, "mind", "out", "source cycle answer")
+        q.set_field(f.repo, "mind", "destination", "source cycle answer")
         q.set_cycle(f.repo, dest_start, 30)
 
         answer = f.repo.get_answer(dest_start, "mind")
-        check("destination's existing answer wins over the moved source", answer.out == "already here")
+        check("destination's existing answer wins over the moved source", answer.destination == "already here")
 
 
 def test_cycle_progress_day_zero_for_future_start():
@@ -177,8 +274,11 @@ def test_invalid_cycle_start_string_rejected():
 def run_all():
     tests = [
         test_default_panel_falls_back_to_calendar_quarter,
-        test_set_answer_updates_done_count_only_on_out,
-        test_set_answer_rejects_invalid_area_or_field,
+        test_status_progression_through_the_7_steps,
+        test_set_field_rejects_invalid_area_or_field,
+        test_major_changes_capped_at_five_and_ids_assigned,
+        test_change_destination_versions_and_archives_history,
+        test_reset_strategy_keeps_destination_clears_execution,
         test_cycle_days_clamped,
         test_set_cycle_moves_answers_to_new_key,
         test_set_cycle_does_not_overwrite_existing_destination_answers,

@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
-import { ListKey, PanelLayout, ProjectKey, exportApi, goalsApi, settingsApi } from './services/api';
+import { GoalOwnerKey, ListKey, PanelLayout, ProjectKey, exportApi, goalsApi, settingsApi } from './services/api';
 import Panel3 from './components/Panel3';
 import BusinessAnalysisCanvas from './components/BusinessAnalysisCanvas';
 import ToolsMenu from './components/ToolsMenu';
 import TitleBar from './components/TitleBar';
 import ProjectDashboard from './components/ProjectDashboard';
 import GoalsPanel from './components/GoalsPanel';
+import GoalBoardOverlay from './components/GoalBoardOverlay';
 import JourneyPanel from './components/JourneyPanel';
 import BdpPanel from './components/BdpPanel';
 import QuarterlyPlanPanel from './components/QuarterlyPlanPanel';
+import MorningRitualPanel from './components/MorningRitualPanel';
+import NightClosurePanel from './components/NightClosurePanel';
 import OnboardingModal from './components/OnboardingModal';
 import SettingsDialog from './components/SettingsDialog';
 import ShortcutsHelp from './components/ShortcutsHelp';
@@ -27,7 +30,13 @@ type Overlay =
   | { kind: 'analysis'; project: ProjectKey }
   | { kind: 'journey'; project: ProjectKey }
   | { kind: 'bdp' }
-  | { kind: 'quarterly' };
+  | { kind: 'quarterly' }
+  // A Goal's "→ BOARD" button (GoalsPanel/GoalRow) opens this — the
+  // Goal -> Task -> Individual Task Board hierarchy the user asked
+  // for, as a full-window overlay per their own explicit choice
+  // ("full-window overlay (Recommended)") over cramming it into
+  // Panel 2's narrow column.
+  | { kind: 'goalBoard'; project: GoalOwnerKey; goalId: number };
 
 // This whole overlay container sat outside <main> with no role at all —
 // the original page stays mounted underneath (this is a fixed-position
@@ -36,12 +45,13 @@ type Overlay =
 // Business Analysis and Journey. role="dialog" is the correct shape
 // (content still exists behind it, same as OnboardingModal), and a
 // dialog needs a name — one per overlay kind, not a generic "Overlay"
-// that would say nothing useful to whichever of these is showing.
+// that would say nothing useful to whichever of these six is showing.
 const OVERLAY_LABEL: Record<Overlay['kind'], string> = {
   analysis: 'Business Analysis',
   journey: 'Journey',
   bdp: 'Income Opportunities',
   quarterly: '90-Day Plan',
+  goalBoard: 'Goal Board',
 };
 
 function AppShell() {
@@ -62,9 +72,24 @@ function AppShell() {
 
   const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking');
   const [overlay, setOverlay] = useState<Overlay | null>(null);
+  // Morning Ritual renders IN Panel 2 (the Goals column), not as a
+  // full-window overlay — that column is already the wider of the two
+  // flexible panels, with Panel 1/Panel 3 staying visible on either
+  // side (Zahid, 2026-09-18: wanted it findable in context, not a
+  // screen that blanks the rest of the app).
+  const [morningRitualView, setMorningRitualView] = useState<'flow' | 'trend' | null>(null);
+  // Night Closure — same slot, same reasoning, mutually exclusive with
+  // morningRitualView above (see the Panel 2 render below).
+  const [nightClosureOpen, setNightClosureOpen] = useState(false);
   // Which project panel 2 is showing. Persisted server-side already
   // (goalsApi.getPanel), so it survives a restart the way legacy's does.
   const [goalsProject, setGoalsProject] = useState<ProjectKey | null>(null);
+  // True once ProjectDashboard reports every project in panel 1 is
+  // collapsed — panel 2 then shows the Life Plan headline instead of
+  // goalsProject's goals (see the section below). Starts false so a
+  // fresh load shows GoalsPanel until ProjectDashboard's first report
+  // arrives, matching goalsProject's own "unknown until loaded" shape.
+  const [allProjectsCollapsed, setAllProjectsCollapsed] = useState(false);
   const [tab, setTab] = useState<ListKey>('classic');
   const [theme, setThemeState] = useState<Theme>('focus');
   const [lang, setLang] = useState<Lang>('en');
@@ -278,7 +303,6 @@ function AppShell() {
     <TitleBar />
     <div
       style={{
-        fontFamily: 'sans-serif',
         padding: compact ? 8 : 12,
         background: 'var(--bg)',
         color: 'var(--text)',
@@ -294,7 +318,10 @@ function AppShell() {
       }}
     >
       {/* ── Three columns, legacy's own layout (_build_ui 3105-3150) ──
-          Panel 1 projects · panel 2 the selected project's goals ·
+          Panel 1 projects · panel 2 the selected project's goals (a
+          goal's "→ BOARD" button opens the Goal -> Task -> Individual
+          Task Board hierarchy as a full-window overlay, not inline
+          here — see the 'goalBoard' Overlay kind below) ·
           panel 3 the clock/PLAN/EXECUTE column, fixed width.
 
           Panel 3 is fixed and the other two are flexible because panel 3
@@ -371,7 +398,8 @@ function AppShell() {
               onOpenJourney={(k) => setOverlay({ kind: 'journey', project: k })}
               onSelectGoals={selectGoalsProject}
               goalsProject={goalsProject}
-              openProject={overlay && 'project' in overlay ? overlay.project : null}
+              openProject={overlay && 'project' in overlay && overlay.project !== 'life' ? overlay.project : null}
+              onAllCollapsedChange={setAllProjectsCollapsed}
             />
           </section>
         )}
@@ -379,19 +407,54 @@ function AppShell() {
 
         {showP2 && (
           <section aria-label="Goals" style={{ overflowY: 'auto', minHeight: 0, minWidth: 0, position: 'relative' }}>
-            {/* Panel 2's chevron hides panel 1 only — legacy's
-                _toggle_panel1, the middle rung of the ladder. */}
-            <button
-              onClick={() => setLayout(layout === 'full' ? 'partial' : 'full')}
-              title={layout === 'full' ? 'Hide the projects panel' : 'Show the projects panel'}
-              style={{ position: 'absolute', top: 0, left: 0, zIndex: 2, fontSize: 12, padding: 0, width: 24, height: 24 }}
-            >
-              {/* Same direction rule as panel 3's: the panel this hides
-                  is to the LEFT, so ▶ sends it away and ◀ brings it
-                  back. Legacy's own glyph. */}
-              {layout === 'full' ? '▶' : '◀'}
-            </button>
-            <GoalsPanel projectKey={goalsProject} />
+            {morningRitualView ? (
+              <MorningRitualPanel initialView={morningRitualView} onBack={() => setMorningRitualView(null)} />
+            ) : nightClosureOpen ? (
+              <NightClosurePanel onBack={() => setNightClosureOpen(false)} />
+            ) : (
+              <>
+                {/* Panel 2's chevron hides panel 1 only — legacy's
+                    _toggle_panel1, the middle rung of the ladder. */}
+                <button
+                  onClick={() => setLayout(layout === 'full' ? 'partial' : 'full')}
+                  title={layout === 'full' ? 'Hide the projects panel' : 'Show the projects panel'}
+                  style={{ position: 'absolute', top: 0, left: 0, zIndex: 2, fontSize: 12, padding: 0, width: 24, height: 24 }}
+                >
+                  {/* Same direction rule as panel 3's: the panel this hides
+                      is to the LEFT, so ▶ sends it away and ◀ brings it
+                      back. Legacy's own glyph. */}
+                  {layout === 'full' ? '▶' : '◀'}
+                </button>
+                {/* GoalsPanel used to also take onGoalOpenChange, feeding a
+                    goalOpenProject state that ProjectDashboard's openProject
+                    fell back to — but GoalsPanel never actually called it
+                    (its own signature never declared the prop), so
+                    goalOpenProject was always null and this fallback was
+                    dead from the day GoalsPanel grew its OWN useAutoTimer
+                    call (see that hook's comment there), which independently
+                    starts/stops the project's clock when a goal opens. Wiring
+                    the prop up for real would have meant two hooks racing to
+                    toggle the same timer. */}
+                {/* All of panel 1 collapsed = nothing specific is open, so
+                    this falls back to the reserved "life" virtual project
+                    instead of whichever real project's goals happened to be
+                    open last — see allProjectsCollapsed's own comment above
+                    and GoalOwnerKey's comment in services/api.ts. Same
+                    GoalsPanel either way; only which key it's pointed at
+                    changes. */}
+                {(() => {
+                  const goalsPanelKey: GoalOwnerKey | null = allProjectsCollapsed ? 'life' : goalsProject;
+                  return (
+                    <GoalsPanel
+                      projectKey={goalsPanelKey}
+                      onOpenBoard={(goalId) =>
+                        goalsPanelKey && setOverlay({ kind: 'goalBoard', project: goalsPanelKey, goalId })
+                      }
+                    />
+                  );
+                })()}
+              </>
+            )}
           </section>
         )}
         {showP2 && <div style={{ background: 'var(--border)' }} />}
@@ -405,8 +468,8 @@ function AppShell() {
         entries={[
           {
             icon: '▤',
-            label: 'Business Dev Plan',
-            desc: 'Opportunity tracker and plan canvas',
+            label: 'Income Opportunities',
+            desc: 'Discover opportunities. Build a plan. Execute for income',
             onSelect: () => setOverlay({ kind: 'bdp' }),
           },
           {
@@ -453,6 +516,24 @@ function AppShell() {
             stepTitle={compact ? 'Show all panels (Ctrl+F)' : 'Focus mode — this panel only (Ctrl+F)'}
             onToggleLayout={togglePanels}
             onOpenQuarterly={() => setOverlay({ kind: 'quarterly' })}
+            onOpenMorningRitual={(view) => {
+              // Morning Ritual lives in Panel 2 now, not a full-window
+              // overlay — 'compact' hides Panel 2 entirely, so
+              // Resume/History would silently do nothing without also
+              // bringing it back. Forced to 'partial' rather than
+              // 'full' (Zahid, 2026-09-18: "make panel 1 collups when
+              // morning ritual review press") — Panel 1's project list
+              // isn't needed while the ritual is open, and hiding it
+              // gives Panel 2 the extra room.
+              if (layout !== 'partial') setLayout('partial');
+              setNightClosureOpen(false);
+              setMorningRitualView(view);
+            }}
+            onOpenNightClosure={() => {
+              if (layout !== 'partial') setLayout('partial');
+              setMorningRitualView(null);
+              setNightClosureOpen(true);
+            }}
           />
         </section>
       </main>
@@ -471,19 +552,33 @@ function AppShell() {
             inset: 0,
             background: 'var(--bg)',
             zIndex: 1500,
-            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
             padding: 24,
           }}
         >
-          <button onClick={() => setOverlay(null)} style={{ fontSize: 12, marginBottom: 12 }}>
+          {/* Back pinned outside the scroll area — it used to share
+              normal flow with the 100%-height content below it, which
+              pushed the total past the viewport by exactly its own
+              height (measured: a 39px overlay overflow on Business
+              Analysis, every time, regardless of how tightly the
+              content itself was packed). Content now gets the actual
+              remaining space via flex:1, and scrolls on its own if it
+              still doesn't fit. */}
+          <button onClick={() => setOverlay(null)} style={{ fontSize: 12, marginBottom: 12, flex: 'none' }}>
             ←  Back
           </button>
-          {overlay.kind === 'analysis' && (
-            <BusinessAnalysisCanvas projectKey={overlay.project} />
-          )}
-          {overlay.kind === 'journey' && <JourneyPanel />}
-          {overlay.kind === 'bdp' && <BdpPanel />}
-          {overlay.kind === 'quarterly' && <QuarterlyPlanPanel />}
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            {overlay.kind === 'analysis' && (
+              <BusinessAnalysisCanvas projectKey={overlay.project} />
+            )}
+            {overlay.kind === 'journey' && <JourneyPanel />}
+            {overlay.kind === 'bdp' && <BdpPanel />}
+            {overlay.kind === 'quarterly' && <QuarterlyPlanPanel />}
+            {overlay.kind === 'goalBoard' && (
+              <GoalBoardOverlay project={overlay.project} goalId={overlay.goalId} />
+            )}
+          </div>
         </div>
       )}
 

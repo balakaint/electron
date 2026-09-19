@@ -12,9 +12,8 @@ from database.models import (
     DailyIntention,
     DecisionLog,
     Goal,
-    Habit,
-    HabitCompletion,
     LegacyAnalysisBox,
+    MorningRitual,
     Project,
     ProjectActivity,
     ProjectSubtask,
@@ -28,8 +27,6 @@ SCHEMA_VERSION = 1
 # here, not silently the moment a new model class exists somewhere.
 _EXPORTED_TABLES = [
     ("tasks", Task),
-    ("habits", Habit),
-    ("habit_completions", HabitCompletion),
     ("daily_intentions", DailyIntention),
     ("projects", Project),
     ("project_subtasks", ProjectSubtask),
@@ -40,6 +37,7 @@ _EXPORTED_TABLES = [
     ("legacy_analysis_boxes", LegacyAnalysisBox),
     ("goals", Goal),
     ("app_state", AppState),
+    ("morning_rituals", MorningRitual),
 ]
 
 

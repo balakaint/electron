@@ -62,7 +62,7 @@ export default function StrikeCard({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-        <span style={{ flex: 1, fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5, color: 'var(--text-muted)' }}>
+        <span style={{ flex: 1, fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-muted)' }}>
           {L('STRIKE', 'স্ট্রাইক')}
         </span>
         {/* Legacy 5946-5956 rejected the "n / 3" form: "1/3" was a lie
@@ -72,16 +72,24 @@ export default function StrikeCard({
             measures what was ACTUALLY taken on and spare capacity is
             stated separately. Green only when something was committed
             and all of it is done; an empty day is not a finished one. */}
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 'bold',
-            color: struck.length > 0 && doneCount === struck.length ? 'var(--success)' : undefined,
-            opacity: struck.length > 0 && doneCount === struck.length ? 1 : 0.7,
-          }}
-        >
-          {flash ?? `${doneCount}/${struck.length}${free > 0 ? `  ·  ${free} free` : ''}`}
-        </span>
+        {/* ...but with nothing committed there is no fraction to print
+            at all. "0/0 · 3 free" was three numbers carrying no
+            information: 0/0 is a statement about an empty set, and "3
+            free" states a ceiling the three empty slots below already
+            draw. The count appears the moment there is something to
+            count. Opacity is gone with it — it dimmed the one number on
+            the card that has to stay readable. */}
+        {(flash || struck.length > 0) && (
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: struck.length > 0 && doneCount === struck.length ? 'var(--success)' : 'var(--text-muted)',
+            }}
+          >
+            {flash ?? `${doneCount}/${struck.length}${free > 0 ? `  ·  ${free} free` : ''}`}
+          </span>
+        )}
       </div>
 
       {struck.length === 0 ? (
@@ -111,7 +119,7 @@ export default function StrikeCard({
                 fontSize: 12,
               }}
             >
-              <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{n}</span>
+              <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{n}</span>
               {n === 1 && <span>{L('+ STRIKE a task below', 'নিচ থেকে + STRIKE দিন')}</span>}
             </div>
           ))}
@@ -166,9 +174,8 @@ export default function StrikeCard({
                   onSetMit(t);
                 }}
                 title={t.mit ? 'First of the three — NOW opens here' : 'Make this the first of the three'}
+                className="btn-ghost"
                 style={{
-                  border: 'none',
-                  background: 'transparent',
                   color: t.mit ? 'var(--warning)' : 'var(--text-faint)',
                   cursor: 'pointer',
                   padding: '0 4px',
@@ -185,9 +192,8 @@ export default function StrikeCard({
                   onToggleDone(t.id);
                 }}
                 title={t.done ? 'Mark not done' : 'Mark done'}
+                className="btn-ghost"
                 style={{
-                  border: 'none',
-                  background: 'transparent',
                   color: t.done ? 'var(--success)' : 'var(--text-muted, inherit)',
                   cursor: 'pointer',
                   padding: 0,
@@ -201,8 +207,8 @@ export default function StrikeCard({
               <span
                 style={{
                   flex: 1,
-                  fontSize: 15,
-                  fontWeight: 'bold',
+                  fontSize: 14,
+                  fontWeight: 700,
                   // See TaskList: dimming the row dims its contrast
                   // with it. Colour says "done"; opacity says "unreadable".
                   color: t.done ? 'var(--text-muted)' : undefined,
@@ -230,9 +236,8 @@ export default function StrikeCard({
                   onUnstrike(t.id);
                 }}
                 title="Remove from today's list — the task itself stays"
+                className="btn-ghost"
                 style={{
-                  border: 'none',
-                  background: 'transparent',
                   color: 'var(--text-muted)',
                   cursor: 'pointer',
                   padding: 0,

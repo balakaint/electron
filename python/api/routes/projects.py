@@ -53,8 +53,14 @@ def today_progress(engine: ProjectEngine = Depends(get_engine)):
 
 
 @router.get("/trend", response_model=TrendOut)
-def deep_work_trend(engine: ProjectEngine = Depends(get_engine)):
-    return engine.deep_work_trend()
+def deep_work_trend(days: int | None = None, engine: ProjectEngine = Depends(get_engine)):
+    """`days` is optional and defaults to the persisted trend_days, so
+    every existing caller is unchanged. The month view asks for 90
+    explicitly: a calendar month is at most 31 days, but the rolling
+    setting may be 30, and on the 31st of a 31-day month a 30-day window
+    starts on the 2nd — the month strip would silently lose its first
+    day. The engine still snaps anything that is not 30 or 90 to 90."""
+    return engine.deep_work_trend(days)
 
 
 @router.get("/trend-days", response_model=TrendDaysOut)

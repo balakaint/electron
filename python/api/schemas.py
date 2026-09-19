@@ -87,64 +87,16 @@ class MitPromptOut(BaseModel):
     tasks: list[TaskOut]
 
 
-HabitCategoryT = Literal["money", "health", "relation", "mind"]
-
-
-class HabitCreate(BaseModel):
-    category: HabitCategoryT
-    name: str
-
-
-class HabitRename(BaseModel):
-    name: str
-
-
-class HabitOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    category: HabitCategoryT
-    name: str
-    sort_order: int
-    active: bool
-    done: bool = False
-
-
-class CategorySummary(BaseModel):
-    done: int
-    total: int
-    pct: int
-
-
-class DaySummaryOut(BaseModel):
-    day: str
-    score: int
-    categories: dict[str, CategorySummary]
-
-
-class WeekScoreOut(BaseModel):
-    day: str
-    label: str
-    pct: int
-
-
-class IntentionSet(BaseModel):
+# The flat Money/Health/Relation/Mind habit checklist and its Win/
+# Reflection/Intention daily-note siblings (HabitCreate/HabitRename/
+# HabitOut/CategorySummary/DaySummaryOut/WeekScoreOut/MonthlyReportOut/
+# IntentionSet/IntentionOut/WinOut/ReflectionOut) were removed
+# 2026-09-14 along with the checklist itself and the Life Execution
+# Board that showed them (Zahid: "emon task list mainly regular chek
+# kora hoy na"). Only Mindset survives — MindsetSet replaces the old
+# shared IntentionSet payload shape now that "intention" is gone.
+class MindsetSet(BaseModel):
     text: str
-
-
-class IntentionOut(BaseModel):
-    day: str
-    text: str
-
-
-class WinOut(BaseModel):
-    day: str
-    win: str
-
-
-class ReflectionOut(BaseModel):
-    day: str
-    reflection: str
 
 
 class MindsetOut(BaseModel):
@@ -158,10 +110,13 @@ class MindsetHistoryEntry(BaseModel):
     text: str
 
 
-class MonthlyReportOut(BaseModel):
-    avg_score: int
-    streak: int
-    days_done: int
+class DesignTodaySet(BaseModel):
+    text: str
+
+
+class DesignTodayOut(BaseModel):
+    day: str
+    text: str
 
 
 ProjectKeyT = Literal["proj1", "proj2", "proj3", "proj4", "proj5", "proj6"]
@@ -308,8 +263,20 @@ class BusinessAnalysisUpdate(BaseModel):
     fin_revenue: str | None = None
     fin_profit: str | None = None
     decision_why: str | None = None
+    feelings_negative: str | None = None
+    feelings_positive: str | None = None
+    thoughts_negative: str | None = None
+    thoughts_positive: str | None = None
+    beliefs_negative: str | None = None
+    beliefs_positive: str | None = None
+    actions_negative: str | None = None
+    actions_positive: str | None = None
     next_action: str | None = None
     next_deadline: str | None = None
+    next_who: str | None = None
+    next_when: str | None = None
+    next_time: str | None = None
+    next_done_when: str | None = None
     attach_path: str | None = None
 
 
@@ -331,9 +298,21 @@ class BusinessAnalysisOut(BaseModel):
     fin_profit: str
     decision_why: str
     decision_status: DecisionStatusT
+    feelings_negative: str
+    feelings_positive: str
+    thoughts_negative: str
+    thoughts_positive: str
+    beliefs_negative: str
+    beliefs_positive: str
+    actions_negative: str
+    actions_positive: str
     next_action: str
     next_priority: NextPriorityT
     next_deadline: str
+    next_who: str
+    next_when: str
+    next_time: str
+    next_done_when: str
     attach_path: str
 
 
@@ -443,32 +422,87 @@ class JourneyOut(BaseModel):
 
 GoalHorizonT = Literal["yearly", "monthly", "weekly"]
 
+# A goal's owner: one of the 6 real projects, or the reserved "life" key —
+# panel 2's header shows "LIFE PLAN" instead of a project name for it, but
+# it is otherwise an ordinary owner of weekly/monthly/yearly goals (same
+# GoalsPanel component, same CRUD). Deliberately its own type rather than
+# widening ProjectKeyT itself: ProjectKeyT also types real Project rows
+# (ProjectOut/ProjectUpdate/the /api/projects/{key} routes), and "life" has
+# no row there — see database/models.py's Goal.project_key comment and
+# migration `26f6de8766a5` for why.
+GoalOwnerKeyT = Literal["proj1", "proj2", "proj3", "proj4", "proj5", "proj6", "life"]
+
 
 class GoalCreate(BaseModel):
     horizon: GoalHorizonT
     text: str
     start_date: str | None = None  # ISO date; defaults to today
     note: str = ""
+    next_action: str = ""
+    # ISO date; None means "compute the horizon default" — see
+    # engine.goals._default_deadline. Accepted here so a caller CAN set
+    # it at creation, though the panel's own composer doesn't expose
+    # that yet (it's editable via the calendar picker right after
+    # creating, in the expanded goal row).
+    deadline: str | None = None
 
 
 class GoalEdit(BaseModel):
     text: str | None = None
     start_date: str | None = None
     note: str | None = None
+    next_action: str | None = None
+    deadline: str | None = None
 
 
 class GoalOut(BaseModel):
     id: int
-    project_key: ProjectKeyT
+    project_key: GoalOwnerKeyT
     horizon: GoalHorizonT
     text: str
     done: bool
     start_date: str
     done_date: str | None
     note: str
-    # Derived, not stored — "day N of 30" for the progress bar, same
-    # live computation legacy did at render time from start_date.
+    next_action: str
+    # Stored, user-editable via a calendar picker — defaults to a
+    # horizon-based window at creation (7 days / 30 days / 12 months,
+    # see engine.goals._default_deadline) but is ordinary state after
+    # that, same as start_date. Supersedes the old pure-display "start +
+    # a hardcoded 30-day window regardless of horizon" computation.
+    deadline: str
+    # Derived, not stored — "day N of (days between start_date and
+    # deadline)" for the progress bar, same live computation legacy did
+    # at render time from start_date, now against the real per-goal
+    # deadline instead of a hardcoded 30.
     day_number: int
+    # Derived, not stored — how many of this goal's Individual Task
+    # Board cards (across ALL its tasks) sit in the "done" column, out
+    # of how many exist at all. Computed at the route layer (see
+    # engine/board.py's goal_board_progress) by joining board_tasks and
+    # board_cards, since GoalEngine has no reason to depend on the board
+    # tables for every goal read. board_total is 0 for the (typical)
+    # goal that has never opened its Board — the UI reads that as "no
+    # board data yet", not "0% done".
+    board_done: int
+    board_total: int
+    # How many of those same cards sit in "focus" — added alongside
+    # GoalBoardOverlay's Goal/Plans/Actions/Results progress steps
+    # (2026-09-16, from Zahid's attached spec): "Actions" lights up once
+    # something is actually in focus, which board_done/board_total alone
+    # can't tell apart from "nothing has been queued yet".
+    board_focus: int
+    # Derived, not stored — the title of the goal's own "top" FOCUS
+    # card (pinned first, then oldest — same ordering BoardCardRepository
+    # already uses within one task's board) across EVERY task under this
+    # goal. Added 2026-09-16 so GoalsPanel's own NEXT ACTION field can
+    # default to "what's actually in front of you on the board" instead
+    # of staying an empty manual field until someone types into it —
+    # Zahid's own words: "next action by default its board 1st focused
+    # 1st card name". None when nothing is in FOCUS anywhere on this
+    # goal's boards (the field then falls back to the example
+    # placeholder, same as before).
+    board_focus_title: str | None
 
 
 class GoalPanelOut(BaseModel):
@@ -485,6 +519,69 @@ class GoalProjectSet(BaseModel):
 class SectionTitleSet(BaseModel):
     horizon: GoalHorizonT
     title: str  # blank resets to the default label, client-side
+
+
+# ── Individual Task Board (Goal -> Task -> that Task's own kanban) ───
+# Superseded design note: this used to be a flat per-project board with
+# an optional goal_id backlink on each card (see the dropped
+# `48d822248fb2` migration's BoardCardCreate/Out). The user corrected
+# the shape to a 3-level hierarchy — Goal -> Task (1..N) -> that Task's
+# own QUEUED/FOCUS/CLOSED board — so cards are now scoped to a Task,
+# and there's a new Task tier in between with its own schemas.
+BoardColT = Literal["todo", "focus", "done"]
+BoardPriorityT = Literal["low", "normal", "high"]
+
+
+class BoardTaskCreate(BaseModel):
+    title: str
+
+
+class BoardTaskEdit(BaseModel):
+    title: str | None = None
+    outcome: str | None = None
+    next_action: str | None = None
+
+
+class BoardTaskOut(BaseModel):
+    id: int
+    goal_id: int
+    title: str
+    outcome: str
+    next_action: str
+
+
+class BoardCardCreate(BaseModel):
+    col: BoardColT
+    title: str
+    note: str = ""
+    priority: BoardPriorityT = "normal"
+
+
+class BoardCardEdit(BaseModel):
+    title: str | None = None
+    note: str | None = None
+    # Added 2026-09-16: priority previously could only be SET at card
+    # creation (BoardCardCreate) — no way to change it afterwards, the
+    # collapsed tile's priority pill wasn't even a button. Zahid asked
+    # for click-to-cycle on that pill; this field is what lets the
+    # cycled value persist.
+    priority: BoardPriorityT | None = None
+
+
+class BoardCardMove(BaseModel):
+    col: BoardColT
+
+
+class BoardCardOut(BaseModel):
+    id: int
+    task_id: int
+    col: BoardColT
+    title: str
+    note: str
+    priority: BoardPriorityT
+    pinned: bool
+    secs: float
+    sessions: list
 
 
 ThemeT = Literal["focus", "warroom", "energy", "corporate", "journey", "rize"]
@@ -667,7 +764,33 @@ class BdpViewOut(BaseModel):
 
 
 Q90AreaKeyT = Literal["appearance", "money", "relationship", "health", "social", "mind"]
-Q90FieldT = Literal["out", "act", "ifthen"]
+# V2 "112-Day Transformation Board" — the 7 free-text fields settable
+# through the generic field-set endpoint. `achieved`, `major_changes`
+# and destination changes each have their own dedicated endpoint below
+# since they aren't plain text writes. See engine/quarterly.py.
+Q90FieldT = Literal[
+    "current_reality",
+    "destination",
+    "proof",
+    "gap",
+    "weekly_lead_behavior",
+    "obstacle_if",
+    "response_then",
+]
+Q90StatusT = Literal["not_started", "defined", "planned", "active", "proven"]
+
+
+class Q90MajorChangeOut(BaseModel):
+    id: int
+    text: str
+    done: bool = False
+
+
+class Q90GoalHistoryEntryOut(BaseModel):
+    destination: str
+    reason: str
+    evidence: str
+    changed_at: str
 
 
 class Q90AreaOut(BaseModel):
@@ -675,9 +798,18 @@ class Q90AreaOut(BaseModel):
     label: str
     glyph: str
     description: str
-    out: str
-    act: str
-    ifthen: str
+    current_reality: str
+    destination: str
+    proof: str
+    achieved: bool
+    gap: str
+    major_changes: list[Q90MajorChangeOut]
+    weekly_lead_behavior: str
+    obstacle_if: str
+    response_then: str
+    goal_version: int
+    goal_history: list[Q90GoalHistoryEntryOut]
+    status: Q90StatusT
 
 
 class Q90PanelOut(BaseModel):
@@ -691,10 +823,39 @@ class Q90PanelOut(BaseModel):
     areas: list[Q90AreaOut]
 
 
-class Q90AnswerSet(BaseModel):
+class Q90FieldSet(BaseModel):
     area: Q90AreaKeyT
     field: Q90FieldT
     text: str
+
+
+class Q90AchievedSet(BaseModel):
+    area: Q90AreaKeyT
+    achieved: bool
+
+
+class Q90MajorChangeIn(BaseModel):
+    # id is optional here — a newly-added row from the frontend has none
+    # yet; engine.quarterly.set_major_changes auto-assigns one.
+    id: int | None = None
+    text: str
+    done: bool = False
+
+
+class Q90MajorChangesSet(BaseModel):
+    area: Q90AreaKeyT
+    changes: list[Q90MajorChangeIn]
+
+
+class Q90DestinationChange(BaseModel):
+    area: Q90AreaKeyT
+    new_destination: str
+    reason: str = ""
+    evidence: str = ""
+
+
+class Q90StrategyReset(BaseModel):
+    area: Q90AreaKeyT
 
 
 class Q90CycleSet(BaseModel):
@@ -738,3 +899,123 @@ class HourPlanOut(BaseModel):
     total_done: int
     total_planned: int
     blocks: list[HourBlockOut]
+
+
+# ── Morning Ritual ────────────────────────────────────────────────────
+# Rebuilt 2026-09-15 to match Zahid's fuller "Morning Activation"
+# brainstorm prototype — see database/models.py's MorningRitual
+# docstring and engine/morning_ritual.py's module docstring for the
+# full scoping history. This is not a step wizard; every section below
+# is its own independent read/write.
+class MorningRitualOut(BaseModel):
+    day: str
+    today_outcome: str
+    first_move: str
+    carried_from_date: str | None
+    energy: str | None
+    mood: str | None
+    sleep_quality: str | None
+    wake_up_time: str | None
+    morning_mode: str
+    reset_breathe: bool
+    reset_move: bool
+    reset_daylight: bool
+    reset_water: bool
+    journal_text: str
+    journal_action_needed: bool | None
+    journal_released: bool
+    prime_meditation: bool
+    prime_visualization: bool
+    prime_reading: bool
+    prime_gratitude: str
+    prime_intention: str | None
+    prime_spiritual: str
+    completed: bool
+    started_at: float | None
+    started_first_action_at: float | None
+    completed_at: float | None
+    kpi_seconds: float | None
+
+
+class MorningRitualOutcomeSet(BaseModel):
+    text: str
+
+
+class MorningRitualFirstMoveSet(BaseModel):
+    text: str
+
+
+class MorningRitualCheckIn(BaseModel):
+    energy: str | None = None
+    mood: str | None = None
+    sleep_quality: str | None = None
+    wake_up_time: str | None = None
+
+
+class MorningRitualToggle(BaseModel):
+    done: bool
+
+
+class MorningRitualJournalSet(BaseModel):
+    text: str
+
+
+class MorningRitualJournalAction(BaseModel):
+    needed: bool
+
+
+class MorningRitualSuggestIn(BaseModel):
+    text: str
+
+
+class MorningRitualSuggestOut(BaseModel):
+    suggestion: str
+
+
+class MorningRitualGratitudeSet(BaseModel):
+    text: str
+
+
+class MorningRitualIntentionSet(BaseModel):
+    value: str | None
+
+
+class MorningRitualSpiritualSet(BaseModel):
+    value: str
+
+
+class MorningRitualTrendOut(BaseModel):
+    year: int
+    month: int
+    days: list[str]
+    completed: list[bool]
+    energy: list[str | None]
+    mood: list[str | None]
+    sleep_quality: list[str | None]
+    morning_mode: list[str | None]
+    streak: int
+    journal: list[MindsetHistoryEntry]
+    wake_up_time: list[MindsetHistoryEntry]
+
+
+# ── Night Closure ─────────────────────────────────────────────────────
+# Evening counterpart to Morning Ritual above — see database/models.py's
+# NightClosure docstring and engine/night_closure.py's module docstring.
+class NightClosureOut(BaseModel):
+    day: str
+    where_stopped: str
+    unfinished: str
+    tomorrow_outcome: str
+    tomorrow_first_action: str
+    optional_blocker: str
+    optional_note: str
+    close_time: str | None
+    closed_at: float | None
+
+
+class NightClosureTextSet(BaseModel):
+    text: str
+
+
+class NightClosureTimeSet(BaseModel):
+    value: str

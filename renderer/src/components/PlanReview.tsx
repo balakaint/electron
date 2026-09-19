@@ -1,54 +1,56 @@
 import { useEffect, useState } from 'react';
 import {
-  Habit,
-  HabitCategory,
   MindsetEntry,
   Project,
   ProjectOrderEntry,
   Q90Panel,
-  habitsApi,
+  designTodayApi,
+  mindsetApi,
   projectsApi,
   quarterlyApi,
 } from '../services/api';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { accentText } from '../themes';
-import HourPlanTab from './HourPlan';
+import { RADIUS } from '../spacing';
+import DisciplineModuleCards from './DisciplineModuleCards';
 
 // Legacy's PLAN review card (task_tracker_v3_THEMES.py 3585-3955): a
 // Mindset / Discipline / Consistency tri-tab that lives on the PLAN
 // screen, beneath the task list.
-//
-// Two of the three tabs render data the Habits dashboard also shows.
-// That is deliberate in legacy — "this is a second door to one room, not
-// a second room" — and it holds: PLAN is the tab you have open while
-// deciding what the day contains, and having to leave it to see whether
-// you did today's habits is exactly the friction that stops you looking.
-// So these reuse the same API calls, not a copy of the logic.
 //
 // The Mindset tab is the one that is genuinely new. Its history is the
 // point, in legacy's words: "A single note box is just a scratchpad you
 // overwrite every morning; seven of them next to each other is the only
 // way to notice you've written 'stop procrastinating on the export docs'
 // five days running."
+//
+// The Discipline tab originally held a flat Money/Health/Relation/Mind
+// checklist (ported straight from legacy) and a separate, whole-app
+// "Life Execution Board" showed the same checklist plus streak/week/
+// monthly-report widgets and today's Win/Reflection notes. Zahid removed
+// both outright (2026-09-14: "emon task list mainly regular chek kora
+// hoy na" — that kind of list wasn't actually being checked regularly),
+// including the backend Habit/HabitCompletion tables and the Win/
+// Reflection fields, which had no other home. The Discipline tab now
+// holds the 3 guided-module cards (Morning Ritual/Exercise/Sleep
+// Procedure) instead — see DisciplineModuleCards.tsx.
 
-type Tab = 'today' | 'mindset' | 'discipline' | 'consistency';
+type Tab = 'mindset' | 'discipline' | 'consistency';
 
-// TODAY first. It is the hour-by-hour plan for the day in front of you,
-// and the other three are review — you decide what today holds before
-// you reflect on how it went, so the strip reads left to right in the
-// order you use it.
+// There is no TODAY tab here, and there must not be one. This card had
+// grown one that rendered the hour plan — the SAME widget EXECUTE's
+// HOURS tab renders — so the day's hour-by-hour list was on screen
+// twice in one app, and it was PLAN's default tab, which made the two
+// screens open on identical content. Legacy rules this out in as many
+// words (3444-3449): "PLAN's lower half is the REVIEW card (Mindset /
+// Discipline / Consistency), not a second copy of the task list...
+// having it on both tabs meant two places to look for the same four
+// items, and PLAN is where you step back and look at the week, not
+// where you tick things off."
 const TABS: [Tab, string][] = [
-  ['today', 'Today'],
   ['mindset', 'Mindset'],
   ['discipline', 'Discipline'],
   ['consistency', 'Consistency'],
-];
-
-const CATEGORIES: [HabitCategory, string][] = [
-  ['money', 'Money'],
-  ['health', 'Health'],
-  ['relation', 'Relation'],
-  ['mind', 'Mindset'],
 ];
 
 function todayIso(): string {
@@ -61,22 +63,45 @@ const TODAY = todayIso();
 function MindsetTab() {
   const [saved, setSaved] = useState('');
   const [history, setHistory] = useState<MindsetEntry[]>([]);
-  const note = useAutosave(saved, (v: string) => habitsApi.setMindset(TODAY, v));
+  const note = useAutosave(saved, (v: string) => mindsetApi.setMindset(TODAY, v));
 
   useEffect(() => {
-    habitsApi.getMindset(TODAY).then((r) => setSaved(r.mindset));
-    habitsApi.mindsetHistory(7).then(setHistory);
+    mindsetApi.getMindset(TODAY).then((r) => setSaved(r.mindset));
+    mindsetApi.mindsetHistory(7).then(setHistory);
   }, []);
 
   return (
     <div>
-      <div style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: 4 }}>TODAY'S MINDSET</div>
+      {/* The heading NAMES the box; the placeholder ASKS the question.
+          A draft of this card had both doing the asking — "Own Your Day"
+          over "How Will You Make Today 10× Better?" — and between them
+          nothing said what the box was, which matters three months later
+          in RECENT when you are reading entries back and have to work out
+          what kind of writing this was. The question is the better of the
+          two lines, so it moved to where a question belongs: the
+          placeholder, which disappears the moment you start writing and
+          leaves the screen to your own words.
+
+          Sentence case, not Title Case. The app writes either sentence
+          case or tracked caps; Title Case is a third voice, and it is the
+          voice of a motivational poster rather than of a field label.
+
+          The date says WHICH day this box writes into — not a repeat of
+          the clock above, because RECENT below holds other days and you
+          need to know which one you are adding to. Same short form the
+          rest of the app uses. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+        <span style={{ flex: 1, fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)' }}>TODAY'S MINDSET</span>
+        <span style={{ fontSize: 12, color: 'var(--text-faint)', flex: 'none' }}>
+          {new Date().toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short' })}
+        </span>
+      </div>
       <textarea
         value={note.value}
         onChange={(e) => note.setValue(e.target.value)}
         onBlur={note.flush}
         rows={6}
-        placeholder="What is worth holding in mind today?"
+        placeholder="How will you make today 10× better?"
         style={{
           width: '100%',
           fontSize: 13,
@@ -107,65 +132,65 @@ function MindsetTab() {
   );
 }
 
-function DisciplineTab() {
-  const [habits, setHabits] = useState<Habit[]>([]);
-  const [streak, setStreak] = useState(0);
+// A morning brain-dump box (Zahid, 2026-09-18): at 5am the mind is
+// still empty and the day's plan hasn't been written down yet — this is
+// where that goes, before anything else on the Discipline tab. Styled
+// to match MindsetTab's own textarea exactly, plain rather than boxed —
+// Zahid's own call after seeing the accent-tinted card version: "today
+// mindset er text box design ta simple lagte se" (Today's Mindset
+// textbox looks simpler). Saves per day, no history — Zahid was
+// explicit this box doesn't need one, unlike Mindset.
+function DesignTodayBox() {
+  const [saved, setSaved] = useState('');
+  const note = useAutosave(saved, (v: string) => designTodayApi.setDesignToday(TODAY, v));
 
-  const refresh = () => {
-    habitsApi.list(TODAY).then(setHabits);
-    habitsApi.streak().then((r) => setStreak(r.streak));
-  };
-  useEffect(refresh, []);
-
-  const done = habits.filter((h) => h.done).length;
+  useEffect(() => {
+    designTodayApi.getDesignToday(TODAY).then((r) => setSaved(r.text));
+  }, []);
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 13, fontWeight: 'bold' }}>
-          {done}/{habits.length} today
-        </span>
-        {/* Only shown once there IS a streak. A permanent "0 day streak"
-            is a daily reminder of failure, which is the opposite of what
-            a habit tracker is for — legacy's own reasoning. */}
-        {streak > 0 && <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto' }}>{streak} day streak</span>}
-      </div>
+    <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+      <div style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: 4 }}>DESIGN TODAY</div>
+      <textarea
+        value={note.value}
+        onChange={(e) => note.setValue(e.target.value)}
+        onBlur={note.flush}
+        rows={6}
+        placeholder="Reset your mind — what's the plan for today?"
+        style={{
+          width: '100%',
+          fontSize: 13,
+          padding: 8,
+          resize: 'vertical',
+          boxSizing: 'border-box',
+          ...savedFlashStyle(note.state),
+        }}
+      />
+    </div>
+  );
+}
 
-      {CATEGORIES.map(([cat, label]) => {
-        const rows = habits.filter((h) => h.category === cat);
-        if (rows.length === 0) return null;
-        return (
-          <div key={cat} style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 4 }}>{label}</div>
-            {rows.map((h) => (
-              <button
-                key={h.id}
-                onClick={() => habitsApi.toggle(h.id, TODAY).then(refresh)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  width: '100%',
-                  textAlign: 'left',
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'inherit',
-                  font: 'inherit',
-                  fontSize: 12,
-                  padding: '4px 0',
-                  cursor: 'pointer',
-                  opacity: h.done ? 0.55 : 1,
-                }}
-              >
-                <span style={{ color: h.done ? 'var(--habit-success)' : 'var(--text-muted)', width: 14 }}>
-                  {h.done ? '✓' : '○'}
-                </span>
-                <span>{h.name}</span>
-              </button>
-            ))}
-          </div>
-        );
-      })}
+// Replaced the old flat Money/Health/Relation/Mindset checklist (Zahid's
+// own call, 2026-09-14): "emon task list mainly regular chek kora hoy
+// na" — such a list wasn't actually being checked regularly. In its
+// place: the same 3 guided-module cards the Tools menu's Morning Ritual
+// entry opens, so this tab and that entry point stay one feature shown
+// in two places rather than diverging.
+function DisciplineTab({
+  onOpenMorningRitual,
+  onOpenNightClosure,
+}: {
+  onOpenMorningRitual: (view: 'flow' | 'trend') => void;
+  onOpenNightClosure: () => void;
+}) {
+  return (
+    <div>
+      <DesignTodayBox />
+      <DisciplineModuleCards
+        onStart={() => onOpenMorningRitual('flow')}
+        onHistory={() => onOpenMorningRitual('trend')}
+        onOpenNightClosure={onOpenNightClosure}
+      />
     </div>
   );
 }
@@ -181,7 +206,7 @@ function ConsistencyRow({ project }: { project: Project }) {
   return (
     <div style={{ marginBottom: 8 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 12 }}>
-        <span style={{ fontWeight: 'bold', color: accentText(project.accent_color) }}>{project.name}</span>
+        <span style={{ fontWeight: 700, color: accentText(project.accent_color) }}>{project.name}</span>
         <span style={{ color: 'var(--text-faint)', fontSize: 12, marginLeft: 'auto' }}>
           {hits}/30 days · {project.target_minutes}m target
         </span>
@@ -200,7 +225,16 @@ function ConsistencyRow({ project }: { project: Project }) {
               flex: 1,
               height: 12,
               minWidth: 3,
-              background: a.worked ? project.accent_color : 'var(--progress-track)',
+              // `--progress-track` (used for every OTHER unfilled track in
+              // the app) is a deep, saturated neutral — fine against a
+              // single accent fill, but here it sits next to whichever
+              // color the project itself picked, and a dark project color
+              // reads almost as dark as this "empty" tone. `--surface-2`
+              // is close to `--bg` in every theme (near-white on light
+              // themes, near-black on dark ones), so an empty day nearly
+              // disappears into the card and a worked day — any accent
+              // color — reads unambiguously as the one that's filled.
+              background: a.worked ? project.accent_color : 'var(--surface-2)',
               border: `1px solid ${a.worked ? project.accent_color : 'var(--border)'}`,
               boxSizing: 'border-box',
             }}
@@ -277,12 +311,38 @@ function QuarterLink({ onOpen }: { onOpen: () => void }) {
   );
 }
 
-export default function PlanReview({ onOpenQuarterly }: { onOpenQuarterly: () => void }) {
-  const [tab, setTab] = useState<Tab>('today');
+export default function PlanReview({
+  onOpenQuarterly,
+  onOpenMorningRitual,
+  onOpenNightClosure,
+}: {
+  onOpenQuarterly: () => void;
+  onOpenMorningRitual: (view: 'flow' | 'trend') => void;
+  onOpenNightClosure: () => void;
+}) {
+  const [tab, setTab] = useState<Tab>('mindset');
 
   return (
-    <div style={{ marginTop: 24, border: '1px solid var(--border)', borderRadius: 8, padding: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12 }}>
+    // This card ABSORBS the spare height on PLAN, which is why it can
+    // be told to grow: legacy gives it weight=1 in both directions
+    // ("body absorbs spare height", 3526-3527) so the review fills
+    // whatever the clock and the trend card leave behind, and its own
+    // body scrolls when the habit list outgrows it. Laid out as a fixed
+    // block instead, it left roughly 250px of dead panel under the last
+    // card — the one place on this screen where nothing at all is being
+    // said.
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: RADIUS.card,
+        padding: 12,
+        flex: 1,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12, flex: 'none' }}>
         {/* role="tablist" requires its own children to all be role="tab"
             — axe-core's aria-required-children, caught at "critical".
             QuarterLink used to sit inside this div as a fourth child
@@ -301,6 +361,7 @@ export default function PlanReview({ onOpenQuarterly }: { onOpenQuarterly: () =>
                 padding: '0 12px',
                 fontWeight: tab === key ? 700 : 400,
                 background: tab === key ? 'var(--accent-light)' : undefined,
+                borderColor: tab === key ? 'var(--accent)' : undefined,
               }}
             >
               {label}
@@ -309,10 +370,17 @@ export default function PlanReview({ onOpenQuarterly }: { onOpenQuarterly: () =>
         </div>
         <QuarterLink onOpen={onOpenQuarterly} />
       </div>
-      {tab === 'today' && <HourPlanTab />}
-      {tab === 'mindset' && <MindsetTab />}
-      {tab === 'discipline' && <DisciplineTab />}
-      {tab === 'consistency' && <ConsistencyTab />}
+      {/* The tab strip is fixed; only the answers scroll. Legacy's
+          _plan_scroll_host makes the same split, for the same reason:
+          "clipping a habit list or half the projects would silently
+          hide data the tab exists to show". */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        {tab === 'mindset' && <MindsetTab />}
+        {tab === 'discipline' && (
+          <DisciplineTab onOpenMorningRitual={onOpenMorningRitual} onOpenNightClosure={onOpenNightClosure} />
+        )}
+        {tab === 'consistency' && <ConsistencyTab />}
+      </div>
     </div>
   );
 }

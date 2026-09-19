@@ -1,5 +1,6 @@
 """One-off importer: pulls every domain the port currently supports —
-Tasks, Habits, Projects (subtasks/activity/circle), Business Analysis,
+Tasks, daily notes (Mindset, plus the retired Intention/Win/Reflection
+columns), Projects (subtasks/activity/circle), Business Analysis,
 Goals, Product Journey, Business Plan Notes, the 90-Day Quarterly Plan,
 and Settings — out of the legacy Tkinter app's JSON blob
 (~/.task_tracker_v6.json) and inserts it into the new SQLite tables.
@@ -30,8 +31,6 @@ from database.models import (
     DailyIntention,
     DecisionLog,
     Goal,
-    Habit,
-    HabitCompletion,
     JOURNEY_STAGES,
     JourneyLogEntry,
     JourneyStage,
@@ -46,7 +45,6 @@ from database.models import (
 )
 
 _ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-_HABIT_CATEGORIES = ("money", "health", "relation", "mind")
 _PROJECT_KEYS = ("proj1", "proj2", "proj3", "proj4", "proj5", "proj6")
 _BA_TEXT_FIELDS = (
     "idea_business", "idea_problem", "idea_customer", "idea_goal",
@@ -106,79 +104,32 @@ def import_tasks(data: dict, db: Session) -> tuple[int, int]:
     return imported, skipped
 
 
-def import_habits(data: dict, db: Session) -> dict:
-    """Reads the flat `habit_data` dict — day-keyed completion grids
-    (`{"2026-08-29": {"health": {"Exercise 30min": True, ...}}}`),
-    `__habits_{cat}` custom name lists, and `__intention_{day}` texts.
-    Everything else in that dict (`__ptime_*`, `__consist_*`, `__circle_*`,
-    etc.) belongs to the Projects/Vision feature and is ignored here.
+def import_daily_notes(data: dict, db: Session) -> dict:
+    """Reads `__intention_/__win_/__reflection_/__mindset_<day>` from the
+    flat `habit_data` dict into DailyIntention's four per-day text
+    columns. Everything else in that dict (`__ptime_*`, `__consist_*`,
+    `__circle_*`, the day-keyed habit-completion grids, etc.) belongs to
+    the Projects/Vision feature or to the flat habit checklist — the
+    checklist import was removed 2026-09-14 along with the checklist
+    itself (Zahid: "emon task list mainly regular chek kora hoy na");
+    `intention`/`win`/`reflection` are still imported here (their
+    columns are kept, unused, on DailyIntention — see that model's own
+    docstring) even though only `mindset` has any UI left to show it, so
+    a re-run of this importer doesn't silently drop historical legacy
+    data that a future feature might want to read.
     """
     hd = data.get("habit_data", {})
 
-    name_to_id: dict[str, dict[str, int]] = {}
-    for cat in _HABIT_CATEGORIES:
-        rows = db.query(Habit).filter(Habit.category == cat).all()
-        name_to_id[cat] = {h.name: h.id for h in rows}
-    habits_before = sum(len(m) for m in name_to_id.values())
-
-    def get_or_create(cat: str, name: str) -> int:
-        m = name_to_id.setdefault(cat, {})
-        if name in m:
-            return m[name]
-        habit = Habit(category=cat, name=name, sort_order=len(m), active=True)
-        db.add(habit)
-        db.flush()
-        m[name] = habit.id
-        return habit.id
-
-    # Custom habit lists take priority for ordering, matching the legacy
-    # _habits_for() fallback (custom list if present, else defaults —
-    # which are already seeded by the migration).
-    for cat in _HABIT_CATEGORIES:
-        custom = hd.get(f"__habits_{cat}")
-        if isinstance(custom, list):
-            for i, name in enumerate(custom):
-                hid = get_or_create(cat, name)
-                habit = db.get(Habit, hid)
-                habit.sort_order = i
-
-    completions_written = 0
-    for key, day_data in hd.items():
-        if not _ISO_DATE.match(key) or not isinstance(day_data, dict):
-            continue
-        for cat, entries in day_data.items():
-            if cat not in _HABIT_CATEGORIES or not isinstance(entries, dict):
-                continue
-            for name, done in entries.items():
-                habit_id = get_or_create(cat, name)
-                existing = (
-                    db.query(HabitCompletion)
-                    .filter_by(habit_id=habit_id, day=key)
-                    .first()
-                )
-                if existing is None:
-                    db.add(HabitCompletion(habit_id=habit_id, day=key, done=bool(done)))
-                    completions_written += 1
-                else:
-                    existing.done = bool(done)
-
-    # __intention_/__win_/__reflection_<day> are DailyIntention's three
-    # per-day text columns (see that model's own docstring) — same
-    # get-or-create-by-day shape for all three, just a different column.
     # A local cache (rather than repeated db.get() calls) is needed
-    # because all three prefixes commonly share the same day: a pending
+    # because all four prefixes commonly share the same day: a pending
     # (added-but-unflushed) row for "text" must be found and reused by
-    # the very next "win"/"reflection" key for that same day, not
-    # re-inserted as a second row with the same primary key.
+    # the very next "win"/"reflection"/"mindset" key for that same day,
+    # not re-inserted as a second row with the same primary key.
     intentions_written = 0
     _DAY_TEXT_PREFIXES = (
         ("__intention_", "text"),
         ("__win_", "win"),
         ("__reflection_", "reflection"),
-        # __mindset_<day> is the PLAN screen's Mindset note. It was
-        # missing from this list, so every one of those notes was
-        # silently dropped on import — the key isn't referenced anywhere
-        # else, so nothing else would have caught it.
         ("__mindset_", "mindset"),
     )
     _intention_cache: dict[str, DailyIntention] = {}
@@ -198,12 +149,7 @@ def import_habits(data: dict, db: Session) -> dict:
             intentions_written += 1
             break
 
-    habits_after = sum(len(m) for m in name_to_id.values())
-    return {
-        "habits_created": habits_after - habits_before,
-        "completions_written": completions_written,
-        "intentions_written": intentions_written,
-    }
+    return {"intentions_written": intentions_written}
 
 
 def import_projects(data: dict, db: Session) -> dict:
@@ -708,7 +654,7 @@ def import_file(path: str) -> dict:
     try:
         project_stats = import_projects(data, db)
         tasks_imported, tasks_skipped = import_tasks(data, db)
-        habit_stats = import_habits(data, db)
+        habit_stats = import_daily_notes(data, db)
         ba_stats = import_business_analysis(data, db)
         goal_stats = import_goals(data, db)
         journey_stats = import_journey(data, db)
@@ -743,9 +689,7 @@ if __name__ == "__main__":
         f"{stats['project_activity_days_written']} activity day(s), "
         f"{stats['circle_people_written']} circle contact(s).\n"
         f"Tasks: imported {stats['tasks_imported']}, skipped {stats['tasks_skipped']} already-present.\n"
-        f"Habits: created {stats['habits_created']} new habit(s), "
-        f"wrote {stats['completions_written']} completion(s), "
-        f"{stats['intentions_written']} intention(s).\n"
+        f"Daily notes: wrote {stats['intentions_written']} note field(s).\n"
         f"Business analysis: updated {stats['ba_projects_updated']} project(s), "
         f"wrote {stats['ba_log_entries_written']} decision log entr(y/ies), "
         f"{stats['ba_boxes_written']} new legacy box(es).\n"

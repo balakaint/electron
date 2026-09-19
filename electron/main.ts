@@ -203,8 +203,14 @@ interface WindowState {
 // compact was docking 165px narrower than its only occupant: the clock,
 // the third scope box, the right of the trend chart and the mindset card
 // were all sliced off, with a horizontal scrollbar as the consolation.
+//
+// The +40 buffer overshot: Panel 3's own vertical scrollbar plus window
+// frame don't need that much, and the surplus showed up as a visible
+// blank strip down the right edge of every card (Zahid, 2026-09-18
+// screenshot). Halved to +20 — still enough clearance, half the empty
+// strip.
 const PANEL3_W = 545;
-const COMPACT_WIDTH = PANEL3_W + 40;
+const COMPACT_WIDTH = PANEL3_W + 20;
 // Three columns: panel 3 is a fixed 545, so a 1200-wide window left
 // panels 1 and 2 about 320 each — narrower than a single project card
 // wants. 1500 gives the two flexible columns room to be read.
@@ -1054,8 +1060,19 @@ async function gracefulShutdown(): Promise<void> {
   shutdownDone = true;
   if (!pythonProcess) return;
   try {
+    // Both stop-all-timers calls share the one 1500ms budget (Promise.all
+    // inside the race, not two separate race entries) — a flat race would
+    // resolve as soon as EITHER one settled and let the other's open
+    // session slip through uncredited on quit, the exact bug this exists
+    // to prevent. Board cards got their own timer 2026-09-16 (Zahid: a
+    // real one, replacing the old `ele kanban` pilot's cosmetic
+    // countdown) — same "leaving it open forever" risk Task's timer
+    // already had, so it gets the same on-quit stop.
     await Promise.race([
-      fetch(`${BASE()}/api/tasks/stop-all-timers`, { method: 'POST' }),
+      Promise.all([
+        fetch(`${BASE()}/api/tasks/stop-all-timers`, { method: 'POST' }),
+        fetch(`${BASE()}/api/projects/board-cards/stop-all-timers`, { method: 'POST' }),
+      ]),
       new Promise((resolve) => setTimeout(resolve, 1500)),
     ]);
   } catch (err) {

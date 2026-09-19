@@ -6,13 +6,14 @@ from api.schemas import (
     GoalEdit,
     GoalHorizonT,
     GoalOut,
+    GoalOwnerKeyT,
     GoalPanelOut,
     GoalProjectSet,
-    ProjectKeyT,
     SectionTitleSet,
 )
 from database.connection import get_db
 from database.repository import GoalRepository, TaskRepository
+from engine.board import goal_board_progress, goal_top_focus_card_title
 from engine.goals import GoalEngine, get_goal_panel, set_goal_project, set_section_title
 
 router = APIRouter(prefix="/api/projects", tags=["goals"])
@@ -27,16 +28,39 @@ def get_task_repo(db: Session = Depends(get_db)) -> TaskRepository:
     return TaskRepository(db)
 
 
+# board_done/board_focus/board_total aren't part of Goal at all (see
+# GoalOut's own comment) — they're stapled onto the dict here, one extra
+# count query per goal, rather than in GoalEngine, which has no reason
+# to touch the board tables for a plain goal read. Goal lists in this
+# app are a handful of rows (three horizons per project), so the
+# per-goal query is not worth batching.
+def _with_board_progress(db: Session, goal: dict) -> dict:
+    done, focus, total = goal_board_progress(db, goal["id"])
+    focus_title = goal_top_focus_card_title(db, goal["id"])
+    return {**goal, "board_done": done, "board_focus": focus, "board_total": total, "board_focus_title": focus_title}
+
+
 # ── Per-project goal CRUD ────────────────────────────────────────────
 @router.get("/{key}/goals", response_model=list[GoalOut])
-def list_goals(key: ProjectKeyT, horizon: GoalHorizonT | None = None, engine: GoalEngine = Depends(get_engine)):
-    return engine.list_goals(key, horizon)
+def list_goals(
+    key: GoalOwnerKeyT, horizon: GoalHorizonT | None = None, engine: GoalEngine = Depends(get_engine), db: Session = Depends(get_db)
+):
+    return [_with_board_progress(db, g) for g in engine.list_goals(key, horizon)]
 
 
 @router.post("/{key}/goals", response_model=GoalOut)
-def create_goal(key: ProjectKeyT, payload: GoalCreate, engine: GoalEngine = Depends(get_engine)):
+def create_goal(key: GoalOwnerKeyT, payload: GoalCreate, engine: GoalEngine = Depends(get_engine), db: Session = Depends(get_db)):
     try:
-        return engine.create_goal(key, payload.horizon, payload.text, payload.start_date, payload.note)
+        goal = engine.create_goal(
+            key,
+            payload.horizon,
+            payload.text,
+            payload.start_date,
+            payload.note,
+            payload.next_action,
+            payload.deadline,
+        )
+        return _with_board_progress(db, goal)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
@@ -44,19 +68,26 @@ def create_goal(key: ProjectKeyT, payload: GoalCreate, engine: GoalEngine = Depe
 # Flat under /goals/{id} rather than nested — matches subtasks'
 # /subtasks/{pid} shape, since a goal id is already globally unique.
 @router.put("/goals/{goal_id}", response_model=GoalOut)
-def edit_goal(goal_id: int, payload: GoalEdit, engine: GoalEngine = Depends(get_engine)):
-    goal = engine.edit_goal(goal_id, payload.text, payload.start_date, payload.note)
+def edit_goal(goal_id: int, payload: GoalEdit, engine: GoalEngine = Depends(get_engine), db: Session = Depends(get_db)):
+    goal = engine.edit_goal(
+        goal_id,
+        payload.text,
+        payload.start_date,
+        payload.note,
+        payload.next_action,
+        payload.deadline,
+    )
     if goal is None:
         raise HTTPException(404, "Goal not found")
-    return goal
+    return _with_board_progress(db, goal)
 
 
 @router.post("/goals/{goal_id}/toggle", response_model=GoalOut)
-def toggle_goal(goal_id: int, engine: GoalEngine = Depends(get_engine)):
+def toggle_goal(goal_id: int, engine: GoalEngine = Depends(get_engine), db: Session = Depends(get_db)):
     goal = engine.toggle_goal(goal_id)
     if goal is None:
         raise HTTPException(404, "Goal not found")
-    return goal
+    return _with_board_progress(db, goal)
 
 
 @router.delete("/goals/{goal_id}")

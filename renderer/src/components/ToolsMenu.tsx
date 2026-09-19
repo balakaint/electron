@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { RADIUS } from '../spacing';
 
 // Legacy's gear-icon Tools menu (task_tracker_v3_THEMES.py 16237-16332):
 // a popup of icon + label + one-line description rows.
@@ -51,6 +52,7 @@ export default function ToolsMenu({ entries }: { entries: ToolEntry[] }) {
       <button
         onClick={() => setOpen((v) => !v)}
         title="Tools"
+        aria-label="Tools"
         aria-haspopup="menu"
         aria-expanded={open}
         style={{ fontSize: 12, width: 24, height: 24, padding: 0 }}
@@ -68,7 +70,7 @@ export default function ToolsMenu({ entries }: { entries: ToolEntry[] }) {
             minWidth: 260,
             background: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: 6,
+            borderRadius: RADIUS.card,
             boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
             zIndex: 2500,
             overflow: 'hidden',

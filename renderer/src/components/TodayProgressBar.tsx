@@ -93,7 +93,7 @@ export default function TodayProgressBar({
   return (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)', fontWeight: 'bold' }}>TODAY PROGRESS</span>
+        <span style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)', fontWeight: 700 }}>TODAY PROGRESS</span>
         {/* The standalone "↻ 12%" is gone. This card was saying the same
             day four ways: a percentage, this time pair, the segmented
             bar, and "n/6 projects today" underneath. Three of those
@@ -107,7 +107,7 @@ export default function TodayProgressBar({
             them. */}
         <span
           title={`${pctInt}% of today's goal`}
-          style={{ fontSize: 12, color: pctColor(pctInt), fontWeight: 'bold' }}
+          style={{ fontSize: 12, color: pctColor(pctInt), fontWeight: 700 }}
         >
           {complete ? `${goalTxt} / ${goalTxt}` : `${Math.floor(minsDone / 60)}h ${minsDone % 60}m / ${goalTxt}`}
         </span>
@@ -187,7 +187,7 @@ export default function TodayProgressBar({
                   style={{
                     position: 'relative',
                     fontSize: 12,
-                    fontWeight: 'bold',
+                    fontWeight: 700,
                     color: f > 0.55 ? inkOn(p.accent_color) : accentText(p.accent_color, '--progress-track'),
                     lineHeight: 1,
                   }}
@@ -208,7 +208,7 @@ export default function TodayProgressBar({
 
       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
         {complete ? (
-          <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>✓ {goalTxt.toUpperCase()} DEEP WORK COMPLETE!</span>
+          <span style={{ color: 'var(--success)', fontWeight: 700 }}>✓ {goalTxt.toUpperCase()} DEEP WORK COMPLETE!</span>
         ) : n > 0 ? (
           // Legacy swaps the "2h 14m left" readout for this on the
           // segmented path: which project got skipped is the better

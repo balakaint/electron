@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { FocusTab, ProjectOrderEntry, TodayProgress, projectsApi, settingsApi } from '../services/api';
+import { FocusTab, settingsApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
 import NowCard from './NowCard';
 import DeepWorkTrend from './DeepWorkTrend';
 import PlanReview from './PlanReview';
 import TaskList from './TaskList';
-import TodayProgressBar from './TodayProgressBar';
 import { useL } from '../i18n';
 
 // Panel 3 — legacy's `_build_left` (the naming is legacy's own; it is the
@@ -62,7 +61,7 @@ function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) =
               padding: '8px 0 4px',
               fontSize: 12,
               letterSpacing: 0.5,
-              fontWeight: on ? 'bold' : 'normal',
+              fontWeight: on ? 700 : 400,
               color: on ? 'var(--accent)' : 'var(--text-muted)',
               background: 'transparent',
               border: 'none',
@@ -87,6 +86,8 @@ export default function Panel3({
   stepTitle,
   onToggleLayout,
   onOpenQuarterly,
+  onOpenMorningRitual,
+  onOpenNightClosure,
 }: {
   focusVersion: number;
   onFocusChanged: () => void;
@@ -96,10 +97,10 @@ export default function Panel3({
   stepTitle: string;
   onToggleLayout: () => void;
   onOpenQuarterly: () => void;
+  onOpenMorningRitual: (view: 'flow' | 'trend') => void;
+  onOpenNightClosure: () => void;
 }) {
   const L = useL();
-  const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
-  const [progress, setProgress] = useState<TodayProgress | null>(null);
   // Null until settings answer, so the strip does not paint HOURS and
   // then jump to the tab the user actually left it on.
   const [tab, setTabState] = useState<FocusTab | null>(null);
@@ -114,13 +115,8 @@ export default function Panel3({
     settingsApi.update({ focus_tab: next });
   };
 
-  // Only the EXECUTE view draws the progress bar, so only it pays for
-  // the fetch — PLAN would otherwise poll two endpoints it never shows.
-  useEffect(() => {
-    if (view !== 'focus') return;
-    projectsApi.order().then(setOrder);
-    projectsApi.todayProgress().then(setProgress);
-  }, [view]);
+  // The two project fetches that fed the progress bar are gone with it.
+  // DEEP WORK asks for its own order, and asks only while a timer runs.
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, position: 'relative' }}>
@@ -174,7 +170,7 @@ export default function Panel3({
             style={{
               flex: 1,
               padding: '8px 0',
-              fontWeight: 'bold',
+              fontWeight: 700,
               fontSize: 12,
               letterSpacing: 0.5,
               // Selected: filled accent with its own contrast colour.
@@ -195,7 +191,14 @@ export default function Panel3({
 
       <div style={{ overflowY: 'auto', minHeight: 0, flex: 1 }}>
         {view === 'classic' ? (
-          <>
+          // A column, not a stack: the review card at the bottom is the
+          // one that grows (see PlanReview), and it can only grow if
+          // something above it is a flex container with a height to
+          // give. minHeight 100% is that height — it resolves against
+          // the scroll box, so the card fills a short day's worth of
+          // content and the whole column still scrolls when there is
+          // more than fits.
+          <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
             {/* The wall clock, the day-phase bars and the TODAY / MONTH
                 / YEAR cards belong to PLAN and only PLAN. They were
                 rendering on both screens here. Legacy is explicit
@@ -208,16 +211,28 @@ export default function Panel3({
                 trustworthy. */}
             <ClockCard />
             <DeepWorkTrend />
-            <PlanReview onOpenQuarterly={onOpenQuarterly} />
-          </>
+            <PlanReview
+              onOpenQuarterly={onOpenQuarterly}
+              onOpenMorningRitual={onOpenMorningRitual}
+              onOpenNightClosure={onOpenNightClosure}
+            />
+          </div>
         ) : (
           <>
-            {/* One card, not two: "what day is it" and "how much of it
-                have you spent" are one thought, and a second bordered
-                card for two short rows would cost ~14px of chrome to say
-                so (legacy 5023-5027). */}
-            <div style={{ border: '1px solid var(--border)', background: 'var(--surface)', padding: 12, marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--text-muted)', marginBottom: 8 }}>
+            {/* The date is one line now, with no card around it and no
+                progress bar under it.
+                The bar drew today's six projects as six numbered
+                segments; the DEEP WORK card on the MIT tab draws the
+                same six with their NAMES, their minutes and a button
+                that starts them. Two readings of one fact, and the
+                anonymous one was on top — legacy's own rule against
+                "two places to look for the same four items" applies to
+                itself here. Losing it gives the panel back about 60px
+                and leaves the date as what legacy asked for in the
+                first place (5004-5007): "deliberately demoted to one
+                quiet header line". */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>
                 {/* "Tuesday, 8 Sep 2026" — legacy's own order
                     (f"{dayname}, {now.day} {now.strftime('%b %Y')}",
                     5020). toLocaleDateString with the default locale
@@ -232,7 +247,6 @@ export default function Panel3({
                   return `${weekday}, ${d.getDate()} ${month} ${d.getFullYear()}`;
                 })()}
               </div>
-              {progress && <TodayProgressBar entries={order} progress={progress} />}
             </div>
 
             {/* NOW stays ABOVE the tabs, never inside one. It is the

@@ -37,44 +37,27 @@ class Task(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
-HABIT_CATEGORIES = ("money", "health", "relation", "mind")
-
-
-class Habit(Base):
-    __tablename__ = "habits"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    category: Mapped[str] = mapped_column(String)  # money | health | relation | mind
-    name: Mapped[str] = mapped_column(String)
-    sort_order: Mapped[int] = mapped_column(Integer, default=0)
-    # Soft-delete rather than a hard DELETE: dropping a habit shouldn't
-    # erase its recorded history, and the id-based FK on HabitCompletion
-    # only helps with that if the row stays put.
-    active: Mapped[bool] = mapped_column(Boolean, default=True)
-
-
-class HabitCompletion(Base):
-    __tablename__ = "habit_completions"
-    __table_args__ = (UniqueConstraint("habit_id", "day", name="uq_habit_day"),)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    habit_id: Mapped[int] = mapped_column(ForeignKey("habits.id"))
-    day: Mapped[str] = mapped_column(String)  # ISO date string
-    done: Mapped[bool] = mapped_column(Boolean, default=False)
-
-
 class DailyIntention(Base):
-    """One row per day of free-text journaling — grown to hold all
-    four of legacy's per-day `_habit_data` text keys (intention/win/
-    reflection/mindset) rather than four near-identical tables, since
-    they're the same shape (one text blob, keyed by day) and are
-    read/written together.
+    """One row per day of free-text journaling.
 
-    `mindset` is legacy's `__mindset_<day>`, the note behind the PLAN
-    screen's Mindset tab. It is deliberately NOT the same field as
-    `text` (the "TODAY I WILL" intention): legacy keeps them under
-    separate keys and shows them on separate surfaces, and merging them
-    would silently overwrite one with the other on import.
+    Originally grown to hold all four of legacy's per-day `_habit_data`
+    text keys (intention/win/reflection/mindset). The `text` (intention)
+    and `win`/`reflection` columns are now DEAD — their only UI was the
+    "Life Execution Board" (Habit checklist + these three fields), which
+    Zahid removed outright (2026-09-14: "emon task list mainly regular
+    chek kora hoy na" — not actually checked regularly). Left as unused
+    columns rather than dropped, so any of his own historical entries
+    already in `app.db` are not destroyed by a migration he didn't ask
+    for; only `mindset` (a separate feature, PlanReview.tsx's own
+    Mindset tab) is still read/written. See also: the `habits` /
+    `habit_completions` tables this same removal dropped entirely
+    (migration `<pending>`, see database/models.py history), since those
+    held no data Zahid asked to keep.
+
+    `mindset` was kept under its own key even before `text`/`win`/
+    `reflection` went dead: legacy stored these under separate keys and
+    showed them on separate surfaces, and merging them would have
+    silently overwritten one with the other on import.
     """
 
     __tablename__ = "daily_intentions"
@@ -84,6 +67,7 @@ class DailyIntention(Base):
     win: Mapped[str] = mapped_column(String, default="")
     reflection: Mapped[str] = mapped_column(String, default="")
     mindset: Mapped[str] = mapped_column(String, default="")
+    design_today: Mapped[str] = mapped_column(String, default="")
 
 
 PROJECT_KEYS = ("proj1", "proj2", "proj3", "proj4", "proj5", "proj6")
@@ -162,7 +146,22 @@ class BusinessAnalysis(Base):
     ba_financial/ba_decision) which the legacy app already auto-migrated
     forward — nothing left to carry from that generation. The even-older
     15-box freeform grid (ba_box_0..14) is a separate, read-only archive:
-    see LegacyAnalysisBox."""
+    see LegacyAnalysisBox.
+
+    DECISION section redesigned 2026-09-15 (Zahid): the GO/VALIDATE/
+    PIVOT/NO-GO chip row + "why this decision?" + change history was
+    replaced on the canvas by four Feelings/Thoughts/Beliefs/Actions
+    blocks, each asking for the current negative state linked to the
+    goal and the positive state needed to succeed — his own explicit
+    choice over keeping the GO/NO-GO chips alongside the new blocks
+    (`AskUserQuestion`: "সম্পূর্ণ বাদ, Feelings/Thoughts/Beliefs/Actions
+    দিয়ে replace"). `decision_why`/`decision_status` and the DecisionLog
+    table are deliberately NOT dropped — same judgment call as
+    DailyIntention's unused `.text`/`.win`/`.reflection` columns
+    elsewhere in this file: nobody asked for that data destroyed, only
+    for the canvas to stop showing it, so the columns/table stay,
+    unused by the UI. Migration `b81a2c8dad9b` added the 8 new
+    columns."""
 
     __tablename__ = "business_analysis"
 
@@ -179,11 +178,24 @@ class BusinessAnalysis(Base):
     fin_cost: Mapped[str] = mapped_column(String, default="")
     fin_revenue: Mapped[str] = mapped_column(String, default="")
     fin_profit: Mapped[str] = mapped_column(String, default="")
-    decision_why: Mapped[str] = mapped_column(String, default="")
-    decision_status: Mapped[str] = mapped_column(String, default="")  # GO|VALIDATE|PIVOT|NO-GO|""
+    decision_why: Mapped[str] = mapped_column(String, default="")  # kept, unused by the canvas — see class docstring
+    decision_status: Mapped[str] = mapped_column(String, default="")  # GO|VALIDATE|PIVOT|NO-GO|"" — kept, unused by the canvas
+    # ── DECISION redesign: Feelings / Thoughts / Beliefs / Actions ──
+    feelings_negative: Mapped[str] = mapped_column(String, default="")
+    feelings_positive: Mapped[str] = mapped_column(String, default="")
+    thoughts_negative: Mapped[str] = mapped_column(String, default="")
+    thoughts_positive: Mapped[str] = mapped_column(String, default="")
+    beliefs_negative: Mapped[str] = mapped_column(String, default="")
+    beliefs_positive: Mapped[str] = mapped_column(String, default="")
+    actions_negative: Mapped[str] = mapped_column(String, default="")
+    actions_positive: Mapped[str] = mapped_column(String, default="")
     next_action: Mapped[str] = mapped_column(String, default="")
     next_priority: Mapped[str] = mapped_column(String, default="")  # HIGH|MED|LOW|""
     next_deadline: Mapped[str] = mapped_column(String, default="")  # free text, not a real date
+    next_who: Mapped[str] = mapped_column(String, default="")
+    next_when: Mapped[str] = mapped_column(String, default="")
+    next_time: Mapped[str] = mapped_column(String, default="")  # free text duration estimate, e.g. "60 min"
+    next_done_when: Mapped[str] = mapped_column(String, default="")
     attach_path: Mapped[str] = mapped_column(String, default="")  # local path to a supporting Word/Excel/CSV file
 
 
@@ -223,13 +235,165 @@ class Goal(Base):
 
     # ms-timestamp id, matching Task/CirclePerson's convention.
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
-    project_key: Mapped[str] = mapped_column(ForeignKey("projects.key"))
+    # No FK to projects.key (dropped by migration `26f6de8766a5`, see that
+    # migration's own docstring) — "life" is a reserved project_key that
+    # owns its own weekly/monthly/yearly goals exactly like a real
+    # project, but has no row in `projects` (a real row there would show
+    # up in panel 1's fixed 6-slot roster, today's totals, the trend
+    # chart, etc — ProjectRepository.list() has no filter for "not a
+    # real project"). The FK was the only thing stopping "life" from
+    # being just another string here; GoalEngine itself never looked the
+    # project up. GoalOwnerKeyT (api/schemas.py) is what still constrains
+    # this column's legal values at the API boundary.
+    project_key: Mapped[str] = mapped_column(String)
     horizon: Mapped[str] = mapped_column(String)  # yearly | monthly | weekly
     text: Mapped[str] = mapped_column(String)
     done: Mapped[bool] = mapped_column(Boolean, default=False)
     start_date: Mapped[str] = mapped_column(String)  # ISO date string
     done_date: Mapped[str | None] = mapped_column(String, nullable=True)  # ISO date string
     note: Mapped[str] = mapped_column(String, default="")
+    # Added after Zahid's "visual hierarchy" review of the Goal editor:
+    # knowing the goal and knowing the task doesn't solve procrastination
+    # by itself — a goal needs its own single, immediately-executable
+    # next physical action, separate from `note` (free-form) and
+    # separate from BoardTask.next_action (scoped to one task's board).
+    # This one is scoped to the goal itself, for goals that haven't been
+    # broken into tasks yet, or whose next step isn't task-board work.
+    next_action: Mapped[str] = mapped_column(String, default="")
+    # ISO date. Added from Zahid's own request: a goal's deadline used to
+    # be a pure display computation (start_date + a hardcoded 30-day
+    # window, same number for every horizon) rather than stored state —
+    # he asked for it to default per horizon instead (7 days / 30 days /
+    # 12 months) AND be directly editable via a date picker, which means
+    # it has to be real column, not a formula. engine.goals computes the
+    # default at creation time (see _default_deadline there); once set,
+    # it is ordinary user-editable state like start_date, not
+    # recalculated from horizon again.
+    #
+    # ⚠ Same crossed-keys trap as GoalsPanel.tsx's HORIZONS array: the
+    # 7/30/12-month defaults are keyed to Zahid's own wording — "weekly
+    # goal 7 day, monthly 30d, yearly 12 month" — which describes the
+    # DISPLAYED label, not the stored `horizon` value. Because labels and
+    # `horizon` keys are deliberately crossed (see that file's own ⚠
+    # comment), the default here is yearly->7d, monthly->30d, weekly->12mo
+    # even though that reads backwards next to the horizon name. Do not
+    # "fix" this pairing without first re-reading GoalsPanel.tsx's own
+    # warning — the two crossings must match or the deadline shown next
+    # to "WEEKLY GOAL" would silently stop being 7 days out.
+    deadline: Mapped[str] = mapped_column(String, default="")
+
+
+BOARD_COLS = ("todo", "focus", "done")
+BOARD_PRIORITIES = ("low", "normal", "high")
+
+
+class BoardTask(Base):
+    """One row per Task under a Goal's Individual Task Board feature.
+    NOT the same thing as the daily-execution `Task` model — this is
+    the middle tier of the hierarchy the user asked for explicitly:
+
+        Goal -> Task 1..N -> that Task's own Individual Task Board
+                              (QUEUED / FOCUS / CLOSED)
+
+    Superseded design note: an earlier version of this feature put
+    BoardCard directly under project_key, with an optional goal_id
+    backlink for cards created from a Goal's "→ BOARD" button (see the
+    now-dropped `48d822248fb2` migration). That flat shape only grouped
+    cards by goal; it had no notion of a Task in between, and every
+    card on a project shared one undifferentiated board. The user
+    corrected this: each Goal breaks into several Tasks, and each Task
+    gets its OWN separate 3-column board, not one shared board grouped
+    by goal. This model is the replacement for that design, not an
+    addition to it.
+
+    ondelete="CASCADE": a Task has no meaning without its Goal (it's
+    literally "break this goal into parts"), so when the goal goes,
+    its tasks go with it — unlike the old goal_id backlink on BoardCard,
+    which used SET NULL because a card was independent queued work.
+    Here the Task *is* the goal's breakdown, so CASCADE is correct.
+
+    `outcome` — added after Zahid reviewed the overlay against the
+    standalone `ele kanban` pilot's own Focus Board screen (which had a
+    milestone-ladder / units-sold / target-date header). Those three
+    widgets are that pilot's own venture-tracking clutter, not something
+    this hierarchy has or needs — but the underlying idea he wanted kept
+    was real: a task's board should open under a one-line "what finishes
+    this" statement, the way the pilot's header oriented the whole
+    screen before showing any columns. "Task outcome / Definition of
+    Done" is that one line, scoped to the task instead of a venture."""
+
+    __tablename__ = "board_tasks"
+
+    # ms-timestamp id, matching Task/Goal/CirclePerson's convention.
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    goal_id: Mapped[int] = mapped_column(ForeignKey("goals.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(String)
+    outcome: Mapped[str] = mapped_column(String, default="")
+    # The task-scoped twin of Goal.next_action — see that column's
+    # comment. This one is "what finishes the CURRENT card/session on
+    # this task's own board", not the goal's next step.
+    next_action: Mapped[str] = mapped_column(String, default="")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class BoardCard(Base):
+    """One row per kanban card on a Task's Individual Task Board.
+    Ported from the standalone `ele kanban` Electron pilot's Card
+    contract (id/col/title/note/priority/pinned) verbatim.
+
+    Reworked from the earlier project_key-scoped design (see BoardTask's
+    docstring) to be scoped to exactly one BoardTask instead — every
+    card now lives under Goal -> Task -> [cards], not directly under a
+    project. `project_key` and the old optional `goal_id` backlink are
+    both dropped; `task_id` is the only, required scope.
+
+    Deliberately its own table rather than rows in `tasks`: a
+    build-queue card has no day, no MIT flag, none of Task's other
+    columns — forcing it into that table would mean either nullable
+    columns that make no sense here or a shared row shape meaningful for
+    neither use (same reasoning JourneyTask already applies).
+
+    `secs`/`sessions` — added 2026-09-16 (Zahid: a real start/stop timer
+    on the card sitting in FOCUS, not the old standalone `ele kanban`
+    pilot's cosmetic countdown). This paragraph used to say a
+    build-queue card has "no timer" — that was true until this request;
+    corrected rather than left standing as a stale claim. Same shape and
+    same idle-capped credit-on-stop accounting as `Task.secs`/
+    `Task.sessions` (see engine.timer_reconciliation), reused rather
+    than reinvented — `tick_task`/`stop_task_session` there now accept
+    either model, since both share this exact `secs: float` + `sessions:
+    [{"start","end","checkpoint"?}]` shape. Unlike Task, a BoardCard's
+    timer is meant to track focused time on THIS card specifically, so
+    nothing here enforces "only one card timer running at once" — same
+    as Task's own per-task timers, which already run concurrently with
+    each other; only NOW is exclusive.
+
+    `col` is the kanban column, not a boolean — matches the pilot's own
+    three-state model exactly (todo/focus/done, shown to the user as
+    QUEUED/FOCUS/CLOSED) rather than reusing Task.done + Task.strike,
+    because a build-queue card's "in focus" has nothing to do with the
+    daily EXECUTE screen's STRIKE commitment and conflating them would
+    make one card mean two unrelated things depending on which screen
+    you read it from.
+
+    ondelete="CASCADE": a card has no meaning once its Task is gone —
+    unlike the dropped goal_id backlink (SET NULL, because a card used
+    to be independent queued work that merely referenced a goal), a
+    card here only exists as that task's breakdown, so it goes with it."""
+
+    __tablename__ = "board_cards"
+
+    # ms-timestamp id, matching Task/Goal/CirclePerson's convention.
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    task_id: Mapped[int] = mapped_column(ForeignKey("board_tasks.id", ondelete="CASCADE"))
+    col: Mapped[str] = mapped_column(String, default="todo")  # todo | focus | done
+    title: Mapped[str] = mapped_column(String)
+    note: Mapped[str] = mapped_column(String, default="")
+    priority: Mapped[str] = mapped_column(String, default="normal")  # low | normal | high
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    secs: Mapped[float] = mapped_column(Float, default=0.0)
+    sessions: Mapped[list] = mapped_column(JSON, default=list)  # [{"start": ts, "end": ts|null}]
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class AppState(Base):
@@ -253,6 +417,16 @@ class AppState(Base):
     - goal_project: which project's goals the Goals panel is currently
       showing (matches the legacy app's `self._goal_project`) — a
       single global pointer, not per-project state itself.
+    - life_plan_headline: SUPERSEDED. The original "Life Plan" was a
+      single free-text line shown in panel 2 when every project is
+      collapsed — corrected (2026-09-17) to a "life" virtual project
+      instead, with its own real weekly/monthly/yearly goals in the
+      `goals` table (project_key="life", see that column's own comment)
+      shown through the ordinary GoalsPanel. Column kept, unused, same
+      convention as every other superseded-but-not-dropped column in
+      this app (DailyIntention.text/win/reflection, BusinessAnalysis.
+      decision_status, etc) — nothing ever asked for whatever headline
+      Zahid may have already typed to be destroyed.
     - sec_title_yearly/monthly/weekly: user-renamed Goals section
       headings (legacy's `vision_data["_sec_title_<horizon>"]`, which
       lived in a global dict despite goals themselves being
@@ -329,6 +503,7 @@ class AppState(Base):
     theme: Mapped[str] = mapped_column(String, default="focus")
     onboarded: Mapped[bool] = mapped_column(Boolean, default=False)
     goal_project: Mapped[str] = mapped_column(String, default="proj1")
+    life_plan_headline: Mapped[str | None] = mapped_column(String, nullable=True)
     sec_title_yearly: Mapped[str | None] = mapped_column(String, nullable=True)
     sec_title_monthly: Mapped[str | None] = mapped_column(String, nullable=True)
     sec_title_weekly: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -563,8 +738,21 @@ class QuarterlyAnswer(Base):
     yearly/monthly/weekly split: `cycle_start` (not a table per cycle)
     is what identifies which cycle a row belongs to, since cycles repeat
     forever and old ones must stay reachable rather than being
-    overwritten. `out`/`act`/`ifthen` match legacy's three prompt keys
-    exactly (Outcome / weekly Action / If-then)."""
+    overwritten.
+
+    V2 (2026-09-16) — "112-Day Transformation Board" rewrite, from
+    Zahid's own detailed spec: the flat Outcome/weekly-Action/If-then
+    shape (`out`/`act`/`ifthen`) is replaced by a 7-step sequence
+    (current_reality -> destination -> proof -> gap -> major_changes ->
+    weekly_lead_behavior -> obstacle_if/response_then), plus explicit
+    status derivation and destination versioning. `out`/`act`/`ifthen`
+    are kept, unused, exactly the same judgment call as every other
+    "stop reading it, never delete it" column in this app (BusinessAnalysis's
+    decision_status, DailyIntention's .text/.win/.reflection): their
+    content is copied forward into the new columns by migration
+    `4f3e39858a82` on upgrade, so nothing existing is lost, but nothing new is
+    ever written to them again.
+    """
 
     __tablename__ = "quarterly_answers"
     __table_args__ = (UniqueConstraint("cycle_start", "area", name="uq_qplan_cycle_area"),)
@@ -572,9 +760,51 @@ class QuarterlyAnswer(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     cycle_start: Mapped[str] = mapped_column(String)  # ISO date identifying the cycle
     area: Mapped[str] = mapped_column(String)
-    out: Mapped[str] = mapped_column(String, default="")
-    act: Mapped[str] = mapped_column(String, default="")
-    ifthen: Mapped[str] = mapped_column(String, default="")
+    out: Mapped[str] = mapped_column(String, default="")  # superseded by `destination` — see class docstring
+    act: Mapped[str] = mapped_column(String, default="")  # superseded by `weekly_lead_behavior`
+    ifthen: Mapped[str] = mapped_column(String, default="")  # superseded by `response_then`
+
+    # Step 1 — WHERE AM I NOW? Facts/numbers, not feelings (guidance
+    # only, never enforced server-side — see Zahid's own spec §7/§30).
+    current_reality: Mapped[str] = mapped_column(String, default="")
+    # Step 2 — WHERE AM I GOING? The single measurable destination for
+    # this cycle. Editing this directly (autosave, like every other text
+    # field in this app) is the normal path; `change_destination` below
+    # is the separate, deliberate "log why this changed" path.
+    destination: Mapped[str] = mapped_column(String, default="")
+    # Step 2b — PROOF: how achieving the destination will be verified.
+    proof: Mapped[str] = mapped_column(String, default="")
+    # Explicit user action, not inferred from field-completeness — see
+    # compute_status's own docstring for why "all fields filled" must
+    # never equal PROVEN on its own.
+    achieved: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Step 3 — THE GAP: free text; V2 does not attempt to numerically
+    # diff current_reality/destination (Zahid's own spec §10: no
+    # "complicated universal calculation engine" for this).
+    gap: Mapped[str] = mapped_column(String, default="")
+    # Step 4 — MAJOR CHANGES: up to 5 {"id": int, "text": str,
+    # "completed": bool} entries. A strategic list, not a task list —
+    # see engine/quarterly.py's own note on that distinction.
+    major_changes: Mapped[list] = mapped_column(JSON, default=list)
+    # Step 5 — WEEKLY LEAD BEHAVIOR: deliberately ONE field, not a list
+    # — the whole point is forcing a single repeatable behavior rather
+    # than an open-ended set (Zahid's own spec §14).
+    weekly_lead_behavior: Mapped[str] = mapped_column(String, default="")
+    # Step 6 — WHEN THE PLAN BREAKS: an implementation-intention pair,
+    # kept as two short fields rather than one merged one so the
+    # IF/THEN shape is structural, not just a suggestion in the hint
+    # text (unlike the old single `ifthen` field it replaces).
+    obstacle_if: Mapped[str] = mapped_column(String, default="")
+    response_then: Mapped[str] = mapped_column(String, default="")
+    # Step 7 — REVIEW & RECALIBRATE's "Change Goal" path: every
+    # deliberate destination change appends the OLD destination (plus
+    # why/what-evidence) here and bumps the version, rather than
+    # silently overwriting it — Zahid's own spec §18-20, "this creates a
+    # useful personal decision history". Routine edits to `destination`
+    # (the normal autosave path) do NOT touch these two fields — only
+    # the explicit change_destination() action does.
+    goal_version: Mapped[int] = mapped_column(Integer, default=1)
+    goal_history: Mapped[list] = mapped_column(JSON, default=list)
 
 
 class HourSlot(Base):
@@ -625,3 +855,172 @@ class HourSlot(Base):
     # entry would either vanish from the day you completed it or linger
     # on every later one.
     done_day: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class MorningRitual(Base):
+    """One row per day — the guided Morning Ritual module (Zahid's
+    Discipline brainstorm, 2026-09-14): a SEPARATE, new area from the
+    flat Money/Health/Relation/Mind checklist above (HABIT_CATEGORIES /
+    Habit / HabitCompletion), not a replacement for it.
+
+    Shape matches DailyIntention (one row keyed by ISO day, created on
+    first touch) rather than a step-log table — "today's state" is the
+    whole of what needs to be stored and read back.
+
+    REBUILT 2026-09-15 to match Zahid's own fuller "Morning Activation"
+    brainstorm prototype (a standalone HTML/JS mockup he built/sourced
+    separately, uploaded this round: "brainstorm ami ai page er content
+    gula miss korte si" — the shipped 7-step wizard v1 above was missing
+    most of that prototype's content). This SUPERSEDES the original
+    linear 7-step wizard entirely — v1's `step`/`wake_done`/
+    `journal_feeling`/`journal_priority`/`meditation_*`/`intention`/
+    `preview_seen` fields are gone, replaced by the section below. The
+    table is dropped and recreated rather than ALTERed (migration
+    `900eb301a04b`): it was created less than 24 hours earlier in this
+    same session with no real user data at stake, and Zahid's own
+    instruction was a "full rebuild," not an incremental migration of
+    v1's shape.
+
+    The prototype is one continuous page (SEE -> CHECK-IN/RESET -> CLEAR
+    YOUR MIND -> MORNING PRIME -> START NOW), not a step-locked wizard —
+    there is no `step`/resume-position field here because there is no
+    fixed step order to resume into; every section just reads/writes its
+    own fields directly, and the frontend page can be reopened and
+    re-scrolled freely.
+
+    One piece of the prototype is still deliberately NOT wired up, per
+    Zahid's own explicit descoping when this rebuild was scoped via
+    AskUserQuestion:
+      - The "AI-suggested next action" from the journal text is a
+        regex/keyword heuristic (see engine.morning_ritual.suggest_action),
+        not a real AI call — Zahid chose the heuristic over integrating
+        the prototype's planned local Ollama coach for now
+        ("সহজ heuristic... দিয়ে শুরু করি").
+    """
+
+    __tablename__ = "morning_rituals"
+
+    day: Mapped[str] = mapped_column(String, primary_key=True)  # ISO date string
+
+    # ── SEE ───────────────────────────────────────────────────────────
+    # Editable in place (click-to-edit in the prototype); pre-filled from
+    # last night's Night Closure once that exists, blank until then.
+    today_outcome: Mapped[str] = mapped_column(String, default="")
+    first_move: Mapped[str] = mapped_column(String, default="")
+    # ISO date of the NightClosure row this was carried from, if any —
+    # set by MorningRitualEngine._apply_carry_forward the first time a
+    # day's row is touched, from the previous day's NightClosure (see
+    # that model's own docstring). None on a day with no prior closure.
+    carried_from_date: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # ── CHECK-IN ──────────────────────────────────────────────────────
+    # Categorical, matching the prototype's own pill labels exactly
+    # (LOW/OKAY/GOOD/STRONG for energy; LOW/NEUTRAL/GOOD/POSITIVE for
+    # mood; POOR/OKAY/GOOD for sleep) — not the old v1's 1-5 numeric
+    # scale, which this brainstorm never used. Validated in the engine,
+    # not the database (matches this app's existing convention for
+    # other plain-string categorical fields like Goal.horizon).
+    energy: Mapped[str | None] = mapped_column(String, nullable=True)
+    mood: Mapped[str | None] = mapped_column(String, nullable=True)
+    sleep_quality: Mapped[str | None] = mapped_column(String, nullable=True)
+    # "HH:MM", 24h, whatever the browser's native time input hands back —
+    # not validated further here for the same reason sleep_quality isn't
+    # (engine-side validation, matching this app's existing convention).
+    wake_up_time: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Derived from `energy` the moment it's set (see
+    # MorningRitualEngine.ENERGY_MODE_MAP) and stored, not recomputed on
+    # every read — the prototype's own JS sets this once per check-in
+    # and never re-derives it later, and storing it is what lets the
+    # trend view show mode history even if the energy-to-mode mapping
+    # changes in a future version.
+    morning_mode: Mapped[str] = mapped_column(String, default="standard")
+
+    # ── RESET ─────────────────────────────────────────────────────────
+    # One-way: the prototype's Breathe chip finishes a 60s timer and
+    # stays "done" — there's no un-ticking a breathing exercise you
+    # already did. Move/Daylight are plain toggle chips (can be
+    # unchecked), matching the prototype's `classList.toggle('done')`.
+    reset_breathe: Mapped[bool] = mapped_column(Boolean, default=False)
+    reset_move: Mapped[bool] = mapped_column(Boolean, default=False)
+    reset_daylight: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Plain toggle chip, same as Move/Daylight — "the cheapest item on
+    # the strip" per Zahid's own Morning Activation prototype.
+    reset_water: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # ── CLEAR YOUR MIND ───────────────────────────────────────────────
+    journal_text: Mapped[str] = mapped_column(String, default="")
+    # None = not yet asked; True = "make it an action" chosen; False =
+    # "release & return" chosen. Three states, not two — matches the
+    # prototype's `journal_action_needed: null` starting state exactly.
+    journal_action_needed: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    journal_released: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # ── MORNING PRIME ─────────────────────────────────────────────────
+    prime_meditation: Mapped[bool] = mapped_column(Boolean, default=False)
+    prime_visualization: Mapped[bool] = mapped_column(Boolean, default=False)
+    prime_reading: Mapped[bool] = mapped_column(Boolean, default=False)
+    prime_gratitude: Mapped[str] = mapped_column(String, default="")
+    # Focus / Patience / Discipline / Calm, or None if not chosen —
+    # matches the prototype's intention chip row exactly (a different,
+    # smaller concept from v1's free-text `intention` field, which this
+    # rebuild removes).
+    prime_intention: Mapped[str | None] = mapped_column(String, nullable=True)
+    # OFF / Prayer / Dhikr / Quran / Meditation / Personal Reflection /
+    # Custom — matches the prototype's <select> options exactly.
+    prime_spiritual: Mapped[str] = mapped_column(String, default="OFF")
+
+    # ── START NOW ─────────────────────────────────────────────────────
+    completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Unix timestamps. `started_at` is set the first time today's row is
+    # touched at all (page load) — the prototype's own "time to first
+    # action" KPI is `started_first_action_at - started_at`, so both
+    # ends of that measurement need to be real, separately-stamped
+    # moments, not one timestamp doing double duty.
+    started_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    started_first_action_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    completed_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class NightClosure(Base):
+    """One row per day — the evening counterpart to MorningRitual above,
+    the "Night Closure" feature that class's own docstring names as not
+    yet existing. Same day-keyed, created-on-first-touch shape.
+
+    `tomorrow_outcome`/`tomorrow_first_action` are what
+    MorningRitualEngine reads back the next morning to populate that
+    day's `today_outcome`/`first_move` and stamp `carried_from_date` —
+    the two tables are linked by day arithmetic (this row's `day` is
+    read as "yesterday" by the morning row for `day + 1`), not a
+    foreign key, matching this app's existing convention for other
+    day-keyed pairs (e.g. DailyIntention).
+
+    Converted from Zahid's own HTML/JS mockup (night-closure.html,
+    localStorage key `lifeos_night_closure`) — same four top fields,
+    same optional blocker/note, same Wind Down tools (4-7-8 Breathe /
+    Cognitive Shuffle / Muscle Release), moved to real per-day
+    persistence instead of localStorage so it can actually feed
+    MorningRitual's carried-from block.
+    """
+
+    __tablename__ = "night_closures"
+
+    day: Mapped[str] = mapped_column(String, primary_key=True)  # ISO date string
+
+    where_stopped: Mapped[str] = mapped_column(String, default="")
+    unfinished: Mapped[str] = mapped_column(String, default="")
+    tomorrow_outcome: Mapped[str] = mapped_column(String, default="")
+    tomorrow_first_action: Mapped[str] = mapped_column(String, default="")
+    optional_blocker: Mapped[str] = mapped_column(String, default="")
+    optional_note: Mapped[str] = mapped_column(String, default="")
+
+    # "HH:MM", same free-form convention as MorningRitual.wake_up_time —
+    # editable any time before closing, not stamped automatically.
+    close_time: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Set once, by the "Close the day" button — the completion marker
+    # MorningRitualEngine's carry-forward is not gated on (a closure can
+    # be read back the next morning whether or not it was ever formally
+    # "closed"; closed_at is purely a "did I press the button" record
+    # for this row's own UI, same role start_now's completed_at plays
+    # for MorningRitual).
+    closed_at: Mapped[float | None] = mapped_column(Float, nullable=True)

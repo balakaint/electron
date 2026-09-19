@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useL } from '../i18n';
-import { HourSlot, Project, Task, hoursApi, nowApi, projectsApi } from '../services/api';
+import { HourSlot, Project, STRIKE_MAX, Task, hoursApi, nowApi, projectsApi, tasksApi } from '../services/api';
+import { RADIUS } from '../spacing';
 
 function todayIso(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -19,6 +20,7 @@ function StartButton({ label, title, onClick }: { label: string; title: string; 
     <button
       onClick={onClick}
       title={title}
+      className="btn-primary"
       style={{
         flex: 1,
         minWidth: 0,
@@ -28,11 +30,6 @@ function StartButton({ label, title, onClick }: { label: string; title: string; 
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         whiteSpace: 'nowrap',
-        fontWeight: 'bold',
-        background: 'var(--accent)',
-        color: 'var(--on-accent)',
-        border: 'none',
-        cursor: 'pointer',
       }}
     >
       ▶ {label}
@@ -57,6 +54,7 @@ export default function NowCard({
   const [task, setTask] = useState<Task | null>(null);
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const [displaySecs, setDisplaySecs] = useState(0);
+  const [struckCount, setStruckCount] = useState(0);
   // What you wrote in the hour you are in, if anything.
   const [thisHour, setThisHour] = useState<HourSlot | null>(null);
   const [hour, setHour] = useState(new Date().getHours());
@@ -64,6 +62,14 @@ export default function NowCard({
   const refresh = () =>
     nowApi.get().then((t) => {
       setTask(t);
+      // A task can reach NOW without being one of today's three — press
+      // play on an hour and it lands here (commit f9958f5). Correct, and
+      // unreadable: the card said "ebay" while the STRIKE card directly
+      // below it said nothing was committed, so the screen contradicted
+      // itself in two adjacent cards. NOW now says where its task came
+      // from, and offers the one gesture that resolves the difference.
+      // Only the uncommitted case pays for the extra fetch.
+      if (t && !t.strike) tasksApi.listStrike().then((l) => setStruckCount(l.length));
       // Only the empty card needs this, so only the empty card pays for
       // it: a running NOW never renders the chooser.
       if (t === null) {
@@ -134,13 +140,17 @@ export default function NowCard({
   const complete = () => nowApi.complete().then(() => { refresh(); onChanged(); });
   const startHour = (h: number) =>
     nowApi.startHour(todayIso(), h).then(() => { refresh(); onChanged(); });
+  const commit = () => {
+    if (!task) return;
+    tasksApi.toggleStrike(task.id).then(() => { refresh(); onChanged(); });
+  };
 
   return (
     <div
       style={{
         border: '1px solid var(--border)',
         borderLeft: '3px solid var(--accent)',
-        borderRadius: 8,
+        borderRadius: RADIUS.card,
         padding: task ? 12 : 10,
         marginBottom: task ? 16 : 10,
         background: 'var(--surface)',
@@ -151,19 +161,47 @@ export default function NowCard({
       )}
       {task ? (
         <>
-          <div style={{ fontSize: 18, fontWeight: 'bold', margin: '4px 0' }}>{task.text}</div>
-          {task.project && (
-            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{projects[task.project]?.name || task.project}</div>
-          )}
-          <div style={{ fontSize: 30, fontWeight: 'bold', fontFamily: 'monospace', margin: '8px 0' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, margin: '4px 0' }}>{task.text}</div>
+          {/* One quiet meta line: where this task came from, and — when
+              it is not one of the three — the gesture that makes it one.
+              Both facts belong on the same line because they are the
+              same sentence: "this came from your hour plan, and it is
+              not committed yet". */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', minHeight: 20 }}>
+            <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {task.project ? projects[task.project]?.name || task.project : null}
+              {task.project && !task.strike ? ' · ' : null}
+              {!task.strike
+                ? task.hour_slot_id !== null
+                  ? L("from this hour's plan", 'এই ঘণ্টার প্ল্যান থেকে')
+                  : L("not in today's 3", 'আজকের ৩-এ নেই')
+                : null}
+            </span>
+            {!task.strike && struckCount < STRIKE_MAX && (
+              <button
+                onClick={commit}
+                className="btn-ghost"
+                title="Add this to today's three"
+                style={{ fontSize: 12, height: 24, padding: '0 8px', flex: 'none' }}
+              >
+                {L('+ STRIKE', '+ স্ট্রাইক')}
+              </button>
+            )}
+          </div>
+          <div style={{ fontSize: 30, fontWeight: 700, fontFamily: 'monospace', margin: '8px 0' }}>
             {formatHMS(displaySecs)}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={toggleRun} style={{ flex: 1, padding: '8px 0', fontWeight: 'bold' }}>
+            {/* One primary action per card, and this is it. COMPLETE
+                sits beside it as an ordinary button: on a timer reading
+                00:00:00 it is the rarer of the two, and drawing both as
+                equals asked you to choose between starting and
+                finishing something you have not started. */}
+            <button onClick={toggleRun} className="btn-primary" style={{ flex: 1, padding: '8px 0' }}>
               {running ? `⏸ ${L('PAUSE', 'বিরতি')}` : `▶ ${L('START', 'শুরু')}`}
             </button>
             <button onClick={complete} style={{ padding: '8px 12px' }}>
-              ✓ COMPLETE
+              ✓ {L('COMPLETE', 'সম্পন্ন')}
             </button>
           </div>
         </>

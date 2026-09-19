@@ -9,7 +9,12 @@ _TEXT_FIELDS = (
     "idea_business", "idea_problem", "idea_customer", "idea_goal",
     "an_market", "an_competition", "an_strength", "an_risk",
     "fin_investment", "fin_cost", "fin_revenue", "fin_profit",
-    "decision_why", "next_action", "next_deadline", "attach_path",
+    "decision_why",
+    "feelings_negative", "feelings_positive",
+    "thoughts_negative", "thoughts_positive",
+    "beliefs_negative", "beliefs_positive",
+    "actions_negative", "actions_positive",
+    "next_action", "next_deadline", "next_who", "next_when", "next_time", "next_done_when", "attach_path",
 )
 
 

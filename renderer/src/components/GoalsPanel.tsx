@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
+import { useAutoTimer } from '../useAutoTimer';
 import { accentText } from '../themes';
-import { Goal, GoalHorizon, GoalPanel, ProjectKey, ProjectOrderEntry, goalsApi, projectsApi } from '../services/api';
+import { Goal, GoalHorizon, GoalOwnerKey, GoalPanel, ProjectKey, ProjectOrderEntry, goalsApi, projectsApi } from '../services/api';
+import { RADIUS } from '../spacing';
 
 // ⚠ READ THE KEYS CAREFULLY BEFORE CHANGING ANYTHING HERE.
 //
@@ -43,10 +45,14 @@ const HORIZONS: { key: GoalHorizon; label: string; glyph: string; accent: string
   { key: 'weekly', label: 'YEARLY GOAL', glyph: '◆', accent: 'var(--goal-weekly)', weight: 20 },
 ];
 
-// Legacy caps the progress bar at a 30-day window, and the API's
-// day_number counts from the goal's start date.
-const GOAL_WINDOW = 30;
-
+// Legacy capped the progress bar at a flat 30-day window for every
+// horizon. Zahid asked for horizon-based defaults instead (weekly goal
+// 7 days, monthly 30, yearly 12 months) AND a calendar picker to
+// override them — so the window is no longer a constant here at all.
+// It's now `goal.deadline`, a real stored/editable field (see the
+// backend's engine.goals._default_deadline for where the 7/30/12mo
+// defaults are actually computed, and its own warning about the
+// crossed horizon<->label mapping). This file only reads the result.
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -57,11 +63,17 @@ function shortDate(iso: string): string {
   return `${d.getDate()} ${d.toLocaleDateString(undefined, { month: 'short' })}`;
 }
 
-function plusDays(iso: string, n: number): string {
-  const d = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  d.setDate(d.getDate() + n);
-  return shortDate(d.toISOString().slice(0, 10));
+// Whole days between two ISO dates, for turning a goal's own
+// start_date/deadline pair into a "day N of M" window — the same shape
+// the old fixed GOAL_WINDOW used to provide, now derived per-goal
+// instead of being one constant for every horizon. Clamped to at least
+// 1 so a same-day or backwards deadline (a user can type anything into
+// the picker) never produces a divide-by-zero or a negative bar.
+function windowDays(startIso: string, deadlineIso: string): number {
+  const start = new Date(`${startIso}T00:00:00`);
+  const end = new Date(`${deadlineIso}T00:00:00`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1;
+  return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
 }
 
 // ONE LINE AT REST, the rest on demand.
@@ -77,6 +89,40 @@ function plusDays(iso: string, n: number): string {
 // state is the one to optimise. A goal at rest is a tick, its name, a
 // progress spark and its day count. Opening it is what reveals the
 // editor, and only one is open at a time.
+// A compact label+value row for the expanded goal's meta fields
+// (STARTED / DEADLINE / PROGRESS) — Zahid's own mockup asked for these
+// as labeled rows rather than the single run-on "started … · day …
+// ends …" line the panel used to have. NEXT ACTION gets its own
+// heavier, bordered/accented treatment below instead of a MetaRow: his
+// priority table ranked it "Very High" against these three's "Medium",
+// so it needs to look different, not just be positioned lower.
+function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+      <span
+        style={{
+          // 60 was narrower than "PROGRESS" itself at 12px/700/0.5
+          // tracking — the one label this row ever draws — so its last
+          // letter spilled past the box and into the bar beside it.
+          // flex: 'none' fixes the box's width but not what happens
+          // when content exceeds it: with no whiteSpace, the browser
+          // still wraps or overflows visibly rather than clipping.
+          width: 72,
+          flex: 'none',
+          fontSize: 12,
+          fontWeight: 700,
+          letterSpacing: 0.5,
+          color: 'var(--text-faint)',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
+      </span>
+      <div style={{ flex: 1, minWidth: 0, color: 'var(--text-muted)' }}>{children}</div>
+    </div>
+  );
+}
+
 function GoalRow({
   goal,
   accent,
@@ -88,6 +134,9 @@ function GoalRow({
   onEditText,
   onEditNote,
   onEditStartDate,
+  onEditNextAction,
+  onEditDeadline,
+  onOpenBoard,
 }: {
   goal: Goal;
   accent: string;
@@ -99,18 +148,39 @@ function GoalRow({
   onEditText: (text: string) => void;
   onEditNote: (note: string) => void;
   onEditStartDate: (date: string) => void;
+  onEditNextAction: (nextAction: string) => void;
+  onEditDeadline: (deadline: string) => void;
+  onOpenBoard: () => void;
 }) {
   const [text, setText] = useState(goal.text);
   const [startDate, setStartDate] = useState(goal.start_date);
+  const [deadline, setDeadline] = useState(goal.deadline);
   const noteField = useAutosave(goal.note, onEditNote);
+  const nextActionField = useAutosave(goal.next_action, onEditNextAction);
 
   useEffect(() => setText(goal.text), [goal.text]);
   useEffect(() => setStartDate(goal.start_date), [goal.start_date]);
+  useEffect(() => setDeadline(goal.deadline), [goal.deadline]);
 
-  const capped = Math.min(goal.day_number, GOAL_WINDOW);
-  const pct = (capped / GOAL_WINDOW) * 100;
+  // The bar means board completion — how much of the work under this
+  // goal is actually done, not how much time has passed. Zahid
+  // confirmed this explicitly (2026-09-14): a freshly-opened goal with
+  // no board yet must read 0%, not a time-elapsed guess — a prior
+  // version of this code filled the bar from elapsed time as a
+  // fallback ("day 1 of 14" -> 7%), which he flagged as wrong on his
+  // own running app. So PROGRESS now shows 0% until a board exists;
+  // the day-count context (start..deadline) still shows elsewhere
+  // (the STARTED/DEADLINE row), just not as a fill on this bar.
+  const hasBoardData = goal.board_total > 0;
+  const goalWindow = windowDays(goal.start_date, goal.deadline);
+  const pct = hasBoardData ? (goal.board_done / goal.board_total) * 100 : 0;
   const barColor = goal.done ? 'var(--success)' : accent;
-  const dayLabel = `d${goal.day_number}${goal.day_number <= GOAL_WINDOW ? `/${GOAL_WINDOW}` : ''}`;
+  const dayLabel = hasBoardData
+    ? `${goal.board_done}/${goal.board_total}`
+    : `d${goal.day_number}${goal.day_number <= goalWindow ? `/${goalWindow}` : ''}`;
+  const barTitle = hasBoardData
+    ? `${goal.board_done} of ${goal.board_total} board cards done`
+    : `No board yet — day ${goal.day_number} of ${goalWindow}`;
 
   const tick = (
     <button
@@ -125,6 +195,7 @@ function GoalRow({
         background: 'transparent',
         cursor: 'pointer',
         color: goal.done ? 'var(--success)' : 'var(--text-faint)',
+        transition: 'color 0.12s ease-out',
         fontSize: 14,
         padding: 0,
       }}
@@ -166,7 +237,7 @@ function GoalRow({
     return (
       <div
         className="goal-row"
-        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 4px', borderRadius: 4 }}
+        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 4px', borderRadius: RADIUS.control }}
       >
         {tick}
         {/* The name is the click target, not the whole row: a row-level
@@ -196,10 +267,10 @@ function GoalRow({
           {goal.text}
         </button>
         <span
-          title={`Day ${goal.day_number} of ${GOAL_WINDOW}`}
-          style={{ width: 64, height: 4, background: 'var(--border)', borderRadius: 2, flex: 'none', overflow: 'hidden' }}
+          title={barTitle}
+          style={{ width: 64, height: 4, background: 'var(--border)', borderRadius: RADIUS.pill, flex: 'none', overflow: 'hidden' }}
         >
-          <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: barColor }} />
+          <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: barColor, transition: 'width 300ms ease' }} />
         </span>
         <span
           style={{
@@ -220,12 +291,12 @@ function GoalRow({
 
   return (
     <div
-      className="goal-row"
+      className="goal-row goal-row-open"
       style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${accent}`,
-        borderRadius: 6,
+        borderRadius: RADIUS.card,
         padding: '8px 8px',
         margin: '4px 0',
       }}
@@ -246,7 +317,7 @@ function GoalRow({
             background: 'transparent',
             color: 'var(--text)',
             fontSize: 13,
-            fontWeight: 'bold',
+            fontWeight: 700,
             padding: '4px 0',
           }}
         />
@@ -260,45 +331,180 @@ function GoalRow({
         {del}
       </div>
 
-      <div style={{ height: 5, background: 'var(--border)', borderRadius: 3, overflow: 'hidden', margin: '8px 0' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: barColor }} />
+      {/* Labeled rows: STARTED+DEADLINE / PROGRESS / NEXT ACTION /
+          NOTES, matching the priority order Zahid's own review ranked
+          them in. STARTED and DEADLINE share one row — Zahid's own
+          follow-up after seeing this on his machine ("startted and
+          dateline single row will save space"): as two separate
+          MetaRows, each date input sat inside MetaRow's flex:1 value
+          column but didn't itself stretch to fill it, leaving a wide
+          empty strip beside the STARTED picker (visible as dead space
+          in his screenshot) and costing a whole extra row height for
+          DEADLINE. This row is hand-built instead of two MetaRows for
+          that reason — both pickers hug their own content, and the
+          leftover space goes to the day-count text, not to nothing. */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', flex: 'none' }}>
+            STARTED
+          </span>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            onBlur={() => startDate !== goal.start_date && onEditStartDate(startDate)}
+            title="Start date"
+            style={{
+              fontSize: 12,
+              border: '1px solid var(--border)',
+              borderRadius: RADIUS.pill,
+              background: 'transparent',
+              color: 'inherit',
+              padding: '2px 4px',
+              flex: 'none',
+              colorScheme: 'var(--input-color-scheme)',
+            }}
+          />
+          <span style={{ color: 'var(--text-faint)', flex: 'none' }}>→</span>
+          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', flex: 'none' }}>
+            DEADLINE
+          </span>
+          <input
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            onBlur={() => deadline !== goal.deadline && onEditDeadline(deadline)}
+            title="Deadline — defaults per horizon, editable any time"
+            style={{
+              fontSize: 12,
+              border: '1px solid var(--border)',
+              borderRadius: RADIUS.pill,
+              background: 'transparent',
+              color: 'inherit',
+              padding: '2px 4px',
+              flex: 'none',
+              colorScheme: 'var(--input-color-scheme)',
+            }}
+          />
+          <span style={{ color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+            day {goal.day_number} of {goalWindow}
+            {goal.done && goal.done_date && <span style={{ color: 'var(--success)' }}> · ✓ {shortDate(goal.done_date)}</span>}
+          </span>
+        </div>
+        <MetaRow label="PROGRESS">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span
+              title={barTitle}
+              style={{ flex: 1, minWidth: 0, height: 5, background: 'var(--border)', borderRadius: RADIUS.pill, overflow: 'hidden' }}
+            >
+              <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: barColor, transition: 'width 300ms ease' }} />
+            </span>
+            {/* Count/percent and the BOARD button are grouped tighter
+                (8px) than their gap from the bar (12px) — they read as
+                one status cluster, not three equally-spaced items
+                fighting for attention on one crowded line. */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
+              <span style={{ fontSize: 12, color: 'var(--text-faint)', flex: 'none' }}>
+                {hasBoardData ? `${goal.board_done}/${goal.board_total} tasks done` : `${Math.round(pct)}%`}
+              </span>
+              {/* Breaking a goal into work is a different action from
+                  writing it down. Placed next to PROGRESS rather than as
+                  its own row: the board is what drives this number, so
+                  the button that opens it belongs beside it. Superseded
+                  design note: this used to create one card directly on a
+                  flat per-project Board — the user corrected the shape to
+                  Goal -> Task -> that task's own board, so this opens the
+                  full-window overlay instead of writing anything itself. */}
+              <button
+                onClick={onOpenBoard}
+                title="Break this goal into tasks, each with its own board"
+                className="btn-primary"
+                style={{ fontSize: 12, padding: '4px 8px', flex: 'none' }}
+              >
+                → BOARD
+              </button>
+            </div>
+          </div>
+        </MetaRow>
       </div>
 
-      {/* Dates as words. Nine native date inputs at 95px each turned the
-          panel into a form; the picker belongs in the one place you are
-          actually setting a date. */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-muted)' }}>
-        <span>started</span>
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          onBlur={() => startDate !== goal.start_date && onEditStartDate(startDate)}
-          title="Start date"
-          style={{ fontSize: 12, border: '1px solid var(--border)', borderRadius: 3, background: 'transparent', color: 'inherit', padding: '4px 4px' }}
-        />
-        <span>· day {goal.day_number} of {GOAL_WINDOW} · ends {plusDays(goal.start_date, GOAL_WINDOW)}</span>
-        {goal.done && goal.done_date && (
-          <span style={{ color: 'var(--success)' }}>· ✓ {shortDate(goal.done_date)}</span>
-        )}
-      </div>
-
-      <textarea
-        value={noteField.value}
-        onChange={(e) => noteField.setValue(e.target.value)}
-        onBlur={noteField.flush}
-        placeholder="Notes…"
-        rows={2}
+      {/* NEXT ACTION — the single field Zahid's review called the
+          biggest UX opportunity on this panel ("Very High" in his own
+          priority table, above everything else here): the one concrete,
+          physical next step, not an abstract restatement of the goal.
+          Boxed and bolded like GoalBoardOverlay's own NEXT ACTION
+          callout so the two screens read as the same idea at two
+          levels, not two unrelated features. */}
+      <div
         style={{
-          width: '100%',
-          fontSize: 12,
-          padding: 4,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
           marginTop: 8,
-          resize: 'vertical',
-          boxSizing: 'border-box',
-          ...savedFlashStyle(noteField.state),
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderLeft: `3px solid ${accent}`,
+          borderRadius: RADIUS.control,
+          padding: '8px 12px',
         }}
-      />
+      >
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: accent, flex: 'none' }}>
+          NEXT ACTION
+        </span>
+        <input
+          // Defaults to the goal's own top FOCUS card ("board_focus_title",
+          // added 2026-09-16 alongside this) whenever nobody has typed a
+          // manual NEXT ACTION — Zahid's own words: "next action by
+          // default its board 1st focused 1st card name". Typing
+          // anything here still saves as an explicit override into
+          // goal.next_action exactly as before; clearing it back to
+          // empty reverts to showing the board's own current top card
+          // again on the next refresh, since the fallback is live, not
+          // copied in.
+          value={nextActionField.value || goal.board_focus_title || ''}
+          onChange={(e) => nextActionField.setValue(e.target.value)}
+          onBlur={nextActionField.flush}
+          placeholder="The next concrete step — e.g. Open Seller Central → create listing"
+          style={{
+            flex: 1,
+            minWidth: 0,
+            border: 'none',
+            background: 'transparent',
+            fontSize: 13,
+            // Bold only when there's real text (typed or board-derived)
+            // — a bold empty-state placeholder read as if it were
+            // actual content (same issue fixed on GoalBoardOverlay's
+            // own NEXT ACTION field this same round).
+            fontWeight: nextActionField.value || goal.board_focus_title ? 700 : 400,
+            padding: '2px 0',
+            ...savedFlashStyle(nextActionField.state),
+          }}
+        />
+      </div>
+
+      {/* NOTES — "Very Low" in the same priority table, so it stays the
+          quietest thing on the row: no label box, no accent, smallest
+          type. */}
+      <div style={{ marginTop: 8 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: 4 }}>
+          NOTES
+        </div>
+        <textarea
+          value={noteField.value}
+          onChange={(e) => noteField.setValue(e.target.value)}
+          onBlur={noteField.flush}
+          placeholder="Notes…"
+          rows={2}
+          style={{
+            width: '100%',
+            fontSize: 12,
+            padding: 4,
+            resize: 'vertical',
+            boxSizing: 'border-box',
+            ...savedFlashStyle(noteField.state),
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -319,7 +525,10 @@ function GoalSection({
   onEditText,
   onEditNote,
   onEditStartDate,
+  onEditNextAction,
+  onEditDeadline,
   onRenameTitle,
+  onOpenBoard,
 }: {
   horizon: GoalHorizon;
   label: string;
@@ -336,7 +545,10 @@ function GoalSection({
   onEditText: (id: number, text: string) => void;
   onEditNote: (id: number, note: string) => void;
   onEditStartDate: (id: number, date: string) => void;
+  onEditNextAction: (id: number, nextAction: string) => void;
+  onEditDeadline: (id: number, deadline: string) => void;
   onRenameTitle: (title: string) => void;
+  onOpenBoard: (goal: Goal) => void;
 }) {
   const [title, setTitle] = useState(label);
   const [composing, setComposing] = useState(false);
@@ -418,9 +630,9 @@ function GoalSection({
           style={{
             flex: 1,
             minWidth: 0,
-            fontWeight: 'bold',
+            fontWeight: 700,
             fontSize: 12,
-            letterSpacing: 0.6,
+            letterSpacing: 0.5,
             border: 'none',
             background: 'transparent',
             color: accent,
@@ -442,9 +654,9 @@ function GoalSection({
             flex: 'none',
             border: 'none',
             background: composing ? 'var(--accent-light)' : 'transparent',
-            borderRadius: 4,
+            borderRadius: RADIUS.control,
             color: composing ? 'var(--accent)' : 'var(--text-muted)',
-            fontSize: 15,
+            fontSize: 16,
             lineHeight: 1,
             cursor: 'pointer',
             padding: 0,
@@ -469,7 +681,7 @@ function GoalSection({
             value={newDate}
             onChange={(e) => setNewDate(e.target.value)}
             title="Start date"
-            style={{ fontSize: 12, padding: 4, width: 116 }}
+            style={{ fontSize: 12, padding: 4, width: 116, colorScheme: 'var(--input-color-scheme)' }}
           />
           <button type="submit" style={{ fontSize: 12 }}>
             Add
@@ -499,6 +711,9 @@ function GoalSection({
             onEditText={(text) => onEditText(g.id, text)}
             onEditNote={(note) => onEditNote(g.id, note)}
             onEditStartDate={(date) => onEditStartDate(g.id, date)}
+            onEditNextAction={(nextAction) => onEditNextAction(g.id, nextAction)}
+            onEditDeadline={(deadline) => onEditDeadline(g.id, deadline)}
+            onOpenBoard={() => onOpenBoard(g)}
           />
         ))}
       </div>
@@ -506,7 +721,22 @@ function GoalSection({
   );
 }
 
-export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | null }) {
+export default function GoalsPanel({
+  projectKey,
+  onOpenBoard,
+}: {
+  // The reserved "life" key (App.tsx passes it whenever every real
+  // project in panel 1 is collapsed) renders this exact same component —
+  // same sections, same editing, same CRUD — with only the header
+  // changed to "LIFE PLAN" instead of a project name. See GoalOwnerKey's
+  // own comment in services/api.ts.
+  projectKey: GoalOwnerKey | null;
+  // Fires when a goal's "→ BOARD" button is pressed. App.tsx wires this
+  // to open the full-window Goal -> Task -> Board overlay for that
+  // goal — GoalsPanel itself no longer talks to boardApi at all (see
+  // the superseded design note on GoalRow's button above).
+  onOpenBoard: (goalId: number) => void;
+}) {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
   const [panel, setPanel] = useState<GoalPanel | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -515,10 +745,12 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
   // and the panel is 545px wide — there is room for exactly one.
   const [openGoalId, setOpenGoalId] = useState<number | null>(null);
 
-  const refreshGoals = (key: ProjectKey) => goalsApi.list(key).then(setGoals);
+  const refreshGoals = (key: GoalOwnerKey) => goalsApi.list(key).then(setGoals);
+  const refreshOrder = () => projectsApi.order().then(setOrder);
 
   useEffect(() => {
-    projectsApi.order().then(setOrder);
+    refreshOrder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Re-runs whenever the shell points this panel at another project.
@@ -532,10 +764,35 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectKey]);
 
+  // Zahid's own framing: "goal click means i am working and giving
+  // concentration in that project" — the same logic as legacy's
+  // _auto_timer_on_open/_auto_timer_on_close (opening the Business
+  // Analysis or Journey window starts the project's clock), now
+  // extended to this panel. Opening ANY goal in this panel counts as
+  // attention landing on `shownKey`'s project; closing it (or opening
+  // a different project's panel) stops the clock again, but only if
+  // this hook is the one that started it — see useAutoTimer's own
+  // comment for the full auto-start/auto-stop contract (settings gate,
+  // idle auto-stop, short-session discard — all still enforced by the
+  // backend's toggle_timer, this hook just decides when to call it).
+  // Computed with optional chaining because this hook must run on
+  // every render (rules of hooks), including before `panel` loads.
+  //
+  // "life" has no real Project row (see GoalOwnerKey's comment), so it
+  // must never reach useAutoTimer — there is nothing for
+  // projectsApi.toggleTimer to start. useAutoTimer itself stays exactly
+  // as it is for the 6 real projects: it only acts when it finds an
+  // `order` entry for the key it's given, and "life" will never have
+  // one, but resolving to null here rather than relying on that is what
+  // keeps this hook's contract (ProjectKey | null) honest.
+  const timerKey: ProjectKey | null = projectKey === 'life' ? null : projectKey ?? (panel?.project_key ?? null);
+  useAutoTimer(openGoalId !== null ? timerKey : null, order, refreshOrder);
+
   if (!panel) return <div>Loading…</div>;
 
   const shownKey = projectKey ?? panel.project_key;
   const activeEntry = order.find((e) => e.project.key === shownKey);
+  const headerLabel = shownKey === 'life' ? 'LIFE PLAN' : (activeEntry?.project.name || shownKey).toUpperCase();
 
   const sectionTitle: Record<GoalHorizon, string | null> = {
     yearly: panel.sec_title_yearly,
@@ -569,8 +826,8 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
         {/* Whose goals these are. Without it the same three headings
             silently mean six different things depending on which card
             was pressed last, and nothing on screen says which. */}
-        <span style={{ flex: 1, fontWeight: 'bold', color: activeEntry ? accentText(activeEntry.project.accent_color) : undefined }}>
-          {(activeEntry?.project.name || shownKey).toUpperCase()}
+        <span style={{ flex: 1, fontWeight: 700, color: activeEntry ? accentText(activeEntry.project.accent_color) : undefined }}>
+          {headerLabel}
         </span>
         <span style={{ color: 'var(--text-faint)', letterSpacing: 0.5 }}>GOALS</span>
       </div>
@@ -609,7 +866,14 @@ export default function GoalsPanel({ projectKey }: { projectKey: ProjectKey | nu
             onEditStartDate={(id, start_date) =>
               goalsApi.edit(id, { start_date }).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))
             }
+            onEditNextAction={(id, next_action) =>
+              goalsApi.edit(id, { next_action }).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))
+            }
+            onEditDeadline={(id, deadline) =>
+              goalsApi.edit(id, { deadline }).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))
+            }
             onRenameTitle={(title) => goalsApi.setSectionTitle(key, title).then(setPanel)}
+            onOpenBoard={(goal) => onOpenBoard(goal.id)}
           />
         ))}
       </div>

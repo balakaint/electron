@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import CircleSection from './CircleSection';
 import { useAutosave } from '../useAutosave';
+import { RADIUS } from '../spacing';
 import {
   BusinessAnalysis,
-  DecisionLogEntry,
   DecisionStatus,
-  LegacyBox,
   NextPriority,
   Project,
   ProjectKey,
@@ -13,51 +12,12 @@ import {
   projectsApi,
 } from '../services/api';
 
-// The Business Analysis page — legacy's _open_detail_window
-// (task_tracker_v3_THEMES.py 10300-11090).
-//
-// WHAT WAS WRONG. This port had the right FIELDS and none of the page.
-// Legacy lays out a full-window canvas of six cards on a 2-column grid
-// and gives the rows deliberate weights; the port was a 640px column of
-// stacked boxed textareas, which turns a page you read at a glance into
-// a form you scroll. Zahid put the two side by side, and every
-// difference below is one of his.
-//
-//   Row 0  IDEA               full width, its four fields ACROSS
-//   Row 1  ANALYSIS | FINANCIAL REALITY        side by side, weight 2
-//   Row 2  DECISION           full width, compact — chips, why, history
-//   Row 3  NEXT ACTION | PEOPLE                side by side, weight 2
-//
-// Legacy's reasons for that shape, kept because they are the design:
-//
-// IDEA's four fields sit on ONE row (10920-10926) — "these four answers
-// are each a sentence, not a paragraph, and putting them side by side
-// means the whole idea is one horizontal read, what it is, what it
-// fixes, who for, what success looks like, before the eye drops to the
-// analysis below it. It also costs half the height, which is what
-// leaves room for ANALYSIS and FINANCIAL to be the tallest sections on
-// the page, as they should be."
-//
-// DECISION gets NO extra height (10745) — "it used to swallow most of
-// the canvas for a four-chip row and one text area, which is exactly
-// backwards: it is the shortest thing to write on the page and was
-// given the most room to write it."
-//
-// PEOPLE sits beside NEXT ACTION (11062) — "the question it answers is
-// who do I need for that, and the most common reason a next action
-// doesn't move is a person who hasn't been chased." Its row is weighted
-// because PEOPLE is the one block whose height is set by data rather
-// than layout: "they can shrink, a list of people cannot."
+// The Business Decision Canvas — one screen, four stages: IDEA →
+// ANALYSIS → DECISION → ACTION. Same data model as before (nothing
+// added except next_who/next_when/next_time/next_done_when on NEXT
+// ACTION); this pass is a visual-hierarchy pass, not a rewrite.
 
-const DECISION_STATUSES: DecisionStatus[] = ['GO', 'VALIDATE', 'PIVOT', 'NO-GO'];
 const PRIORITIES: NextPriority[] = ['HIGH', 'MED', 'LOW'];
-
-const STATUS_COLOR: Record<string, string> = {
-  GO: 'var(--ba-go)',
-  VALIDATE: 'var(--ba-validate)',
-  PIVOT: 'var(--ba-pivot)',
-  'NO-GO': 'var(--ba-nogo)',
-};
 
 const PRIORITY_COLOR: Record<string, string> = {
   HIGH: 'var(--ba-nogo)',
@@ -65,24 +25,118 @@ const PRIORITY_COLOR: Record<string, string> = {
   LOW: 'var(--ba-neutral)',
 };
 
+// The DECISION card's two rows. Same eight fields as before
+// (feelings/thoughts/beliefs/actions × negative/positive) — only the
+// labels shrank from full sentences to the single word each row's
+// heading already gives context for.
+const BLOCKER_FIELDS: {
+  field: 'feelings_negative' | 'thoughts_negative' | 'beliefs_negative' | 'actions_negative';
+  label: string;
+}[] = [
+  { field: 'feelings_negative', label: 'FEELING' },
+  { field: 'thoughts_negative', label: 'THOUGHT' },
+  { field: 'beliefs_negative', label: 'BELIEF' },
+  { field: 'actions_negative', label: 'BEHAVIOR' },
+];
+
+const REQUIRED_FIELDS: {
+  field: 'feelings_positive' | 'thoughts_positive' | 'beliefs_positive' | 'actions_positive';
+  label: string;
+}[] = [
+  { field: 'feelings_positive', label: 'FEELING' },
+  { field: 'thoughts_positive', label: 'THOUGHT' },
+  { field: 'beliefs_positive', label: 'BELIEF' },
+  { field: 'actions_positive', label: 'ACTION' },
+];
+
+// PROCEED/TEST FIRST/HOLD/STOP is just GO/VALIDATE/PIVOT/NO-GO under
+// new labels — decision_status already existed (kept, unused by the
+// old canvas) and its toggle-off-if-already-active engine behavior is
+// exactly "user controlled, never auto-decided": clicking sets it,
+// clicking the same one again clears it. Each option carries its own
+// one-line meaning so the four buttons don't read as four bare words.
+const DECISION_OPTIONS: { label: string; value: DecisionStatus; color: string; hint: string }[] = [
+  { label: 'PROCEED', value: 'GO', color: 'var(--ba-go)', hint: 'Move forward now — start executing this.' },
+  { label: 'TEST FIRST', value: 'VALIDATE', color: 'var(--ba-validate)', hint: 'Run a small test before committing fully.' },
+  { label: 'HOLD', value: 'PIVOT', color: 'var(--ba-pivot)', hint: 'Pause and revisit — not ready to act yet.' },
+  { label: 'STOP', value: 'NO-GO', color: 'var(--ba-nogo)', hint: 'Do not continue with this idea.' },
+];
+const DECISION_DEFAULT_HINT = 'Choose how to proceed with this idea.';
+
+const STEPS: { label: string; accent: string }[] = [
+  { label: 'IDEA', accent: 'var(--ba-idea)' },
+  { label: 'ANALYSIS', accent: 'var(--ba-upside)' },
+  { label: 'DECISION', accent: 'var(--ba-decide)' },
+  { label: 'ACTION', accent: 'var(--ba-do)' },
+];
+
+function Stepper({ done, current, onJump }: { done: boolean[]; current: number; onJump: (i: number) => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      {STEPS.map((s, i) => (
+        <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => onJump(i)}
+            title={`Jump to ${s.label}`}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 2,
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            <div
+              style={{
+                width: 24,
+                height: 24,
+                borderRadius: RADIUS.pill,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 12,
+                fontWeight: 700,
+                background: done[i] ? 'var(--success)' : i === current ? s.accent : 'transparent',
+                color: done[i] || i === current ? '#ffffff' : 'var(--text-muted)',
+                border: done[i] || i === current ? 'none' : '1px solid var(--border)',
+              }}
+            >
+              {done[i] ? '✓' : i + 1}
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: i === current ? 700 : 600,
+                letterSpacing: 0.5,
+                color: i <= current || done[i] ? 'var(--text)' : 'var(--text-muted)',
+              }}
+            >
+              {s.label}
+            </div>
+          </button>
+          {i < STEPS.length - 1 && (
+            <div style={{ width: 24, height: 2, background: done[i] ? 'var(--success)' : 'var(--border)' }} />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /**
- * A labelled autosaving text area — legacy calls it "the atom of this
- * page" (_field, 10800-10850).
- *
- * Label above, text below, ONE HAIRLINE under it, and no box: "a full
- * border per field would put twelve boxes back on the screen, and the
- * label already tells the eye where one field ends and the next
- * begins". The port had drawn every field as a bordered textarea, which
- * is the version legacy rejected by name.
- *
- * The rule turns the section's accent while the field has focus — "the
- * whole of this page's where-am-I feedback, costing one pixel".
+ * A labelled autosaving text area — the atom of this page. Label above,
+ * text below, one hairline under it, no box.
  */
 function Field({
   label,
   value,
   accent,
   rows = 2,
+  placeholder,
+  big = false,
   onSave,
   onSaved,
 }: {
@@ -90,6 +144,11 @@ function Field({
   value: string;
   accent: string;
   rows?: number;
+  placeholder?: string;
+  /** A bigger, bolder reading size — the one field on the page that
+      should read like an answer worth acting on (NEXT ACTION's own
+      text), not a note. */
+  big?: boolean;
   onSave: (next: string) => void;
   onSaved: () => void;
 }) {
@@ -101,17 +160,11 @@ function Field({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, flex: 1 }}>
-      {/* THE LABEL DOES NOT SHOUT.
-          It was 12px BOLD while the answer under it was 13px regular —
-          so on a page whose entire content is what you wrote, the
-          questions were heavier than the answers, and fifteen bold
-          labels were the loudest thing on screen. A label names a slot;
-          it is read once and then never again. */}
       <div
         style={{
           fontSize: 12,
-          fontWeight: 500,
-          letterSpacing: 0.4,
+          fontWeight: 600,
+          letterSpacing: 0.5,
           color: 'var(--text-muted)',
           marginBottom: 2,
         }}
@@ -122,6 +175,7 @@ function Field({
         aria-label={label}
         value={text}
         rows={rows}
+        placeholder={placeholder}
         onChange={(e) => setText(e.target.value)}
         onFocus={() => setFocused(true)}
         onBlur={() => {
@@ -132,8 +186,8 @@ function Field({
           flex: 1,
           width: '100%',
           minHeight: 0,
-          // Bigger than its own label, which is the whole point.
-          fontSize: 14,
+          fontSize: big ? 16 : 14,
+          fontWeight: 600,
           padding: '2px 0',
           border: 'none',
           borderBottom: `1px solid ${focused ? accent : 'var(--border)'}`,
@@ -148,23 +202,80 @@ function Field({
   );
 }
 
-/** A section card: coloured rail, title, body. Legacy's _section_card. */
-function Card({
-  title,
+/** A single free-text amount, set larger and bolder than a normal
+    Field — FINANCIAL REALITY's four numbers are the one thing on this
+    page meant to be read at a glance, not read word by word. */
+function MoneyStat({
+  label,
+  value,
   accent,
-  filled = true,
-  children,
-  style,
+  onSave,
+  onSaved,
 }: {
+  label: string;
+  value: string;
+  accent: string;
+  onSave: (next: string) => void;
+  onSaved: () => void;
+}) {
+  const { value: text, setValue: setText, flush } = useAutosave(value, (v: string) => {
+    onSave(v);
+    onSaved();
+  });
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        padding: 12,
+        borderRadius: RADIUS.card,
+        background: `color-mix(in srgb, ${accent} 8%, var(--surface))`,
+        minWidth: 0,
+      }}
+    >
+      <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: 0.5, color: 'var(--text-muted)' }}>{label}</div>
+      <input
+        aria-label={label}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => {
+          setFocused(false);
+          flush();
+        }}
+        style={{
+          fontSize: 16,
+          fontWeight: 700,
+          border: 'none',
+          borderBottom: `1px solid ${focused ? accent : 'transparent'}`,
+          background: 'transparent',
+          color: 'var(--text)',
+          outline: 'none',
+          padding: 0,
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      />
+    </div>
+  );
+}
+
+/** A section card: coloured rail, title, body. Takes a ref so the
+    stepper can scroll a section into view when the page is squeezed
+    shorter than its content. */
+const Card = forwardRef<HTMLDivElement, {
   title: string;
   accent: string;
-  /** Has anything been written in this card? Drives the rail. */
   filled?: boolean;
   children: React.ReactNode;
   style?: React.CSSProperties;
-}) {
+}>(function Card({ title, accent, filled = true, children, style }, ref) {
   return (
     <div
+      ref={ref}
       style={{
         display: 'flex',
         flexDirection: 'column',
@@ -172,29 +283,15 @@ function Card({
         minWidth: 0,
         background: 'var(--surface)',
         border: '1px solid var(--border)',
-        // THE RAIL REPORTS WHETHER THE CARD HAS ANYTHING IN IT.
-        //
-        // Legacy's _bar_col_for: full accent when the section has
-        // content, blended toward the border when it does not. This port
-        // painted every rail at full strength, so a canvas with two
-        // sections filled looked exactly like one with six — on a page
-        // whose whole job is showing you which questions you have not
-        // answered yet. It is the cheapest signal on the page and it was
-        // the one missing.
         borderLeft: `4px solid ${filled ? accent : `color-mix(in srgb, ${accent} 30%, var(--border))`}`,
         ...style,
       }}
     >
-      {/* Level 1. Coloured and ruled off, so it cannot be mistaken for
-          the field labels underneath — they were 13px bold and 12px bold,
-          one pixel and no other difference apart, which is two levels
-          collapsed into one. Colour and a divider separate them without
-          making the title bigger than the content. */}
       <div
         style={{
           fontSize: 13,
-          fontWeight: 'bold',
-          letterSpacing: 0.8,
+          fontWeight: 700,
+          letterSpacing: 0.5,
           padding: '8px 12px',
           color: filled ? accent : 'var(--text-muted)',
           borderBottom: '1px solid var(--border)',
@@ -203,38 +300,38 @@ function Card({
       >
         {title}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, padding: '12px 12px 12px', flex: 1 }}>
+      {/* overflow-y:auto is the safety valve for the whole page's "fit
+          the screen" rule: the grid row a card sits in is a hard fr
+          share of the available height (minmax(0, Nfr) below), so if a
+          card's own content ever needs more room than that share, it
+          scrolls INSIDE its own border instead of forcing the row
+          taller and pushing every card below it off the bottom of the
+          window. */}
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, padding: '12px 12px 12px', flex: 1, overflowY: 'auto' }}>
         {children}
       </div>
     </div>
   );
+});
+
+const TARGET_RE = /\$[\d][\d,]*(?:\.\d+)?/;
+
+function firstAmount(s: string): number | null {
+  const m = (s || '').replace(/,/g, '').match(/\$?(\d+(?:\.\d+)?)/);
+  return m ? parseFloat(m[1]) : null;
 }
 
 export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: ProjectKey }) {
   const [ba, setBa] = useState<BusinessAnalysis | null>(null);
   const [project, setProject] = useState<Project | null>(null);
-  const [log, setLog] = useState<DecisionLogEntry[]>([]);
-  const [historyOpen, setHistoryOpen] = useState(false);
-  // One "Saved" for the page, in the header, as legacy has it — rather
-  // than a flash on each of the fifteen fields.
   const [savedAt, setSavedAt] = useState(0);
   const [peopleCount, setPeopleCount] = useState(0);
-  // The fifteen-box version this page replaced. Fetched for its COUNT
-  // only — the notes themselves stay off the canvas until asked for.
-  const [boxes, setBoxes] = useState<LegacyBox[]>([]);
-  const [notesOpen, setNotesOpen] = useState(false);
-
-  const refresh = () => {
-    businessAnalysisApi.get(projectKey).then(setBa);
-    businessAnalysisApi.getLog(projectKey).then(setLog);
-  };
+  const sectionRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
+  const jumpTo = (i: number) => sectionRefs[i].current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   useEffect(() => {
-    refresh();
+    businessAnalysisApi.get(projectKey).then(setBa);
     projectsApi.get(projectKey).then(setProject);
-    businessAnalysisApi
-      .getLegacyBoxes(projectKey)
-      .then((rows) => setBoxes(rows.filter((r) => r.title.trim() || r.text.trim())));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectKey]);
 
@@ -247,15 +344,14 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
       markSaved();
     });
 
-  const toggleStatus = (status: DecisionStatus) =>
-    businessAnalysisApi.setDecisionStatus(projectKey, status).then((updated) => {
-      setBa(updated);
-      markSaved();
-      businessAnalysisApi.getLog(projectKey).then(setLog);
-    });
-
   const togglePriority = (priority: NextPriority) =>
     businessAnalysisApi.setPriority(projectKey, priority).then((v) => {
+      setBa(v);
+      markSaved();
+    });
+
+  const setDecision = (status: DecisionStatus) =>
+    businessAnalysisApi.setDecisionStatus(projectKey, status).then((v) => {
       setBa(v);
       markSaved();
     });
@@ -265,22 +361,51 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
       if (path) save('attach_path', path);
     });
 
+  // NEXT ACTION's Start button is the app's existing per-project timer
+  // (ProjectDashboard/DeepWorkCard's own start/pause) — not a second
+  // task system, just the same switch reached from this screen.
+  const toggleAction = () => projectsApi.toggleTimer(projectKey).then(setProject);
+  const running = project?.running_since != null;
+
   const any = (...vals: string[]) => vals.some((v) => (v || '').trim().length > 0);
-  // Newest last in storage; the collapsed view shows the most recent.
-  const shown = historyOpen ? [...log].reverse() : log.slice(-1);
+
+  const ideaFilled = any(ba.idea_business, ba.idea_problem, ba.idea_customer, ba.idea_goal);
+  const analysisFilled = any(ba.an_market, ba.an_competition, ba.an_strength, ba.an_risk);
+  const financialFilled = any(ba.fin_investment, ba.fin_cost, ba.fin_revenue, ba.fin_profit);
+  const decisionFilled =
+    any(
+      ba.feelings_negative, ba.feelings_positive,
+      ba.thoughts_negative, ba.thoughts_positive,
+      ba.beliefs_negative, ba.beliefs_positive,
+      ba.actions_negative, ba.actions_positive,
+    ) || ba.decision_status !== '';
+  const actionFilled = any(ba.next_action);
+
+  const stepsDone = [ideaFilled, analysisFilled || financialFilled, decisionFilled, actionFilled];
+  const firstUndone = stepsDone.findIndex((d) => !d);
+  const current = firstUndone === -1 ? 3 : firstUndone;
+
+  const targetMatch = ba.idea_goal.match(TARGET_RE);
+  const investment = firstAmount(ba.fin_investment);
+  const profit = firstAmount(ba.fin_profit);
+  const breakEven = investment !== null && profit !== null && profit > 0 ? investment / profit : null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: 8, position: 'relative' }}>
-      {/* The project's own name is the page title, with the page name as
-          a quiet suffix — legacy's window title and header both read
-          "<project>  —  Business Analysis" (10452, 10469). The port
-          said only "Business Analysis", so six projects opened six
-          identical-looking pages. */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flex: 'none' }}>
-        <span style={{ fontSize: 16, fontWeight: 'bold' }}>
-          {project?.name || projectKey.toUpperCase()}
-        </span>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>— Business Analysis</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 'none' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+          <div style={{ fontSize: 24, fontWeight: 700 }}>
+            {(project?.name || projectKey).toUpperCase()}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            {targetMatch ? `${targetMatch[0]} / MONTH TARGET · ` : ''}Business Decision
+          </div>
+        </div>
+        <span style={{ flex: 1 }} />
+        <Stepper done={stepsDone} current={current} onJump={jumpTo} />
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
         <span style={{ flex: 1 }} />
         {ba.attach_path ? (
           <button
@@ -300,287 +425,299 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
             + Attach Word/Excel
           </button>
         )}
-        {/* The old fifteen boxes, one link away.
-            They used to be a full-width card under the canvas, which
-            gave a read-only dump of a replaced format more room than
-            the analysis it replaced — and, because it sat outside the
-            row template, it took that room OFF the cards above. As a
-            link it costs nothing until you want it. */}
-        {boxes.length > 0 && (
-          <button
-            onClick={() => setNotesOpen(true)}
-            title="The notes from the older fifteen-box version of this page"
-            style={{
-              fontSize: 12,
-              height: 24,
-              padding: '0 8px',
-              border: 'none',
-              background: 'transparent',
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-            }}
-          >
-            ▤ {boxes.length} legacy note{boxes.length === 1 ? '' : 's'}
-          </button>
-        )}
-
-        {/* Only after something has actually been saved. It used to
-            render on load, telling you a page you had not touched was
-            saved — a status that is always on is not a status. */}
         {savedAt > 0 && (
           <span style={{ fontSize: 12, color: 'var(--success)', whiteSpace: 'nowrap' }}>✓ Saved</span>
         )}
-        {/* No Back button here: the overlay this page opens inside
-            already pins one to its top-left corner, and two of them
-            three inches apart is the app asking the same question
-            twice. Escape still closes it. */}
       </div>
 
-      {/* Two columns, four rows, and the row weights ARE the argument
-          about what this page is for: the two analysis cards and the
-          people you need get the height, the decision gets none. */}
       <div
         style={{
           flex: 1,
           minHeight: 0,
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-            // Exactly four rows, and nothing may add a fifth.
-          //
-          // THE BUG THIS FIXES. LEGACY NOTES was a sixth card with no row
-          // of its own, so the grid gave it an IMPLICIT row sized to its
-          // content — eight boxes tall. The four `fr` rows above then
-          // divided whatever was left, which crushed them: PROBLEM IT
-          // SOLVES was sliced in half at the IDEA card's bottom edge and
-          // the ANALYSIS and FINANCIAL fields collapsed to a couple of
-          // pixels with scroll nubs. A card outside the row template does
-          // not just appear at the bottom; it takes its height off
-          // everything above it.
-          gridTemplateRows: '1fr 2fr auto 2fr',
+          // minmax(0, Nfr), not bare Nfr — a bare fr track refuses to
+          // shrink below its content's min size, which is exactly what
+          // pushed every row below ANALYSIS/FINANCIAL off the bottom of
+          // the window before: bare 1.4fr for the ANALYSIS+FINANCIAL
+          // row grew to fit their combined min-content height even
+          // though that was taller than 1.4fr's actual share of the
+          // container. minmax(0, …) lets the track shrink and pushes
+          // any excess into the Card's own overflow-y:auto instead.
+          gridTemplateRows: 'auto minmax(0, 1.6fr) minmax(0, 1.6fr) minmax(0, 1.8fr)',
           gap: 8,
         }}
       >
-        <Card
-          title="IDEA"
-          accent="var(--ba-idea)"
-          filled={any(ba.idea_business, ba.idea_problem, ba.idea_customer, ba.idea_goal)}
-          style={{ gridColumn: '1 / -1' }}
-        >
+        <Card ref={sectionRefs[0]} title="IDEA" accent="var(--ba-idea)" filled={ideaFilled} style={{ gridColumn: '1 / -1' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, flex: 1, minHeight: 0 }}>
-            <Field label="BUSINESS IDEA" accent="var(--ba-idea)" value={ba.idea_business} onSave={(v) => save('idea_business', v)} onSaved={markSaved} />
-            <Field label="PROBLEM IT SOLVES" accent="var(--ba-idea)" value={ba.idea_problem} onSave={(v) => save('idea_problem', v)} onSaved={markSaved} />
-            <Field label="TARGET CUSTOMER" accent="var(--ba-idea)" value={ba.idea_customer} onSave={(v) => save('idea_customer', v)} onSaved={markSaved} />
-            <Field label="GOAL" accent="var(--ba-idea)" value={ba.idea_goal} onSave={(v) => save('idea_goal', v)} onSaved={markSaved} />
-          </div>
-        </Card>
-
-        <Card
-          title="ANALYSIS"
-          accent="var(--ba-upside)"
-          filled={any(ba.an_market, ba.an_competition, ba.an_strength, ba.an_risk)}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
-            <Field label="MARKET OPPORTUNITY" accent="var(--ba-upside)" value={ba.an_market} onSave={(v) => save('an_market', v)} onSaved={markSaved} />
-            <Field label="COMPETITION" accent="var(--ba-upside)" value={ba.an_competition} onSave={(v) => save('an_competition', v)} onSaved={markSaved} />
-            <Field label="STRENGTH" accent="var(--ba-upside)" value={ba.an_strength} onSave={(v) => save('an_strength', v)} onSaved={markSaved} />
-            <Field label="WEAKNESS / RISK" accent="var(--ba-upside)" value={ba.an_risk} onSave={(v) => save('an_risk', v)} onSaved={markSaved} />
-          </div>
-        </Card>
-
-        <Card
-          title="FINANCIAL REALITY"
-          accent="var(--ba-money)"
-          filled={any(ba.fin_investment, ba.fin_cost, ba.fin_revenue, ba.fin_profit)}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
-            <Field label="INVESTMENT" accent="var(--ba-money)" value={ba.fin_investment} onSave={(v) => save('fin_investment', v)} onSaved={markSaved} />
-            <Field label="COST" accent="var(--ba-money)" value={ba.fin_cost} onSave={(v) => save('fin_cost', v)} onSaved={markSaved} />
-            <Field label="REVENUE" accent="var(--ba-money)" value={ba.fin_revenue} onSave={(v) => save('fin_revenue', v)} onSaved={markSaved} />
-            <Field label="PROFIT" accent="var(--ba-money)" value={ba.fin_profit} onSave={(v) => save('fin_profit', v)} onSaved={markSaved} />
-          </div>
-        </Card>
-
-        <Card
-          title="DECISION"
-          accent="var(--ba-decide)"
-          filled={any(ba.decision_status, ba.decision_why)}
-          style={{ gridColumn: '1 / -1' }}
-        >
-          {/* Chips FIRST. The port put "why this decision?" above the
-              decision itself, which asks for the reason before the
-              judgement it is a reason for. */}
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            {DECISION_STATUSES.map((s) => {
-              const on = ba.decision_status === s;
-              return (
-                <button
-                  key={s}
-                  onClick={() => toggleStatus(s)}
-                  aria-pressed={on}
-                  style={{
-                    flex: 1,
-                    height: 32,
-                    fontSize: 13,
-                    fontWeight: 'bold',
-                    letterSpacing: 0.5,
-                    background: on ? STATUS_COLOR[s] : `color-mix(in srgb, ${STATUS_COLOR[s]} 10%, var(--surface))`,
-                    color: on ? '#FFFFFF' : STATUS_COLOR[s],
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {s}
-                </button>
-              );
-            })}
-          </div>
-          <Field label="WHY THIS DECISION?" accent="var(--ba-decide)" rows={3} value={ba.decision_why} onSave={(v) => save('decision_why', v)} onSaved={markSaved} />
-
-          {/* History, collapsed to its most recent line. Legacy: "on a
-              page you open in order to MAKE a decision, the history is
-              context, not the task — but it must be visible enough that
-              you remember it exists". The port listed all of it. */}
-          {log.length > 0 && (
-            <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)' }}>
-              {shown.map((entry) => (
-                <div key={entry.id}>
-                  {entry.date}&nbsp;&nbsp; {entry.from_status || '—'} → {entry.to_status}
-                  {entry.why ? `  ·  ${entry.why.slice(0, 90)}` : ''}
-                </div>
-              ))}
-              {log.length > 1 && (
-                <button
-                  onClick={() => setHistoryOpen((v) => !v)}
-                  style={{
-                    marginTop: 4,
-                    height: 24,
-                    padding: 0,
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'var(--ba-decide)',
-                    fontSize: 12,
-                    cursor: 'pointer',
-                  }}
-                >
-                  {historyOpen ? 'hide history' : `${log.length - 1} earlier changes`}
-                </button>
-              )}
-            </div>
-          )}
-        </Card>
-
-        <Card title="NEXT ACTION" accent="var(--ba-do)" filled={any(ba.next_action)}>
-          <Field label="NEXT MOST IMPORTANT ACTION" accent="var(--ba-do)" value={ba.next_action} onSave={(v) => save('next_action', v)} onSaved={markSaved} />
-          {/* Priority and deadline on ONE row under the action, as
-              legacy has them (11011) — they are properties of the line
-              above, not two more sections. */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 8, flex: 'none' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginRight: 4 }}>
-              PRIORITY
-            </span>
-            {PRIORITIES.map((p) => {
-              const on = ba.next_priority === p;
-              return (
-                <button
-                  key={p}
-                  onClick={() => togglePriority(p)}
-                  aria-pressed={on}
-                  style={{
-                    height: 24,
-                    padding: '0 8px',
-                    fontSize: 12,
-                    fontWeight: 700,
-                    background: on ? PRIORITY_COLOR[p] : `color-mix(in srgb, ${PRIORITY_COLOR[p]} 10%, var(--surface))`,
-                    // White measured 2.48:1 on MED's orange and 3.32:1
-                    // on LOW's grey — axe caught it at "serious" — and
-                    // even HIGH's red only just cleared AA at 4.51:1.
-                    // Black clears all three comfortably (4.65/8.46/6.32)
-                    // — these are the app's own fixed BA_STATUS_COLORS,
-                    // not a user colour, so one ink works for all three.
-                    color: on ? '#000000' : PRIORITY_COLOR[p],
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {p}
-                </button>
-              );
-            })}
-            <span style={{ fontSize: 12, fontWeight: 'bold', color: 'var(--text-muted)', margin: '0 4px 0 16px' }}>
-              DEADLINE
-            </span>
-            <input
-              aria-label="Deadline"
-              defaultValue={ba.next_deadline}
-              onBlur={(e) => save('next_deadline', e.target.value.trim())}
-              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-              style={{ fontSize: 12, height: 24, width: 116, padding: '0 4px' }}
+            <Field
+              label="BUSINESS IDEA"
+              accent="var(--ba-idea)"
+              rows={1}
+              placeholder="What am I building?"
+              value={ba.idea_business}
+              onSave={(v) => save('idea_business', v)}
+              onSaved={markSaved}
             />
+            <Field
+              label="PROBLEM"
+              accent="var(--ba-idea)"
+              rows={1}
+              placeholder="What problem does it solve?"
+              value={ba.idea_problem}
+              onSave={(v) => save('idea_problem', v)}
+              onSaved={markSaved}
+            />
+            <Field
+              label="TARGET CUSTOMER"
+              accent="var(--ba-idea)"
+              rows={1}
+              placeholder="Who pays?"
+              value={ba.idea_customer}
+              onSave={(v) => save('idea_customer', v)}
+              onSaved={markSaved}
+            />
+            <Field
+              label="DESIRED OUTCOME"
+              accent="var(--ba-idea)"
+              rows={1}
+              placeholder="What measurable result do I want?"
+              value={ba.idea_goal}
+              onSave={(v) => save('idea_goal', v)}
+              onSaved={markSaved}
+            />
+          </div>
+        </Card>
+
+        <Card ref={sectionRefs[1]} title="ANALYSIS" accent="var(--ba-upside)" filled={analysisFilled}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
+            <Field label="MARKET OPPORTUNITY" accent="var(--ba-upside)" rows={1} value={ba.an_market} onSave={(v) => save('an_market', v)} onSaved={markSaved} />
+            <Field label="COMPETITION" accent="var(--ba-upside)" rows={1} value={ba.an_competition} onSave={(v) => save('an_competition', v)} onSaved={markSaved} />
+            <Field label="STRENGTH" accent="var(--ba-upside)" rows={1} value={ba.an_strength} onSave={(v) => save('an_strength', v)} onSaved={markSaved} />
+            <Field label="WEAKNESS / RISK" accent="var(--ba-upside)" rows={1} value={ba.an_risk} onSave={(v) => save('an_risk', v)} onSaved={markSaved} />
+          </div>
+        </Card>
+
+        <Card title="FINANCIAL REALITY" accent="var(--ba-money)" filled={financialFilled}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, flex: 1, minHeight: 0, alignContent: 'start' }}>
+            <MoneyStat label="INVESTMENT" accent="var(--ba-money)" value={ba.fin_investment} onSave={(v) => save('fin_investment', v)} onSaved={markSaved} />
+            <MoneyStat label="REVENUE" accent="var(--ba-upside)" value={ba.fin_revenue} onSave={(v) => save('fin_revenue', v)} onSaved={markSaved} />
+            <MoneyStat label="COST" accent="var(--danger)" value={ba.fin_cost} onSave={(v) => save('fin_cost', v)} onSaved={markSaved} />
+            <MoneyStat label="PROFIT" accent="var(--ba-decide)" value={ba.fin_profit} onSave={(v) => save('fin_profit', v)} onSaved={markSaved} />
+            <div
+              style={{
+                gridColumn: '1 / -1',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 12,
+                fontWeight: 600,
+                color: breakEven !== null ? 'var(--text)' : 'var(--text-muted)',
+                padding: 8,
+                borderRadius: RADIUS.card,
+                background: 'color-mix(in srgb, var(--ba-money) 8%, var(--surface))',
+              }}
+            >
+              <span style={{ letterSpacing: 0.5, color: 'var(--text-muted)' }}>BREAK-EVEN</span>
+              <span>
+                {breakEven !== null && Number.isFinite(breakEven)
+                  ? `${breakEven.toFixed(1)} months`
+                  : 'Add investment & profit to calculate'}
+              </span>
+            </div>
+          </div>
+        </Card>
+
+        <div ref={sectionRefs[2]} style={{ display: 'flex', gap: 8, gridColumn: '1 / -1', minHeight: 0 }}>
+          <Card title="DECISION" accent="var(--ba-decide)" filled={decisionFilled} style={{ flex: 2, minWidth: 0 }}>
+            {/* Both rows are flex-shrink:0 and the wrapper scrolls instead
+                of shrinking below their content height — a squeezed row
+                here used to bleed its border past the box edge and cross
+                straight through the "REQUIRED STATE" label under it. */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0, overflowY: 'auto' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--danger)' }}>
+                  CURRENT BLOCKERS
+                </div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: 16,
+                    padding: 8,
+                    borderRadius: RADIUS.card,
+                    background: 'color-mix(in srgb, var(--danger) 8%, transparent)',
+                  }}
+                >
+                  {BLOCKER_FIELDS.map((f) => (
+                    <Field
+                      key={f.field}
+                      label={f.label}
+                      accent="var(--danger)"
+                      rows={1}
+                      value={ba[f.field]}
+                      onSave={(v) => save(f.field, v)}
+                      onSaved={markSaved}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--success)' }}>
+                  REQUIRED STATE
+                </div>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
+                    gap: 16,
+                    padding: 8,
+                    borderRadius: RADIUS.card,
+                    background: 'color-mix(in srgb, var(--success) 8%, transparent)',
+                  }}
+                >
+                  {REQUIRED_FIELDS.map((f) => (
+                    <Field
+                      key={f.field}
+                      label={f.label}
+                      accent="var(--success)"
+                      rows={1}
+                      value={ba[f.field]}
+                      onSave={(v) => save(f.field, v)}
+                      onSaved={markSaved}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card title="DECISION" accent="var(--ba-decide)" filled={ba.decision_status !== ''} style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {DECISION_OPTIONS.map((opt) => {
+                  const on = ba.decision_status === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      onClick={() => setDecision(opt.value)}
+                      aria-pressed={on}
+                      style={{
+                        height: 28,
+                        padding: '0 12px',
+                        fontSize: 12,
+                        fontWeight: 700,
+                        borderRadius: RADIUS.control,
+                        border: `1px solid ${opt.color}`,
+                        background: on ? opt.color : 'transparent',
+                        color: on ? '#000000' : opt.color,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', flex: 'none' }}>
+                {DECISION_OPTIONS.find((o) => o.value === ba.decision_status)?.hint ?? DECISION_DEFAULT_HINT}
+              </div>
+              <Field
+                label="REASON"
+                accent="var(--ba-decide)"
+                rows={4}
+                value={ba.decision_why}
+                onSave={(v) => save('decision_why', v)}
+                onSaved={markSaved}
+              />
+            </div>
+          </Card>
+        </div>
+
+        <Card
+          ref={sectionRefs[3]}
+          title="NEXT ACTION"
+          accent="var(--ba-do)"
+          filled={actionFilled}
+          style={{ background: 'color-mix(in srgb, var(--ba-do) 6%, var(--surface))' }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
+            <Field
+              label="NEXT MOST IMPORTANT ACTION"
+              accent="var(--ba-do)"
+              big
+              value={ba.next_action}
+              onSave={(v) => save('next_action', v)}
+              onSaved={markSaved}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, flex: 'none' }}>
+              <Field label="WHO" accent="var(--ba-do)" rows={1} value={ba.next_who} onSave={(v) => save('next_who', v)} onSaved={markSaved} />
+              <Field label="WHEN" accent="var(--ba-do)" rows={1} value={ba.next_when} onSave={(v) => save('next_when', v)} onSaved={markSaved} />
+              <Field label="TIME" accent="var(--ba-do)" rows={1} value={ba.next_time} onSave={(v) => save('next_time', v)} onSaved={markSaved} />
+              <Field label="DONE WHEN" accent="var(--ba-do)" rows={1} value={ba.next_done_when} onSave={(v) => save('next_done_when', v)} onSaved={markSaved} />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 'none' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginRight: 4 }}>
+                PRIORITY
+              </span>
+              {PRIORITIES.map((p) => {
+                const on = ba.next_priority === p;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => togglePriority(p)}
+                    aria-pressed={on}
+                    style={{
+                      height: 24,
+                      padding: '0 8px',
+                      fontSize: 12,
+                      fontWeight: 700,
+                      background: on ? PRIORITY_COLOR[p] : `color-mix(in srgb, ${PRIORITY_COLOR[p]} 10%, var(--surface))`,
+                      color: on ? '#000000' : PRIORITY_COLOR[p],
+                      border: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', margin: '0 4px 0 16px' }}>
+                DEADLINE
+              </span>
+              <input
+                aria-label="Deadline"
+                defaultValue={ba.next_deadline}
+                onBlur={(e) => save('next_deadline', e.target.value.trim())}
+                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                style={{ fontSize: 12, height: 24, width: 116, padding: '0 4px' }}
+              />
+              <span style={{ flex: 1 }} />
+              <button
+                onClick={toggleAction}
+                style={{
+                  height: 32,
+                  padding: '0 24px',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  borderRadius: RADIUS.control,
+                  border: 'none',
+                  background: running ? 'var(--danger)' : 'var(--ba-do)',
+                  color: '#000000',
+                  cursor: 'pointer',
+                }}
+              >
+                {running ? '■ PAUSE ACTION' : '▶ START ACTION'}
+              </button>
+            </div>
           </div>
         </Card>
 
         <Card title="PEOPLE" accent="var(--ba-decide)" filled={peopleCount > 0}>
           <CircleSection projectKey={projectKey} onCount={setPeopleCount} />
         </Card>
-
       </div>
-
-      {/* Over the canvas, not in it. A panel that pushed the grid down
-          would be the same mistake in a different shape — the notes are
-          something you consult and dismiss, so they cover the page and
-          then leave it exactly as it was. */}
-      {notesOpen && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 5,
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0,
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '8px 12px',
-              borderBottom: '1px solid var(--border)',
-              flex: 'none',
-            }}
-          >
-            <span style={{ fontSize: 13, fontWeight: 'bold', letterSpacing: 0.8, color: 'var(--text-muted)' }}>
-              LEGACY NOTES
-            </span>
-            <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
-              read-only · from the older version of this page
-            </span>
-            <span style={{ flex: 1 }} />
-            <button
-              onClick={() => setNotesOpen(false)}
-              title="Close"
-              style={{ width: 24, height: 24, padding: 0, border: 'none', background: 'transparent', cursor: 'pointer' }}
-            >
-              ✕
-            </button>
-          </div>
-          <div style={{ overflowY: 'auto', minHeight: 0, flex: 1, padding: 12 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {boxes.map((b) => (
-                <div key={b.box_index} style={{ border: '1px solid var(--border)', padding: 8 }}>
-                  {b.title && (
-                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>{b.title}</div>
-                  )}
-                  <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{b.text}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

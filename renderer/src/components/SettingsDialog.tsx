@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Settings, SettingsPatch, settingsApi } from '../services/api';
 import { THEME_LABELS, THEME_ORDER, Theme, themeSwatch } from '../themes';
+import { RADIUS } from '../spacing';
 
 const APP_VERSION = '0.1.0';
 const APP_CONTACT = 'balakaint@gmail.com';
@@ -16,7 +17,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <div
         style={{
           fontSize: 12,
-          fontWeight: 'bold',
+          fontWeight: 700,
           letterSpacing: 0.5,
           color: 'var(--text-faint)',
           borderBottom: '1px solid var(--border)',
@@ -47,7 +48,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
       style={{
         width: 40,
         height: 22,
-        borderRadius: 11,
+        borderRadius: RADIUS.card,
         border: '1px solid var(--border)',
         background: on ? 'var(--accent)' : 'transparent',
         position: 'relative',
@@ -63,7 +64,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
           left: on ? 19 : 1,
           width: 18,
           height: 18,
-          borderRadius: '50%',
+          borderRadius: RADIUS.pill,
           background: on ? 'var(--on-accent)' : 'var(--text-muted)',
           transition: 'left 0.12s',
         }}
@@ -123,7 +124,7 @@ function ThemePicker({ value, onSelect }: { value: Theme; onSelect: (t: Theme) =
               padding: '4px 4px',
               background: on ? 'var(--accent-light)' : 'transparent',
               border: '1px solid transparent',
-              borderRadius: 4,
+              borderRadius: RADIUS.control,
               cursor: 'pointer',
               color: 'var(--text)',
               font: 'inherit',
@@ -134,7 +135,7 @@ function ThemePicker({ value, onSelect }: { value: Theme; onSelect: (t: Theme) =
               style={{
                 width: 12,
                 height: 12,
-                borderRadius: '50%',
+                borderRadius: RADIUS.pill,
                 flex: '0 0 auto',
                 border: `2px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
                 background: on
@@ -227,7 +228,7 @@ export default function SettingsDialog({
           background: 'var(--surface)',
           color: 'var(--text)',
           border: '1px solid var(--border)',
-          borderRadius: 10,
+          borderRadius: RADIUS.card,
           padding: 24,
           width: 380,
           maxHeight: '85vh',

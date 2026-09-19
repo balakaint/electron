@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { inkOn } from '../themes';
 import { Journey, JourneyStage, ProjectKey, ProjectOrderEntry, journeyApi, projectsApi } from '../services/api';
 import { useAutoTimer } from '../useAutoTimer';
-import { RADIUS } from '../spacing';
+import { RADIUS, SPACE } from '../spacing';
+import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
 
 function StatusDot({ status }: { status: string }) {
   const label = status === 'ok' ? '✓' : status === 'no' ? '✕' : '·';
@@ -11,6 +12,246 @@ function StatusDot({ status }: { status: string }) {
     <span style={{ color, fontWeight: 700, width: 14, display: 'inline-block', textAlign: 'center' }}>
       {label}
     </span>
+  );
+}
+
+// A stage's state reads as ONE colour, everywhere at once — the number
+// badge, the card's border, its faint background tint — so the eye
+// sorts done/current/upcoming before it reads a single word. Same
+// tinted-pill technique QuarterlyPlanPanel's StatusBadge already uses
+// (colour AS the text/border, a color-mix() tint as the fill) rather
+// than a solid fill needing a computed ink colour — one fewer thing
+// that can go wrong on a seventh theme.
+const STAGE_COLOR = { done: 'var(--success)', current: 'var(--accent)', upcoming: 'var(--border)' } as const;
+
+function stageState(stage: JourneyStage, isCurrentStage: boolean): keyof typeof STAGE_COLOR {
+  if (stage.done) return 'done';
+  if (isCurrentStage) return 'current';
+  return 'upcoming';
+}
+
+// The board's collapsed column: one stage's status at a glance — name,
+// gate, task progress, first couple of tasks — so all 6 stages read
+// side by side without opening any of them. Clicking it expands that
+// stage in place (see JourneyPanel's `expandedStage`).
+function StageColumn({
+  stage,
+  isCurrentStage,
+  onExpand,
+}: {
+  stage: JourneyStage;
+  isCurrentStage: boolean;
+  onExpand: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const doneCount = stage.tasks.filter((t) => t.done).length;
+  const total = stage.tasks.length;
+  const preview = stage.tasks.slice(0, 2);
+  const extra = total - preview.length;
+  const state = stageState(stage, isCurrentStage);
+  const color = STAGE_COLOR[state];
+  const tinted = state !== 'upcoming';
+
+  return (
+    <button
+      onClick={onExpand}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      title={`Open ${stage.name}`}
+      style={{
+        textAlign: 'left',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: SPACE.xs,
+        // minWidth: 0 is load-bearing — a flex/grid item's default
+        // min-width is its content's own (nowrap) width, which is what
+        // was pushing every column to a different size and silently
+        // defeating every ellipsis below.
+        minWidth: 0,
+        width: '100%',
+        boxSizing: 'border-box',
+        background: tinted ? `color-mix(in srgb, ${color} 6%, var(--surface))` : 'var(--surface)',
+        border: `1px solid ${tinted ? color : 'var(--border)'}`,
+        borderRadius: RADIUS.card,
+        padding: SPACE.md,
+        cursor: 'pointer',
+        color: 'var(--text)',
+        transform: hovered ? 'translateY(-2px)' : 'none',
+        boxShadow: hovered ? `0 4px 12px color-mix(in srgb, ${color} 20%, transparent)` : 'none',
+        transition: 'transform 0.12s ease-out, box-shadow 0.12s ease-out',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.xs, minWidth: 0 }}>
+        <span
+          aria-hidden
+          style={{
+            flex: 'none',
+            width: 22,
+            height: 22,
+            borderRadius: RADIUS.pill,
+            border: `1px solid ${color}`,
+            background: `color-mix(in srgb, ${color} 14%, transparent)`,
+            color,
+            fontSize: TYPE_SIZE.xs,
+            fontWeight: TYPE_WEIGHT.bold,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {stage.done ? '✓' : stage.stage_index + 1}
+        </span>
+        <div
+          style={{
+            fontSize: TYPE_SIZE.sm,
+            fontWeight: TYPE_WEIGHT.bold,
+            color: 'var(--text)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            minWidth: 0,
+            flex: 1,
+          }}
+        >
+          {stage.name}
+        </div>
+      </div>
+
+      {isCurrentStage && !stage.done && (
+        <span
+          style={{
+            alignSelf: 'flex-start',
+            fontSize: TYPE_SIZE.xs,
+            fontWeight: TYPE_WEIGHT.bold,
+            letterSpacing: TRACKING.label,
+            color: 'var(--accent)',
+          }}
+        >
+          CURRENT
+        </span>
+      )}
+
+      {stage.gate && (
+        <div
+          style={{
+            fontSize: TYPE_SIZE.xs,
+            color: 'var(--text-faint)',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            minWidth: 0,
+          }}
+        >
+          {stage.gate_done ? '✓' : '○'} {stage.gate}
+        </div>
+      )}
+
+      {total > 0 && (
+        <>
+          <div style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-muted)' }}>
+            {doneCount}/{total} tasks
+          </div>
+          <div style={{ height: SPACE.hair, borderRadius: RADIUS.pill, background: 'var(--surface-2)', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${(doneCount / total) * 100}%`,
+                background: color,
+              }}
+            />
+          </div>
+          {preview.map((t) => (
+            <div
+              key={t.id}
+              style={{
+                fontSize: TYPE_SIZE.xs,
+                color: 'var(--text-muted)',
+                textDecoration: t.done ? 'line-through' : 'none',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                minWidth: 0,
+              }}
+            >
+              {t.done ? '✓' : '○'} {t.text}
+            </div>
+          ))}
+          {extra > 0 && <div style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)' }}>+{extra} more</div>}
+        </>
+      )}
+
+      {total === 0 && !stage.gate && (
+        <div style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)' }}>Nothing here yet</div>
+      )}
+    </button>
+  );
+}
+
+// The strip shown alongside an expanded stage: the other stages,
+// shrunk to a name and a status colour, wrapping onto as many lines as
+// the panel needs. A grid row with a 3fr/1fr split was tried first and
+// dropped — at the panel's real width (one of three columns in the
+// app, not a full browser tab) it hit its own floor and forced a
+// horizontal scrollbar, which is never a "world-class" fix. Wrapping
+// never needs a scrollbar at any width.
+function MiniStagePill({
+  stage,
+  isCurrentStage,
+  onExpand,
+}: {
+  stage: JourneyStage;
+  isCurrentStage: boolean;
+  onExpand: () => void;
+}) {
+  const color = STAGE_COLOR[stageState(stage, isCurrentStage)];
+  return (
+    <button
+      onClick={onExpand}
+      title={`Open ${stage.name}`}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: SPACE.xs,
+        maxWidth: 150,
+        background: 'var(--surface)',
+        border: `1px solid ${color}`,
+        borderRadius: RADIUS.pill,
+        padding: '4px 8px',
+        cursor: 'pointer',
+        color: 'var(--text)',
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          flex: 'none',
+          width: 16,
+          height: 16,
+          borderRadius: RADIUS.pill,
+          background: `color-mix(in srgb, ${color} 16%, transparent)`,
+          color,
+          fontSize: TYPE_SIZE.xs,
+          fontWeight: TYPE_WEIGHT.bold,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {stage.done ? '✓' : stage.stage_index + 1}
+      </span>
+      <span
+        style={{
+          fontSize: TYPE_SIZE.xs,
+          fontWeight: TYPE_WEIGHT.medium,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          minWidth: 0,
+        }}
+      >
+        {stage.name}
+      </span>
+    </button>
   );
 }
 
@@ -251,6 +492,7 @@ export default function JourneyPanel() {
   const [projectKey, setProjectKey] = useState<ProjectKey | null>(null);
   const [journey, setJourney] = useState<Journey | null>(null);
   const [activeStage, setActiveStage] = useState(0);
+  const [expandedStage, setExpandedStage] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const refreshOrder = () => projectsApi.order().then(setOrder);
@@ -269,6 +511,7 @@ export default function JourneyPanel() {
     journeyApi.get(projectKey).then((j) => {
       setJourney(j);
       setActiveStage(j.current_stage);
+      setExpandedStage(null);
     });
   }, [projectKey]);
 
@@ -283,10 +526,18 @@ export default function JourneyPanel() {
   if (!journey || !projectKey) return <div>Loading…</div>;
 
   const activeEntry = order.find((e) => e.project.key === projectKey);
-  const stage = journey.stages[activeStage];
+
+  // CSS Grid, not flexbox, for the collapsed board row: a `1fr` grid
+  // track is sized from the AVAILABLE space, not from its content, so
+  // all 6 columns come out genuinely equal width without each one
+  // fighting its neighbour over its longest task line.
+  // auto-fit (not a fixed repeat(N, …)) so a narrow panel wraps extra
+  // stages onto a second row instead of forcing a scrollbar — the same
+  // "never scroll, always wrap" call made for the expanded view below.
+  const boardColumns = 'repeat(auto-fit, minmax(150px, 1fr))';
 
   return (
-    <div style={{ maxWidth: 900 }}>
+    <div style={{ maxWidth: 1200 }}>
       <div style={{ display: 'flex', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
         {order.map((entry) => (
           <button
@@ -384,40 +635,77 @@ export default function JourneyPanel() {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
-        {journey.stages.map((s) => (
+      {expandedStage === null ? (
+        // Nothing expanded: the full board, every stage as an equal-width
+        // column — the "see the whole journey at a glance" view.
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: boardColumns,
+            gap: SPACE.md,
+            marginBottom: SPACE.lg,
+            alignItems: 'start',
+          }}
+        >
+          {journey.stages.map((s) => (
+            <StageColumn
+              key={s.stage_index}
+              stage={s}
+              isCurrentStage={s.stage_index === journey.current_stage}
+              onExpand={() => {
+                setActiveStage(s.stage_index);
+                setExpandedStage(s.stage_index);
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        // One stage expanded: its full editor at a readable width, the
+        // other stages shrunk to a wrapping strip of pills underneath —
+        // still every stage, still one glance, never a scrollbar.
+        <div style={{ marginBottom: SPACE.lg }}>
           <button
-            key={s.stage_index}
-            onClick={() => setActiveStage(s.stage_index)}
-            disabled={s.stage_index === activeStage}
-            style={{
-              fontSize: 12,
-              padding: '4px 8px',
-              opacity: s.done ? 1 : 0.8,
-              fontWeight: s.stage_index === journey.current_stage ? 700 : 400,
-            }}
-            title={s.name}
+            onClick={() => setExpandedStage(null)}
+            style={{ fontSize: TYPE_SIZE.xs, marginBottom: SPACE.md, padding: '4px 8px' }}
           >
-            {s.done ? '✓' : s.stage_index + 1}. {s.name}
+            ▲ Collapse
           </button>
-        ))}
-      </div>
-
-      {stage && (
-        <StageDetail
-          stage={stage}
-          isCurrent={stage.stage_index === journey.current_stage}
-          onRename={(name, description) => apply(journeyApi.updateStageMeta(projectKey, stage.stage_index, { name, description }))}
-          onSetGate={(gate) => apply(journeyApi.setGate(projectKey, stage.stage_index, gate))}
-          onToggleGate={() => apply(journeyApi.toggleGate(projectKey, stage.stage_index))}
-          onAddTask={(text) => apply(journeyApi.addTask(projectKey, stage.stage_index, text))}
-          onToggleTask={(id) => apply(journeyApi.toggleTask(id))}
-          onEditTask={(id, text) => apply(journeyApi.editTask(id, text))}
-          onDeleteTask={(id) => apply(journeyApi.deleteTask(id))}
-          onAddLog={(text) => apply(journeyApi.addLog(projectKey, stage.stage_index, text))}
-          onCycleLog={(id) => apply(journeyApi.cycleLog(id))}
-          onDeleteLog={(id) => apply(journeyApi.deleteLog(id))}
-        />
+          {journey.stages
+            .filter((s) => s.stage_index === expandedStage)
+            .map((s) => (
+              <div key={s.stage_index} style={{ maxWidth: 640 }}>
+              <StageDetail
+                stage={s}
+                isCurrent={s.stage_index === journey.current_stage}
+                onRename={(name, description) => apply(journeyApi.updateStageMeta(projectKey, s.stage_index, { name, description }))}
+                onSetGate={(gate) => apply(journeyApi.setGate(projectKey, s.stage_index, gate))}
+                onToggleGate={() => apply(journeyApi.toggleGate(projectKey, s.stage_index))}
+                onAddTask={(text) => apply(journeyApi.addTask(projectKey, s.stage_index, text))}
+                onToggleTask={(id) => apply(journeyApi.toggleTask(id))}
+                onEditTask={(id, text) => apply(journeyApi.editTask(id, text))}
+                onDeleteTask={(id) => apply(journeyApi.deleteTask(id))}
+                onAddLog={(text) => apply(journeyApi.addLog(projectKey, s.stage_index, text))}
+                onCycleLog={(id) => apply(journeyApi.cycleLog(id))}
+                onDeleteLog={(id) => apply(journeyApi.deleteLog(id))}
+              />
+              </div>
+            ))}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: SPACE.sm, marginTop: SPACE.md }}>
+            {journey.stages
+              .filter((s) => s.stage_index !== expandedStage)
+              .map((s) => (
+                <MiniStagePill
+                  key={s.stage_index}
+                  stage={s}
+                  isCurrentStage={s.stage_index === journey.current_stage}
+                  onExpand={() => {
+                    setActiveStage(s.stage_index);
+                    setExpandedStage(s.stage_index);
+                  }}
+                />
+              ))}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -18,6 +18,7 @@ import TodayProgressBar from './TodayProgressBar';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { dayNumber, elapsedText, projTimeText } from '../format';
 import { accentText, inkOn } from '../themes';
+import { RADIUS } from '../spacing';
 
 
 // Legacy's _PROJ_TARGETS (task_tracker_v3_THEMES.py 2760). Its own note
@@ -158,7 +159,7 @@ function ProjectCard({
           alignItems: 'center',
           gap: 8,
           padding: '4px 8px',
-          borderRadius: 6,
+          borderRadius: RADIUS.card,
           marginBottom: 2,
           border: '1px solid transparent',
           // A running project must not look like an idle one. It used to.
@@ -173,14 +174,17 @@ function ProjectCard({
         }}
       >
         <span
-          onClick={toggleCollapsed}
+          onClick={() => {
+            toggleCollapsed();
+            onSelectGoals(key);
+          }}
           onDoubleClick={soloThis}
           title="Open · double-click to solo this project"
           style={{
             width: 20,
             height: 20,
             flex: 'none',
-            borderRadius: 5,
+            borderRadius: RADIUS.control,
             background: project.accent_color,
             // Ink chosen against THIS project's colour, not the theme's
             // accent: --on-accent is right for the theme accent and
@@ -190,7 +194,7 @@ function ProjectCard({
             display: 'grid',
             placeItems: 'center',
             fontSize: 12,
-            fontWeight: 'bold',
+            fontWeight: 700,
             cursor: 'pointer',
             userSelect: 'none',
           }}
@@ -198,8 +202,15 @@ function ProjectCard({
           {project.done_today ? '✓' : number}
         </span>
         <button
-          onClick={toggleCollapsed}
-          title={previewText}
+          onClick={() => {
+            toggleCollapsed();
+            onSelectGoals(key);
+          }}
+          // The name is what ellipsis clips here, so the name is what
+          // the hover has to restore — previewText alone (used to be
+          // the whole title) tells you the status of a project whose
+          // own name you can no longer read.
+          title={project.name ? `${project.name}  ·  ${previewText}` : previewText}
           style={{
             flex: 1,
             minWidth: 0,
@@ -221,7 +232,7 @@ function ProjectCard({
         </button>
         <span
           title={`${projTimeText(project.secs_today, project.target_minutes)} today`}
-          style={{ width: 44, height: 5, background: 'var(--progress-track)', borderRadius: 3, flex: 'none', overflow: 'hidden' }}
+          style={{ width: 44, height: 5, background: 'var(--progress-track)', borderRadius: RADIUS.pill, flex: 'none', overflow: 'hidden' }}
         >
           <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: project.accent_color }} />
         </span>
@@ -233,7 +244,7 @@ function ProjectCard({
             fontSize: 12,
             fontFamily: 'monospace',
             color: running ? accentText(project.accent_color) : 'var(--text-faint)',
-            fontWeight: running ? 'bold' : 'normal',
+            fontWeight: running ? 700 : 400,
           }}
         >
           {elapsedText(project.secs_today)}
@@ -249,7 +260,7 @@ function ProjectCard({
             minWidth: 24,
             height: 24,
             flex: 'none',
-            borderRadius: 5,
+            borderRadius: RADIUS.control,
             border: 'none',
             cursor: 'pointer',
             fontSize: 12,
@@ -267,7 +278,7 @@ function ProjectCard({
     <div
       style={{
         border: `1px solid ${project.accent_color}55`,
-        borderRadius: 8,
+        borderRadius: RADIUS.card,
         marginBottom: 12,
         overflow: 'hidden',
         // See the collapsed row: a dimmed card dims its text too.
@@ -284,20 +295,23 @@ function ProjectCard({
       <div style={{ padding: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <span
-            onClick={toggleCollapsed}
+            onClick={() => {
+              toggleCollapsed();
+              onSelectGoals(key);
+            }}
             onDoubleClick={soloThis}
             title="Click to collapse · double-click to solo this project"
             style={{
               width: 22,
               height: 22,
-              borderRadius: 4,
+              borderRadius: RADIUS.control,
               background: project.accent_color,
               color: inkOn(project.accent_color),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: 12,
-              fontWeight: 'bold',
+              fontWeight: 700,
               cursor: 'pointer',
               userSelect: 'none',
             }}
@@ -311,7 +325,7 @@ function ProjectCard({
             onBlur={saveName}
             onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
             placeholder={`PROJECT ${number}`}
-            style={{ flex: 1, height: 24, fontWeight: 'bold', fontSize: 15, border: 'none', background: 'transparent', color: accentText(project.accent_color) }}
+            style={{ flex: 1, height: 24, fontWeight: 700, fontSize: 16, border: 'none', background: 'transparent', color: accentText(project.accent_color) }}
           />
           <button
             onClick={toggleCollapsed}
@@ -397,10 +411,17 @@ function ProjectCard({
             onClick={() => setEditingNote(true)}
             title="Click to edit"
             style={{
-              fontSize: 12.5,
+              fontSize: 13,
               lineHeight: 1.5,
               color: 'var(--text-muted)',
               whiteSpace: 'pre-line',
+              // A note is free text, so it wraps rather than ellipsizes
+              // — but pre-line alone only handles the newlines the user
+              // typed; a pasted URL has none, and without this it stays
+              // one unbroken "word" wider than the card (measured at
+              // 1938px in a 400px column) instead of breaking onto the
+              // next line the way every other long word already does.
+              overflowWrap: 'break-word',
               cursor: 'text',
               marginBottom: 8,
             }}
@@ -570,7 +591,25 @@ function ProjectCard({
                       □/✓. One tick idiom across the app. */}
                   {s.done ? '✓' : '□'}
                 </button>
-                <span style={{ flex: 1, textDecoration: s.done ? 'line-through' : 'none' }}>{s.text}</span>
+                {/* minWidth: 0 is load-bearing. A flex item defaults to
+                    min-width: auto — its own content's width as a floor —
+                    and an unbroken string like a pasted URL has no space
+                    to wrap on, so without this the task name refuses to
+                    shrink and drags the whole row (measured at 1880px in
+                    a 400px column) past its container instead of eliding. */}
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    textDecoration: s.done ? 'line-through' : 'none',
+                  }}
+                  title={s.text}
+                >
+                  {s.text}
+                </span>
                 {/* How long this has been open. Muted, not red: legacy
                     had it hard-coded in the same colour the app uses for
                     risk and delete-hover, and "DAY 37" is a neutral fact
@@ -648,6 +687,7 @@ export default function ProjectDashboard({
   onSelectGoals,
   goalsProject,
   openProject,
+  onAllCollapsedChange,
 }: {
   // Bumped by panel 3 when it writes to the focus list; see App.tsx.
   focusVersion: number;
@@ -661,6 +701,10 @@ export default function ProjectDashboard({
   // still starts for it — that behaviour moved to the shell with the
   // overlays and would otherwise have been silently dropped.
   openProject: ProjectKey | null;
+  // Told every time the collapsed/expanded state of the project list
+  // changes, so panel 2 can fall back to the Life Plan headline view
+  // when every project is collapsed. See App.tsx's allProjectsCollapsed.
+  onAllCollapsedChange: (allCollapsed: boolean) => void;
 }) {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
   const [focusTasks, setFocusTasks] = useState<Task[]>([]);
@@ -685,6 +729,14 @@ export default function ProjectDashboard({
     tasksApi.list('focus').then(setFocusTasks);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusVersion]);
+
+  // Tells panel 2 whenever every project's collapsed state changes, so it
+  // can switch to the Life Plan headline view when all are collapsed.
+  useEffect(() => {
+    if (order.length === 0) return;
+    onAllCollapsedChange(order.every((e) => e.project.collapsed));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order]);
 
   useAutoTimer(openProject, order, refresh);
 

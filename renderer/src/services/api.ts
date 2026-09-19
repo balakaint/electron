@@ -130,83 +130,36 @@ export const tasksApi = {
 
 export const STRIKE_MAX = 3;
 
-export type HabitCategory = 'money' | 'health' | 'relation' | 'mind';
-
-export interface Habit {
-  id: number;
-  category: HabitCategory;
-  name: string;
-  sort_order: number;
-  active: boolean;
-  done: boolean;
-}
-
-export interface CategorySummary {
-  done: number;
-  total: number;
-  pct: number;
-}
-
-export interface DaySummary {
-  day: string;
-  score: number;
-  categories: Record<HabitCategory, CategorySummary>;
-}
-
 export interface MindsetEntry {
   day: string;
   label: string;
   text: string;
 }
 
-export interface WeekScore {
-  day: string;
-  label: string;
-  pct: number;
-}
-
-export interface MonthlyReport {
-  avg_score: number;
-  streak: number;
-  days_done: number;
-}
-
-export const habitsApi = {
-  list: (day: string, category?: HabitCategory) =>
-    req(
-      'GET',
-      `/api/habits?day=${day}` + (category ? `&category=${category}` : ''),
-    ) as Promise<Habit[]>,
-  create: (category: HabitCategory, name: string) =>
-    req('POST', '/api/habits', { category, name }) as Promise<Habit>,
-  rename: (id: number, name: string) => req('PUT', `/api/habits/${id}`, { name }) as Promise<Habit>,
-  deactivate: (id: number) => req('DELETE', `/api/habits/${id}`) as Promise<Habit>,
-  toggle: (id: number, day: string) =>
-    req('POST', `/api/habits/${id}/toggle?day=${day}`) as Promise<{
-      habit_id: number;
-      day: string;
-      done: boolean;
-    }>,
-  summary: (day: string) => req('GET', `/api/habits/summary?day=${day}`) as Promise<DaySummary>,
-  streak: () => req('GET', '/api/habits/streak') as Promise<{ streak: number }>,
-  week: () => req('GET', '/api/habits/week') as Promise<WeekScore[]>,
-  getIntention: (day: string) =>
-    req('GET', `/api/intentions/${day}`) as Promise<{ day: string; text: string }>,
-  setIntention: (day: string, text: string) =>
-    req('PUT', `/api/intentions/${day}`, { text }) as Promise<{ day: string; text: string }>,
+// The old flat Money/Health/Relation/Mind checklist (habitsApi) and the
+// separate whole-app "Life Execution Board" it powered — habit CRUD/
+// toggle, day/week/monthly scoring, streak, and the Win/Reflection daily
+// notes — were removed outright (Zahid, 2026-09-14: "emon task list
+// mainly regular chek kora hoy na" — not actually checked regularly).
+// Only the Mindset note survives, since it's a genuinely separate
+// feature (PlanReview.tsx's own Mindset tab) that happened to share a
+// backend file with the checklist rather than depending on it.
+export const mindsetApi = {
   getMindset: (day: string) =>
     req('GET', `/api/mindset/${day}`) as Promise<{ day: string; mindset: string }>,
   setMindset: (day: string, text: string) =>
     req('PUT', `/api/mindset/${day}`, { text }) as Promise<{ day: string; mindset: string }>,
   mindsetHistory: (days = 7) =>
     req('GET', `/api/mindset/history?days=${days}`) as Promise<MindsetEntry[]>,
-  getWin: (day: string) => req('GET', `/api/wins/${day}`) as Promise<{ day: string; win: string }>,
-  setWin: (day: string, text: string) => req('PUT', `/api/wins/${day}`, { text }) as Promise<{ day: string; win: string }>,
-  getReflection: (day: string) =>
-    req('GET', `/api/reflections/${day}`) as Promise<{ day: string; reflection: string }>,
-  setReflection: (day: string, text: string) =>
-    req('PUT', `/api/reflections/${day}`, { text }) as Promise<{ day: string; reflection: string }>,
-  monthlyReport: () => req('GET', '/api/habits/monthly-report') as Promise<MonthlyReport>,
+};
+
+// Discipline tab's "Design Today" morning brain-dump box (2026-09-18).
+// Same daily_intentions row as mindset, no history — just today's text.
+export const designTodayApi = {
+  getDesignToday: (day: string) =>
+    req('GET', `/api/design-today/${day}`) as Promise<{ day: string; text: string }>,
+  setDesignToday: (day: string, text: string) =>
+    req('PUT', `/api/design-today/${day}`, { text }) as Promise<{ day: string; text: string }>,
 };
 
 export type ProjectKey = 'proj1' | 'proj2' | 'proj3' | 'proj4' | 'proj5' | 'proj6';
@@ -303,7 +256,8 @@ export const projectsApi = {
     req('POST', `/api/projects/subtasks/${pid}/toggle`) as Promise<Subtask>,
   deleteSubtask: (pid: string) => req('DELETE', `/api/projects/subtasks/${pid}`) as Promise<{ ok: true }>,
   strikeSubtask: (pid: string) => req('POST', `/api/projects/subtasks/${pid}/strike`) as Promise<Task>,
-  trend: () => req('GET', '/api/projects/trend') as Promise<Trend>,
+  trend: (days?: TrendDays) =>
+    req('GET', `/api/projects/trend${days ? `?days=${days}` : ''}`) as Promise<Trend>,
   getTrendDays: () => req('GET', '/api/projects/trend-days') as Promise<{ trend_days: TrendDays }>,
   setTrendDays: (days: TrendDays) =>
     req('POST', '/api/projects/trend-days', { trend_days: days }) as Promise<{ trend_days: TrendDays }>,
@@ -341,9 +295,21 @@ export interface BusinessAnalysis {
   fin_profit: string;
   decision_why: string;
   decision_status: DecisionStatus;
+  feelings_negative: string;
+  feelings_positive: string;
+  thoughts_negative: string;
+  thoughts_positive: string;
+  beliefs_negative: string;
+  beliefs_positive: string;
+  actions_negative: string;
+  actions_positive: string;
   next_action: string;
   next_priority: NextPriority;
   next_deadline: string;
+  next_who: string;
+  next_when: string;
+  next_time: string;
+  next_done_when: string;
   attach_path: string;
 }
 
@@ -398,16 +364,52 @@ export const circleApi = {
 
 export type GoalHorizon = 'yearly' | 'monthly' | 'weekly';
 
+// A goal's owner: one of the 6 real projects, or the reserved "life" key
+// — panel 2 shows "LIFE PLAN" instead of a project name for it, but it's
+// otherwise an ordinary owner of weekly/monthly/yearly goals through the
+// same GoalsPanel component. See the backend's GoalOwnerKeyT (api/schemas.py)
+// and database/models.py's Goal.project_key comment for why this is a
+// separate type from ProjectKey rather than widening it — ProjectKey also
+// types real Project rows, and "life" has none.
+export type GoalOwnerKey = ProjectKey | 'life';
+
 export interface Goal {
   id: number;
-  project_key: ProjectKey;
+  project_key: GoalOwnerKey;
   horizon: GoalHorizon;
   text: string;
   done: boolean;
   start_date: string;
   done_date: string | null;
   note: string;
+  // The goal's own single, immediately-executable next step — separate
+  // from `note` (free-form) and from a BoardTask's own next_action
+  // (scoped to one task's board). Added from Zahid's visual-hierarchy
+  // review: knowing the goal isn't the same as knowing what to do next.
+  next_action: string;
+  // Stored, editable via a calendar picker — defaults to a horizon-based
+  // window at creation (7 days / 30 days / 12 months; see the backend's
+  // engine.goals._default_deadline and its own crossed-keys warning) but
+  // is ordinary state after that, same as start_date. Supersedes the old
+  // pure-display "start + a hardcoded 30-day window" computation.
+  deadline: string;
   day_number: number;
+  // Derived — how many of this goal's Individual Task Board cards
+  // (across every task under it) sit in the "done" column, out of how
+  // many exist. board_total is 0 for a goal that has never opened its
+  // Board — read that as "no board data", not "0% done".
+  board_done: number;
+  board_total: number;
+  // How many of those same cards sit in "focus" — tells GoalBoardOverlay's
+  // "Actions" progress step apart from "Plans" (total > 0 alone can't:
+  // a goal with everything still QUEUED has total > 0 but nothing
+  // actually in focus).
+  board_focus: number;
+  // The title of this goal's own "top" FOCUS card across every task
+  // under it (pinned first, then oldest), null when nothing is in
+  // FOCUS anywhere on this goal's boards. Added 2026-09-16 so the
+  // NEXT ACTION field can default to this instead of sitting empty.
+  board_focus_title: string | null;
 }
 
 export interface GoalPanel {
@@ -418,16 +420,26 @@ export interface GoalPanel {
 }
 
 export const goalsApi = {
-  list: (key: ProjectKey, horizon?: GoalHorizon) =>
+  list: (key: GoalOwnerKey, horizon?: GoalHorizon) =>
     req('GET', `/api/projects/${key}/goals` + (horizon ? `?horizon=${horizon}` : '')) as Promise<Goal[]>,
-  create: (key: ProjectKey, horizon: GoalHorizon, text: string, startDate?: string, note = '') =>
+  create: (
+    key: GoalOwnerKey,
+    horizon: GoalHorizon,
+    text: string,
+    startDate?: string,
+    note = '',
+    nextAction = '',
+    deadline?: string,
+  ) =>
     req('POST', `/api/projects/${key}/goals`, {
       horizon,
       text,
       start_date: startDate ?? null,
       note,
+      next_action: nextAction,
+      deadline: deadline ?? null,
     }) as Promise<Goal>,
-  edit: (id: number, patch: Partial<Pick<Goal, 'text' | 'start_date' | 'note'>>) =>
+  edit: (id: number, patch: Partial<Pick<Goal, 'text' | 'start_date' | 'note' | 'next_action' | 'deadline'>>) =>
     req('PUT', `/api/projects/goals/${id}`, patch) as Promise<Goal>,
   toggle: (id: number) => req('POST', `/api/projects/goals/${id}/toggle`) as Promise<Goal>,
   remove: (id: number) => req('DELETE', `/api/projects/goals/${id}`) as Promise<{ ok: true }>,
@@ -436,6 +448,75 @@ export const goalsApi = {
     req('POST', '/api/goals/panel/project', { project_key: key }) as Promise<GoalPanel>,
   setSectionTitle: (horizon: GoalHorizon, title: string) =>
     req('POST', '/api/goals/panel/section-title', { horizon, title }) as Promise<GoalPanel>,
+};
+
+// ── Individual Task Board (Goal -> Task -> that Task's own kanban) ───
+// Superseded design note: this used to be a flat per-project board
+// (project_key-scoped BoardCard with an optional goal_id backlink).
+// The user corrected the shape to a 3-level hierarchy — Goal -> Task
+// (1..N) -> that Task's own QUEUED/FOCUS/CLOSED board — so a new
+// BoardTask tier sits between Goal and BoardCard, and cards are now
+// scoped to a task, not a project.
+//
+// Same Card contract as the `ele kanban` Electron pilot this was
+// originally ported from (id/col/title/note/priority/pinned).
+export type BoardCol = 'todo' | 'focus' | 'done';
+export type BoardPriority = 'low' | 'normal' | 'high';
+
+export interface BoardTask {
+  id: number;
+  goal_id: number;
+  title: string;
+  // "Task outcome / Definition of Done" — added after Zahid compared
+  // this overlay to the `ele kanban` pilot's own Focus Board header
+  // (which opened with a milestone-ladder/units-sold/target-date
+  // block). That header's own widgets are that pilot's venture-
+  // tracking clutter, not reused here — but the idea of orienting the
+  // board under one line before showing columns was worth keeping,
+  // scoped to what finishes THIS task rather than a whole venture.
+  outcome: string;
+  // The task-scoped twin of Goal.next_action — "what finishes the
+  // current card/session on THIS task's board", not the goal's own
+  // next step. See Goal.next_action's comment for why there are two.
+  next_action: string;
+}
+
+export interface BoardCard {
+  id: number;
+  task_id: number;
+  col: BoardCol;
+  title: string;
+  note: string;
+  priority: BoardPriority;
+  pinned: boolean;
+  // Real start/stop timer (2026-09-16, Zahid) — same Session shape and
+  // same "sessions[-1].end === null means running" convention as
+  // Task.secs/sessions (see NowCard.tsx's own isRunning), reused rather
+  // than a separate shape.
+  secs: number;
+  sessions: Session[];
+}
+
+export const boardTaskApi = {
+  list: (goalId: number) => req('GET', `/api/projects/goals/${goalId}/tasks`) as Promise<BoardTask[]>,
+  add: (goalId: number, title: string) =>
+    req('POST', `/api/projects/goals/${goalId}/tasks`, { title }) as Promise<BoardTask>,
+  edit: (id: number, patch: Partial<Pick<BoardTask, 'title' | 'outcome' | 'next_action'>>) =>
+    req('PUT', `/api/projects/board-tasks/${id}`, patch) as Promise<BoardTask>,
+  remove: (id: number) => req('DELETE', `/api/projects/board-tasks/${id}`) as Promise<{ ok: true }>,
+};
+
+export const boardApi = {
+  list: (taskId: number) => req('GET', `/api/projects/board-tasks/${taskId}/cards`) as Promise<BoardCard[]>,
+  add: (taskId: number, col: BoardCol, title: string, note = '', priority: BoardPriority = 'normal') =>
+    req('POST', `/api/projects/board-tasks/${taskId}/cards`, { col, title, note, priority }) as Promise<BoardCard>,
+  edit: (id: number, patch: Partial<Pick<BoardCard, 'title' | 'note' | 'priority'>>) =>
+    req('PUT', `/api/projects/board-cards/${id}`, patch) as Promise<BoardCard>,
+  move: (id: number, col: BoardCol) =>
+    req('POST', `/api/projects/board-cards/${id}/move`, { col }) as Promise<BoardCard>,
+  togglePin: (id: number) => req('POST', `/api/projects/board-cards/${id}/toggle-pin`) as Promise<BoardCard>,
+  toggleTimer: (id: number) => req('POST', `/api/projects/board-cards/${id}/toggle-timer`) as Promise<BoardCard>,
+  remove: (id: number) => req('DELETE', `/api/projects/board-cards/${id}`) as Promise<{ ok: true }>,
 };
 
 export type LogStatus = '' | 'ok' | 'no';
@@ -652,16 +733,49 @@ export const bdpApi = {
 };
 
 export type Q90AreaKey = 'appearance' | 'money' | 'relationship' | 'health' | 'social' | 'mind';
-export type Q90Field = 'out' | 'act' | 'ifthen';
+// V2 "112-Day Transformation Board" — the 7 free-text fields settable
+// through quarterlyApi.setField. `achieved`, major changes and
+// destination changes each have their own dedicated call below.
+export type Q90Field =
+  | 'current_reality'
+  | 'destination'
+  | 'proof'
+  | 'gap'
+  | 'weekly_lead_behavior'
+  | 'obstacle_if'
+  | 'response_then';
+export type Q90Status = 'not_started' | 'defined' | 'planned' | 'active' | 'proven';
+
+export interface Q90MajorChange {
+  id: number;
+  text: string;
+  done: boolean;
+}
+
+export interface Q90GoalHistoryEntry {
+  destination: string;
+  reason: string;
+  evidence: string;
+  changed_at: string;
+}
 
 export interface Q90Area {
   key: Q90AreaKey;
   label: string;
   glyph: string;
   description: string;
-  out: string;
-  act: string;
-  ifthen: string;
+  current_reality: string;
+  destination: string;
+  proof: string;
+  achieved: boolean;
+  gap: string;
+  major_changes: Q90MajorChange[];
+  weekly_lead_behavior: string;
+  obstacle_if: string;
+  response_then: string;
+  goal_version: number;
+  goal_history: Q90GoalHistoryEntry[];
+  status: Q90Status;
 }
 
 export interface Q90Panel {
@@ -677,8 +791,21 @@ export interface Q90Panel {
 
 export const quarterlyApi = {
   getPanel: () => req('GET', '/api/quarterly/panel') as Promise<Q90Panel>,
-  setAnswer: (area: Q90AreaKey, field: Q90Field, text: string) =>
-    req('POST', '/api/quarterly/answer', { area, field, text }) as Promise<Q90Panel>,
+  setField: (area: Q90AreaKey, field: Q90Field, text: string) =>
+    req('POST', '/api/quarterly/field', { area, field, text }) as Promise<Q90Panel>,
+  setAchieved: (area: Q90AreaKey, achieved: boolean) =>
+    req('POST', '/api/quarterly/achieved', { area, achieved }) as Promise<Q90Panel>,
+  setMajorChanges: (area: Q90AreaKey, changes: Array<{ id?: number; text: string; done?: boolean }>) =>
+    req('POST', '/api/quarterly/major-changes', { area, changes }) as Promise<Q90Panel>,
+  changeGoal: (area: Q90AreaKey, newDestination: string, reason: string, evidence: string) =>
+    req('POST', '/api/quarterly/change-goal', {
+      area,
+      new_destination: newDestination,
+      reason,
+      evidence,
+    }) as Promise<Q90Panel>,
+  changeStrategy: (area: Q90AreaKey) =>
+    req('POST', '/api/quarterly/change-strategy', { area }) as Promise<Q90Panel>,
   setCycle: (start: string, days: number) =>
     req('POST', '/api/quarterly/cycle', { start, days }) as Promise<Q90Panel>,
 };
@@ -728,4 +855,125 @@ export const hoursApi = {
   get: (day: string) => req('GET', `/api/hours/${day}`) as Promise<HourPlan>,
   set: (day: string, hour: number, patch: { text?: string; done?: boolean; repeat?: boolean }) =>
     req('PUT', `/api/hours/${day}/${hour}`, patch) as Promise<HourSlot>,
+};
+
+// ── Morning Ritual ──────────────────────────────────────────────────
+// Rebuilt 2026-09-15 to match Zahid's fuller "Morning Activation"
+// brainstorm prototype — see python/database/models.py's MorningRitual
+// docstring for the full scoping history. One continuous page, not a
+// step wizard. carried_from_date is now real — see Night Closure below,
+// which populates it server-side; the real AI suggestion is still
+// deliberately deferred.
+export type MorningEnergy = 'LOW' | 'OKAY' | 'GOOD' | 'STRONG';
+export type MorningMood = 'LOW' | 'NEUTRAL' | 'GOOD' | 'POSITIVE';
+export type MorningSleep = 'POOR' | 'OKAY' | 'GOOD';
+export type MorningMode = 'gentle' | 'standard' | 'fast';
+export type MorningIntention = 'Focus' | 'Patience' | 'Discipline' | 'Calm';
+export type MorningSpiritual = 'OFF' | 'Prayer' | 'Dhikr' | 'Quran' | 'Meditation' | 'Personal Reflection' | 'Custom';
+
+export interface MorningRitual {
+  day: string;
+  today_outcome: string;
+  first_move: string;
+  carried_from_date: string | null;
+  energy: MorningEnergy | null;
+  mood: MorningMood | null;
+  sleep_quality: MorningSleep | null;
+  wake_up_time: string | null;
+  morning_mode: MorningMode;
+  reset_breathe: boolean;
+  reset_move: boolean;
+  reset_daylight: boolean;
+  reset_water: boolean;
+  journal_text: string;
+  journal_action_needed: boolean | null;
+  journal_released: boolean;
+  prime_meditation: boolean;
+  prime_visualization: boolean;
+  prime_reading: boolean;
+  prime_gratitude: string;
+  prime_intention: MorningIntention | null;
+  prime_spiritual: MorningSpiritual;
+  completed: boolean;
+  started_at: number | null;
+  started_first_action_at: number | null;
+  completed_at: number | null;
+  kpi_seconds: number | null;
+}
+
+export interface MorningRitualTrend {
+  year: number;
+  month: number;
+  days: string[];
+  completed: boolean[];
+  energy: (MorningEnergy | null)[];
+  mood: (MorningMood | null)[];
+  sleep_quality: (MorningSleep | null)[];
+  morning_mode: (MorningMode | null)[];
+  streak: number;
+  journal: MindsetEntry[];
+  wake_up_time: MindsetEntry[];
+}
+
+export const morningRitualApi = {
+  today: () => req('GET', '/api/morning-ritual/today') as Promise<MorningRitual>,
+  setOutcome: (text: string) => req('POST', '/api/morning-ritual/outcome', { text }) as Promise<MorningRitual>,
+  setFirstMove: (text: string) => req('POST', '/api/morning-ritual/first-move', { text }) as Promise<MorningRitual>,
+  setCheckIn: (energy?: MorningEnergy, mood?: MorningMood, sleep_quality?: MorningSleep, wake_up_time?: string) =>
+    req('POST', '/api/morning-ritual/check-in', { energy, mood, sleep_quality, wake_up_time }) as Promise<MorningRitual>,
+  markBreatheDone: () => req('POST', '/api/morning-ritual/reset/breathe') as Promise<MorningRitual>,
+  setResetMove: (done: boolean) => req('POST', '/api/morning-ritual/reset/move', { done }) as Promise<MorningRitual>,
+  setResetDaylight: (done: boolean) => req('POST', '/api/morning-ritual/reset/daylight', { done }) as Promise<MorningRitual>,
+  setResetWater: (done: boolean) => req('POST', '/api/morning-ritual/reset/water', { done }) as Promise<MorningRitual>,
+  setJournal: (text: string) => req('POST', '/api/morning-ritual/journal', { text }) as Promise<MorningRitual>,
+  setJournalActionNeeded: (needed: boolean) =>
+    req('POST', '/api/morning-ritual/journal/action-needed', { needed }) as Promise<MorningRitual>,
+  suggestAction: (text: string) =>
+    req('POST', '/api/morning-ritual/suggest-action', { text }) as Promise<{ suggestion: string }>,
+  markPrimeMeditation: () => req('POST', '/api/morning-ritual/prime/meditation') as Promise<MorningRitual>,
+  markPrimeVisualization: () => req('POST', '/api/morning-ritual/prime/visualization') as Promise<MorningRitual>,
+  markPrimeReading: () => req('POST', '/api/morning-ritual/prime/reading') as Promise<MorningRitual>,
+  setPrimeGratitude: (text: string) => req('POST', '/api/morning-ritual/prime/gratitude', { text }) as Promise<MorningRitual>,
+  setPrimeIntention: (value: MorningIntention | null) =>
+    req('POST', '/api/morning-ritual/prime/intention', { value }) as Promise<MorningRitual>,
+  setPrimeSpiritual: (value: MorningSpiritual) =>
+    req('POST', '/api/morning-ritual/prime/spiritual', { value }) as Promise<MorningRitual>,
+  startNow: () => req('POST', '/api/morning-ritual/start-now') as Promise<MorningRitual>,
+  trend: (year?: number, month?: number) => {
+    const params = year && month ? `?year=${year}&month=${month}` : '';
+    return req('GET', `/api/morning-ritual/trend${params}`) as Promise<MorningRitualTrend>;
+  },
+};
+
+// ── Night Closure ───────────────────────────────────────────────────
+// Evening counterpart to Morning Ritual above — converted from Zahid's
+// own HTML/JS mockup (night-closure.html, localStorage key
+// `lifeos_night_closure`) to real per-day persistence. Its
+// tomorrow_outcome/tomorrow_first_action are what the backend reads
+// back as Morning Ritual's carried_from_date the next day — see
+// python/engine/morning_ritual.py's _apply_carry_forward.
+export interface NightClosure {
+  day: string;
+  where_stopped: string;
+  unfinished: string;
+  tomorrow_outcome: string;
+  tomorrow_first_action: string;
+  optional_blocker: string;
+  optional_note: string;
+  close_time: string | null;
+  closed_at: number | null;
+}
+
+export const nightClosureApi = {
+  today: () => req('GET', '/api/night-closure/today') as Promise<NightClosure>,
+  setWhereStopped: (text: string) => req('POST', '/api/night-closure/where-stopped', { text }) as Promise<NightClosure>,
+  setUnfinished: (text: string) => req('POST', '/api/night-closure/unfinished', { text }) as Promise<NightClosure>,
+  setTomorrowOutcome: (text: string) =>
+    req('POST', '/api/night-closure/tomorrow-outcome', { text }) as Promise<NightClosure>,
+  setTomorrowFirstAction: (text: string) =>
+    req('POST', '/api/night-closure/tomorrow-first-action', { text }) as Promise<NightClosure>,
+  setBlocker: (text: string) => req('POST', '/api/night-closure/blocker', { text }) as Promise<NightClosure>,
+  setNote: (text: string) => req('POST', '/api/night-closure/note', { text }) as Promise<NightClosure>,
+  setCloseTime: (value: string) => req('POST', '/api/night-closure/close-time', { value }) as Promise<NightClosure>,
+  closeDay: () => req('POST', '/api/night-closure/close') as Promise<NightClosure>,
 };

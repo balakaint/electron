@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { CirclePerson, ProjectKey, circleApi } from '../services/api';
+import { RADIUS } from '../spacing';
 
 // The accountability circle for ONE project.
 //
@@ -58,48 +59,138 @@ export default function CircleSection({
   // legacy has it: the list grows downward from the field that fills it.
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, flex: 1 }}>
-      <div style={{ display: 'flex', gap: 4, marginBottom: 8, flex: 'none' }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flex: 'none' }}>
         <input
           aria-label="Add a person to this project"
           value={newPerson}
           onChange={(e) => setNewPerson(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && add()}
           placeholder="Add person…"
-          style={{ flex: 1, fontSize: 12, padding: 4, height: 24 }}
+          style={{ flex: 1, fontSize: 13, padding: '0 8px', height: 32, borderRadius: RADIUS.control, border: '1px solid var(--border)' }}
         />
-        <button onClick={add} title="Add person" style={{ height: 24, padding: '0 8px', fontSize: 12 }}>
-          + add
+        <button
+          onClick={add}
+          title="Add person"
+          style={{
+            height: 32,
+            padding: '0 16px',
+            fontSize: 13,
+            fontWeight: 700,
+            borderRadius: RADIUS.control,
+            border: 'none',
+            background: 'var(--ba-decide)',
+            color: '#000000',
+            cursor: 'pointer',
+          }}
+        >
+          + Add
         </button>
       </div>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0, overflowY: 'auto', minHeight: 0, flex: 1 }}>
+      {/* Real tile cards, not tiny pills — an avatar initial, the name,
+          last-contacted, and the cadence/mark/remove controls on their
+          own row, wrapping into a responsive grid so a couple of people
+          don't look lost in a big empty card. */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+          gap: 12,
+          overflowY: 'auto',
+          minHeight: 0,
+          flex: 1,
+          alignContent: 'flex-start',
+        }}
+      >
         {people.map((p) => (
-          <li key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, padding: '4px 0' }}>
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: 3,
-                background: p.overdue ? 'var(--danger)' : 'var(--success)',
-              }}
-            />
-            <span style={{ flex: 1 }}>{p.name}</span>
-            <span style={{ opacity: 0.6 }}>{p.gap_days === null ? 'never' : `${p.gap_days}d ago`}</span>
-            <button
-              onClick={() => circleApi.update(p.id, { cadence_days: nextCadence(p.cadence_days) }).then(refresh)}
-              title="How often you want to be in touch — click to change"
-              style={{ fontSize: 12, color: 'var(--text-muted)' }}
-            >
-              every {p.cadence_days}d
-            </button>
-            <button onClick={() => circleApi.markContacted(p.id).then(refresh)} title="Mark contacted today">
-              ✓
-            </button>
-            <button onClick={() => circleApi.remove(p.id).then(refresh)} title="Remove">
-              ✕
-            </button>
-          </li>
+          <div
+            key={p.id}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              padding: 12,
+              borderRadius: RADIUS.card,
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              minWidth: 0,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <div
+                aria-hidden="true"
+                style={{
+                  width: 28,
+                  height: 28,
+                  flex: 'none',
+                  borderRadius: RADIUS.pill,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: 'var(--ba-decide)',
+                  background: 'color-mix(in srgb, var(--ba-decide) 16%, var(--surface))',
+                }}
+              >
+                {(p.name.trim().charAt(0) || '?').toUpperCase()}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: 'var(--text)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {p.name}
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {p.gap_days === null ? 'never contacted' : `${p.gap_days}d ago`}
+                </span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                onClick={() => circleApi.update(p.id, { cadence_days: nextCadence(p.cadence_days) }).then(refresh)}
+                title="Cadence — click to change"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  height: 24,
+                  padding: '0 8px',
+                  fontSize: 12,
+                  color: 'var(--text-muted)',
+                  border: '1px solid var(--border)',
+                  borderRadius: RADIUS.control,
+                  background: 'transparent',
+                  cursor: 'pointer',
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: RADIUS.pill,
+                    background: p.overdue ? 'var(--danger)' : 'var(--success)',
+                  }}
+                />
+                every {p.cadence_days}d
+              </button>
+              <span style={{ flex: 1 }} />
+              <button onClick={() => circleApi.markContacted(p.id).then(refresh)} title="Mark contacted today" style={{ fontSize: 12, color: 'var(--success)' }}>
+                ✓
+              </button>
+              <button onClick={() => circleApi.remove(p.id).then(refresh)} title="Remove" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                ✕
+              </button>
+            </div>
+          </div>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

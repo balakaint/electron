@@ -1,24 +1,27 @@
 from __future__ import annotations
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database.models import (
     AppState,
     BdpAction,
     BdpPlan,
+    BoardCard,
+    BoardTask,
     BusinessAnalysis,
     CirclePerson,
     DailyIntention,
     DecisionLog,
     Goal,
-    Habit,
-    HabitCompletion,
     HourSlot,
     JourneyLogEntry,
     JourneyStage,
     JourneyTask,
     LegacyAnalysisBox,
+    MorningRitual,
+    NightClosure,
     Project,
     ProjectActivity,
     ProjectJourney,
@@ -110,95 +113,18 @@ def _save_app_state(db: Session, state: AppState) -> AppState:
     return state
 
 
-class HabitRepository:
+class MindsetRepository:
+    """Backs only PlanReview.tsx's Mindset tab now. Was `HabitRepository`
+    — also backed the flat Money/Health/Relation/Mind checklist and the
+    Win/Reflection/Intention daily notes, all removed 2026-09-14 (Zahid:
+    "emon task list mainly regular chek kora hoy na"). Renamed rather
+    than left as a misleading name on a mindset-only class."""
+
     def __init__(self, db: Session):
         self.db = db
 
-    def list(self, category: str | None = None, active_only: bool = True) -> list[Habit]:
-        stmt = select(Habit)
-        if category is not None:
-            stmt = stmt.where(Habit.category == category)
-        if active_only:
-            stmt = stmt.where(Habit.active.is_(True))
-        stmt = stmt.order_by(Habit.category, Habit.sort_order)
-        return list(self.db.scalars(stmt))
-
-    def get(self, habit_id: int) -> Habit | None:
-        return self.db.get(Habit, habit_id)
-
-    def add(self, habit: Habit) -> Habit:
-        self.db.add(habit)
-        self.db.commit()
-        self.db.refresh(habit)
-        return habit
-
-    def save(self, habit: Habit) -> Habit:
-        self.db.commit()
-        self.db.refresh(habit)
-        return habit
-
-    def get_completion(self, habit_id: int, day: str) -> HabitCompletion | None:
-        stmt = select(HabitCompletion).where(
-            HabitCompletion.habit_id == habit_id, HabitCompletion.day == day
-        )
-        return self.db.scalars(stmt).first()
-
-    def completions_for_day(self, day: str) -> list[HabitCompletion]:
-        stmt = select(HabitCompletion).where(HabitCompletion.day == day)
-        return list(self.db.scalars(stmt))
-
-    def upsert_completion(self, habit_id: int, day: str, done: bool) -> HabitCompletion:
-        row = self.get_completion(habit_id, day)
-        if row is None:
-            row = HabitCompletion(habit_id=habit_id, day=day, done=done)
-            self.db.add(row)
-        else:
-            row.done = done
-        self.db.commit()
-        self.db.refresh(row)
-        return row
-
-    def get_intention(self, day: str) -> DailyIntention | None:
-        return self.db.get(DailyIntention, day)
-
-    def set_intention(self, day: str, text: str) -> DailyIntention:
-        row = self.db.get(DailyIntention, day)
-        if row is None:
-            row = DailyIntention(day=day, text=text)
-            self.db.add(row)
-        else:
-            row.text = text
-        self.db.commit()
-        self.db.refresh(row)
-        return row
-
     def get_journal(self, day: str) -> DailyIntention | None:
-        """Same row as get_intention — separate name at the call sites
-        that only care about win/reflection, since "intention" would be
-        a misleading label there."""
         return self.db.get(DailyIntention, day)
-
-    def set_win(self, day: str, text: str) -> DailyIntention:
-        row = self.db.get(DailyIntention, day)
-        if row is None:
-            row = DailyIntention(day=day, win=text)
-            self.db.add(row)
-        else:
-            row.win = text
-        self.db.commit()
-        self.db.refresh(row)
-        return row
-
-    def set_reflection(self, day: str, text: str) -> DailyIntention:
-        row = self.db.get(DailyIntention, day)
-        if row is None:
-            row = DailyIntention(day=day, reflection=text)
-            self.db.add(row)
-        else:
-            row.reflection = text
-        self.db.commit()
-        self.db.refresh(row)
-        return row
 
     def set_mindset(self, day: str, text: str) -> DailyIntention:
         row = self.db.get(DailyIntention, day)
@@ -229,13 +155,16 @@ class HabitRepository:
         )
         return {r.day: r.mindset for r in rows if (r.mindset or "").strip()}
 
-    def distinct_days_with_completions(self, month_prefix: str) -> list[str]:
-        """Every day this month that has at least one habit-completion
-        row (done or not) — matches legacy iterating `_habit_data`'s own
-        keys for the monthly report's "days done" count, which counts
-        days the app was used, not days that hit 100%."""
-        stmt = select(HabitCompletion.day).where(HabitCompletion.day.like(f"{month_prefix}%")).distinct()
-        return list(self.db.scalars(stmt))
+    def set_design_today(self, day: str, text: str) -> DailyIntention:
+        row = self.db.get(DailyIntention, day)
+        if row is None:
+            row = DailyIntention(day=day, design_today=text)
+            self.db.add(row)
+        else:
+            row.design_today = text
+        self.db.commit()
+        self.db.refresh(row)
+        return row
 
 
 class ProjectRepository:
@@ -404,6 +333,82 @@ class GoalRepository:
     def delete(self, goal: Goal) -> None:
         self.db.delete(goal)
         self.db.commit()
+
+
+class BoardTaskRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def list(self, goal_id: int) -> list[BoardTask]:
+        # id is a ms-timestamp, so ordering by it reproduces creation
+        # order with no separate sort column — same convention as
+        # GoalRepository.list / the old BoardRepository.list.
+        stmt = select(BoardTask).where(BoardTask.goal_id == goal_id).order_by(BoardTask.id)
+        return list(self.db.scalars(stmt))
+
+    def get(self, task_id: int) -> BoardTask | None:
+        return self.db.get(BoardTask, task_id)
+
+    def add(self, task: BoardTask) -> BoardTask:
+        self.db.add(task)
+        self.db.commit()
+        self.db.refresh(task)
+        return task
+
+    def save(self, task: BoardTask) -> BoardTask:
+        self.db.commit()
+        self.db.refresh(task)
+        return task
+
+    def delete(self, task: BoardTask) -> None:
+        self.db.delete(task)
+        self.db.commit()
+
+
+class BoardCardRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def list(self, task_id: int) -> list[BoardCard]:
+        # Pinned first, then by id — matches the Focus Board pilot's own
+        # `cards_in()` contract exactly (id is a ms-timestamp, so "by id"
+        # already reproduces creation order with no separate sort column,
+        # same reasoning GoalRepository.list applies).
+        stmt = (
+            select(BoardCard)
+            .where(BoardCard.task_id == task_id)
+            .order_by(BoardCard.pinned.desc(), BoardCard.id)
+        )
+        return list(self.db.scalars(stmt))
+
+    def get(self, card_id: int) -> BoardCard | None:
+        return self.db.get(BoardCard, card_id)
+
+    def list_all(self) -> list[BoardCard]:
+        """Every card across every task's board, unscoped — for timer
+        reconciliation and stop-all-timers-on-shutdown, which both need
+        to sweep every open session regardless of which task's board it
+        lives on (mirrors TaskRepository.list() being unscoped for the
+        same reason)."""
+        return list(self.db.scalars(select(BoardCard)))
+
+    def add(self, card: BoardCard) -> BoardCard:
+        self.db.add(card)
+        self.db.commit()
+        self.db.refresh(card)
+        return card
+
+    def save(self, card: BoardCard) -> BoardCard:
+        self.db.commit()
+        self.db.refresh(card)
+        return card
+
+    def delete(self, card: BoardCard) -> None:
+        self.db.delete(card)
+        self.db.commit()
+
+    def get_app_state(self) -> AppState:
+        return _get_app_state(self.db)
 
 
 class BusinessAnalysisRepository:
@@ -764,3 +769,91 @@ class HourPlanRepository:
         self.db.commit()
         self.db.refresh(row)
         return row
+
+
+class MorningRitualRepository:
+    """One row per day, created on first touch — same shape as
+    DailyIntention (see that model's docstring and get_intention/
+    set_intention above)."""
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get(self, day: str) -> MorningRitual | None:
+        return self.db.get(MorningRitual, day)
+
+    def get_or_create(self, day: str) -> MorningRitual:
+        row = self.db.get(MorningRitual, day)
+        if row is None:
+            row = MorningRitual(day=day)
+            self.db.add(row)
+            try:
+                self.db.commit()
+            except IntegrityError:
+                # Two requests raced to create today's row (e.g. React
+                # StrictMode firing a component's mount effect twice in
+                # dev) — the loser rolls back and reads what the winner
+                # just inserted, instead of crashing.
+                self.db.rollback()
+                row = self.db.get(MorningRitual, day)
+                assert row is not None
+                return row
+            self.db.refresh(row)
+        return row
+
+    def save(self, row: MorningRitual) -> MorningRitual:
+        self.db.commit()
+        self.db.refresh(row)
+        return row
+
+    def get_range(self, days: list[str]) -> dict[str, MorningRitual]:
+        """Every stored row among `days`, keyed by day — a day with no
+        row at all means the ritual was never opened that day, which the
+        trend view has to tell apart from "opened but not finished"."""
+        if not days:
+            return {}
+        rows = self.db.query(MorningRitual).filter(MorningRitual.day.in_(days)).all()
+        return {r.day: r for r in rows}
+
+
+class NightClosureRepository:
+    """One row per day, same shape as MorningRitualRepository above —
+    see NightClosure's own docstring."""
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get(self, day: str) -> NightClosure | None:
+        return self.db.get(NightClosure, day)
+
+    def get_or_create(self, day: str) -> NightClosure:
+        row = self.db.get(NightClosure, day)
+        if row is None:
+            row = NightClosure(day=day)
+            self.db.add(row)
+            try:
+                self.db.commit()
+            except IntegrityError:
+                # Same race as MorningRitualRepository.get_or_create
+                # above — see that comment.
+                self.db.rollback()
+                row = self.db.get(NightClosure, day)
+                assert row is not None
+                return row
+            self.db.refresh(row)
+        return row
+
+    def save(self, row: NightClosure) -> NightClosure:
+        self.db.commit()
+        self.db.refresh(row)
+        return row
+
+    def get_range(self, days: list[str]) -> dict[str, NightClosure]:
+        """Every stored row among `days`, keyed by day — see
+        MorningRitualRepository.get_range above, same shape and reason
+        (MorningRitualEngine.trend batches its close_time lookups with
+        this instead of one query per day)."""
+        if not days:
+            return {}
+        rows = self.db.query(NightClosure).filter(NightClosure.day.in_(days)).all()
+        return {r.day: r for r in rows}

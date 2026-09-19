@@ -33,8 +33,16 @@ from datetime import date, datetime
 from datetime import time as dtime
 from datetime import timedelta
 
-from database.models import Project, Task
-from database.repository import ProjectRepository, TaskRepository
+from database.models import BoardCard, Project, Task
+from database.repository import BoardCardRepository, ProjectRepository, TaskRepository
+
+# BoardCard.secs/.sessions (added 2026-09-16, for the Individual Task
+# Board's own real FOCUS-card timer) are the exact same shape as
+# Task.secs/.sessions, so the task-side functions below (`open_session`,
+# `tick_task`, `stop_task_session`) are typed to accept either model
+# rather than duplicated — same idle-capped credit-on-stop accounting
+# either way, no BoardCard-specific behavior needed.
+_TimedRow = Task | BoardCard
 
 IDLE_LIMIT_SECS = 15 * 60  # fallback default; real value lives in AppState.idle_stop_min
 
@@ -138,14 +146,14 @@ def reconcile_all_projects(repo: ProjectRepository, idle_limit_secs: int | None 
 
 # ── Tasks ────────────────────────────────────────────────────────────
 
-def _open_session(task: Task) -> dict | None:
+def open_session(task: _TimedRow) -> dict | None:
     sessions = task.sessions or []
     if sessions and sessions[-1].get("end") is None:
         return sessions[-1]
     return None
 
 
-def tick_task(task: Task, now: float | None = None, idle_limit_secs: int = IDLE_LIMIT_SECS) -> None:
+def tick_task(task: _TimedRow, now: float | None = None, idle_limit_secs: int = IDLE_LIMIT_SECS) -> None:
     """Periodic/startup reconciliation for a task with an open session:
     credits elapsed since the last checkpoint into `secs`, capped at
     idle_limit_secs per tick, then checkpoints forward. Never auto-stops
@@ -158,7 +166,7 @@ def tick_task(task: Task, now: float | None = None, idle_limit_secs: int = IDLE_
     have one (reconcile_all_tasks, stop_task_and_project) resolve it
     once and pass it down; a bare call falls back to the same default
     IDLE_LIMIT_SECS the settings row itself defaults to."""
-    last = _open_session(task)
+    last = open_session(task)
     if last is None:
         return
     now = time.time() if now is None else now
@@ -174,13 +182,13 @@ def tick_task(task: Task, now: float | None = None, idle_limit_secs: int = IDLE_
     task.sessions = sessions
 
 
-def stop_task_session(task: Task, now: float | None = None, idle_limit_secs: int = IDLE_LIMIT_SECS) -> None:
+def stop_task_session(task: _TimedRow, now: float | None = None, idle_limit_secs: int = IDLE_LIMIT_SECS) -> None:
     """Close the open session, crediting elapsed since the last
     checkpoint (capped at the idle limit, same as projects — so a
     session left open across a crash+restart doesn't credit the whole
     downtime on the next explicit stop). See tick_task's docstring for
     why this takes a plain int rather than resolving it internally."""
-    last = _open_session(task)
+    last = open_session(task)
     if last is None:
         return
     now = time.time() if now is None else now
@@ -199,9 +207,23 @@ def reconcile_all_tasks(repo: TaskRepository, idle_limit_secs: int | None = None
     """Called at engine startup and on every periodic scheduler tick."""
     idle_limit_secs = _resolve_idle_limit(repo, idle_limit_secs)
     for task in repo.list():
-        if _open_session(task) is not None:
+        if open_session(task) is not None:
             tick_task(task, idle_limit_secs=idle_limit_secs)
             repo.save(task)
+
+
+# ── Board cards (Individual Task Board's own FOCUS-card timer) ─────────
+
+def reconcile_all_board_cards(repo: BoardCardRepository, idle_limit_secs: int) -> None:
+    """Called at engine startup and on every periodic scheduler tick,
+    same as reconcile_all_tasks — takes idle_limit_secs directly rather
+    than resolving it (BoardCardRepository has no app-state lookup of
+    its own; callers already have one from the task-side reconcile in
+    the same pass, see api.server._reconcile_once)."""
+    for card in repo.list_all():
+        if open_session(card) is not None:
+            tick_task(card, idle_limit_secs=idle_limit_secs)
+            repo.save(card)
 
 
 def stop_task_and_project(
@@ -219,7 +241,7 @@ def stop_task_and_project(
     button, while the project quietly keeps recording. Also used by
     NOW's own pause/complete actions."""
     idle_limit_secs = _resolve_idle_limit(task_repo, idle_limit_secs)
-    if _open_session(task) is not None:
+    if open_session(task) is not None:
         stop_task_session(task, idle_limit_secs=idle_limit_secs)
         task_repo.save(task)
     if task.project:

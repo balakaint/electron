@@ -1,27 +1,39 @@
 import { useEffect, useState } from 'react';
-import { bnDayName, useLang } from '../i18n';
-import { settingsApi } from '../services/api';
-import DayPhaseBars from './DayPhaseBars';
+import { Settings, settingsApi } from '../services/api';
+import DayPhaseBars, { currentPhaseInfo } from './DayPhaseBars';
 import ScopeStats from './ScopeStats';
+import { RADIUS } from '../spacing';
+import RitualRing from './RitualRing';
 
-function pad(n: number): string {
-  return String(n).padStart(2, '0');
+// Second pass (2026-09-18, Zahid: "2 can use more space suggest me for
+// clock day" — the digital HH:MM:SS + weekday + date block was a third
+// reading of "what time is it" on one small card, next to the phase
+// bars' own position and (in ScopeStats, below) a TODAY countdown).
+// Replaced with one ring, colored by whichever phase is active, showing
+// that phase's own remaining time — the number you can actually still
+// act on, read once instead of three times. The analog dial option is
+// untouched: still opt-in via Settings, still layered above whatever
+// the right column is showing.
+function fmtRemaining(hours: number): string {
+  const totalMin = Math.max(0, Math.round(hours * 60));
+  return `${Math.floor(totalMin / 60)}h ${String(totalMin % 60).padStart(2, '0')}m`;
 }
 
-// Matches legacy's _draw_clock_face: one card, digital time + two date
-// lines always shown, an optional analog dial layered above it. The
-// dial defaults OFF in legacy too (its own comment: a 60-tick face
-// with jagged un-antialiased edges answers "what time is it?" when the
-// digital readout right below it already does that better) — so this
-// only draws the <svg> when the analog_clock setting is on, an SVG
-// circle/line dial standing in for legacy's raw Canvas draw calls.
+// Matches legacy's _draw_clock_face for the optional analog dial: an
+// SVG circle/line dial standing in for legacy's raw Canvas draw calls,
+// defaulting OFF (legacy's own comment: a 60-tick face with jagged
+// un-antialiased edges answers "what time is it?" worse than a digital
+// readout does) — drawn only when the analog_clock setting is on.
 export default function ClockCard() {
-  const lang = useLang();
   const [now, setNow] = useState(new Date());
   const [analog, setAnalog] = useState(false);
+  const [settings, setSettings] = useState<Settings | null>(null);
 
   useEffect(() => {
-    settingsApi.get().then((s) => setAnalog(s.analog_clock));
+    settingsApi.get().then((s) => {
+      setAnalog(s.analog_clock);
+      setSettings(s);
+    });
   }, []);
 
   useEffect(() => {
@@ -32,7 +44,6 @@ export default function ClockCard() {
   const h = now.getHours();
   const m = now.getMinutes();
   const s = now.getSeconds();
-  const h12 = h % 12 === 0 ? 12 : h % 12;
 
   const hourAngle = (h % 12) * 30 + m * 0.5;
   const minAngle = m * 6 + s * 0.1;
@@ -58,7 +69,7 @@ export default function ClockCard() {
       style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
-        borderRadius: 8,
+        borderRadius: RADIUS.card,
         padding: 12,
         marginBottom: 12,
       }}
@@ -68,6 +79,16 @@ export default function ClockCard() {
           <DayPhaseBars />
         </div>
         <div style={{ textAlign: 'center', flex: '0 0 auto' }}>
+      <div style={{ marginBottom: 4 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+          {now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-faint)', lineHeight: 1.2 }}>
+          {now.toLocaleDateString(undefined, { weekday: 'short' })}
+          {' · '}
+          {now.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+        </div>
+      </div>
       {analog && (
         <svg width="110" height="110" viewBox="0 0 120 120" style={{ marginBottom: 8 }}>
           <circle cx="60" cy="60" r="56" fill="var(--bg)" stroke="var(--border)" strokeWidth={1.5} />
@@ -91,18 +112,26 @@ export default function ClockCard() {
           <circle cx="60" cy="60" r="3" fill="var(--accent)" />
         </svg>
       )}
-      <div style={{ fontSize: 30, fontWeight: 'bold', fontFamily: 'monospace', color: 'var(--text)' }}>
-        {pad(h12)}:{pad(m)}:{pad(s)}
-        <span style={{ fontSize: 13, color: 'var(--text-faint)', marginLeft: 4 }}>{h < 12 ? 'AM' : 'PM'}</span>
-      </div>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-        {/* Legacy swaps only the weekday NAME, not the whole date line
-            (5016): the numeric date below stays as it is in both. */}
-        {lang === 'bn' ? bnDayName(now) : now.toLocaleDateString(undefined, { weekday: 'long' })}
-      </div>
-      <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
-        {now.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
-      </div>
+      {settings &&
+        (() => {
+          const phase = currentPhaseInfo(settings, now);
+          if (!phase) return null;
+          return (
+            <div style={{ width: 96, margin: '0 auto' }}>
+              <RitualRing progress={phase.progress} size={76} stroke={5} accent={phase.color}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: phase.color }}>
+                    {phase.label.toUpperCase()}
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'var(--text)' }}>
+                    {fmtRemaining(phase.remainingHours)}
+                  </span>
+                </div>
+              </RitualRing>
+              <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>left in phase</div>
+            </div>
+          );
+        })()}
         </div>
       </div>
       <ScopeStats />

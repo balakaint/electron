@@ -91,12 +91,11 @@ function Row({
         // inactive rather than merely styled as such.
         disabled={!filled}
         title={filled ? (slot.done ? 'Mark not done' : 'Mark done') : ''}
+        className="btn-ghost"
         style={{
           width: 24,
           height: 24,
           flex: 'none',
-          border: 'none',
-          background: 'transparent',
           padding: 0,
           fontSize: 12,
           cursor: filled ? 'pointer' : 'default',
@@ -120,7 +119,7 @@ function Row({
         style={{
           fontFamily: 'monospace',
           fontSize: isNow ? 13 : 12,
-          fontWeight: isNow ? 'bold' : 'normal',
+          fontWeight: isNow ? 700 : 400,
           color: isNow ? color : 'var(--text-muted)',
           // No opacity dimming. --text-muted is chosen to clear 4.5:1 on
           // every theme's surface; multiplying it by 0.75 dropped these
@@ -168,7 +167,7 @@ function Row({
           // on a panel whose whole job is one line per hour, that line
           // should outweigh the chrome around it.
           fontSize: isNow ? 14 : 13,
-          fontWeight: isNow ? 'bold' : 'normal',
+          fontWeight: isNow ? 700 : 400,
           textDecoration: slot.done ? 'line-through' : undefined,
           padding: '0 4px',
           height: 24,
@@ -194,18 +193,17 @@ function Row({
             ? 'Repeats every day until you finish it — click to stop'
             : 'Keep this on every day until it is finished'
         }
+        className="btn-ghost"
         style={{
           width: 24,
           height: 24,
           flex: 'none',
-          border: 'none',
-          background: 'transparent',
           padding: 0,
           fontSize: 12,
           cursor: filled ? 'pointer' : 'default',
           color: slot.repeat ? color : 'var(--text-faint)',
           visibility: filled ? 'visible' : 'hidden',
-          fontWeight: slot.repeat ? 'bold' : 'normal',
+          fontWeight: slot.repeat ? 700 : 400,
         }}
       >
         ↻
@@ -217,12 +215,11 @@ function Row({
       <button
         onClick={onClear}
         title="Clear this hour"
+        className="btn-ghost"
         style={{
           width: 24,
           height: 24,
           flex: 'none',
-          border: 'none',
-          background: 'transparent',
           padding: 0,
           fontSize: 12,
           cursor: 'pointer',
@@ -307,12 +304,17 @@ export default function HourPlanTab({
         <span
           style={{
             fontSize: 12,
-            fontWeight: 'bold',
+            fontWeight: 700,
+            // Legacy paints this DONE_GREEN when the day is finished and
+            // TEXT2 otherwise (5636-5638). The port had TEXT-on-0.7-opacity
+            // instead, which is not the same colour and is not a colour at
+            // all: opacity multiplies whatever is behind it, so the one
+            // number saying how the day went was the least readable thing
+            // in its own row.
             color:
               plan.total_planned > 0 && plan.total_done === plan.total_planned
                 ? 'var(--success)'
-                : undefined,
-            opacity: plan.total_planned > 0 && plan.total_done === plan.total_planned ? 1 : 0.7,
+                : 'var(--text-muted)',
           }}
         >
           {plan.total_done}/{plan.total_planned} done
@@ -372,7 +374,7 @@ export default function HourPlanTab({
                   treatment: same colour, same weight, one step down and
                   tracked out, which is how a section label says "I name
                   what follows" instead of competing with it. */}
-              <span style={{ color, fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5 }}>{b.name}</span>
+              <span style={{ color, fontSize: 12, fontWeight: 700, letterSpacing: 0.5 }}>{b.name}</span>
               {/* A dot, not the word NOW. "NOW" is the card pinned above
                   the tabs and it answers WHICH TASK you are on; this
                   badge answers WHICH PART OF THE DAY you are in. Two
@@ -389,9 +391,17 @@ export default function HourPlanTab({
                 </span>
               )}
               <span style={{ flex: 1 }} />
-              <span style={{ color, fontSize: 12, fontWeight: 'bold' }}>
-                {b.done}/{b.planned}
-              </span>
+              {/* Nothing planned in this block means there is no
+                  fraction to print. Legacy prints "%d/%d" unconditionally
+                  (5684), so Morning and Evening both read "0/0" — the same
+                  empty-set statement removed from the STRIKE card, and one
+                  screen should not spell the same non-fact two ways. A
+                  block with nothing in it says so by being empty. */}
+              {b.planned > 0 && (
+                <span style={{ color, fontSize: 12, fontWeight: 700 }}>
+                  {b.done}/{b.planned}
+                </span>
+              )}
             </div>
 
             {shown && (

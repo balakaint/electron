@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useUndo } from '../undo';
+import { RADIUS } from '../spacing';
 
 export default function UndoToast() {
   const { lastMessage } = useUndo();
@@ -24,7 +25,7 @@ export default function UndoToast() {
         background: 'var(--surface-2)',
         color: 'var(--text)',
         border: '1px solid var(--border)',
-        borderRadius: 6,
+        borderRadius: RADIUS.card,
         padding: '8px 16px',
         fontSize: 13,
         boxShadow: '0 4px 16px rgba(0,0,0,0.3)',

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { PHASE_LABELS_BN, useLang } from '../i18n';
 import { Settings, settingsApi } from '../services/api';
+import { RADIUS } from '../spacing';
 
 type PhaseKey = 'morning' | 'work' | 'evening' | 'sleep';
 
@@ -76,6 +77,32 @@ function phaseProgress(key: PhaseKey, bounds: Record<PhaseKey, [number, number]>
 
 const PHASE_ORDER: PhaseKey[] = ['morning', 'work', 'evening', 'sleep'];
 
+// Which phase is "now", plus enough to draw a progress ring for it —
+// ClockCard's TODAY ring (2026-09-18 redesign) needs the same fact this
+// component already computes for its own bold/dim styling, so it's
+// exposed here rather than recomputed from a second reading of
+// Settings elsewhere.
+export function currentPhaseInfo(
+  settings: Settings,
+  now: Date,
+): { key: PhaseKey; label: string; color: string; progress: number; remainingHours: number } | null {
+  const bounds = phaseBounds(settings);
+  const nowH = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+  const progresses = PHASE_ORDER.map((key) => phaseProgress(key, bounds, nowH));
+  const i = progresses.findIndex((p) => p > 0 && p < 1);
+  if (i === -1) return null;
+  const key = PHASE_ORDER[i];
+  const [startH, endH] = bounds[key];
+  const elapsed = progresses[i] * (endH - startH);
+  return {
+    key,
+    label: PHASE_LABEL[key],
+    color: PHASE_COLOR[key],
+    progress: progresses[i],
+    remainingHours: endH - startH - elapsed,
+  };
+}
+
 export default function DayPhaseBars() {
   const lang = useLang();
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -102,13 +129,33 @@ export default function DayPhaseBars() {
       {PHASE_ORDER.map((key, i) => {
         const [startH, endH] = bounds[key];
         const pct = Math.round(progresses[i] * 100);
+        // The active phase leads (thicker, glowing track, bold text);
+        // the other three recede (2026-09-18 redesign, Zahid: all 4
+        // bars read as equally weighted, so "where am I right now"
+        // took reading every row instead of one glance).
+        const isNow = key === currentPhase;
         return (
-          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <div
+            key={key}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 8,
+              padding: '3px 6px',
+              marginLeft: -6,
+              marginRight: -6,
+              borderRadius: RADIUS.control,
+              opacity: isNow ? 1 : 0.55,
+              background: isNow ? `color-mix(in srgb, ${PHASE_COLOR[key]} 12%, transparent)` : 'transparent',
+              borderLeft: isNow ? `3px solid ${PHASE_COLOR[key]}` : '3px solid transparent',
+            }}
+          >
             <span
               style={{
-                width: 10,
-                height: 10,
-                borderRadius: 5,
+                width: isNow ? 12 : 10,
+                height: isNow ? 12 : 10,
+                borderRadius: RADIUS.control,
                 background: PHASE_COLOR[key],
                 flexShrink: 0,
               }}
@@ -118,19 +165,30 @@ export default function DayPhaseBars() {
                 width: 60,
                 textAlign: 'left',
                 fontSize: 12,
-                fontWeight: 600,
-                color: key === currentPhase ? 'var(--text)' : 'var(--text-muted)',
+                fontWeight: isNow ? 700 : 600,
+                color: isNow ? 'var(--text)' : 'var(--text-muted)',
               }}
             >
               {lang === 'bn' ? PHASE_LABELS_BN[key] : PHASE_LABEL[key]}
             </span>
-            <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+            <div
+              style={{
+                flex: 1,
+                height: isNow ? 10 : 6,
+                background: 'var(--border)',
+                borderRadius: RADIUS.pill,
+                overflow: 'hidden',
+                boxShadow: isNow ? `0 0 0 3px color-mix(in srgb, ${PHASE_COLOR[key]} 20%, transparent)` : undefined,
+              }}
+            >
               <div style={{ width: `${pct}%`, height: '100%', background: PHASE_COLOR[key] }} />
             </div>
             <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
               {formatHour(startH)}–{formatHour(endH)}
             </span>
-            <span style={{ fontSize: 12, color: 'var(--text-faint)', width: 32, textAlign: 'right' }}>{pct}%</span>
+            <span style={{ fontSize: 12, color: isNow ? 'var(--text)' : 'var(--text-faint)', fontWeight: isNow ? 700 : 400, width: 32, textAlign: 'right' }}>
+              {pct}%
+            </span>
           </div>
         );
       })}

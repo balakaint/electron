@@ -1,3 +1,4 @@
+import { RADIUS } from '../spacing';
 const SHORTCUTS: [string, string][] = [
   ['Ctrl+Z', 'Undo last action'],
   ['Ctrl+Shift+Z', 'Redo'],
@@ -28,7 +29,7 @@ export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
           background: 'var(--surface)',
           color: 'var(--text)',
           border: '1px solid var(--border)',
-          borderRadius: 10,
+          borderRadius: RADIUS.card,
           padding: 24,
           width: 320,
         }}

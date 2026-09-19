@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { DayView, ListKey, STRIKE_MAX, Task, hoursApi, nowApi, tasksApi } from '../services/api';
+import { DayView, ListKey, Project, ProjectKey, STRIKE_MAX, Task, hoursApi, nowApi, projectsApi, tasksApi } from '../services/api';
 import { useUndo } from '../undo';
+import { accentText } from '../themes';
 import NowCard from './NowCard';
+import DeepWorkCard from './DeepWorkCard';
+import ProjectTaskList from './ProjectTaskList';
 import { formatSecs } from '../format';
-import StrikeCard from './StrikeCard';
+import { RADIUS } from '../spacing';
 
 // Session.start/end are unix seconds (python's time.time()), not ms.
 function formatClock(unixSecs: number): string {
@@ -32,11 +35,17 @@ const URGENCY_COLOR: Record<Task['urgency'], string> = {
   high: 'var(--danger)',
 };
 
-// What the row's 3px edge shows: nothing unless you deliberately raised
-// the task above the default.
+// What the row's 3px edge shows. Committed first — that is the one
+// decision this screen exists to record, and with the STRIKE card gone
+// the rail is what tells a committed row from the rest. Then priority,
+// but only when you deliberately raised it above the default. Otherwise
+// nothing at all: a grey bar drawn down every row is a line the eye has
+// to dismiss on every row.
 function railColor(t: Task): string {
-  if (t.done || t.urgency !== 'high') return 'var(--border)';
-  return 'var(--danger)';
+  if (t.done) return 'transparent';
+  if (t.strike) return 'var(--accent)';
+  if (t.urgency === 'high') return 'var(--danger)';
+  return 'transparent';
 }
 
 // Below this many tasks the list is short enough to read, so the
@@ -78,6 +87,22 @@ export default function TaskList({
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [title, setTitleState] = useState('');
   const [mitPromptTasks, setMitPromptTasks] = useState<Task[] | null>(null);
+  // Which project the list below is showing, if any. Null means today's
+  // own list — the default, and what you get back by pressing the
+  // project again or the "today's list" link in the heading.
+  const [projectKey, setProjectKey] = useState<ProjectKey | null>(null);
+  const [projects, setProjects] = useState<Record<string, Project>>({});
+  const selectedProject = projectKey ? projects[projectKey] ?? null : null;
+
+  useEffect(() => {
+    if (listKey !== 'focus' || dayView !== 'today') return;
+    projectsApi.order().then((o) => {
+      const map: Record<string, Project> = {};
+      o.forEach((e) => (map[e.project.key] = e.project));
+      setProjects(map);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listKey, dayView]);
   const inputRef = useRef<HTMLInputElement>(null);
   const { push: pushUndo } = useUndo();
 
@@ -367,11 +392,28 @@ export default function TaskList({
   // in the NOW card AND left it in the pool below, on screen twice with
   // two sets of controls — exactly the duplication the rule above
   // exists to prevent.
-  const pool =
-    listKey === 'focus' && dayView === 'today'
-      ? tasks.filter((t) => !t.strike && t.id !== nowId)
-      : tasks;
-  const sorted = [...pool].sort((a, b) => Number(a.done) - Number(b.done));
+  // ONE list. The STRIKE card above this used to hold the committed
+  // tasks, and the pool filtered them out so they would not appear
+  // twice — two cards, two row designs, two sets of controls for one
+  // kind of object, which is what made this screen read as complicated.
+  // Zahid's call, and it is the right one: the commitment is a PROPERTY
+  // of a task, not a different kind of thing, so it is now a mark on the
+  // row (the rail, the star, the pressed STRIKE chip) and committed
+  // tasks simply sort to the top.
+  //
+  // Removing the card also removes the bug that made it necessary: with
+  // the card gone AND the filter kept, striking a task would have made
+  // it vanish from the screen entirely.
+  //
+  // The NOW task stays in the list too. It was excluded to avoid saying
+  // the same thing twice, but "it disappeared" is a worse confusion than
+  // "it is shown above as well" — the card is a control surface with a
+  // running clock, the row is an inventory line, and the row says which
+  // one it is.
+  const pool = tasks;
+  const sorted = [...pool].sort(
+    (a, b) => Number(a.done) - Number(b.done) || Number(b.strike) - Number(a.strike),
+  );
   const q = query.trim().toLowerCase();
   const visible = q ? sorted.filter((t) => t.text.toLowerCase().includes(q)) : sorted;
   const doneCount = pool.filter((t) => t.done).length;
@@ -389,26 +431,23 @@ export default function TaskList({
           subtitle: "Deciding now means no deciding in the morning — pick 3 things you'll actually do",
           chips: ['deep work ~90', 'email + admin ~30', 'review the day ~10'],
         }
-      : listKey === 'focus' && struckCount > 0
+      // The "everything you've taken on is committed ABOVE" variant is
+      // gone with the card it referred to. It is also unreachable now:
+      // committed tasks live in this pool, so a list with something
+      // committed is not an empty list.
+      : listKey === 'focus'
         ? {
-            icon: '✓',
-            title: "Nothing queued behind today's list",
-            subtitle: "Everything you've taken on is committed above — add here only what comes after it",
+            icon: '◇',
+            title: 'Nothing to work from yet',
+            subtitle: 'Add what today could contain, then + STRIKE up to 3 of them',
             chips: ['deep work ~45', 'review inbox ~15', 'quick call ~10'],
           }
-        : listKey === 'focus'
-          ? {
-              icon: '◇',
-              title: 'Nothing to work from yet',
-              subtitle: 'Add what today could contain, then + STRIKE up to 3 of them',
-              chips: ['deep work ~45', 'review inbox ~15', 'quick call ~10'],
-            }
-          : {
-              icon: '✦',
-              title: 'A clear list is a clear mind',
-              subtitle: '0 active tasks · add one — try "deep work ~45" to set a 45-min time-box',
-              chips: ['deep work ~45', 'review inbox ~15', 'quick call ~10'],
-            };
+        : {
+            icon: '✦',
+            title: 'A clear list is a clear mind',
+            subtitle: '0 active tasks · add one — try "deep work ~45" to set a 45-min time-box',
+            chips: ['deep work ~45', 'review inbox ~15', 'quick call ~10'],
+          };
 
   return (
     <div style={{ maxWidth: 560 }}>
@@ -431,23 +470,58 @@ export default function TaskList({
           thing you are doing, and it must not depend on which tab is
           open. It used to live here, which put it inside a tab. */}
 
-      {/* Above the pool, as in legacy: "the three you committed to and
-          the pool you promote them FROM are one decision; splitting them
-          across two tabs meant picking today's work needed a tab switch
-          each time." The flash message (the 3/3-full warning) shows in
-          place of the count, which is where the eye already is. */}
+      {/* The STRIKE card stood here. What it did — showing what you
+          took on today — is now split in two: the commitment mark moved
+          onto the rows themselves, and the box became DEEP WORK, which
+          answers the question this screen is actually opened with. */}
       {listKey === 'focus' && dayView === 'today' && (
-        <StrikeCard
-          struck={struck}
-          nowId={nowId}
-          flash={flash}
-          onToggleDone={toggleDone}
-          onUnstrike={toggleStrike}
-          onSetNow={setNow}
-          onSetMit={setMit}
-        />
+        <DeepWorkCard onChanged={onFocusChanged} selectedKey={projectKey} onSelect={setProjectKey} />
       )}
 
+      {/* A project is selected: everything below belongs to it. The
+          heading names the project instead of the list, in the project's
+          own colour, with the way back beside it — the list you were
+          looking at has been replaced, so it has to be obvious both what
+          replaced it and how to undo that. */}
+      {selectedProject ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontWeight: 700,
+                fontSize: 13,
+                textTransform: 'uppercase',
+                letterSpacing: 0.5,
+                color: accentText(selectedProject.accent_color),
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {selectedProject.name}
+            </span>
+            <button
+              onClick={() => setProjectKey(null)}
+              className="btn-ghost"
+              title="Back to today's list"
+              style={{ fontSize: 12, height: 24, padding: '0 8px', flex: 'none' }}
+            >
+              ← today's list
+            </button>
+          </div>
+          <ProjectTaskList
+            projectKey={selectedProject.key}
+            accent={accentText(selectedProject.accent_color)}
+            onPromoted={() => {
+              refresh();
+              onFocusChanged();
+            }}
+          />
+        </>
+      ) : (
+      <>
       {/* Heading and count on one row. With the search box gone below
           for short lists, "0/3 done" was left floating on a line of its
           own between the heading and the add box, captioning nothing. */}
@@ -462,7 +536,7 @@ export default function TaskList({
         }}
         style={{
           display: 'block',
-          fontWeight: 'bold',
+          fontWeight: 700,
           fontSize: 13,
           textTransform: 'uppercase',
           letterSpacing: 0.5,
@@ -475,8 +549,26 @@ export default function TaskList({
           height: 24,
         }}
       />
+        {/* The commitment count lived in the STRIKE card's header. It
+            says the same thing here, next to the count it belongs
+            beside, and only while there is something committed — "0/0"
+            is a statement about an empty set. The 3/3-full warning
+            flashes in its place, which is where the eye already is. */}
+        {listKey === 'focus' && dayView === 'today' && (flash || struckCount > 0) && (
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: 'var(--accent)',
+              whiteSpace: 'nowrap',
+              flex: 'none',
+            }}
+          >
+            {flash ?? `${struckCount}/${STRIKE_MAX} committed`}
+          </span>
+        )}
         {pool.length > 0 && (
-          <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap', flex: 'none' }}>
+          <span className="tabular" style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap', flex: 'none' }}>
             {doneCount}/{pool.length} done
           </span>
         )}
@@ -507,7 +599,9 @@ export default function TaskList({
           placeholder='Add a task… ("~30" = 30-min time-box)'
           style={{ flex: 1, padding: 8 }}
         />
-        <button type="submit">Add</button>
+        <button type="submit" className="btn-primary" style={{ padding: '0 16px' }}>
+          Add
+        </button>
       </form>
 
 
@@ -515,7 +609,7 @@ export default function TaskList({
         <p>Loading…</p>
       ) : visible.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)' }}>
-          <div style={{ fontSize: 28, marginBottom: 8 }}>{emptyState.icon}</div>
+          <div style={{ fontSize: 30, marginBottom: 8 }}>{emptyState.icon}</div>
           <div style={{ fontSize: 14 }}>{emptyState.title}</div>
           {emptyState.subtitle && (
             <div style={{ fontSize: 12, marginTop: 4, color: 'var(--text-muted)' }}>{emptyState.subtitle}</div>
@@ -526,7 +620,7 @@ export default function TaskList({
                 <button
                   key={chip}
                   onClick={() => quickAddChip(chip)}
-                  style={{ fontSize: 12, padding: '4px 12px', borderRadius: 12 }}
+                  style={{ fontSize: 12, padding: '4px 12px', borderRadius: RADIUS.pill }}
                 >
                   {chip}
                 </button>
@@ -543,16 +637,23 @@ export default function TaskList({
             return (
             <li
               key={t.id}
+              className="task-row"
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                padding: '8px 0',
-                borderBottom: '1px solid var(--border)',
+                padding: 8,
+                borderRadius: RADIUS.control,
+                // No hairline under every row. A rule per row is how a
+                // list looked when lists were tables; separation is the
+                // padding, and the hover tint is what groups a row into
+                // one object when you are about to click it.
+                //
                 // Muted by COLOUR, not by opacity. Opacity multiplies
                 // every colour in the row — the strike-through text, the
                 // time, the controls — and drops all of them below
                 // 4.5:1 at once. A done task is still a task you can
                 // read.
+                background: t.id === nowId ? 'var(--accent-light)' : undefined,
               }}
             >
             {/* ONE ROW, ONE TASK.
@@ -593,8 +694,32 @@ export default function TaskList({
                 }}
               />
 
-              <button onClick={() => toggleDone(t.id)} title="Toggle done" style={{ width: 24, height: 24, padding: 0, flex: 'none' }}>
-                {t.done ? '✓' : '○'}
+              {/* Drawn, not typed. "○" and "✓" are text glyphs: their
+                  size, weight and vertical centring come from whatever
+                  font the OS picked, which is why the tick sat high and
+                  the circle looked thin and old. A bordered box the app
+                  draws itself is the same control at any font. */}
+              <button
+                onClick={() => toggleDone(t.id)}
+                title="Toggle done"
+                aria-pressed={t.done}
+                style={{
+                  width: 20,
+                  height: 20,
+                  padding: 0,
+                  flex: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 12,
+                  lineHeight: 1,
+                  borderRadius: RADIUS.pill,
+                  border: `1px solid ${t.done ? 'var(--success)' : 'var(--text-faint)'}`,
+                  background: t.done ? 'var(--success)' : 'transparent',
+                  color: t.done ? 'var(--on-accent)' : 'transparent',
+                }}
+              >
+                ✓
               </button>
 
               {editingId === t.id ? (
@@ -617,6 +742,15 @@ export default function TaskList({
                   style={{
                     flex: 1,
                     minWidth: 0,
+                    // The name is the only thing on this row you read
+                    // rather than operate, so it is the only thing above
+                    // 13px. A committed task steps up again: the weight
+                    // is the hierarchy the STRIKE card used to provide
+                    // by being a separate box.
+                    fontSize: 14,
+                    fontWeight: t.strike && !t.done ? 600 : 400,
+                    lineHeight: 1.35,
+                    color: t.done ? 'var(--text-muted)' : 'var(--text)',
                     textDecoration: t.done ? 'line-through' : 'none',
                     cursor: 'text',
                     overflow: 'hidden',
@@ -645,6 +779,7 @@ export default function TaskList({
                 <button
                   onClick={() => cycleUrgency(t.id)}
                   title="Cycle priority"
+                  className="btn-ghost"
                   style={{ color: URGENCY_COLOR.high, fontSize: 12, height: 24, padding: '0 8px', flex: 'none' }}
                 >
                   HIGH
@@ -667,7 +802,14 @@ export default function TaskList({
                 </button>
               )}
 
-              <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--text-muted)', width: 44, textAlign: 'right', flex: 'none' }}>
+              {/* Tabular figures, not a monospace FACE. The digits still
+                  line up column to column, but they stay in the app's own
+                  typeface instead of dropping into Courier — a second
+                  font on a row is most of what "dated" looks like. */}
+              <span
+                className="tabular"
+                style={{ fontSize: 12, color: 'var(--text-muted)', width: 44, textAlign: 'right', flex: 'none' }}
+              >
                 {formatSecs(t.secs)}
               </span>
 
@@ -689,28 +831,66 @@ export default function TaskList({
                     : tasksApi.toggleTimer(t.id).then(refresh)
                 }
                 title={listKey === 'focus' ? 'Work on this now' : 'Start/stop timer'}
-                style={{ width: 24, height: 24, padding: 0, flex: 'none' }}
+                className="btn-ghost"
+                style={{ width: 24, height: 24, padding: 0, flex: 'none', color: 'var(--accent)' }}
               >
                 {t.sessions.length > 0 && t.sessions[t.sessions.length - 1].end === null ? '⏸' : '▶'}
               </button>
 
-              {/* Named, not a diamond. The project cards have said
-                  "+ STRIKE" on this exact action since the port began;
-                  this row said "◇". One concept, two spellings, in one
-                  app — and the shape was the only clue that the card
-                  above was even fillable. */}
+              {/* The star only means something on a committed task —
+                  FIRST OF THE THREE, the one NOW opens on. It lived in
+                  the STRIKE card because that was the only place
+                  committed tasks appeared; it follows them here. */}
+              {listKey === 'focus' && t.strike && !t.done && (
+                <button
+                  onClick={() => setMit(t)}
+                  aria-pressed={t.mit}
+                  title={t.mit ? 'First of the three — NOW opens here' : 'Make this the first of the three'}
+                  className="btn-ghost"
+                  style={{
+                    width: 24,
+                    height: 24,
+                    padding: 0,
+                    flex: 'none',
+                    fontSize: 14,
+                    color: t.mit ? 'var(--warning)' : 'var(--text-faint)',
+                  }}
+                >
+                  {t.mit ? '★' : '☆'}
+                </button>
+              )}
+
+              {/* ONE control, two states. Committing and un-committing
+                  were a "+ STRIKE" button down here and a "−" button up
+                  in the STRIKE card — the same decision wearing two
+                  different marks in two different places. Pressed is the
+                  state, aria-pressed says so, and the row's rail says it
+                  again at a glance. */}
               {listKey === 'focus' && !t.done && (
                 <button
                   onClick={() => toggleStrike(t.id)}
-                  disabled={struckCount >= STRIKE_MAX}
+                  aria-pressed={t.strike}
+                  disabled={!t.strike && struckCount >= STRIKE_MAX}
                   title={
-                    struckCount >= STRIKE_MAX
-                      ? `Already ${STRIKE_MAX}/${STRIKE_MAX} — today is full`
-                      : "Commit this to today's 3"
+                    t.strike
+                      ? "Committed to today — click to take it back"
+                      : struckCount >= STRIKE_MAX
+                        ? `Already ${STRIKE_MAX}/${STRIKE_MAX} — today is full`
+                        : "Commit this to today's 3"
                   }
-                  style={{ fontSize: 12, height: 24, padding: '0 8px', flex: 'none' }}
+                  className={t.strike ? undefined : 'btn-ghost'}
+                  style={{
+                    fontSize: 12,
+                    fontWeight: t.strike ? 600 : 400,
+                    height: 24,
+                    padding: '0 8px',
+                    flex: 'none',
+                    background: t.strike ? 'var(--accent-light)' : undefined,
+                    borderColor: t.strike ? 'var(--accent)' : undefined,
+                    color: t.strike ? 'var(--accent)' : undefined,
+                  }}
                 >
-                  + STRIKE
+                  {t.strike ? 'STRIKE' : '+ STRIKE'}
                 </button>
               )}
 
@@ -723,15 +903,8 @@ export default function TaskList({
                 // color-scheme:dark is #6B6B6B — and --text-muted on
                 // that measured 2.08:1. Every icon button in this app
                 // paints its own background for exactly this reason.
-                style={{
-                  width: 24,
-                  height: 24,
-                  padding: 0,
-                  flex: 'none',
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'var(--text-muted)',
-                }}
+                className="btn-ghost"
+                style={{ width: 24, height: 24, padding: 0, flex: 'none' }}
               >
                 ⋯
               </button>
@@ -787,6 +960,8 @@ export default function TaskList({
           })}
         </ul>
       )}
+      </>
+      )}
 
       {mitPromptTasks && (
         <div
@@ -800,8 +975,8 @@ export default function TaskList({
             zIndex: 100,
           }}
         >
-          <div style={{ background: 'var(--surface)', borderRadius: 8, padding: 24, width: 320 }}>
-            <div style={{ fontSize: 15, fontWeight: 'bold', color: 'var(--warning)', marginBottom: 4 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: RADIUS.card, padding: 24, width: 320 }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warning)', marginBottom: 4 }}>
               ★ WHAT'S TODAY'S MIT?
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 12 }}>One Most Important Task. Do it first.</div>

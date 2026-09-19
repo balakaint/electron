@@ -113,6 +113,43 @@ const BA_STATUS_DARK = {
   '--ba-neutral': '#868E96',
 };
 
+// --chart-1/2/3 back MorningRitualTrend's combined Energy/Mood/Sleep line
+// chart (2026-09-18) — a genuine 3-series categorical palette, which
+// --accent/--accent-2 aren't (same hue family in most themes, chosen for
+// brand/interactive use, not built to sit side by side as distinct
+// series). Slots 1-3 of the dataviz skill's own validated reference
+// categorical palette (references/palette.md) — the only three that
+// clear the CVD/normal-vision floors under `--pairs all`, which a 3-line
+// chart needs. Split light/dark by surface the same way BA_STATUS_LIGHT/
+// DARK above are: warroom/journey (dark bg) get the dark steps, the
+// other 4 themes get the light steps. Re-validated against this app's
+// own surfaces (not the skill's #fcfcfb/#1a1a19 default):
+// `node validate_palette.js "#2a78d6,#eb6834,#1baf7a" --mode light --surface "#F7F6F3" --pairs all`
+// and the dark equivalent against #0C0C0F — both ALL CHECKS PASS.
+const CHART_SERIES_LIGHT = {
+  '--chart-1': '#2a78d6',
+  '--chart-2': '#eb6834',
+  '--chart-3': '#1baf7a',
+};
+const CHART_SERIES_DARK = {
+  '--chart-1': '#3987e5',
+  '--chart-2': '#d95926',
+  '--chart-3': '#199e70',
+};
+
+// --input-color-scheme feeds a bare CSS `color-scheme` declaration on
+// every native `<input type="date">` in the app (GoalsPanel's STARTED/
+// DEADLINE/composer pickers, MorningRitualFlow's Wake up field). Without
+// it the browser always renders the date picker's calendar icon and
+// popover in ITS OS-light chrome, regardless of the app's own theme — on
+// warroom/journey (dark surface, light text) that icon sat as a stark
+// black-on-dark square, the one place on screen that visibly ignored the
+// active theme (Zahid, 2026-09-18 screenshot: "unprofessional design").
+// `color-scheme` is the standard, zero-JS fix: it tells the browser
+// which of its own two built-in palettes to paint native controls with.
+const INPUT_SCHEME_LIGHT = { '--input-color-scheme': 'light' };
+const INPUT_SCHEME_DARK = { '--input-color-scheme': 'dark' };
+
 // --bdp-* backs BdpPanel.tsx's status/priority chips (IDEA/OPPORTUNITY/
 // RESEARCH/PLAN/ACTIVE/HOLD/DONE, HIGH/MEDIUM/LOW). Unlike BA_STATUS_COLORS
 // above, legacy actually varies THIS palette — but only by a light/dark
@@ -202,6 +239,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#A0937F',
     '--progress-ring': '#1A1A1A',
     ...BA_STATUS_LIGHT,
+    ...CHART_SERIES_LIGHT,
+    ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#175A9D',
@@ -239,6 +278,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#626262',
     '--progress-ring': '#FFFFFF',
     ...BA_STATUS_DARK,
+    ...CHART_SERIES_DARK,
+    ...INPUT_SCHEME_DARK,
     ...BA_SECTION_COLORS,
     ...BDP_DARK,
     '--habit-money': '#58A6FF',
@@ -276,6 +317,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#949494',
     '--progress-ring': '#111111',
     ...BA_STATUS_LIGHT,
+    ...CHART_SERIES_LIGHT,
+    ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#175A9D',
@@ -306,7 +349,16 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--phase-work': '#9A1A1A',
     '--phase-evening': '#8B3407',
     '--goal-yearly': '#AE1D1D',
-    '--goal-monthly': '#864A03',
+    // Was '#864A03' — only 33° of hue from --goal-yearly's red (every
+    // other theme's yearly/monthly pair sits 40°+ apart), the one
+    // horizon-color pair that actually reads as "basically the same
+    // dark warm tone" at 12px bold (Zahid's own screenshot, 2026-09-18:
+    // WEEKLY GOAL and MONTHLY GOAL headings looked like one color).
+    // Pushed toward true gold (hue 42) — as far as it can go while
+    // still clearing this file's own AAA-on-surface floor (7.48:1 vs
+    // the previous 7.01:1, both checked by palette.test.ts's
+    // `goal-monthly on surface` row).
+    '--goal-monthly': '#704F00',
     '--goal-weekly': '#0E672F',
   },
   // EXECUTIVE — legacy's "corporate" key. Warm ivory, deep amber accent,
@@ -316,6 +368,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#A59278',
     '--progress-ring': '#1C1917',
     ...BA_STATUS_LIGHT,
+    ...CHART_SERIES_LIGHT,
+    ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#0C4A6E',
@@ -353,6 +407,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#4C6C5F',
     '--progress-ring': '#FFFFFF',
     ...BA_STATUS_DARK,
+    ...CHART_SERIES_DARK,
+    ...INPUT_SCHEME_DARK,
     ...BA_SECTION_COLORS,
     ...BDP_DARK,
     '--habit-money': '#4CE0A0',
@@ -396,6 +452,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-track': '#8D95A7',
     '--progress-ring': '#111827',
     ...BA_STATUS_LIGHT,
+    ...CHART_SERIES_LIGHT,
+    ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
     '--habit-money': '#0C4A6E',
