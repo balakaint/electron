@@ -3,7 +3,7 @@ import time
 from datetime import date, timedelta
 
 from database.models import GOAL_HORIZONS, Goal
-from database.repository import GoalRepository, TaskRepository
+from database.repository import GoalRepository, ProjectRepository
 
 
 def _today() -> str:
@@ -181,32 +181,38 @@ class GoalEngine:
 
 
 # ── Panel-level settings ─────────────────────────────────────────────
-# Which project the Goals panel currently shows, and the (optional)
-# renamed section headings — both global AppState fields, not
-# per-project data. Reuses TaskRepository for the app_state singleton
-# rather than a new repository class, same reasoning as engine.settings.
+# Which project the Goals panel currently shows (a global AppState
+# pointer) and that project's own renamed section headings (moved off
+# AppState 2026-09-19 — see Project's own comment: renaming "Weekly
+# Goal" for one project used to bleed into every other project's
+# panel). Takes a ProjectRepository rather than TaskRepository now,
+# since reading/writing a project row's own columns is the whole point.
 
-def get_goal_panel(repo: TaskRepository) -> dict:
+def get_goal_panel(repo: ProjectRepository) -> dict:
     state = repo.get_app_state()
+    project = repo.get(state.goal_project)
     return {
         "project_key": state.goal_project,
-        "sec_title_yearly": state.sec_title_yearly,
-        "sec_title_monthly": state.sec_title_monthly,
-        "sec_title_weekly": state.sec_title_weekly,
+        "sec_title_yearly": project.sec_title_yearly if project else None,
+        "sec_title_monthly": project.sec_title_monthly if project else None,
+        "sec_title_weekly": project.sec_title_weekly if project else None,
     }
 
 
-def set_goal_project(repo: TaskRepository, project_key: str) -> dict:
+def set_goal_project(repo: ProjectRepository, project_key: str) -> dict:
     state = repo.get_app_state()
     state.goal_project = project_key
     repo.save_app_state(state)
     return get_goal_panel(repo)
 
 
-def set_section_title(repo: TaskRepository, horizon: str, title: str) -> dict:
+def set_section_title(repo: ProjectRepository, horizon: str, title: str) -> dict:
     if horizon not in GOAL_HORIZONS:
         raise ValueError(f"horizon must be one of {GOAL_HORIZONS}")
     state = repo.get_app_state()
-    setattr(state, f"sec_title_{horizon}", title.strip() or None)
-    repo.save_app_state(state)
+    project = repo.get(state.goal_project)
+    if project is None:
+        raise ValueError(f"no project {state.goal_project!r} to rename a section title on")
+    setattr(project, f"sec_title_{horizon}", title.strip() or None)
+    repo.save(project)
     return get_goal_panel(repo)

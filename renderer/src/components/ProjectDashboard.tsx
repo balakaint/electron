@@ -175,11 +175,10 @@ function ProjectCard({
       >
         <span
           onClick={() => {
-            toggleCollapsed();
+            soloThis();
             onSelectGoals(key);
           }}
-          onDoubleClick={soloThis}
-          title="Open · double-click to solo this project"
+          title="Open — collapses every other project"
           style={{
             width: 20,
             height: 20,
@@ -203,7 +202,7 @@ function ProjectCard({
         </span>
         <button
           onClick={() => {
-            toggleCollapsed();
+            soloThis();
             onSelectGoals(key);
           }}
           // The name is what ellipsis clips here, so the name is what

@@ -88,6 +88,13 @@ class Project(Base):
     note_title: Mapped[str] = mapped_column(String, default="")
     note_bg: Mapped[str | None] = mapped_column(String, nullable=True)
     note_fg: Mapped[str | None] = mapped_column(String, nullable=True)
+    # User-renamed Goals section headings for THIS project (moved off
+    # AppState 2026-09-19 — see that model's own comment). NULL/empty
+    # falls back to the default label ("YEARLY"/"MONTHLY"/"WEEKLY")
+    # client-side, same convention as note_title above.
+    sec_title_yearly: Mapped[str | None] = mapped_column(String, nullable=True)
+    sec_title_monthly: Mapped[str | None] = mapped_column(String, nullable=True)
+    sec_title_weekly: Mapped[str | None] = mapped_column(String, nullable=True)
     target_minutes: Mapped[int] = mapped_column(Integer, default=60)
     # Unix timestamp of when the ▶ timer was last started; NULL = stopped.
     # Elapsed time is credited to *today* on stop, matching the legacy
@@ -427,12 +434,13 @@ class AppState(Base):
       this app (DailyIntention.text/win/reflection, BusinessAnalysis.
       decision_status, etc) — nothing ever asked for whatever headline
       Zahid may have already typed to be destroyed.
-    - sec_title_yearly/monthly/weekly: user-renamed Goals section
-      headings (legacy's `vision_data["_sec_title_<horizon>"]`, which
-      lived in a global dict despite goals themselves being
-      per-project — same split preserved here). NULL/empty falls back
-      to the default label ("YEARLY"/"MONTHLY"/"WEEKLY") client-side,
-      same as legacy's own fallback.
+    - sec_title_yearly/monthly/weekly: MOVED to Project (2026-09-19,
+      Zahid: renaming "Weekly Goal" while looking at one project was
+      bleeding into every other project's Goals panel). Legacy kept
+      these in a global dict despite goals themselves being
+      per-project; this port initially preserved that split, but it
+      read as a bug, not a quirk worth keeping, so each project now
+      carries its own three headings — see Project's own comment.
     - now_task_id: explicit override for which task the NOW panel
       points at (legacy's `self._now_id`). This is a POINTER, not the
       source of truth — legacy's own `_now_task()` only trusts it while
@@ -504,9 +512,6 @@ class AppState(Base):
     onboarded: Mapped[bool] = mapped_column(Boolean, default=False)
     goal_project: Mapped[str] = mapped_column(String, default="proj1")
     life_plan_headline: Mapped[str | None] = mapped_column(String, nullable=True)
-    sec_title_yearly: Mapped[str | None] = mapped_column(String, nullable=True)
-    sec_title_monthly: Mapped[str | None] = mapped_column(String, nullable=True)
-    sec_title_weekly: Mapped[str | None] = mapped_column(String, nullable=True)
     now_task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id"), nullable=True)
     lang: Mapped[str] = mapped_column(String, default="en")
     analog_clock: Mapped[bool] = mapped_column(Boolean, default=False)

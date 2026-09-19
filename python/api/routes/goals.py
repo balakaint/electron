@@ -12,7 +12,7 @@ from api.schemas import (
     SectionTitleSet,
 )
 from database.connection import get_db
-from database.repository import GoalRepository, TaskRepository
+from database.repository import GoalRepository, ProjectRepository
 from engine.board import goal_board_progress, goal_top_focus_card_title
 from engine.goals import GoalEngine, get_goal_panel, set_goal_project, set_section_title
 
@@ -24,8 +24,8 @@ def get_engine(db: Session = Depends(get_db)) -> GoalEngine:
     return GoalEngine(GoalRepository(db))
 
 
-def get_task_repo(db: Session = Depends(get_db)) -> TaskRepository:
-    return TaskRepository(db)
+def get_project_repo(db: Session = Depends(get_db)) -> ProjectRepository:
+    return ProjectRepository(db)
 
 
 # board_done/board_focus/board_total aren't part of Goal at all (see
@@ -99,17 +99,17 @@ def delete_goal(goal_id: int, engine: GoalEngine = Depends(get_engine)):
 
 # ── Cross-project panel state (which project is shown + section titles) ──
 @panel_router.get("/panel", response_model=GoalPanelOut)
-def read_panel(repo: TaskRepository = Depends(get_task_repo)):
+def read_panel(repo: ProjectRepository = Depends(get_project_repo)):
     return get_goal_panel(repo)
 
 
 @panel_router.post("/panel/project", response_model=GoalPanelOut)
-def switch_panel_project(payload: GoalProjectSet, repo: TaskRepository = Depends(get_task_repo)):
+def switch_panel_project(payload: GoalProjectSet, repo: ProjectRepository = Depends(get_project_repo)):
     return set_goal_project(repo, payload.project_key)
 
 
 @panel_router.post("/panel/section-title", response_model=GoalPanelOut)
-def rename_section_title(payload: SectionTitleSet, repo: TaskRepository = Depends(get_task_repo)):
+def rename_section_title(payload: SectionTitleSet, repo: ProjectRepository = Depends(get_project_repo)):
     try:
         return set_section_title(repo, payload.horizon, payload.title)
     except ValueError as e:

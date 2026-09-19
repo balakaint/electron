@@ -620,15 +620,22 @@ def import_settings(data: dict, db: Session) -> dict:
         if field in st:
             setattr(app_state, field, int(st[field]))
 
+    # Legacy kept these three as one global rename shared by every
+    # project (same quirk noted on Project.sec_title_* itself); the
+    # closest honest equivalent on import is the project legacy had
+    # open when it saved (`goal_project`, resolved just above).
     sec_yearly = vd.get("_sec_title_yearly") or data.get("sec_title_yearly")
-    if sec_yearly:
-        app_state.sec_title_yearly = sec_yearly
     sec_monthly = vd.get("_sec_title_monthly") or data.get("sec_title_monthly")
-    if sec_monthly:
-        app_state.sec_title_monthly = sec_monthly
     sec_weekly = vd.get("_sec_title_weekly") or data.get("sec_title_weekly")
-    if sec_weekly:
-        app_state.sec_title_weekly = sec_weekly
+    if (sec_yearly or sec_monthly or sec_weekly) and goal_project in _PROJECT_KEYS:
+        target_project = db.get(Project, goal_project)
+        if target_project is not None:
+            if sec_yearly:
+                target_project.sec_title_yearly = sec_yearly
+            if sec_monthly:
+                target_project.sec_title_monthly = sec_monthly
+            if sec_weekly:
+                target_project.sec_title_weekly = sec_weekly
 
     task_title_today = vd.get("_task_title") or data.get("task_title")
     if task_title_today:
