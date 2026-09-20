@@ -402,6 +402,25 @@ function AppShell() {
           // the window instead — which reads as "panel 1 and 2 vanished"
           // rather than "the window is too narrow".
           <section aria-label="Projects" style={{ overflowY: 'auto', minHeight: 0, minWidth: 0 }}>
+            {/* Panel 2 (GOALS) and Panel 3 (PLAN/EXECUTE) both open on a
+                header naming the column; Panel 1 went straight into the
+                project rows with nothing above them — the one column on
+                screen with no visible label (visual redesign pass,
+                2026-09-20). Same weight/style as GoalsPanel's own
+                header two columns over, not a new element type. */}
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                letterSpacing: 0.5,
+                color: 'var(--text-faint)',
+                marginBottom: 12,
+                paddingBottom: 4,
+                borderBottom: '1px solid var(--border)',
+              }}
+            >
+              PROJECTS
+            </div>
             <ProjectDashboard
               focusVersion={panel3Wrote}
               onFocusChanged={() => setPanel1Wrote((v) => v + 1)}
