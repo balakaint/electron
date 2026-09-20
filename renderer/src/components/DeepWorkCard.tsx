@@ -21,6 +21,15 @@ import { RADIUS } from '../spacing';
 // No ceiling on the rows either (his call): the list is however many
 // projects you have named, because a limit here would be a limit on your
 // own project list rather than on today.
+//
+// A project OPEN below used to fold the other rows to a collapsed
+// header (tried plain shrink+dim, then HourPlan's own ▸/▾ header
+// language) before Zahid settled on this: when he is deep in one
+// project he does not want the others on screen AT ALL, not even as a
+// quiet row — "less distraction" meant literally less, not smaller
+// (2026-09-20). They come back the moment selection clears — the
+// "← today's list" link below this card (TaskList.tsx) is the way
+// back, already existed before any of this.
 
 function fmtMins(secs: number): string {
   const m = Math.round(secs / 60);
@@ -74,7 +83,7 @@ export default function DeepWorkCard({
     });
   };
 
-  const named = order.filter((e) => e.project.is_named);
+  const named = order.filter((e) => e.project.is_named && (selectedKey === null || e.project.key === selectedKey));
   if (named.length === 0) return null;
 
   return (
@@ -99,18 +108,6 @@ export default function DeepWorkCard({
         const frac = target > 0 ? Math.min(1, p.secs_today / target) : 0;
         const live = isRunning(p);
         const open = selectedKey === p.key;
-        // A project is open below: the other rows fold to the same
-        // collapsed-header language HourPlan already uses for its
-        // Morning/Work/Evening/Sleep blocks (▸/▾, coloured name, count
-        // on the right) rather than a bespoke treatment — Zahid asked
-        // for this specifically, after a first pass (plain shrink+dim)
-        // didn't match the pattern he already knows from the HOURS tab
-        // next door (2026-09-20). The dim (0.55, same value DayPhaseBars
-        // uses) stays from that first pass. The ▶ only shows on the open
-        // row — a collapsed row is "tap to look", not "tap to start",
-        // matching HourPlan's own header click (toggles open, is not
-        // itself an action).
-        const collapsed = selectedKey !== null && !open;
         return (
           <div key={p.key}>
           <div
@@ -123,53 +120,29 @@ export default function DeepWorkCard({
               minHeight: 32,
               borderRadius: RADIUS.control,
               overflow: 'hidden',
-              opacity: collapsed ? 0.55 : 1,
-              cursor: collapsed ? 'pointer' : undefined,
               // The selected project is the one the list below belongs
               // to, so the row has to say so — otherwise the list has a
               // heading and no visible source.
               boxShadow: open ? `inset 0 0 0 1px ${p.accent_color}` : undefined,
             }}
-            onClick={collapsed ? () => onSelect(p.key) : undefined}
-            role={collapsed ? 'button' : undefined}
-            tabIndex={collapsed ? 0 : undefined}
-            onKeyDown={
-              collapsed
-                ? (ev) => {
-                    if (ev.key === 'Enter' || ev.key === ' ') {
-                      ev.preventDefault();
-                      onSelect(p.key);
-                    }
-                  }
-                : undefined
-            }
           >
             {/* The progress bar IS the row. A separate 56px track beside
                 six long project names would take the width the names
                 need at 545px, and it would say the same thing twice —
                 the fill behind the row is the same fraction, read
-                without looking anywhere else. Dropped entirely while
-                collapsed — a fraction of a project you are not looking
-                at is not the thing this row is for right now. */}
-            {!collapsed && (
-              <div
-                aria-hidden
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: `${frac * 100}%`,
-                  background: `color-mix(in srgb, ${p.accent_color} 14%, transparent)`,
-                  pointerEvents: 'none',
-                }}
-              />
-            )}
-            {/* ▾/▸ — same glyphs and same meaning as HourPlan's own block
-                header: which way this row opens, not a bullet. */}
-            <span aria-hidden style={{ position: 'relative', color: p.accent_color, fontSize: 12, flex: 'none' }}>
-              {open ? '▾' : '▸'}
-            </span>
+                without looking anywhere else. */}
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: `${frac * 100}%`,
+                background: `color-mix(in srgb, ${p.accent_color} 14%, transparent)`,
+                pointerEvents: 'none',
+              }}
+            />
             {/* The number is the badge from the project card and from the
                 segment in the bar above — same number, same place in the
                 order, so the eye can carry one identity across three
@@ -188,56 +161,31 @@ export default function DeepWorkCard({
             >
               {e.number}
             </span>
-            {/* Open: clicking the name still just opens/closes — starting
-                the timer is the ▶'s job alone, so "what is in this" and
-                "I am working on this now" stay two targets. Collapsed:
-                the whole row is already the click target (onClick
-                above), so this is plain text, not a nested button. */}
-            {collapsed ? (
-              <span
-                style={{
-                  position: 'relative',
-                  flex: 1,
-                  minWidth: 0,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  letterSpacing: 0.5,
-                  color: p.accent_color,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {p.name}
-              </span>
-            ) : (
-              <button
-                onClick={() => onSelect(open ? null : p.key)}
-                aria-pressed={open}
-                title={open ? 'Back to today’s list' : 'Show this project’s tasks below'}
-                className="btn-ghost"
-                style={{
-                  position: 'relative',
-                  flex: 1,
-                  minWidth: 0,
-                  textAlign: 'left',
-                  fontSize: 14,
-                  fontWeight: live ? 600 : 400,
-                  color: 'var(--text)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  padding: 0,
-                  height: 24,
-                }}
-              >
-                {p.name}
-              </button>
-            )}
-            {/* The count stays visible collapsed too — HourPlan's own
-                header shows b.done/b.planned collapsed for the same
-                reason: "where the day's work sits" is exactly what a
-                collapsed header still needs to say. */}
+            {/* Clicking the NAME opens the list without starting
+                anything. Two intentions, two targets: "what is in this"
+                and "I am working on this now". */}
+            <button
+              onClick={() => onSelect(open ? null : p.key)}
+              aria-pressed={open}
+              title={open ? 'Back to today’s list' : 'Show this project’s tasks below'}
+              className="btn-ghost"
+              style={{
+                position: 'relative',
+                flex: 1,
+                minWidth: 0,
+                textAlign: 'left',
+                fontSize: 14,
+                fontWeight: live ? 600 : 400,
+                color: 'var(--text)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                padding: 0,
+                height: 24,
+              }}
+            >
+              {p.name}
+            </button>
             <span
               className="tabular"
               style={{
@@ -246,33 +194,28 @@ export default function DeepWorkCard({
                 fontSize: 12,
                 // Reached the day's target for this project: the number
                 // says so in the one colour this app uses for "done".
-                color: frac >= 1 ? 'var(--success)' : collapsed ? p.accent_color : 'var(--text-muted)',
-                fontWeight: frac >= 1 ? 600 : collapsed ? 700 : 400,
+                color: frac >= 1 ? 'var(--success)' : 'var(--text-muted)',
+                fontWeight: frac >= 1 ? 600 : 400,
               }}
             >
               {fmtMins(p.secs_today)} / {p.target_minutes}m
             </span>
-            {open && (
-              <button
-                onClick={(ev) => {
-                  ev.stopPropagation();
-                  toggle(p.key);
-                }}
-                aria-pressed={live}
-                title={live ? `Stop the timer on ${p.name}` : `Start deep work on ${p.name}`}
-                className="btn-ghost"
-                style={{
-                  position: 'relative',
-                  width: 24,
-                  height: 24,
-                  padding: 0,
-                  flex: 'none',
-                  color: live ? 'var(--danger)' : 'var(--accent)',
-                }}
-              >
-                {live ? '⏸' : '▶'}
-              </button>
-            )}
+            <button
+              onClick={() => toggle(p.key)}
+              aria-pressed={live}
+              title={live ? `Stop the timer on ${p.name}` : `Start deep work on ${p.name}`}
+              className="btn-ghost"
+              style={{
+                position: 'relative',
+                width: 24,
+                height: 24,
+                padding: 0,
+                flex: 'none',
+                color: live ? 'var(--danger)' : 'var(--accent)',
+              }}
+            >
+              {live ? '⏸' : '▶'}
+            </button>
           </div>
           </div>
         );
