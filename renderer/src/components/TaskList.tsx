@@ -498,20 +498,15 @@ export default function TaskList({
           only unambiguous "which one is selected". DEEP WORK now shows
           only the selected project (2026-09-20), so its own row already
           says the name; repeating it right underneath read as the same
-          fact printed twice back to back (Zahid's screenshot). Just the
-          way back remains. */}
+          fact printed twice back to back (Zahid's screenshot).
+          The "back to the other 5" control moved INTO DeepWorkCard's own
+          header instead of living here — a quick-review of this same
+          change found it too easy to miss (12px, muted, in a mostly
+          blank stretch of screen, in a different component than the
+          narrowing it undoes) and DeepWorkCard already holds onSelect,
+          so it can call it directly. */}
       {selectedProject ? (
         <>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-            <button
-              onClick={() => setProjectKey(null)}
-              className="btn-ghost"
-              title="Back to today's list"
-              style={{ fontSize: 12, height: 24, padding: '0 8px', flex: 'none' }}
-            >
-              ← today's list
-            </button>
-          </div>
           <ProjectTaskList
             projectKey={selectedProject.key}
             accent={accentText(selectedProject.accent_color)}

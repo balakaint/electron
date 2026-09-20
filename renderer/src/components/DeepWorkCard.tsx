@@ -27,9 +27,10 @@ import { RADIUS } from '../spacing';
 // language) before Zahid settled on this: when he is deep in one
 // project he does not want the others on screen AT ALL, not even as a
 // quiet row — "less distraction" meant literally less, not smaller
-// (2026-09-20). They come back the moment selection clears — the
-// "← today's list" link below this card (TaskList.tsx) is the way
-// back, already existed before any of this.
+// (2026-09-20). They come back via the "← today's list" button in this
+// card's own header — originally a link in TaskList.tsx below this
+// card, moved here after a quick-review found it too easy to miss,
+// separated from the change it undoes.
 
 function fmtMins(secs: number): string {
   const m = Math.round(secs / 60);
@@ -52,6 +53,19 @@ export default function DeepWorkCard({
 }) {
   const L = useL();
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
+  // Clicking "back to all 6" unmounts the button the user's focus was
+  // on — browsers drop focus to <body> with nothing visible, so the
+  // next Tab restarts from the top of the page instead of continuing
+  // naturally (quick-review finding, 2026-09-20). This heading is a
+  // stable landmark that survives every state DeepWorkCard renders, so
+  // focus has somewhere real to land instead.
+  const headingRef = useRef<HTMLSpanElement>(null);
+  const backToAll = () => {
+    onSelect(null);
+    // The row about to disappear is what the browser is about to strip
+    // focus from; queue the move for after that DOM change lands.
+    requestAnimationFrame(() => headingRef.current?.focus());
+  };
   // A running timer's seconds live on the server. Rather than counting
   // locally and drifting from the credited time (the mistake NOW's card
   // documents), the card re-asks — but only while something is actually
@@ -97,9 +111,29 @@ export default function DeepWorkCard({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4, padding: '0 4px' }}>
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-muted)' }}>
+        <span
+          ref={headingRef}
+          tabIndex={-1}
+          style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-muted)' }}
+        >
           {L('DEEP WORK', 'ডিপ ওয়ার্ক')}
         </span>
+        {selectedKey !== null && (
+          // Was a 12px .btn-ghost link in a different component
+          // (TaskList.tsx), in a mostly blank stretch of screen below
+          // this card — easy to miss as the one way back to the other 5
+          // projects (quick-review finding, 2026-09-20). Moved into the
+          // header of the card that did the narrowing, with the default
+          // button's visible border/background instead of ghost, since
+          // it is now the sole path back, not a quiet secondary action.
+          <button
+            onClick={backToAll}
+            title="Show all projects again"
+            style={{ marginLeft: 'auto', fontSize: 12, height: 22, padding: '0 8px' }}
+          >
+            ← {L("today's list", 'আজকের লিস্ট')}
+          </button>
+        )}
       </div>
 
       {named.map((e) => {
