@@ -354,6 +354,21 @@ export default function HourPlanTab({
           >
             <div
               onClick={() => setOpen((o) => ({ ...o, [b.key]: !(o[b.key] ?? openByDefault) }))}
+              // Only the block "now" is in auto-opens — the other three
+              // were keyboard-unreachable with no role/tabIndex/onKeyDown
+              // here, since a bare onClick div gets none of that for
+              // free (ui-ux-audit quick review, 2026-09-20; same
+              // role="button"/tabIndex/onKeyDown pattern already used on
+              // DeepWorkCard's collapsed rows this same session).
+              role="button"
+              tabIndex={0}
+              aria-expanded={shown}
+              onKeyDown={(ev) => {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                  ev.preventDefault();
+                  setOpen((o) => ({ ...o, [b.key]: !(o[b.key] ?? openByDefault) }));
+                }
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
