@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FocusTab, settingsApi } from '../services/api';
+import { FocusTab, ProjectKey, settingsApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
 import NowCard from './NowCard';
@@ -88,6 +88,7 @@ export default function Panel3({
   onOpenQuarterly,
   onOpenMorningRitual,
   onOpenNightClosure,
+  activeProjectKey,
 }: {
   focusVersion: number;
   onFocusChanged: () => void;
@@ -99,6 +100,7 @@ export default function Panel3({
   onOpenQuarterly: () => void;
   onOpenMorningRitual: (view: 'flow' | 'trend') => void;
   onOpenNightClosure: () => void;
+  activeProjectKey: ProjectKey | null;
 }) {
   const L = useL();
   // Null until settings answer, so the strip does not paint HOURS and
@@ -273,6 +275,7 @@ export default function Panel3({
               <TaskList
                 listKey="focus"
                 dayView="today"
+                activeProjectKey={activeProjectKey}
                 focusVersion={focusVersion}
                 // NOW is a SIBLING of this list, not its child, so a
                 // write here reached panel 1 but never reached the card

@@ -99,6 +99,15 @@ export default function DeepWorkCard({
         const frac = target > 0 ? Math.min(1, p.secs_today / target) : 0;
         const live = isRunning(p);
         const open = selectedKey === p.key;
+        // A project is open below: the other rows are not what this
+        // panel is about right now, so they fold to name + start button
+        // — no progress wash, no time readout — freeing the vertical
+        // space MIT actually asked for (2026-09-20, Zahid: opening a
+        // project in Panel 1 should mean less to scan here, not more).
+        // The ▶ stays, so starting a DIFFERENT project's timer is still
+        // one click, never a detour through "back to today's list"
+        // first.
+        const collapsed = selectedKey !== null && !open;
         return (
           <div key={p.key}>
           <div
@@ -107,8 +116,8 @@ export default function DeepWorkCard({
               display: 'flex',
               alignItems: 'center',
               gap: 8,
-              padding: '4px',
-              minHeight: 32,
+              padding: collapsed ? '2px 4px' : '4px',
+              minHeight: collapsed ? 24 : 32,
               borderRadius: RADIUS.control,
               overflow: 'hidden',
               // The selected project is the one the list below belongs
@@ -121,19 +130,23 @@ export default function DeepWorkCard({
                 six long project names would take the width the names
                 need at 545px, and it would say the same thing twice —
                 the fill behind the row is the same fraction, read
-                without looking anywhere else. */}
-            <div
-              aria-hidden
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: `${frac * 100}%`,
-                background: `color-mix(in srgb, ${p.accent_color} 14%, transparent)`,
-                pointerEvents: 'none',
-              }}
-            />
+                without looking anywhere else. Dropped entirely while
+                collapsed — a fraction of a project you are not looking
+                at is not the thing this row is for right now. */}
+            {!collapsed && (
+              <div
+                aria-hidden
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: `${frac * 100}%`,
+                  background: `color-mix(in srgb, ${p.accent_color} 14%, transparent)`,
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
             {/* The number is the badge from the project card and from the
                 segment in the bar above — same number, same place in the
                 order, so the eye can carry one identity across three
@@ -172,25 +185,27 @@ export default function DeepWorkCard({
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
                 padding: 0,
-                height: 24,
+                height: collapsed ? 20 : 24,
               }}
             >
               {p.name}
             </button>
-            <span
-              className="tabular"
-              style={{
-                position: 'relative',
-                flex: 'none',
-                fontSize: 12,
-                // Reached the day's target for this project: the number
-                // says so in the one colour this app uses for "done".
-                color: frac >= 1 ? 'var(--success)' : 'var(--text-muted)',
-                fontWeight: frac >= 1 ? 600 : 400,
-              }}
-            >
-              {fmtMins(p.secs_today)} / {p.target_minutes}m
-            </span>
+            {!collapsed && (
+              <span
+                className="tabular"
+                style={{
+                  position: 'relative',
+                  flex: 'none',
+                  fontSize: 12,
+                  // Reached the day's target for this project: the number
+                  // says so in the one colour this app uses for "done".
+                  color: frac >= 1 ? 'var(--success)' : 'var(--text-muted)',
+                  fontWeight: frac >= 1 ? 600 : 400,
+                }}
+              >
+                {fmtMins(p.secs_today)} / {p.target_minutes}m
+              </span>
+            )}
             <button
               onClick={() => toggle(p.key)}
               aria-pressed={live}
@@ -198,8 +213,8 @@ export default function DeepWorkCard({
               className="btn-ghost"
               style={{
                 position: 'relative',
-                width: 24,
-                height: 24,
+                width: collapsed ? 20 : 24,
+                height: collapsed ? 20 : 24,
                 padding: 0,
                 flex: 'none',
                 color: live ? 'var(--danger)' : 'var(--accent)',

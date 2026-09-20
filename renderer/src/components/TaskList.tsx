@@ -61,6 +61,7 @@ export default function TaskList({
   dayView: dayViewProp,
   focusVersion = 0,
   onFocusChanged = () => {},
+  activeProjectKey = undefined,
 }: {
   listKey: ListKey;
   // When EXECUTE drives this from its tab strip, the day is the TAB —
@@ -73,6 +74,11 @@ export default function TaskList({
   focusVersion?: number;
   // Called when THIS panel writes, so the other one re-fetches.
   onFocusChanged?: () => void;
+  // Panel 1's open project, one-way — DEEP WORK below starts on it, but
+  // a click on a different row here doesn't reach back up to Panel 1/2.
+  // undefined (not passed) leaves DEEP WORK's own selection alone, for
+  // the TASK LIST tab call site that doesn't render DEEP WORK at all.
+  activeProjectKey?: ProjectKey | null;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [input, setInput] = useState('');
@@ -91,6 +97,14 @@ export default function TaskList({
   // own list — the default, and what you get back by pressing the
   // project again or the "today's list" link in the heading.
   const [projectKey, setProjectKey] = useState<ProjectKey | null>(null);
+  // One-way: Panel 1 opening/closing a project re-points DEEP WORK at
+  // it. Not a dependency on projectKey itself — that would fight a
+  // click on a different DEEP WORK row the instant it happened, since
+  // this effect would see its own prior write and re-run.
+  useEffect(() => {
+    if (activeProjectKey !== undefined) setProjectKey(activeProjectKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjectKey]);
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const selectedProject = projectKey ? projects[projectKey] ?? null : null;
 

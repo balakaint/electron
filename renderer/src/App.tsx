@@ -532,6 +532,14 @@ function AppShell() {
           <Panel3
             focusVersion={panel1Wrote}
             onFocusChanged={() => setPanel3Wrote((v) => v + 1)}
+            // Panel 2 already follows whichever project Panel 1 has open
+            // (same fallback: all collapsed reads as none open, not
+            // stuck on the last one). DEEP WORK's own selection now
+            // follows it one-way too — Panel 1 drives it, but picking a
+            // different row inside DEEP WORK itself doesn't reach back
+            // and move Panel 1/2 (2026-09-20, Zahid: less clutter when a
+            // project is open, without losing MIT's own quick-switch).
+            activeProjectKey={allProjectsCollapsed ? null : goalsProject}
             view={tab}
             onSelectView={setTab}
             // The arrow is a DIRECTION, not a state and not an action.
