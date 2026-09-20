@@ -195,6 +195,12 @@ function Field({
           color: 'var(--text)',
           resize: 'none',
           outline: 'none',
+          // A 1px border-bottom color swap alone was the only focus
+          // signal here — too faint to count as WCAG 2.4.7's "visible"
+          // indicator on a low-vision pass (UX audit, 2026-09-20). This
+          // ring is on top of it, not instead — same accent, more of it.
+          boxShadow: focused ? `0 0 0 2px ${accent}55` : 'none',
+          borderRadius: RADIUS.control,
           boxSizing: 'border-box',
         }}
       />
@@ -254,6 +260,8 @@ function MoneyStat({
           background: 'transparent',
           color: 'var(--text)',
           outline: 'none',
+          boxShadow: focused ? `0 0 0 2px ${accent}55` : 'none',
+          borderRadius: RADIUS.control,
           padding: 0,
           width: '100%',
           boxSizing: 'border-box',

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { settingsApi } from '../services/api';
 import { RADIUS } from '../spacing';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const STEPS = [
   {
@@ -39,6 +40,7 @@ export default function OnboardingModal({ onDone }: { onDone: () => void }) {
   };
 
   const current = STEPS[step];
+  const dialogRef = useFocusTrap<HTMLDivElement>(true);
 
   return (
     <div
@@ -53,9 +55,11 @@ export default function OnboardingModal({ onDone }: { onDone: () => void }) {
       }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="onboarding-title"
+        tabIndex={-1}
         style={{
           background: 'var(--surface)',
           color: 'var(--text)',

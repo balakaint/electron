@@ -255,9 +255,9 @@ function ProjectCard({
           onClick={() => projectsApi.toggleTimer(key).then(onChanged)}
           title={running ? 'Stop working on this project' : 'Start working on this project'}
           style={{
-            width: 24,
-            minWidth: 24,
-            height: 24,
+            width: 28,
+            minWidth: 28,
+            height: 28,
             flex: 'none',
             borderRadius: RADIUS.control,
             border: 'none',
@@ -454,12 +454,12 @@ function ProjectCard({
                   border: 'none',
                   cursor: 'pointer',
                   padding: '0 8px',
-                  height: 24,
+                  height: 28,
                   // ⏸ is a NARROWER glyph than ▶ in most faces, so a
-                  // button sized by its content shrinks below the 24px
+                  // button sized by its content shrinks below the
                   // minimum the moment the timer starts — the one state
                   // where you are most likely to reach for it.
-                  minWidth: 24,
+                  minWidth: 28,
                 }}
               >
                 {running ? '⏸' : '▶'}
@@ -629,7 +629,7 @@ function ProjectCard({
                 <button
                   onClick={() => projectsApi.deleteSubtask(s.pid).then(refreshSubtasks)}
                   title="Delete"
-                  style={{ width: 24, height: 24, padding: 0, flex: 'none' }}
+                  style={{ width: 28, height: 28, padding: 0, flex: 'none' }}
                 >
                   ✕
                 </button>

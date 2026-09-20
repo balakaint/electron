@@ -581,9 +581,17 @@ function GoalSection({
     // The list inside each section carries overflowY, so a section that
     // holds more than its share scrolls rather than growing: the three
     // always fill the column and never more than it.
+    //
+    // EXCEPT when a section is genuinely empty (no goals, not mid-add):
+    // its proportional share was still reserved in full, so a low-goal
+    // project could leave ~500px of blank space below "Nothing here
+    // yet" (Zahid's UX audit, 2026-09-20). An empty section shrinks to
+    // its own content instead — the freed space goes to whichever
+    // section(s) still have real content, via their own unchanged
+    // weights.
     <div
       style={{
-        flex: `${weight} 1 0`,
+        flex: goals.length === 0 && !composing ? '0 0 auto' : `${weight} 1 0`,
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,

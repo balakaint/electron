@@ -99,7 +99,7 @@ export default function ProjectTaskList({ projectKey, accent, onPromoted }: { pr
             onClick={() => projectsApi.deleteSubtask(st.pid).then(load)}
             title="Delete this"
             className="btn-ghost"
-            style={{ width: 24, height: 24, padding: 0, flex: 'none' }}
+            style={{ width: 28, height: 28, padding: 0, flex: 'none' }}
           >
             ✕
           </button>

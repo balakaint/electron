@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GoalOwnerKey, ListKey, PanelLayout, ProjectKey, exportApi, goalsApi, settingsApi } from './services/api';
 import Panel3 from './components/Panel3';
 import BusinessAnalysisCanvas from './components/BusinessAnalysisCanvas';
@@ -18,6 +18,7 @@ import ShortcutsHelp from './components/ShortcutsHelp';
 import UndoToast from './components/UndoToast';
 import { UndoProvider, useUndo } from './undo';
 import { applyTheme, nextTheme, Theme, THEME_LABELS } from './themes';
+import { useFocusTrap } from './hooks/useFocusTrap';
 import { Lang, LangProvider } from './i18n';
 
 // Legacy's _PANEL3_W / _PANEL_GAP (task_tracker_v3_THEMES.py 1252-1253).
@@ -72,6 +73,8 @@ function AppShell() {
 
   const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking');
   const [overlay, setOverlay] = useState<Overlay | null>(null);
+  const overlayDialogRef = useFocusTrap<HTMLDivElement>(overlay !== null);
+  const mainRef = useRef<HTMLElement>(null);
   // Morning Ritual renders IN Panel 2 (the Goals column), not as a
   // full-window overlay — that column is already the wider of the two
   // flexible panels, with Panel 1/Panel 3 staying visible on either
@@ -105,6 +108,13 @@ function AppShell() {
   // to a usable window."
   const [layout, setLayoutState] = useState<PanelLayout | null>(null);
   const [onboarded, setOnboarded] = useState<boolean | null>(null); // null = not loaded yet
+  // The overlay dialog and OnboardingModal are fixed-position covers, not
+  // route changes — <main> stays mounted (and, without this, reachable by
+  // Tab) underneath them. `inert` isn't in this @types/react version yet,
+  // so it's toggled imperatively rather than as a JSX prop.
+  useEffect(() => {
+    mainRef.current?.toggleAttribute('inert', overlay !== null || onboarded === false);
+  }, [overlay, onboarded]);
   // Stored as "when it was opened" rather than a boolean, so the stack
   // above can order them; null means closed.
   const [shortcutsOpenedAt, setShortcutsOpenedAt] = useState<number | null>(null);
@@ -338,6 +348,7 @@ function AppShell() {
           markup. Each carries its own name, because "region" without a
           name is a landmark you cannot choose between. */}
       <main
+        ref={mainRef}
         style={{
           display: 'grid',
           gridTemplateColumns: [
@@ -544,9 +555,11 @@ function AppShell() {
           neither fits a column. */}
       {overlay && (
         <div
+          ref={overlayDialogRef}
           role="dialog"
           aria-modal="true"
           aria-label={OVERLAY_LABEL[overlay.kind]}
+          tabIndex={-1}
           style={{
             position: 'fixed',
             inset: 0,
@@ -585,9 +598,17 @@ function AppShell() {
       {/* Only shown when there is something to say. A permanent
           "Engine: ok" line is a strip of chrome that never changes,
           and in a fixed-height shell it costs a row of the task list. */}
-      {exportStatus && <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>{exportStatus}</p>}
+      {exportStatus && (
+        <p role="status" aria-live="polite" style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
+          {exportStatus}
+        </p>
+      )}
       {status !== 'ok' && (
-        <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>
+        <p
+          role={status === 'checking' ? 'status' : 'alert'}
+          aria-live={status === 'checking' ? 'polite' : 'assertive'}
+          style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-faint)' }}
+        >
           Engine: {status === 'checking' ? 'starting…' : 'not responding'}
         </p>
       )}

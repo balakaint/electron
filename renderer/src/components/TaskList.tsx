@@ -704,8 +704,8 @@ export default function TaskList({
                 title="Toggle done"
                 aria-pressed={t.done}
                 style={{
-                  width: 20,
-                  height: 20,
+                  width: 24,
+                  height: 24,
                   padding: 0,
                   flex: 'none',
                   display: 'flex',
@@ -832,7 +832,7 @@ export default function TaskList({
                 }
                 title={listKey === 'focus' ? 'Work on this now' : 'Start/stop timer'}
                 className="btn-ghost"
-                style={{ width: 24, height: 24, padding: 0, flex: 'none', color: 'var(--accent)' }}
+                style={{ width: 28, height: 28, padding: 0, flex: 'none', color: 'var(--accent)' }}
               >
                 {t.sessions.length > 0 && t.sessions[t.sessions.length - 1].end === null ? '⏸' : '▶'}
               </button>
