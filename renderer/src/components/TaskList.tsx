@@ -492,30 +492,17 @@ export default function TaskList({
         <DeepWorkCard onChanged={onFocusChanged} selectedKey={projectKey} onSelect={setProjectKey} />
       )}
 
-      {/* A project is selected: everything below belongs to it. The
-          heading names the project instead of the list, in the project's
-          own colour, with the way back beside it — the list you were
-          looking at has been replaced, so it has to be obvious both what
-          replaced it and how to undo that. */}
+      {/* A project is selected: everything below belongs to it. Used to
+          restate the project's name here too — necessary back when
+          DEEP WORK still listed every project and this heading was the
+          only unambiguous "which one is selected". DEEP WORK now shows
+          only the selected project (2026-09-20), so its own row already
+          says the name; repeating it right underneath read as the same
+          fact printed twice back to back (Zahid's screenshot). Just the
+          way back remains. */}
       {selectedProject ? (
         <>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
-            <span
-              style={{
-                flex: 1,
-                minWidth: 0,
-                fontWeight: 700,
-                fontSize: 13,
-                textTransform: 'uppercase',
-                letterSpacing: 0.5,
-                color: accentText(selectedProject.accent_color),
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {selectedProject.name}
-            </span>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
             <button
               onClick={() => setProjectKey(null)}
               className="btn-ghost"
