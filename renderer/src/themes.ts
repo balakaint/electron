@@ -237,7 +237,7 @@ const BDP_DARK = {
 export const PALETTES: Record<Theme, Record<string, string>> = {
   focus: {
     '--progress-track': '#A0937F',
-    '--progress-ring': '#1A1A1A',
+    '--progress-ring': '#000000',
     ...BA_STATUS_LIGHT,
     ...CHART_SERIES_LIGHT,
     ...INPUT_SCHEME_LIGHT,
@@ -253,7 +253,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--bg': '#F7F6F3',
     '--surface': '#FFFFFF',
     '--surface-2': '#F0EEE9',
-    '--text': '#1A1A1A',
+    '--text': '#000000',
     '--text-muted': '#514F4B',
     '--text-faint': '#555450',
     '--border': '#A0937F',
@@ -292,7 +292,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--bg': '#0C0C0F',
     '--surface': '#141417',
     '--surface-2': '#0F0F13',
-    '--text': '#EDEDEF',
+    '--text': '#FFFFFF',
     '--text-muted': '#AAAAB1',
     '--text-faint': '#9F9FA8',
     '--border': '#61616B',
@@ -315,7 +315,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
   },
   energy: {
     '--progress-track': '#949494',
-    '--progress-ring': '#111111',
+    '--progress-ring': '#000000',
     ...BA_STATUS_LIGHT,
     ...CHART_SERIES_LIGHT,
     ...INPUT_SCHEME_LIGHT,
@@ -331,7 +331,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--bg': '#FAFAF8',
     '--surface': '#FFFFFF',
     '--surface-2': '#F5F5F3',
-    '--text': '#111111',
+    '--text': '#000000',
     '--text-muted': '#535353',
     '--text-faint': '#565656',
     '--border': '#949494',
@@ -366,7 +366,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
   // Every token here is legacy's exact hex.
   corporate: {
     '--progress-track': '#A59278',
-    '--progress-ring': '#1C1917',
+    '--progress-ring': '#000000',
     ...BA_STATUS_LIGHT,
     ...CHART_SERIES_LIGHT,
     ...INPUT_SCHEME_LIGHT,
@@ -382,7 +382,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--bg': '#FAF8F5',
     '--surface': '#FFFFFF',
     '--surface-2': '#F5F1EC',
-    '--text': '#1C1917',
+    '--text': '#000000',
     '--text-muted': '#55504D',
     '--text-faint': '#5A5451',
     '--border': '#A59278',
