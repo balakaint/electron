@@ -149,15 +149,22 @@ export default function NowCard({
     <div
       style={{
         border: '1px solid var(--border)',
-        borderLeft: '3px solid var(--accent)',
+        borderLeft: '4px solid var(--accent)',
         borderRadius: RADIUS.card,
         padding: task ? 12 : 10,
         marginBottom: task ? 16 : 10,
-        background: 'var(--surface)',
+        // This card is the one place the app names as its own strongest
+        // execution element (see comments below) — every other card on
+        // this panel (Deep Work, Mindset) shares the same plain
+        // var(--surface), which left NOW no more visually weighted than
+        // a chart. A faint accent wash gives it a distinct ground
+        // without introducing a new color (visual redesign pass,
+        // 2026-09-20 — architecture/state untouched).
+        background: task ? `color-mix(in srgb, var(--accent) 5%, var(--surface))` : 'var(--surface)',
       }}
     >
       {task && (
-        <div style={{ fontSize: 12, color: 'var(--text-faint)', letterSpacing: 1 }}>{L('NOW', 'এখন')}</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', letterSpacing: 1 }}>{L('NOW', 'এখন')}</div>
       )}
       {task ? (
         <>
@@ -225,7 +232,7 @@ export default function NowCard({
         // one thing, and giving that one thing a heading costs a whole
         // line to caption a single button.
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 12, color: 'var(--text-faint)', letterSpacing: 1, flex: 'none' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', letterSpacing: 1, flex: 'none' }}>
             {L('NOW', 'এখন')}
           </span>
           {thisHour ? (

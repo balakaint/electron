@@ -147,7 +147,11 @@ export default function DayPhaseBars() {
               marginRight: -6,
               borderRadius: RADIUS.control,
               opacity: isNow ? 1 : 0.55,
-              background: isNow ? `color-mix(in srgb, ${PHASE_COLOR[key]} 12%, transparent)` : 'transparent',
+              // Tint dropped 12%→7% (visual redesign pass, 2026-09-20):
+              // the dot/left-border/bold-text already carry "this is the
+              // active phase" — the wash on top of them read as more
+              // saturated red/blue than the signal needed.
+              background: isNow ? `color-mix(in srgb, ${PHASE_COLOR[key]} 7%, transparent)` : 'transparent',
               borderLeft: isNow ? `3px solid ${PHASE_COLOR[key]}` : '3px solid transparent',
             }}
           >
@@ -178,7 +182,7 @@ export default function DayPhaseBars() {
                 background: 'var(--border)',
                 borderRadius: RADIUS.pill,
                 overflow: 'hidden',
-                boxShadow: isNow ? `0 0 0 3px color-mix(in srgb, ${PHASE_COLOR[key]} 20%, transparent)` : undefined,
+                boxShadow: isNow ? `0 0 0 3px color-mix(in srgb, ${PHASE_COLOR[key]} 12%, transparent)` : undefined,
               }}
             >
               <div style={{ width: `${pct}%`, height: '100%', background: PHASE_COLOR[key] }} />
