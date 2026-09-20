@@ -120,6 +120,12 @@ export default function DeepWorkCard({
               minHeight: collapsed ? 24 : 32,
               borderRadius: RADIUS.control,
               overflow: 'hidden',
+              // Same recede-when-not-current value DayPhaseBars already
+              // uses for its non-active phase rows — collapsing removed
+              // the wash/time-readout, but the number badges stayed
+              // full-bright and kept competing with the selected row's
+              // own highlight (Zahid, 2026-09-20 screenshot).
+              opacity: collapsed ? 0.55 : 1,
               // The selected project is the one the list below belongs
               // to, so the row has to say so — otherwise the list has a
               // heading and no visible source.
