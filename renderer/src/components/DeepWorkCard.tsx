@@ -99,14 +99,17 @@ export default function DeepWorkCard({
         const frac = target > 0 ? Math.min(1, p.secs_today / target) : 0;
         const live = isRunning(p);
         const open = selectedKey === p.key;
-        // A project is open below: the other rows are not what this
-        // panel is about right now, so they fold to name + start button
-        // — no progress wash, no time readout — freeing the vertical
-        // space MIT actually asked for (2026-09-20, Zahid: opening a
-        // project in Panel 1 should mean less to scan here, not more).
-        // The ▶ stays, so starting a DIFFERENT project's timer is still
-        // one click, never a detour through "back to today's list"
-        // first.
+        // A project is open below: the other rows fold to the same
+        // collapsed-header language HourPlan already uses for its
+        // Morning/Work/Evening/Sleep blocks (▸/▾, coloured name, count
+        // on the right) rather than a bespoke treatment — Zahid asked
+        // for this specifically, after a first pass (plain shrink+dim)
+        // didn't match the pattern he already knows from the HOURS tab
+        // next door (2026-09-20). The dim (0.55, same value DayPhaseBars
+        // uses) stays from that first pass. The ▶ only shows on the open
+        // row — a collapsed row is "tap to look", not "tap to start",
+        // matching HourPlan's own header click (toggles open, is not
+        // itself an action).
         const collapsed = selectedKey !== null && !open;
         return (
           <div key={p.key}>
@@ -116,21 +119,30 @@ export default function DeepWorkCard({
               display: 'flex',
               alignItems: 'center',
               gap: 8,
-              padding: collapsed ? '2px 4px' : '4px',
-              minHeight: collapsed ? 24 : 32,
+              padding: '4px',
+              minHeight: 32,
               borderRadius: RADIUS.control,
               overflow: 'hidden',
-              // Same recede-when-not-current value DayPhaseBars already
-              // uses for its non-active phase rows — collapsing removed
-              // the wash/time-readout, but the number badges stayed
-              // full-bright and kept competing with the selected row's
-              // own highlight (Zahid, 2026-09-20 screenshot).
               opacity: collapsed ? 0.55 : 1,
+              cursor: collapsed ? 'pointer' : undefined,
               // The selected project is the one the list below belongs
               // to, so the row has to say so — otherwise the list has a
               // heading and no visible source.
               boxShadow: open ? `inset 0 0 0 1px ${p.accent_color}` : undefined,
             }}
+            onClick={collapsed ? () => onSelect(p.key) : undefined}
+            role={collapsed ? 'button' : undefined}
+            tabIndex={collapsed ? 0 : undefined}
+            onKeyDown={
+              collapsed
+                ? (ev) => {
+                    if (ev.key === 'Enter' || ev.key === ' ') {
+                      ev.preventDefault();
+                      onSelect(p.key);
+                    }
+                  }
+                : undefined
+            }
           >
             {/* The progress bar IS the row. A separate 56px track beside
                 six long project names would take the width the names
@@ -153,6 +165,11 @@ export default function DeepWorkCard({
                 }}
               />
             )}
+            {/* ▾/▸ — same glyphs and same meaning as HourPlan's own block
+                header: which way this row opens, not a bullet. */}
+            <span aria-hidden style={{ position: 'relative', color: p.accent_color, fontSize: 12, flex: 'none' }}>
+              {open ? '▾' : '▸'}
+            </span>
             {/* The number is the badge from the project card and from the
                 segment in the bar above — same number, same place in the
                 order, so the eye can carry one identity across three
@@ -171,63 +188,91 @@ export default function DeepWorkCard({
             >
               {e.number}
             </span>
-            {/* Clicking the NAME opens the list without starting
-                anything. Two intentions, two targets: "what is in this"
-                and "I am working on this now". */}
-            <button
-              onClick={() => onSelect(open ? null : p.key)}
-              aria-pressed={open}
-              title={open ? 'Back to today\u2019s list' : 'Show this project\u2019s tasks below'}
-              className="btn-ghost"
-              style={{
-                position: 'relative',
-                flex: 1,
-                minWidth: 0,
-                textAlign: 'left',
-                fontSize: 14,
-                fontWeight: live ? 600 : 400,
-                color: 'var(--text)',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                padding: 0,
-                height: collapsed ? 20 : 24,
-              }}
-            >
-              {p.name}
-            </button>
-            {!collapsed && (
+            {/* Open: clicking the name still just opens/closes — starting
+                the timer is the ▶'s job alone, so "what is in this" and
+                "I am working on this now" stay two targets. Collapsed:
+                the whole row is already the click target (onClick
+                above), so this is plain text, not a nested button. */}
+            {collapsed ? (
               <span
-                className="tabular"
                 style={{
                   position: 'relative',
-                  flex: 'none',
+                  flex: 1,
+                  minWidth: 0,
                   fontSize: 12,
-                  // Reached the day's target for this project: the number
-                  // says so in the one colour this app uses for "done".
-                  color: frac >= 1 ? 'var(--success)' : 'var(--text-muted)',
-                  fontWeight: frac >= 1 ? 600 : 400,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  color: p.accent_color,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                {fmtMins(p.secs_today)} / {p.target_minutes}m
+                {p.name}
               </span>
+            ) : (
+              <button
+                onClick={() => onSelect(open ? null : p.key)}
+                aria-pressed={open}
+                title={open ? 'Back to today’s list' : 'Show this project’s tasks below'}
+                className="btn-ghost"
+                style={{
+                  position: 'relative',
+                  flex: 1,
+                  minWidth: 0,
+                  textAlign: 'left',
+                  fontSize: 14,
+                  fontWeight: live ? 600 : 400,
+                  color: 'var(--text)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  padding: 0,
+                  height: 24,
+                }}
+              >
+                {p.name}
+              </button>
             )}
-            <button
-              onClick={() => toggle(p.key)}
-              aria-pressed={live}
-              title={live ? `Stop the timer on ${p.name}` : `Start deep work on ${p.name}`}
-              className="btn-ghost"
+            {/* The count stays visible collapsed too — HourPlan's own
+                header shows b.done/b.planned collapsed for the same
+                reason: "where the day's work sits" is exactly what a
+                collapsed header still needs to say. */}
+            <span
+              className="tabular"
               style={{
                 position: 'relative',
-                width: collapsed ? 20 : 24,
-                height: collapsed ? 20 : 24,
-                padding: 0,
                 flex: 'none',
-                color: live ? 'var(--danger)' : 'var(--accent)',
+                fontSize: 12,
+                // Reached the day's target for this project: the number
+                // says so in the one colour this app uses for "done".
+                color: frac >= 1 ? 'var(--success)' : collapsed ? p.accent_color : 'var(--text-muted)',
+                fontWeight: frac >= 1 ? 600 : collapsed ? 700 : 400,
               }}
             >
-              {live ? '⏸' : '▶'}
-            </button>
+              {fmtMins(p.secs_today)} / {p.target_minutes}m
+            </span>
+            {open && (
+              <button
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  toggle(p.key);
+                }}
+                aria-pressed={live}
+                title={live ? `Stop the timer on ${p.name}` : `Start deep work on ${p.name}`}
+                className="btn-ghost"
+                style={{
+                  position: 'relative',
+                  width: 24,
+                  height: 24,
+                  padding: 0,
+                  flex: 'none',
+                  color: live ? 'var(--danger)' : 'var(--accent)',
+                }}
+              >
+                {live ? '⏸' : '▶'}
+              </button>
+            )}
           </div>
           </div>
         );
