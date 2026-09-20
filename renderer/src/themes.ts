@@ -335,12 +335,12 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--text-muted': '#535353',
     '--text-faint': '#565656',
     '--border': '#949494',
-    '--accent': '#9B1919',
+    '--accent': '#A30E0E',
     '--danger': '#AE1D1D',
     '--warning': '#864A03',
     '--success': '#0E672F',
     '--accent-2': '#B91C1C',
-    '--accent-light': '#FEE8E8',
+    '--accent-light': '#FFEEEE',
     '--on-accent': '#FFFFFF',
     '--header-accent': '#D02222',
     '--running-bg': '#FEE2E2',
@@ -442,15 +442,18 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--goal-monthly': '#7DD3FC',
     '--goal-weekly': '#F5C451',
   },
-  // RIZE — clean/airy/minimal, soft indigo accent, pure-white surfaces
-  // with hairline borders instead of tonal separation
-  // (task_tracker_v3_THEMES.py lines 904-943). Every token here is
-  // legacy's exact hex; INPUT_BG legacy explicitly kept equal to BG
-  // (see that theme's own "_INPUT_BG_WAS" comment — a flat theme defines
-  // surfaces by border, not fill), hence --surface-2 === --surface here.
+  // RIZE — clean/airy/minimal, soft indigo accent. Originally every
+  // token here was legacy's exact hex (task_tracker_v3_THEMES.py lines
+  // 904-943), including --bg/--surface/--surface-2 all equal to pure
+  // white (legacy's flat theme defined surfaces by border, not fill —
+  // see that theme's own "_INPUT_BG_WAS" comment). Zahid flagged that as
+  // reading muted/flat rather than premium (2026-09-20) — --text went
+  // to true black, and --bg/--surface-2 got a faint tonal step off
+  // --surface so cards read as layered instead of all one plane. Still
+  // AAA-clean (palette.test.ts).
   rize: {
     '--progress-track': '#8D95A7',
-    '--progress-ring': '#111827',
+    '--progress-ring': '#000000',
     ...BA_STATUS_LIGHT,
     ...CHART_SERIES_LIGHT,
     ...INPUT_SCHEME_LIGHT,
@@ -463,12 +466,12 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--habit-success': '#036648',
     '--habit-warning': '#864A03',
     '--habit-danger': '#AE1D1D',
-    '--bg': '#FFFFFF',
+    '--bg': '#F9FAFB',
     '--surface': '#FFFFFF',
-    '--surface-2': '#FFFFFF',
-    '--text': '#111827',
+    '--surface-2': '#EEF0F5',
+    '--text': '#000000',
     '--text-muted': '#4C505A',
-    '--text-faint': '#545964',
+    '--text-faint': '#4E525C',
     '--border': '#8D95A7',
     '--accent': '#2A2DEB',
     '--danger': '#AE1D1D',
