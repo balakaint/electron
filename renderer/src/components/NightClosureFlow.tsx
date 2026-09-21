@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NightClosure, nightClosureApi } from '../services/api';
 import { RADIUS, SPACE } from '../spacing';
 import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
+import breatheAudioUrl from '../assets/audio/breath.mp3';
 
 // Night Closure — the evening counterpart to MorningRitualFlow.tsx,
 // converted from Zahid's own HTML/JS mockup (night-closure.html,
@@ -177,12 +178,25 @@ export default function NightClosureFlow() {
   const [breatheRunning, setBreatheRunning] = useState(false);
   const breatheTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const breatheState = useRef({ cycle: 0, idx: 0 });
+  const breatheAudio = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const a = new Audio(breatheAudioUrl);
+    a.loop = true;
+    a.addEventListener('error', () => console.error('breathe audio load failed:', a.error));
+    breatheAudio.current = a;
+    return () => {
+      a.pause();
+    };
+  }, []);
 
   const stepBreathe = () => {
     const s = breatheState.current;
     if (s.cycle >= BREATHE_CYCLES) {
       setBreathePhase('Done');
       setBreatheRunning(false);
+      breatheAudio.current?.pause();
+      if (breatheAudio.current) breatheAudio.current.currentTime = 0;
       return;
     }
     const p = BREATHE_PHASES[s.idx];
@@ -204,12 +218,14 @@ export default function NightClosureFlow() {
       setBreatheRunning(false);
       if (breatheTimeout.current) clearTimeout(breatheTimeout.current);
       setBreathePhase('Paused');
+      breatheAudio.current?.pause();
       return;
     }
     if (breathePhase === 'Done') {
       breatheState.current = { cycle: 0, idx: 0 };
     }
     setBreatheRunning(true);
+    breatheAudio.current?.play().catch((e) => console.error('breathe audio play failed:', e));
     stepBreathe();
   };
 
@@ -285,6 +301,7 @@ export default function NightClosureFlow() {
       if (breatheTimeout.current) clearTimeout(breatheTimeout.current);
       if (shuffleInterval.current) clearInterval(shuffleInterval.current);
       if (pmrTimeout.current) clearTimeout(pmrTimeout.current);
+      breatheAudio.current?.pause();
     },
     []
   );
@@ -294,7 +311,7 @@ export default function NightClosureFlow() {
   const closed = nc.closed_at !== null;
 
   return (
-    <div style={{ maxWidth: 480, margin: '0 auto', paddingBottom: SPACE.xxl, color: NC.ink }}>
+    <div style={{ maxWidth: 560, margin: '0 auto', paddingBottom: SPACE.xxl, color: NC.ink }}>
       <div style={{ fontSize: TYPE_SIZE.sm, color: NC.inkMuted, marginBottom: SPACE.xs }}>
         {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
       </div>

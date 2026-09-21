@@ -568,6 +568,13 @@ function AppShell() {
               setMorningRitualView(view);
             }}
             onOpenNightClosure={() => {
+              // Docks to 'partial' same as Morning Ritual above — Zahid's
+              // own reversal (2026-09-20): keeping Panel 1 visible at
+              // 'full' didn't fix the cramped read, since
+              // NightClosureFlow's own content column was capped
+              // narrower than the space it had either way. Panel 1 isn't
+              // needed while Night Closure is open, so it collapses and
+              // Panel 2 gets the room.
               if (layout !== 'partial') setLayout('partial');
               setMorningRitualView(null);
               setNightClosureOpen(true);
