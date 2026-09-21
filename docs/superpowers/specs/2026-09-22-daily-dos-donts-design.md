@@ -21,15 +21,22 @@ prior flat Money/Health/Relation/Mind checklist that Zahid killed outright becau
 guided modules (Morning Ritual, Exercise/Sleep Procedure placeholders). A flat checklist
 bolted onto an infrequently-opened screen is the exact shape that already failed once.
 
-User's explicit choice after that trade-off was raised: put it in the 90-Day Plan panel
-anyway, as one panel-wide section — not per-area, not inside Morning Ritual/Discipline. Noted as
-a real risk (the panel is reviewed occasionally, not daily) but this is the user's
-deliberate call, not an oversight.
+First round: user chose to put it in the 90-Day Plan panel anyway, as one panel-wide
+section, with the low-daily-traffic risk noted explicitly. Revisited after the spec was
+written — final call is **Morning Ritual** instead (`MorningRitualFlow.tsx`), not the
+90-Day Plan/"Transformation" screen. This is actually the stronger fit: Morning Ritual is
+the screen `DisciplineModuleCards.tsx`'s own history names as the one guided-daily-module
+pattern that *worked* (vs. the flat checklist that didn't) — a daily-reset habit list
+belongs on the screen people actually open every day, not the one reviewed occasionally.
+Every reference to the 90-Day Plan panel below is superseded by this.
 
 ## Scope
 
-- One panel-wide list, split into DO and DON'T (same shape, `kind` field distinguishes).
-- Persists across 90-day cycle rollovers — not scoped to `cycle_start`/`cycle_end`.
+- One list on the Morning Ritual screen, split into DO and DON'T (same shape, `kind`
+  field distinguishes). Not on the 90-Day Plan/Transformation screen, not per-area.
+- Persists indefinitely — not scoped to any cycle or to a single day's `MorningRitual`
+  row (that table is one-row-per-day already; this list is the opposite: durable items,
+  each with its own per-day history).
 - Daily reset: each item's checked state is per-calendar-day, unchecked at the start of
   a new day.
 - Simple streak only (consecutive days checked, walking backward from today). No trend
@@ -92,9 +99,11 @@ the existing route modules.
 same shape as the existing `quarterlyApi`/`Q90MajorChange` pair.
 
 New component (`DoDontList.tsx` or similar — naming TBD at implementation time),
-rendered once in `QuarterlyPlanPanel.tsx` right after the cycle progress bar and before
-`panel.areas.map(...)` — the most-touched thing on the screen goes first, ahead of the
-6 area rows.
+rendered once in `MorningRitualFlow.tsx` as its own section — a new `MicroLabel`-headed
+block ("DO'S & DON'TS"), same pattern as the existing CHECK-IN/RESET sections. Placed
+after RESET's "I'm ready →" link and before "Clear Your Mind," so the ritual's order
+reads: check in → reset the body → confirm today's standing commitments → clear the
+mind → prime → start.
 
 Two stacked sections, DO then DON'T. Each row:
 - checkbox — today's done state, posts to `/checkin` on change
@@ -114,7 +123,9 @@ strategic reason to hard-limit it the way a "key changes" list needs limiting).
 
 Standard pattern already used throughout this session's audit fixes: `.catch` on the
 initial `GET /api/habits` load, `loadError` state, inline retry banner — matching what
-`ProjectDashboard.tsx`/`JourneyPanel.tsx`/`GoalsPanel.tsx` now do.
+`ProjectDashboard.tsx`/`JourneyPanel.tsx`/`GoalsPanel.tsx` now do. `MorningRitualFlow.tsx`
+itself doesn't have this pattern yet (it wasn't in the panels the audit's verify pass
+checked) — this feature adds it there for the first time, not just reuses it.
 
 ## Testing
 
