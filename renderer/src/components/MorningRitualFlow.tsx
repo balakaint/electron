@@ -33,6 +33,7 @@ import breatheAudioUrl from '../assets/audio/breath.mp3';
 //     engine.morning_ritual.suggest_action, same status quo as before.
 const ACCENT = 'var(--accent)';
 const BREAK_TIMER_SECS = 180;
+const STRETCH_TIMER_SECS = 120;
 
 const ENERGY_OPTIONS: { value: MorningEnergy; label: string }[] = [
   { value: 'LOW', label: 'Low' },
@@ -247,7 +248,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
   const [sunRunning, setSunRunning] = useState(false);
   const sunRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const [stretchSecs, setStretchSecs] = useState(BREAK_TIMER_SECS);
+  const [stretchSecs, setStretchSecs] = useState(STRETCH_TIMER_SECS);
   const [stretchRunning, setStretchRunning] = useState(false);
   const stretchRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -350,6 +351,11 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
       setStretchSecs((v) => {
         if (v <= 1) {
           setStretchRunning(false);
+          // Same audio element Breathe uses (Zahid: "use same breath
+          // sound in Body Stretch") — a single shared, looping track,
+          // not two independent players.
+          breatheAudio.current?.pause();
+          if (breatheAudio.current) breatheAudio.current.currentTime = 0;
           morningRitualApi.setResetMove(true).then(setRitual);
           return 0;
         }
@@ -711,7 +717,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           <ResetRow
             border="var(--ba-money)"
             name="Body Stretch"
-            sub={ritual.reset_move ? 'Done' : stretchRunning ? `${stretchSecs}s remaining` : gentle ? '3 min — just enough to unstick' : '3 min — stretch, walk, whatever loosens you up'}
+            sub={ritual.reset_move ? 'Done' : stretchRunning ? `${stretchSecs}s remaining` : 'Rub your hands together, then stand up — 2 minutes'}
             right={
               <ResetButton
                 label={ritual.reset_move ? 'Done' : stretchRunning ? 'Stop' : 'Start'}
@@ -720,10 +726,12 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                 onClick={() => {
                   if (stretchRunning) {
                     setStretchRunning(false);
+                    breatheAudio.current?.pause();
                     return;
                   }
-                  setStretchSecs(BREAK_TIMER_SECS);
+                  setStretchSecs(STRETCH_TIMER_SECS);
                   setStretchRunning(true);
+                  breatheAudio.current?.play().catch((e) => console.error('breathe audio play failed:', e));
                 }}
               />
             }
@@ -731,8 +739,8 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           {!gentle && (
             <ResetRow
               border="var(--ba-do)"
-              name="Daylight"
-              sub={ritual.reset_daylight ? 'Done' : sunRunning ? `${sunSecs}s remaining` : "Step outside or sit by a bright window. Don't look at the sun."}
+              name="Day Light"
+              sub={ritual.reset_daylight ? 'Done' : sunRunning ? `${sunSecs}s remaining` : 'Win today. Clear vision.'}
               right={
                 <ResetButton
                   label={ritual.reset_daylight ? 'Done' : sunRunning ? 'Stop' : 'Start'}
