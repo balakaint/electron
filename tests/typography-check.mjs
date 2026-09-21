@@ -18,7 +18,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-const SIZE_ALLOWED = new Set([12, 13, 14, 16, 24, 30]);
+const SIZE_ALLOWED = new Set([12, 13, 14, 16, 24, 30, 36]);
 const WEIGHT_ALLOWED = new Set([400, 600, 700]);
 const TRACKING_ALLOWED = new Set([0.5, 1]);
 const WEIGHT_WORD = { bold: 700, normal: 400 };

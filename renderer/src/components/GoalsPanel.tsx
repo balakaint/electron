@@ -292,7 +292,7 @@ function GoalRow({
 
   return (
     <div
-      className="goal-row goal-row-open"
+      className="goal-row goal-row-open card-elevated"
       style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
@@ -300,6 +300,7 @@ function GoalRow({
         borderRadius: RADIUS.card,
         padding: '8px 8px',
         margin: '4px 0',
+        boxShadow: 'var(--shadow-sm)',
       }}
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
     >

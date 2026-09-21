@@ -68,9 +68,16 @@ export const TYPE_SIZE = {
   md: 16,
   lg: 24,
   xl: 30,
+  // DISPLAY (36) — added 2026-09-21, Zahid's own call for one real
+  // "strong typography" gesture after the restrained token-locked pass
+  // read as washed-out rather than premium. Same discipline as LG/XL
+  // above (a screen's own single most-important heading, never two
+  // compared side by side) — reserved for exactly one thing per
+  // screen, not a general upgrade to every heading.
+  display: 36,
 } as const;
 
-export const TYPE_SIZE_VALUES: number[] = [12, 13, 14, 16, 24, 30];
+export const TYPE_SIZE_VALUES: number[] = [12, 13, 14, 16, 24, 30, 36];
 
 export const TYPE_WEIGHT = {
   normal: 400,

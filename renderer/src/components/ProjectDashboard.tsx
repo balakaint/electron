@@ -275,11 +275,13 @@ function ProjectCard({
 
   return (
     <div
+      className="card-elevated"
       style={{
         border: `1px solid ${project.accent_color}55`,
         borderRadius: RADIUS.card,
         marginBottom: 12,
         overflow: 'hidden',
+        boxShadow: 'var(--shadow-sm)',
         // See the collapsed row: a dimmed card dims its text too.
       }}
     >

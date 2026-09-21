@@ -233,6 +233,7 @@ export default function SettingsDialog({
           width: 380,
           maxHeight: '85vh',
           overflowY: 'auto',
+          boxShadow: 'var(--shadow-md)',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>

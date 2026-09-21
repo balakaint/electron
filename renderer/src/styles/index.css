@@ -139,11 +139,18 @@ button {
   border-radius: 4px;
   padding: 4px 8px;
   cursor: pointer;
-  transition: background 0.12s ease-out, border-color 0.12s ease-out;
+  transition: background 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
 }
 button:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 8%, var(--surface-2, var(--surface)));
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+/* Additive to :focus-visible's outline above, never a replacement for
+   it — a keyboard user's outline still has to be the loudest signal.
+   This is what makes a focused control read as physically raised
+   rather than merely outlined. */
+button:focus-visible {
+  box-shadow: var(--shadow-sm);
 }
 button:active:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 16%, var(--surface-2, var(--surface)));
@@ -164,13 +171,19 @@ button:disabled {
   color: var(--on-accent);
   border-color: var(--accent);
   font-weight: bold;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.15s ease-out, transform 0.15s ease-out;
 }
 .btn-primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--text) 12%, var(--accent));
   border-color: color-mix(in srgb, var(--text) 12%, var(--accent));
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 .btn-primary:active:not(:disabled) {
   background: color-mix(in srgb, var(--text) 22%, var(--accent));
+  box-shadow: var(--shadow-sm);
+  transform: translateY(0) scale(0.98);
 }
 
 .btn-ghost {
@@ -198,11 +211,13 @@ select {
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: 4px;
+  transition: border-color 0.12s ease-out, box-shadow 0.12s ease-out;
 }
 input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
 }
 
 /* Custom date field, CSS-only — Electron is Chromium-only, so the
@@ -337,4 +352,21 @@ input[type='date'] {
 ::placeholder {
   color: var(--text-faint);
   opacity: 1;
+}
+
+/* Shared card elevation (2026-09-21) — this app has no <Card>
+   component; every screen inlines its own card, so hover can't live
+   as a per-component :hover style the way it does for buttons above.
+   CARD_ELEVATED in spacing.ts supplies the resting border/radius/
+   shadow inline; this class is the one piece that has to be real CSS
+   because inline styles cannot express :hover. Pairs with --shadow-sm/
+   md in themes.ts — 'none' on dark themes, so this is a no-op lift
+   there rather than a mismatched shadow that would barely show up
+   anyway. */
+.card-elevated {
+  transition: box-shadow 0.15s ease-out, transform 0.15s ease-out;
+}
+.card-elevated:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }

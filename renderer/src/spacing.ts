@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 /**
  * The spacing scale. Six values, and nothing else.
  *
@@ -74,6 +76,22 @@ export const RADIUS = {
 } as const;
 
 export const RADIUS_VALUES: number[] = [0, 4, 8, 999];
+
+/**
+ * A card's resting border/radius/shadow, spread into any component's
+ * own style object — added 2026-09-21 alongside the app's first real
+ * shadow tokens (--shadow-sm/md in themes.ts). No <Card> component
+ * exists in this app; every screen inlines its own, which is exactly
+ * why this is a plain object to spread rather than a component to
+ * import — it fits the existing pattern instead of forcing a rewrite.
+ * Pair with the `card-elevated` class (styles/index.css) for the
+ * hover lift, since inline styles can't express :hover.
+ */
+export const CARD_ELEVATED: CSSProperties = {
+  border: '1px solid var(--border)',
+  borderRadius: RADIUS.card,
+  boxShadow: 'var(--shadow-sm)',
+};
 
 // Font size, weight and letter-spacing moved to renderer/src/typography.ts
 // (TYPE_SIZE / TYPE_WEIGHT / TRACKING) — this file is layout (gaps,
