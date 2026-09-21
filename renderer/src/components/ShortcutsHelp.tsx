@@ -1,4 +1,5 @@
 import { RADIUS } from '../spacing';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 const SHORTCUTS: [string, string][] = [
   ['Ctrl+Z', 'Undo last action'],
   ['Ctrl+Shift+Z', 'Redo'],
@@ -10,6 +11,7 @@ const SHORTCUTS: [string, string][] = [
 ];
 
 export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
+  const dialogRef = useFocusTrap<HTMLDivElement>(true);
   return (
     <div
       style={{
@@ -24,6 +26,11 @@ export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shortcuts-title"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--surface)',
@@ -36,7 +43,7 @@ export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>Keyboard Shortcuts</h2>
+          <h2 id="shortcuts-title" style={{ margin: 0, fontSize: 16 }}>Keyboard Shortcuts</h2>
           <button onClick={onClose} title="Close">✕</button>
         </div>
         <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>

@@ -183,10 +183,10 @@ export default function CircleSection({
                 every {p.cadence_days}d
               </button>
               <span style={{ flex: 1 }} />
-              <button onClick={() => circleApi.markContacted(p.id).then(refresh)} title="Mark contacted today" style={{ fontSize: 12, color: 'var(--success)' }}>
+              <button onClick={() => circleApi.markContacted(p.id).then(refresh)} title="Mark contacted today" aria-label="Mark contacted today" style={{ fontSize: 12, color: 'var(--success)' }}>
                 ✓
               </button>
-              <button onClick={() => circleApi.remove(p.id).then(refresh)} title="Remove" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              <button onClick={() => circleApi.remove(p.id).then(refresh)} title="Remove" aria-label="Remove" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                 ✕
               </button>
             </div>

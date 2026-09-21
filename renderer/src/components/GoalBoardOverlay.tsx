@@ -211,7 +211,7 @@ function ProgressSteps({ goal, taskCount }: { goal: Goal | null; taskCount: numb
                   fontWeight: 700,
                   background: done || current ? 'var(--accent)' : 'var(--surface)',
                   border: `1px solid ${done || current ? 'var(--accent)' : 'var(--border)'}`,
-                  color: done || current ? '#fff' : 'var(--text-faint)',
+                  color: done || current ? 'var(--on-accent)' : 'var(--text-faint)',
                 }}
               >
                 {n}
@@ -461,6 +461,7 @@ export default function GoalBoardOverlay({ project, goalId }: { project: GoalOwn
                         deleteTask(task.id);
                       }}
                       title="Delete this task and its board"
+                      aria-label="Delete this task and its board"
                       style={{ width: 20, height: 20, flex: 'none', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: 0 }}
                     >
                       ✕

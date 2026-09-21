@@ -61,7 +61,7 @@ function CardTimer({ card, onToggle }: { card: BoardCard; onToggle: () => void }
           border: 'none',
           borderRadius: RADIUS.pill,
           background: running ? 'var(--accent)' : 'var(--accent-light)',
-          color: running ? '#fff' : 'var(--accent)',
+          color: running ? 'var(--on-accent)' : 'var(--accent)',
           fontSize: 12,
           cursor: 'pointer',
           padding: 0,
@@ -180,6 +180,7 @@ function CardRow({
         onDelete();
       }}
       title="Delete this card"
+      aria-label="Delete this card"
       style={{ width: 22, height: 22, flex: 'none', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: 0 }}
     >
       ✕
@@ -334,7 +335,7 @@ function CardRow({
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 13, fontWeight: 700, padding: '4px 0' }}
         />
-        <button onClick={onClose} title="Close" style={{ width: 22, height: 22, border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>
+        <button onClick={onClose} title="Close" aria-label="Close" style={{ width: 22, height: 22, border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>
           ⌃
         </button>
         {del}

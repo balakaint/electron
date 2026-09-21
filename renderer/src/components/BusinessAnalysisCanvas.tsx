@@ -100,7 +100,7 @@ function Stepper({ done, current, onJump }: { done: boolean[]; current: number; 
                 fontSize: 12,
                 fontWeight: 700,
                 background: done[i] ? 'var(--success)' : i === current ? s.accent : 'transparent',
-                color: done[i] || i === current ? '#ffffff' : 'var(--text-muted)',
+                color: done[i] ? 'var(--on-success)' : i === current ? s.accent.replace(/\)$/, '-ink)') : 'var(--text-muted)',
                 border: done[i] || i === current ? 'none' : '1px solid var(--border)',
               }}
             >
@@ -619,7 +619,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
                         borderRadius: RADIUS.control,
                         border: `1px solid ${opt.color}`,
                         background: on ? opt.color : 'transparent',
-                        color: on ? '#000000' : opt.color,
+                        color: on ? opt.color.replace(/\)$/, '-ink)') : opt.color,
                         cursor: 'pointer',
                       }}
                     >
@@ -682,7 +682,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
                       fontSize: 12,
                       fontWeight: 700,
                       background: on ? PRIORITY_COLOR[p] : `color-mix(in srgb, ${PRIORITY_COLOR[p]} 10%, var(--surface))`,
-                      color: on ? '#000000' : PRIORITY_COLOR[p],
+                      color: on ? PRIORITY_COLOR[p].replace(/\)$/, '-ink)') : PRIORITY_COLOR[p],
                       border: 'none',
                       cursor: 'pointer',
                     }}
@@ -713,7 +713,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
                   borderRadius: RADIUS.control,
                   border: 'none',
                   background: running ? 'var(--danger)' : 'var(--ba-do)',
-                  color: '#000000',
+                  color: running ? 'var(--on-danger)' : 'var(--ba-do-ink)',
                   cursor: 'pointer',
                 }}
               >

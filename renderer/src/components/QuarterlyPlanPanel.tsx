@@ -424,22 +424,34 @@ function ChangeGoalPanel({
       <div style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)', marginBottom: SPACE.xs }}>
         Replacing: <span style={{ color: 'var(--text)' }}>{currentDestination || '—'}</span>
       </div>
+      <label htmlFor="change-goal-dest" style={{ display: 'block', fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)', marginBottom: SPACE.hair }}>
+        New destination
+      </label>
       <input
+        id="change-goal-dest"
         value={dest}
         onChange={(e) => setDest(e.target.value)}
         placeholder="The new destination"
         style={{ width: '100%', fontSize: TYPE_SIZE.sm, fontWeight: TYPE_WEIGHT.medium, padding: '4px 8px', marginBottom: SPACE.xs, boxSizing: 'border-box' }}
       />
+      <label htmlFor="change-goal-reason" style={{ display: 'block', fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)', marginBottom: SPACE.hair }}>
+        Reason for changing
+      </label>
       <input
+        id="change-goal-reason"
         value={reason}
         onChange={(e) => setReason(e.target.value)}
         placeholder="Why is it changing?"
         style={{ width: '100%', fontSize: TYPE_SIZE.sm, fontWeight: TYPE_WEIGHT.medium, padding: '4px 8px', marginBottom: SPACE.xs, boxSizing: 'border-box' }}
       />
+      <label htmlFor="change-goal-evidence" style={{ display: 'block', fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)', marginBottom: SPACE.hair }}>
+        Evidence (optional)
+      </label>
       <input
+        id="change-goal-evidence"
         value={evidence}
         onChange={(e) => setEvidence(e.target.value)}
-        placeholder="What evidence made this clear? (optional)"
+        placeholder="What evidence made this clear?"
         style={{ width: '100%', fontSize: TYPE_SIZE.sm, fontWeight: TYPE_WEIGHT.medium, padding: '4px 8px', marginBottom: SPACE.sm, boxSizing: 'border-box' }}
       />
       <div style={{ display: 'flex', gap: SPACE.sm }}>
@@ -751,6 +763,20 @@ export default function QuarterlyPlanPanel() {
     quarterlyApi.reorderAreas(keys).then(setPanel);
   };
 
+  // Keyboard equivalent of the drag gesture above — a mouse user drags,
+  // a keyboard user tabs to these and presses Enter. Same reorderAreas
+  // call either way, so the two paths can never drift into different
+  // orderings.
+  const moveArea = (key: Q90AreaKey, direction: -1 | 1) => {
+    if (!panel) return;
+    const keys = panel.areas.map((a) => a.key);
+    const from = keys.indexOf(key);
+    const to = from + direction;
+    if (to < 0 || to >= keys.length) return;
+    [keys[from], keys[to]] = [keys[to], keys[from]];
+    quarterlyApi.reorderAreas(keys).then(setPanel);
+  };
+
   const refresh = () => quarterlyApi.getPanel().then(setPanel);
 
   useEffect(() => {
@@ -816,49 +842,78 @@ export default function QuarterlyPlanPanel() {
         )}
       </div>
 
-      {panel.areas.map((area) => {
+      {panel.areas.map((area, idx) => {
         const isOpen = openArea === area.key;
         return (
-          <div
-            key={area.key}
-            draggable={!isOpen}
-            title={!isOpen ? 'Drag to reorder' : undefined}
-            className={isOpen ? undefined : 'card-elevated'}
-            onDragStart={() => setDragKey(area.key)}
-            onDragOver={(e) => {
-              if (!dragKey) return;
-              e.preventDefault();
-              if (dragOverKey !== area.key) setDragOverKey(area.key);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              reorder(area.key);
-              setDragKey(null);
-              setDragOverKey(null);
-            }}
-            onDragEnd={() => {
-              setDragKey(null);
-              setDragOverKey(null);
-            }}
-            style={{
-              cursor: isOpen ? undefined : 'grab',
-              opacity: dragKey === area.key ? 0.5 : 1,
-              borderTop: dragOverKey === area.key && dragKey && dragKey !== area.key ? '2px solid var(--accent)' : '2px solid transparent',
-              borderRadius: RADIUS.card,
-              boxShadow: isOpen ? undefined : 'var(--shadow-sm)',
-            }}
-          >
-            <AreaAccordion
-              area={area}
-              isOpen={isOpen}
-              onToggle={() => setOpenArea(isOpen ? null : area.key)}
-              onSaveField={(field, text) => quarterlyApi.setField(area.key, field as any, text).then(refresh)}
-              onSaveMajorChanges={(changes) => quarterlyApi.setMajorChanges(area.key, changes).then(refresh)}
-              onSetAchieved={(achieved) => quarterlyApi.setAchieved(area.key, achieved).then(refresh)}
-              onChangeGoal={(dest, reason, evidence) => quarterlyApi.changeGoal(area.key, dest, reason, evidence).then(refresh)}
-              onChangeStrategy={() => quarterlyApi.changeStrategy(area.key).then(refresh)}
-              onSaveMeta={(field, text) => quarterlyApi.setAreaMeta(area.key, field, text).then(refresh)}
-            />
+          <div key={area.key} style={{ display: 'flex', alignItems: 'stretch', gap: SPACE.xs }}>
+            <div
+              draggable={!isOpen}
+              title={!isOpen ? 'Drag to reorder' : undefined}
+              className={isOpen ? undefined : 'card-elevated'}
+              onDragStart={() => setDragKey(area.key)}
+              onDragOver={(e) => {
+                if (!dragKey) return;
+                e.preventDefault();
+                if (dragOverKey !== area.key) setDragOverKey(area.key);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                reorder(area.key);
+                setDragKey(null);
+                setDragOverKey(null);
+              }}
+              onDragEnd={() => {
+                setDragKey(null);
+                setDragOverKey(null);
+              }}
+              style={{
+                flex: 1,
+                minWidth: 0,
+                cursor: isOpen ? undefined : 'grab',
+                opacity: dragKey === area.key ? 0.5 : 1,
+                borderTop: dragOverKey === area.key && dragKey && dragKey !== area.key ? '2px solid var(--accent)' : '2px solid transparent',
+                borderRadius: RADIUS.card,
+                boxShadow: isOpen ? undefined : 'var(--shadow-sm)',
+              }}
+            >
+              <AreaAccordion
+                area={area}
+                isOpen={isOpen}
+                onToggle={() => setOpenArea(isOpen ? null : area.key)}
+                onSaveField={(field, text) => quarterlyApi.setField(area.key, field as any, text).then(refresh)}
+                onSaveMajorChanges={(changes) => quarterlyApi.setMajorChanges(area.key, changes).then(refresh)}
+                onSetAchieved={(achieved) => quarterlyApi.setAchieved(area.key, achieved).then(refresh)}
+                onChangeGoal={(dest, reason, evidence) => quarterlyApi.changeGoal(area.key, dest, reason, evidence).then(refresh)}
+                onChangeStrategy={() => quarterlyApi.changeStrategy(area.key).then(refresh)}
+                onSaveMeta={(field, text) => quarterlyApi.setAreaMeta(area.key, field, text).then(refresh)}
+              />
+            </div>
+            {!isOpen && (
+              // Keyboard-reachable equivalent of the drag gesture on the
+              // card to the left — a keyboard user can't drag, so
+              // reordering needs a real focusable, always-present control
+              // here, not something that only appears on hover.
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: SPACE.hair, flex: 'none' }}>
+                <button
+                  onClick={() => moveArea(area.key, -1)}
+                  disabled={idx === 0}
+                  title="Move up"
+                  aria-label={`Move ${area.label} up`}
+                  style={{ width: 24, height: 20, padding: 0, fontSize: TYPE_SIZE.xs, lineHeight: 1, color: 'var(--text-faint)' }}
+                >
+                  ▲
+                </button>
+                <button
+                  onClick={() => moveArea(area.key, 1)}
+                  disabled={idx === panel.areas.length - 1}
+                  title="Move down"
+                  aria-label={`Move ${area.label} down`}
+                  style={{ width: 24, height: 20, padding: 0, fontSize: TYPE_SIZE.xs, lineHeight: 1, color: 'var(--text-faint)' }}
+                >
+                  ▼
+                </button>
+              </div>
+            )}
           </div>
         );
       })}

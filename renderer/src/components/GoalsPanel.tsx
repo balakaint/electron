@@ -217,6 +217,7 @@ function GoalRow({
         onDelete();
       }}
       title="Delete this goal"
+      aria-label="Delete this goal"
       style={{
         width: 24,
         height: 24,
@@ -326,6 +327,7 @@ function GoalRow({
         <button
           onClick={onClose}
           title="Close"
+          aria-label="Close"
           style={{ width: 24, height: 24, border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
         >
           ⌃
@@ -389,7 +391,11 @@ function GoalRow({
             }}
           />
           <span style={{ color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-            day {goal.day_number} of {goalWindow}
+            {!goal.done && goal.day_number > goalWindow ? (
+              <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{goal.day_number - goalWindow}d overdue</span>
+            ) : (
+              <>day {goal.day_number} of {goalWindow}</>
+            )}
             {goal.done && goal.done_date && <span style={{ color: 'var(--success)' }}> · ✓ {shortDate(goal.done_date)}</span>}
           </span>
         </div>

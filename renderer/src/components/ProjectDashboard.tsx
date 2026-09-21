@@ -173,16 +173,19 @@ function ProjectCard({
           // text stays readable, which is the point of still showing it.
         }}
       >
-        <span
+        <button
           onClick={() => {
             soloThis();
             onSelectGoals(key);
           }}
           title="Open — collapses every other project"
+          aria-label={`Open project ${number} — collapses every other project`}
           style={{
             width: 20,
             height: 20,
             flex: 'none',
+            border: 'none',
+            padding: 0,
             borderRadius: RADIUS.control,
             background: project.accent_color,
             // Ink chosen against THIS project's colour, not the theme's
@@ -199,7 +202,7 @@ function ProjectCard({
           }}
         >
           {project.done_today ? '✓' : number}
-        </span>
+        </button>
         <button
           onClick={() => {
             soloThis();
@@ -295,16 +298,19 @@ function ProjectCard({
           time you are ticking things off at the bottom. */}
       <div style={{ padding: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span
+          <button
             onClick={() => {
               toggleCollapsed();
               onSelectGoals(key);
             }}
             onDoubleClick={soloThis}
             title="Click to collapse · double-click to solo this project"
+            aria-label={`Collapse project ${number}`}
             style={{
               width: 22,
               height: 22,
+              border: 'none',
+              padding: 0,
               borderRadius: RADIUS.control,
               background: project.accent_color,
               color: inkOn(project.accent_color),
@@ -318,7 +324,7 @@ function ProjectCard({
             }}
           >
             {project.done_today ? '✓' : number}
-          </span>
+          </button>
           <input
             aria-label="Project name"
             value={name}
@@ -631,6 +637,7 @@ function ProjectCard({
                 <button
                   onClick={() => projectsApi.deleteSubtask(s.pid).then(refreshSubtasks)}
                   title="Delete"
+                  aria-label="Delete task"
                   style={{ width: 28, height: 28, padding: 0, flex: 'none' }}
                 >
                   ✕

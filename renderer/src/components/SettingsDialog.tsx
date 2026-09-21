@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Settings, SettingsPatch, settingsApi } from '../services/api';
 import { THEME_LABELS, THEME_ORDER, Theme, themeSwatch } from '../themes';
 import { RADIUS } from '../spacing';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const APP_VERSION = '0.1.0';
 const APP_CONTACT = 'balakaint@gmail.com';
@@ -189,6 +190,7 @@ export default function SettingsDialog({
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<string | null>(null);
+  const dialogRef = useFocusTrap<HTMLDivElement>(true);
 
   useEffect(() => {
     settingsApi.get().then(setSettings);
@@ -223,6 +225,11 @@ export default function SettingsDialog({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-title"
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--surface)',
@@ -237,8 +244,8 @@ export default function SettingsDialog({
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <h2 style={{ margin: 0, fontSize: 16 }}>Settings</h2>
-          <button onClick={onClose} title="Close">✕</button>
+          <h2 id="settings-title" style={{ margin: 0, fontSize: 16 }}>Settings</h2>
+          <button onClick={onClose} title="Close" aria-label="Close">✕</button>
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 12 }}>
           {saving ? 'Saving…' : 'Every change is saved automatically'}

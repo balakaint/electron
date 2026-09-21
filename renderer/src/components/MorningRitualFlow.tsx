@@ -400,7 +400,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
       <div style={{ marginBottom: 32 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 600, margin: '0 0 4px' }}>Good morning</h1>
+            <h2 style={{ fontSize: 24, fontWeight: 600, margin: '0 0 4px' }}>Good morning</h2>
             <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
               {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
             </div>
@@ -484,12 +484,25 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                 style={{ width: '100%', fontSize: 16, fontWeight: 600, marginTop: 6 }}
               />
             ) : (
-              <div
+              <button
                 onClick={() => setEditingOutcome(true)}
-                style={{ fontSize: 16, fontWeight: 600, marginTop: 6, cursor: 'text', color: outcomeDraft ? undefined : 'var(--text-faint)' }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  border: 'none',
+                  background: 'transparent',
+                  font: 'inherit',
+                  padding: 0,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  marginTop: 6,
+                  cursor: 'text',
+                  color: outcomeDraft ? undefined : 'var(--text-faint)',
+                }}
               >
                 {outcomeText}
-              </div>
+              </button>
             )}
           </div>
           <div
@@ -519,12 +532,25 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                 style={{ width: '100%', fontSize: 16, fontWeight: 600, marginTop: 6 }}
               />
             ) : (
-              <div
+              <button
                 onClick={() => setEditingFirstMove(true)}
-                style={{ fontSize: 16, fontWeight: 600, marginTop: 6, cursor: 'text', color: firstMoveDraft ? undefined : 'var(--text-faint)' }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  border: 'none',
+                  background: 'transparent',
+                  font: 'inherit',
+                  padding: 0,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  marginTop: 6,
+                  cursor: 'text',
+                  color: firstMoveDraft ? undefined : 'var(--text-faint)',
+                }}
               >
                 {firstMoveText}
-              </div>
+              </button>
             )}
           </div>
         </div>

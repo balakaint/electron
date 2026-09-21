@@ -21,13 +21,22 @@ import breatheAudioUrl from '../assets/audio/breath.mp3';
 // suppresses melatonin and this screen exists to be looked at right
 // before sleep. Scoped to this component only (plain style values, not
 // global CSS vars), so it never touches the active app theme.
+// Fixed dark "ember" palette — always dark regardless of the active app
+// theme, so it sits outside palette.test.ts's per-theme AAA sweep. Both
+// `border` and `inkFaint` failed AA/UI-boundary contrast on `surface`
+// (audit fix, 2026-09-21: border measured 1.29:1 against the 3:1 UI
+// floor, inkFaint 2.79:1 against the 4.5:1 text floor, and inkFaint is
+// real body/caption text at several sites, not decorative) — both
+// lightened along the same hue/saturation until they cleared their
+// floor with a small margin (same "walk in steps, stop at the first
+// value that clears the bar" approach readableInk() uses elsewhere).
 export const NC = {
   bg: '#17130f',
   surface: '#211a14',
-  border: '#3a2d21',
+  border: '#85674c',
   ink: '#ded0c0',
   inkMuted: '#a2917f',
-  inkFaint: '#6e5f4f',
+  inkFaint: '#9b8874',
   ember: '#cc7a42',
   emberSoft: 'rgba(204,122,66,.14)',
 };
@@ -315,9 +324,9 @@ export default function NightClosureFlow() {
       <div style={{ fontSize: TYPE_SIZE.sm, color: NC.inkMuted, marginBottom: SPACE.xs }}>
         {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
       </div>
-      <h1 style={{ fontSize: TYPE_SIZE.lg, fontWeight: TYPE_WEIGHT.medium, margin: `0 0 ${SPACE.md}px` }}>
+      <h2 style={{ fontSize: TYPE_SIZE.lg, fontWeight: TYPE_WEIGHT.medium, margin: `0 0 ${SPACE.md}px` }}>
         Close the Day
-      </h1>
+      </h2>
 
       <div
         style={{

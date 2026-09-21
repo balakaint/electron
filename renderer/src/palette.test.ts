@@ -145,6 +145,25 @@ for (const theme of THEME_ORDER) {
     check(theme, `bdp-${k}-ink on bdp-${k}`, p[`--bdp-${k}-ink`], p[`--bdp-${k}`], 4.5);
   }
 
+  // --on-success/--on-danger (2026-09-21 audit fix) — same "text ON a
+  // full-strength status colour" question --on-accent already answers;
+  // IndividualTaskBoard/GoalBoardOverlay were hardcoding '#fff' here,
+  // which is exactly the on-accent bug ("white is right for a deep blue
+  // and wrong for cyan or mint") replayed on --success/--danger.
+  check(theme, 'on-success on success', p['--on-success'], p['--success']);
+  check(theme, 'on-danger on danger', p['--on-danger'], p['--danger']);
+
+  // --ba-*-ink (2026-09-21 audit fix) — BusinessAnalysisCanvas hardcoded
+  // '#fff'/'#000' as text on these step-badge/button backgrounds instead
+  // of a token; same AA-not-AAA reasoning as bdp-*-ink above (a badge
+  // number or button label is UI-component text, not reading copy).
+  for (const k of ['idea', 'upside', 'money', 'decide', 'do']) {
+    check(theme, `ba-${k}-ink on ba-${k}`, p[`--ba-${k}-ink`], p[`--ba-${k}`], 4.5);
+  }
+  for (const k of ['go', 'validate', 'pivot', 'nogo', 'neutral']) {
+    check(theme, `ba-${k}-ink on ba-${k}`, p[`--ba-${k}-ink`], p[`--ba-${k}`], 4.5);
+  }
+
   // SC 1.4.11 — the border every card, input and panel draws, and the
   // progress bar's own empty track (a meaningful graphic: it says how
   // much is NOT done).

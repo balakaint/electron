@@ -35,22 +35,24 @@ function Chip({ label, color, onClick }: { label: string; color: string; onClick
   // against its own fixed value the same way inkOn() would, so this
   // just asks for the ink that belongs to the colour it was given.
   const ink = color.replace(/\)$/, '-ink)');
+  const style = {
+    display: 'inline-block',
+    fontSize: 12,
+    fontWeight: 700,
+    padding: '4px 8px',
+    borderRadius: RADIUS.card,
+    color: ink,
+    background: color,
+    cursor: onClick ? 'pointer' : 'default',
+  } as const;
+  // A pure display chip (no onClick) stays a <span> — a focusable
+  // <button> with nothing to activate is its own trap. Only the
+  // clickable ones need to be reachable and operable by keyboard.
+  if (!onClick) return <span style={style}>{label}</span>;
   return (
-    <span
-      onClick={onClick}
-      style={{
-        display: 'inline-block',
-        fontSize: 12,
-        fontWeight: 700,
-        padding: '4px 8px',
-        borderRadius: RADIUS.card,
-        color: ink,
-        background: color,
-        cursor: onClick ? 'pointer' : 'default',
-      }}
-    >
+    <button onClick={onClick} style={{ ...style, border: 'none' }}>
       {label}
-    </span>
+    </button>
   );
 }
 
@@ -188,7 +190,7 @@ function ActionsChecklist({
               textDecoration: a.done ? 'line-through' : 'none',
             }}
           />
-          <button onClick={() => onDelete(a.id)} title="Delete">✕</button>
+          <button onClick={() => onDelete(a.id)} title="Delete" aria-label="Delete">✕</button>
         </div>
       ))}
       <form
@@ -366,13 +368,13 @@ function PlanCard({
             </button>
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
-            <button onClick={onDuplicate} title="Duplicate" style={{ fontSize: 12 }}>
+            <button onClick={onDuplicate} title="Duplicate" aria-label="Duplicate" style={{ fontSize: 12 }}>
               ⧉
             </button>
-            <button onClick={onArchive} title="Archive" style={{ fontSize: 12 }}>
+            <button onClick={onArchive} title="Archive" aria-label="Archive" style={{ fontSize: 12 }}>
               🗄
             </button>
-            <button onClick={onDelete} title="Delete" style={{ fontSize: 12 }}>
+            <button onClick={onDelete} title="Delete" aria-label="Delete" style={{ fontSize: 12 }}>
               ✕
             </button>
           </div>

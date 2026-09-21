@@ -351,7 +351,7 @@ function StageDetail({
                   textDecoration: t.done ? 'line-through' : 'none',
                 }}
               />
-              <button onClick={() => onDeleteTask(t.id)} title="Delete">✕</button>
+              <button onClick={() => onDeleteTask(t.id)} title="Delete" aria-label="Delete task">✕</button>
             </div>
           ))}
           <form
@@ -385,7 +385,7 @@ function StageDetail({
                 <div style={{ fontSize: 12 }}>{l.text}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{l.date}</div>
               </div>
-              <button onClick={() => onDeleteLog(l.id)} title="Delete">✕</button>
+              <button onClick={() => onDeleteLog(l.id)} title="Delete" aria-label="Delete log entry">✕</button>
             </div>
           ))}
           <form
@@ -480,7 +480,7 @@ function CoverImage({
       <button onClick={onPick} title="Change cover image" style={{ position: 'absolute', bottom: 6, right: 34, fontSize: 12, padding: '4px 8px' }}>
         Change
       </button>
-      <button onClick={onRemove} title="Remove cover image" style={{ position: 'absolute', bottom: 6, right: 6, fontSize: 12, padding: '4px 8px' }}>
+      <button onClick={onRemove} title="Remove cover image" aria-label="Remove cover image" style={{ position: 'absolute', bottom: 6, right: 6, fontSize: 12, padding: '4px 8px' }}>
         ✕
       </button>
     </div>
