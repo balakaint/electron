@@ -82,10 +82,10 @@ export default function ClockCard() {
         </div>
         <div style={{ textAlign: 'center', flex: '0 0 auto' }}>
       <div style={{ marginBottom: 4 }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
           {now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
         </div>
-        <div style={{ fontSize: 11, color: 'var(--text-faint)', lineHeight: 1.2 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-faint)', lineHeight: 1.2 }}>
           {now.toLocaleDateString(undefined, { weekday: 'short' })}
           {' · '}
           {now.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
@@ -122,7 +122,7 @@ export default function ClockCard() {
             <div style={{ width: 96, margin: '0 auto' }}>
               <RitualRing progress={phase.progress} size={76} stroke={5} accent={phase.color}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, color: phase.color }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: phase.color }}>
                     {phase.label.toUpperCase()}
                   </span>
                   <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: 'var(--text)' }}>
@@ -130,7 +130,7 @@ export default function ClockCard() {
                   </span>
                 </div>
               </RitualRing>
-              <div style={{ fontSize: 10, color: 'var(--text-faint)', marginTop: 2 }}>left in phase</div>
+              <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>left in phase</div>
             </div>
           );
         })()}

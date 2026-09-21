@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useL } from '../i18n';
+import { Check } from 'lucide-react';
 import { HourSlot, Project, STRIKE_MAX, Task, hoursApi, nowApi, projectsApi, tasksApi } from '../services/api';
 import { RADIUS } from '../spacing';
 
@@ -209,8 +210,8 @@ export default function NowCard({
             <button onClick={toggleRun} className="btn-primary" style={{ flex: 1, padding: '8px 0' }}>
               {running ? `⏸ ${L('PAUSE', 'বিরতি')}` : `▶ ${L('START', 'শুরু')}`}
             </button>
-            <button onClick={complete} style={{ padding: '8px 12px' }}>
-              ✓ {L('COMPLETE', 'সম্পন্ন')}
+            <button onClick={complete} style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <Check size={13} /> {L('COMPLETE', 'সম্পন্ন')}
             </button>
           </div>
         </>

@@ -188,7 +188,7 @@ const AREA_COLOR_VAR: Record<Q90AreaKey, string> = {
 // need a badge.
 function StatusIndicator({ status }: { status: Q90Status }) {
   if (status === 'proven') {
-    return <span style={{ fontSize: TYPE_SIZE.base, fontWeight: TYPE_WEIGHT.bold, color: 'var(--success)' }}>✓</span>;
+    return <Check size={TYPE_SIZE.base} strokeWidth={2.5} color="var(--success)" />;
   }
   if (status === 'not_started') return null;
   const label = status === 'defined' ? 'defined' : status === 'planned' ? 'planned' : 'in progress';
@@ -281,7 +281,7 @@ function AreaSummary({ area }: { area: Q90Area }) {
 
       {area.achieved && !!area.proof.trim() && (
         <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.xs, color: 'var(--success)' }}>
-          <span style={{ fontSize: TYPE_SIZE.base, fontWeight: TYPE_WEIGHT.bold }}>✓</span>
+          <Check size={TYPE_SIZE.base} strokeWidth={2.5} />
           <span style={{ fontSize: TYPE_SIZE.sm, fontWeight: TYPE_WEIGHT.medium }}>Proven — {area.proof}</span>
         </div>
       )}
@@ -633,11 +633,14 @@ function AreaAccordion({
                       fontSize: TYPE_SIZE.xs,
                       padding: '4px 12px',
                       whiteSpace: 'nowrap',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
                       color: area.achieved ? 'var(--success)' : 'var(--text-faint)',
                       borderColor: area.achieved ? 'var(--success)' : undefined,
                     }}
                   >
-                    {area.achieved ? '✓ achieved' : 'mark achieved'}
+                    {area.achieved ? <><Check size={12} /> achieved</> : 'mark achieved'}
                   </button>
                 </div>
               </Step>
@@ -713,12 +716,15 @@ function AreaAccordion({
                       style={{
                         fontSize: TYPE_SIZE.xs,
                         padding: '4px 12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
                         color: justKept ? 'var(--success)' : undefined,
                         borderColor: justKept ? 'var(--success)' : undefined,
                       }}
                       title="Nothing to change — still the right goal"
                     >
-                      {justKept ? 'Kept ✓' : 'Keep goal'}
+                      {justKept ? <><Check size={12} /> Kept</> : 'Keep goal'}
                     </button>
                     <button
                       onClick={() => setConfirmingStrategy(true)}

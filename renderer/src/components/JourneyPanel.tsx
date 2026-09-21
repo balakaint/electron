@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Circle, X } from 'lucide-react';
+import { Check, Circle, Rocket, X } from 'lucide-react';
 import { inkOn } from '../themes';
 import { Journey, JourneyStage, ProjectKey, ProjectOrderEntry, journeyApi, projectsApi } from '../services/api';
 import { useAutoTimer } from '../useAutoTimer';
@@ -142,7 +142,7 @@ function StageColumn({
             minWidth: 0,
           }}
         >
-          {stage.gate_done ? '✓' : '○'} {stage.gate}
+          {stage.gate_done ? <Check size={11} /> : <Circle size={11} />} {stage.gate}
         </div>
       )}
 
@@ -173,7 +173,7 @@ function StageColumn({
                 minWidth: 0,
               }}
             >
-              {t.done ? '✓' : '○'} {t.text}
+              {t.done ? <Check size={11} /> : <Circle size={11} />} {t.text}
             </div>
           ))}
           {extra > 0 && <div style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)' }}>+{extra} more</div>}
@@ -304,7 +304,7 @@ function StageDetail({
           onBlur={() => (name.trim() !== stage.name || description !== stage.description) && onRename(name, description)}
           style={{ fontWeight: 700, fontSize: 16, border: 'none', background: 'transparent', color: 'var(--text)', flex: 1 }}
         />
-        {stage.done && <span style={{ color: 'var(--success)', fontSize: 12 }}>✓ DONE</span>}
+        {stage.done && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--success)', fontSize: 12 }}><Check size={12} /> DONE</span>}
         {isCurrent && !stage.done && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>CURRENT</span>}
       </div>
       <textarea
@@ -502,32 +502,43 @@ export default function JourneyPanel() {
   const [journey, setJourney] = useState<Journey | null>(null);
   const [activeStage, setActiveStage] = useState(0);
   const [expandedStage, setExpandedStage] = useState<number | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<React.ReactNode | null>(null);
+  // Without these, a failed fetch left `order`/`journey` at their empty
+  // defaults with nothing catching the rejection — the panel rendered
+  // with no visible signal anything had gone wrong (ui-ux-audit verify
+  // pass, 2026-09-22).
+  const [loadError, setLoadError] = useState(false);
 
-  const refreshOrder = () => projectsApi.order().then(setOrder);
+  const refreshOrder = () => projectsApi.order().then(setOrder).catch(() => setLoadError(true));
 
   useEffect(() => {
-    projectsApi.order().then((o) => {
-      setOrder(o);
-      if (o.length) setProjectKey(o[0].project.key);
-    });
+    projectsApi
+      .order()
+      .then((o) => {
+        setOrder(o);
+        if (o.length) setProjectKey(o[0].project.key);
+      })
+      .catch(() => setLoadError(true));
   }, []);
 
   useAutoTimer(projectKey, order, refreshOrder);
 
   useEffect(() => {
     if (!projectKey) return;
-    journeyApi.get(projectKey).then((j) => {
-      setJourney(j);
-      setActiveStage(j.current_stage);
-      setExpandedStage(null);
-    });
+    journeyApi
+      .get(projectKey)
+      .then((j) => {
+        setJourney(j);
+        setActiveStage(j.current_stage);
+        setExpandedStage(null);
+      })
+      .catch(() => setLoadError(true));
   }, [projectKey]);
 
   const apply = (p: Promise<Journey>) =>
     p.then((j) => {
       setJourney(j);
-      if (j.event === 'launched') setToast('🚀 Launched!');
+      if (j.event === 'launched') setToast(<><Rocket size={12} /> Launched!</>);
       else if (j.event === 'advanced') setToast('Stage advanced');
       if (j.event) setTimeout(() => setToast(null), 4000);
     });
@@ -547,6 +558,36 @@ export default function JourneyPanel() {
 
   return (
     <div style={{ maxWidth: 1200 }}>
+      {loadError && (
+        <div
+          style={{
+            fontSize: 12,
+            color: 'var(--danger)',
+            background: 'var(--surface)',
+            border: '1px solid var(--danger)',
+            borderRadius: RADIUS.control,
+            padding: '8px 12px',
+            marginBottom: 8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
+        >
+          Couldn't load the journey — check the app is connected.
+          <button
+            className="btn-ghost"
+            style={{ fontSize: 12 }}
+            onClick={() => {
+              setLoadError(false);
+              refreshOrder();
+              if (projectKey) journeyApi.get(projectKey).then(setJourney).catch(() => setLoadError(true));
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
         {order.map((entry) => (
           <button
@@ -576,7 +617,7 @@ export default function JourneyPanel() {
           placeholder="Project name…"
           style={{ fontSize: 16, fontWeight: 700, border: 'none', background: 'transparent', color: 'var(--text)', flex: 1 }}
         />
-        {journey.launched && <span style={{ fontSize: 12, color: 'var(--success)' }}>🚀 LAUNCHED</span>}
+        {journey.launched && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--success)' }}><Rocket size={12} /> LAUNCHED</span>}
       </div>
       <input
         key={`${projectKey}-tagline`}

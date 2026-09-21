@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Check } from 'lucide-react';
 import { ProjectOrderEntry, TodayProgress } from '../services/api';
 import { PB_RAMPS, accentText, currentTheme, inkOn } from '../themes';
 
@@ -208,7 +209,9 @@ export default function TodayProgressBar({
 
       <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
         {complete ? (
-          <span style={{ color: 'var(--success)', fontWeight: 700 }}>✓ {goalTxt.toUpperCase()} DEEP WORK COMPLETE!</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--success)', fontWeight: 700 }}>
+            <Check size={13} /> {goalTxt.toUpperCase()} DEEP WORK COMPLETE!
+          </span>
         ) : n > 0 ? (
           // Legacy swaps the "2h 14m left" readout for this on the
           // segmented path: which project got skipped is the better

@@ -5,6 +5,7 @@ import { useAutoTimer } from '../useAutoTimer';
 import { accentText } from '../themes';
 import { Goal, GoalHorizon, GoalOwnerKey, GoalPanel, ProjectKey, ProjectOrderEntry, goalsApi, projectsApi } from '../services/api';
 import { RADIUS } from '../spacing';
+import { useAutofocus } from '../hooks/useAutofocus';
 
 // ⚠ READ THE KEYS CAREFULLY BEFORE CHANGING ANYTHING HERE.
 //
@@ -154,6 +155,7 @@ function GoalRow({
   onOpenBoard: () => void;
 }) {
   const [text, setText] = useState(goal.text);
+  const textInputRef = useAutofocus<HTMLInputElement>(open);
   const [startDate, setStartDate] = useState(goal.start_date);
   const [deadline, setDeadline] = useState(goal.deadline);
   const noteField = useAutosave(goal.note, onEditNote);
@@ -297,6 +299,11 @@ function GoalRow({
   }
 
   return (
+    // Escape-to-close is delegated from whichever child has focus (the
+    // rename input, most often) — the row itself is never meant to be
+    // tabbed to, so a role/tabIndex here would add a focus stop that
+    // does nothing.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className="goal-row goal-row-open card-elevated"
       style={{
@@ -313,8 +320,8 @@ function GoalRow({
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {tick}
         <input
+          ref={textInputRef}
           value={text}
-          autoFocus
           onChange={(e) => setText(e.target.value)}
           onBlur={() => text.trim() && text !== goal.text && onEditText(text.trim())}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
@@ -401,7 +408,9 @@ function GoalRow({
             ) : (
               <>day {goal.day_number} of {goalWindow}</>
             )}
-            {goal.done && goal.done_date && <span style={{ color: 'var(--success)' }}> · ✓ {shortDate(goal.done_date)}</span>}
+            {goal.done && goal.done_date && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--success)' }}> · <Check size={12} /> {shortDate(goal.done_date)}</span>
+            )}
           </span>
         </div>
         <MetaRow label="PROGRESS">
@@ -461,10 +470,14 @@ function GoalRow({
           padding: '8px 12px',
         }}
       >
-        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: accent, flex: 'none' }}>
+        <label
+          htmlFor={`next-action-${goal.id}`}
+          style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: accent, flex: 'none' }}
+        >
           NEXT ACTION
-        </span>
+        </label>
         <input
+          id={`next-action-${goal.id}`}
           // Defaults to the goal's own top FOCUS card ("board_focus_title",
           // added 2026-09-16 alongside this) whenever nobody has typed a
           // manual NEXT ACTION — Zahid's own words: "next action by
@@ -566,6 +579,7 @@ function GoalSection({
   const [title, setTitle] = useState(label);
   const [composing, setComposing] = useState(false);
   const [newText, setNewText] = useState('');
+  const newTextInputRef = useAutofocus<HTMLInputElement>(composing);
   const [newDate, setNewDate] = useState(todayIso);
 
   useEffect(() => setTitle(label), [label]);
@@ -690,8 +704,9 @@ function GoalSection({
       {composing && (
         <form onSubmit={submitAdd} style={{ display: 'flex', gap: 4, margin: '4px 0 4px' }}>
           <input
+            ref={newTextInputRef}
             value={newText}
-            autoFocus
+            aria-label="New goal"
             onChange={(e) => setNewText(e.target.value)}
             onKeyDown={(e) => e.key === 'Escape' && setComposing(false)}
             placeholder="What are you aiming at?"
@@ -765,9 +780,14 @@ export default function GoalsPanel({
   // editors would be two places to look for the thing you are editing,
   // and the panel is 545px wide — there is room for exactly one.
   const [openGoalId, setOpenGoalId] = useState<number | null>(null);
+  // Without this, a failed fetch left `goals`/`panel`/`order` at their
+  // empty defaults with nothing catching the rejection — the panel
+  // rendered with no visible signal anything had gone wrong (ui-ux-audit
+  // verify pass, 2026-09-22).
+  const [loadError, setLoadError] = useState(false);
 
-  const refreshGoals = (key: GoalOwnerKey) => goalsApi.list(key).then(setGoals);
-  const refreshOrder = () => projectsApi.order().then(setOrder);
+  const refreshGoals = (key: GoalOwnerKey) => goalsApi.list(key).then(setGoals).catch(() => setLoadError(true));
+  const refreshOrder = () => projectsApi.order().then(setOrder).catch(() => setLoadError(true));
 
   useEffect(() => {
     refreshOrder();
@@ -778,10 +798,13 @@ export default function GoalsPanel({
   // getPanel is still the source for the section titles, and it also
   // covers the first render, before the shell has loaded settings.
   useEffect(() => {
-    goalsApi.getPanel().then((p) => {
-      setPanel(p);
-      refreshGoals(projectKey ?? p.project_key);
-    });
+    goalsApi
+      .getPanel()
+      .then((p) => {
+        setPanel(p);
+        refreshGoals(projectKey ?? p.project_key);
+      })
+      .catch(() => setLoadError(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectKey]);
 
@@ -809,7 +832,41 @@ export default function GoalsPanel({
   const timerKey: ProjectKey | null = projectKey === 'life' ? null : projectKey ?? (panel?.project_key ?? null);
   useAutoTimer(openGoalId !== null ? timerKey : null, order, refreshOrder);
 
-  if (!panel) return <div>Loading…</div>;
+  if (!panel) {
+    return loadError ? (
+      <div
+        style={{
+          fontSize: 12,
+          color: 'var(--danger)',
+          background: 'var(--surface)',
+          border: '1px solid var(--danger)',
+          borderRadius: RADIUS.control,
+          padding: '8px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+        }}
+      >
+        Couldn't load goals — check the app is connected.
+        <button
+          className="btn-ghost"
+          style={{ fontSize: 12 }}
+          onClick={() => {
+            setLoadError(false);
+            goalsApi.getPanel().then((p) => {
+              setPanel(p);
+              refreshGoals(projectKey ?? p.project_key);
+            }).catch(() => setLoadError(true));
+          }}
+        >
+          Retry
+        </button>
+      </div>
+    ) : (
+      <div>Loading…</div>
+    );
+  }
 
   const shownKey = projectKey ?? panel.project_key;
   const activeEntry = order.find((e) => e.project.key === shownKey);

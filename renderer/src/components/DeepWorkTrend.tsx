@@ -142,7 +142,37 @@ export default function DeepWorkTrend() {
 
   const isMonth = range === 'month';
   const source = isMonth ? long : trend;
-  if (!source) return null;
+  if (!source) {
+    // Fixed-height placeholder matching the loaded card's chrome — the
+    // fetch used to resolve into a bare `return null`, so the whole
+    // card (header, range picker, chart) popped in at once and shifted
+    // whatever sat below it in the scroll column (ui-ux-audit verify
+    // pass, 2026-09-22).
+    return (
+      <div
+        className="card-elevated"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 12, marginBottom: 12, boxShadow: 'var(--shadow-sm)' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>Deep Work</div>
+          <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
+            {([['month', 'Month'], [30, '30d'], [90, '90d']] as [Range, string][]).map(([r, label]) => (
+              <button
+                key={label}
+                disabled
+                className="btn-ghost"
+                style={{ fontSize: 12, height: 24, padding: '0 8px' }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ height: 16, marginBottom: 8 }} />
+        <div style={{ height: isMonth ? 176 : 160, borderRadius: RADIUS.control, background: 'var(--surface-2)', opacity: 0.5 }} />
+      </div>
+    );
+  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

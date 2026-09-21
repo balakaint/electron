@@ -142,9 +142,9 @@ export default function DayPhaseBars() {
               alignItems: 'center',
               gap: 8,
               marginBottom: 8,
-              padding: '3px 6px',
-              marginLeft: -6,
-              marginRight: -6,
+              padding: '4px 8px',
+              marginLeft: -8,
+              marginRight: -8,
               borderRadius: RADIUS.control,
               opacity: isNow ? 1 : 0.55,
               // Tint dropped 12%→7% (visual redesign pass, 2026-09-20):

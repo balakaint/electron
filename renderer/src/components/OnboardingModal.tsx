@@ -1,21 +1,22 @@
 import { useState } from 'react';
+import { Check, ClipboardList, Keyboard, Timer } from 'lucide-react';
 import { settingsApi } from '../services/api';
 import { RADIUS } from '../spacing';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 
 const STEPS = [
   {
-    icon: '📋',
+    Icon: ClipboardList,
     title: 'Tasks, Habits, Projects',
     body: 'Three tabs across the top. Plan/Focus splits your task list; Habits tracks daily checklists; Projects holds your six fixed slots with timers and business analysis.',
   },
   {
-    icon: '⏱',
+    Icon: Timer,
     title: 'Timers and themes',
     body: 'Every project and task can track its own time — click ▶ to start, ▶ again to stop. Cycle the app theme any time from the header.',
   },
   {
-    icon: '⌨',
+    Icon: Keyboard,
     title: 'Shortcuts and autosave',
     body: 'Ctrl+Z undoes your last action, Ctrl+T cycles the theme, and F1 or ? opens this shortcut list again. Everything saves itself the moment you change it.',
   },
@@ -71,7 +72,9 @@ export default function OnboardingModal({ onDone }: { onDone: () => void }) {
           boxShadow: 'var(--shadow-md)',
         }}
       >
-        <div style={{ fontSize: 30, marginBottom: 8 }}>{current.icon}</div>
+        <div style={{ marginBottom: 8 }}>
+          <current.Icon size={30} />
+        </div>
         {/* No role/aria-modal before this — axe's "region" rule (content
             must sit in a landmark) was really pointing at a real gap: a
             modal blocking the whole screen with no dialog semantics at
@@ -98,7 +101,9 @@ export default function OnboardingModal({ onDone }: { onDone: () => void }) {
           <button onClick={() => go(-1)} disabled={step === 0}>
             Back
           </button>
-          <button onClick={() => go(1)}>{isLast ? 'Get Started ✓' : 'Next'}</button>
+          <button onClick={() => go(1)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            {isLast ? <><Check size={13} /> Get Started</> : 'Next'}
+          </button>
         </div>
       </div>
     </div>

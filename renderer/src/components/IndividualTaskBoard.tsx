@@ -3,6 +3,7 @@ import { ChevronUp, Pause, Play, Star, X } from 'lucide-react';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { BoardCard, BoardCol, BoardPriority, boardApi } from '../services/api';
 import { RADIUS } from '../spacing';
+import { useAutofocus } from '../hooks/useAutofocus';
 
 // Same format and "sessions[-1].end === null" running convention as
 // NowCard.tsx's own formatHMS/isRunning — not imported from there (both
@@ -150,6 +151,7 @@ function CardRow({
   onCyclePriority: () => void;
 }) {
   const [title, setTitle] = useState(card.title);
+  const titleInputRef = useAutofocus<HTMLInputElement>(open);
   const noteField = useAutosave(card.note, onEditNote);
   useEffect(() => setTitle(card.title), [card.title]);
 
@@ -318,6 +320,11 @@ function CardRow({
   }
 
   return (
+    // Escape-to-close is delegated from whichever child has focus (the
+    // rename input, most often) — the row itself is never meant to be
+    // tabbed to, so a role/tabIndex here would add a focus stop that
+    // does nothing.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className="goal-row card-elevated"
       style={{
@@ -334,8 +341,8 @@ function CardRow({
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {pin}
         <input
+          ref={titleInputRef}
           value={title}
-          autoFocus
           onChange={(e) => setTitle(e.target.value)}
           onBlur={() => title.trim() && title !== card.title && onEditTitle(title.trim())}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
@@ -396,6 +403,7 @@ function BoardSection({
 }) {
   const [composing, setComposing] = useState(false);
   const [newTitle, setNewTitle] = useState('');
+  const newTitleInputRef = useAutofocus<HTMLInputElement>(composing);
   const [newNote, setNewNote] = useState('');
   const [dragOver, setDragOver] = useState(false);
 
@@ -453,8 +461,8 @@ function BoardSection({
       {composing && (
         <form onSubmit={submitAdd} style={{ display: 'flex', flexDirection: 'column', gap: 4, margin: '4px 0' }}>
           <input
+            ref={newTitleInputRef}
             value={newTitle}
-            autoFocus
             onChange={(e) => setNewTitle(e.target.value)}
             onKeyDown={(e) => e.key === 'Escape' && setComposing(false)}
             placeholder="Card title"

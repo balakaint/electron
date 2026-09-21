@@ -14,6 +14,12 @@ const SHORTCUTS: [string, string][] = [
 export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
   const dialogRef = useFocusTrap<HTMLDivElement>(true);
   return (
+    // Mouse-only close-on-backdrop-click convenience — Escape (this
+    // dialog's real keyboard equivalent) is handled centrally by
+    // App.tsx's dialogStack, and useFocusTrap already keeps Tab inside
+    // the dialog, so this backdrop itself needs no keyboard path of its
+    // own.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       style={{
         position: 'fixed',
@@ -26,6 +32,10 @@ export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
       }}
       onClick={onClose}
     >
+      {/* Containment only, not an interaction of its own — stops a click
+          inside the dialog from bubbling to the backdrop above and
+          closing it. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/click-events-have-key-events */}
       <div
         ref={dialogRef}
         role="dialog"

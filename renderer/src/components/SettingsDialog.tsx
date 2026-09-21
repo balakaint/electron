@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { Settings, SettingsPatch, settingsApi } from '../services/api';
 import { THEME_LABELS, THEME_ORDER, Theme, themeSwatch } from '../themes';
 import { RADIUS } from '../spacing';
@@ -190,7 +190,7 @@ export default function SettingsDialog({
 }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
-  const [updateStatus, setUpdateStatus] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<React.ReactNode | null>(null);
   const dialogRef = useFocusTrap<HTMLDivElement>(true);
 
   useEffect(() => {
@@ -213,6 +213,12 @@ export default function SettingsDialog({
   if (!settings) return null;
 
   return (
+    // Mouse-only close-on-backdrop-click convenience — Escape (this
+    // dialog's real keyboard equivalent) is handled centrally by
+    // App.tsx's dialogStack, and useFocusTrap already keeps Tab inside
+    // the dialog, so this backdrop itself needs no keyboard path of its
+    // own.
+    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
       style={{
         position: 'fixed',
@@ -225,6 +231,10 @@ export default function SettingsDialog({
       }}
       onClick={onClose}
     >
+      {/* Containment only, not an interaction of its own — stops a click
+          inside the dialog from bubbling to the backdrop above and
+          closing it. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/click-events-have-key-events */}
       <div
         ref={dialogRef}
         role="dialog"
@@ -385,12 +395,12 @@ export default function SettingsDialog({
           {/* Placeholder, same as the legacy dialog's own — always reports
               latest, no real update service wired up on either side. */}
           <button
-            onClick={() => setUpdateStatus(`✓ You're on the latest version (${APP_VERSION})`)}
+            onClick={() => setUpdateStatus(<><Check size={12} /> You're on the latest version ({APP_VERSION})</>)}
             style={{ fontSize: 12, marginTop: 8 }}
           >
             Check for Updates
           </button>
-          {updateStatus && <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{updateStatus}</div>}
+          {updateStatus && <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{updateStatus}</div>}
         </Section>
       </div>
     </div>

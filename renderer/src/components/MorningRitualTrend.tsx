@@ -263,10 +263,10 @@ function CombinedTrendChart({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 5,
-                fontSize: 11,
+                gap: 4,
+                fontSize: 12,
                 fontWeight: 600,
-                padding: '4px 9px',
+                padding: '4px 8px',
                 borderRadius: RADIUS.pill,
                 background: 'var(--surface-2)',
                 color: s.color,
@@ -325,7 +325,7 @@ function RecentList({ title, entries, emptyText }: { title: string; entries: Min
   return (
     <div
       className="card-elevated"
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 20, boxShadow: 'var(--shadow-sm)' }}
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 16, boxShadow: 'var(--shadow-sm)' }}
     >
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 12 }}>{title}</div>
       {entries.length === 0 ? (
@@ -339,7 +339,7 @@ function RecentList({ title, entries, emptyText }: { title: string; entries: Min
                 display: 'grid',
                 gridTemplateColumns: '72px 1fr',
                 gap: 16,
-                padding: '10px 0',
+                padding: '8px 0',
                 borderTop: i === 0 ? 'none' : '1px solid var(--border)',
               }}
             >
@@ -444,7 +444,7 @@ export default function MorningRitualTrend({ accent }: { accent: string }) {
             const future = d > todayIso;
             const isToday = d === todayIso;
             return (
-              <div key={d} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+              <div key={d} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                 <div
                   title={`${d} — ${trend.completed[i] ? 'completed' : future ? 'upcoming' : 'not completed'}`}
                   style={{

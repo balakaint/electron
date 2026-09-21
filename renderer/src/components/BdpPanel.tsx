@@ -557,6 +557,14 @@ function TableRow({ plan, onOpen }: { plan: BdpPlan; onOpen: () => void }) {
   return (
     <div
       onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       title="Open this plan"
       style={{
         display: 'grid',
@@ -602,6 +610,14 @@ function ListRow({ plan, index, onOpen }: { plan: BdpPlan; index: number; onOpen
   return (
     <div
       onClick={onOpen}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       title="Open this plan"
       style={{
         display: 'flex',

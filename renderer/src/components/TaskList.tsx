@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pause, Play, RotateCcw, Star, X } from 'lucide-react';
+import { Check, Pause, Play, RotateCcw, Star, X } from 'lucide-react';
 import { DayView, ListKey, Project, ProjectKey, STRIKE_MAX, Task, hoursApi, nowApi, projectsApi, tasksApi } from '../services/api';
 import { useUndo } from '../undo';
 import { accentText } from '../themes';
@@ -91,6 +91,14 @@ export default function TaskList({
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editText, setEditText] = useState('');
+  // Single ref, reused: only one row is ever being edited at a time —
+  // declared here rather than with `useAutofocus` inside the .map()
+  // below because a hook can't be called a variable number of times
+  // per render.
+  const editInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (editingId !== null) editInputRef.current?.focus();
+  }, [editingId]);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [title, setTitleState] = useState('');
   const [mitPromptTasks, setMitPromptTasks] = useState<Task[] | null>(null);
@@ -716,13 +724,13 @@ export default function TaskList({
                   color: t.done ? 'var(--on-accent)' : 'transparent',
                 }}
               >
-                ✓
+                {t.done && <Check size={12} />}
               </button>
 
               {editingId === t.id ? (
                 <input
+                  ref={editInputRef}
                   aria-label="Task text"
-                  autoFocus
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
                   onBlur={() => commitEdit(t)}

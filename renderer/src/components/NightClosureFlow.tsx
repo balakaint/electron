@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Check } from 'lucide-react';
 import { NightClosure, nightClosureApi } from '../services/api';
 import { RADIUS, SPACE } from '../spacing';
 import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
@@ -424,9 +425,9 @@ export default function NightClosureFlow() {
                 right: 3,
                 top: '50%',
                 transform: 'translateY(-50%)',
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: 600,
-                padding: '2px 6px',
+                padding: '2px 8px',
                 border: 'none',
                 borderRadius: RADIUS.control,
                 background: NC.emberSoft,
@@ -469,9 +470,13 @@ export default function NightClosureFlow() {
             fontSize: TYPE_SIZE.sm,
             fontWeight: TYPE_WEIGHT.bold,
             cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
           }}
         >
-          {closed ? 'Closed ✓' : 'Close the day →'}
+          {closed ? <><Check size={14} /> Closed</> : 'Close the day →'}
         </button>
         {savedNote && (
           <div style={{ fontSize: TYPE_SIZE.xs, color: NC.ember, marginTop: SPACE.sm, textAlign: 'center' }}>

@@ -17,6 +17,7 @@ import OnboardingModal from './components/OnboardingModal';
 import SettingsDialog from './components/SettingsDialog';
 import ShortcutsHelp from './components/ShortcutsHelp';
 import UndoToast from './components/UndoToast';
+import ErrorBoundary from './components/ErrorBoundary';
 import { UndoProvider, useUndo } from './undo';
 import { applyTheme, nextTheme, Theme, THEME_LABELS } from './themes';
 import { useFocusTrap } from './hooks/useFocusTrap';
@@ -683,8 +684,10 @@ function AppShell() {
 
 export default function App() {
   return (
-    <UndoProvider>
-      <AppShell />
-    </UndoProvider>
+    <ErrorBoundary>
+      <UndoProvider>
+        <AppShell />
+      </UndoProvider>
+    </ErrorBoundary>
   );
 }

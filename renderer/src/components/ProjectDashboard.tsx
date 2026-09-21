@@ -17,6 +17,7 @@ import BusinessAnalysisCanvas from './BusinessAnalysisCanvas';
 import DeepWorkTrend from './DeepWorkTrend';
 import TodayProgressBar from './TodayProgressBar';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
+import { useAutofocus } from '../hooks/useAutofocus';
 import { dayNumber, elapsedText, projTimeText } from '../format';
 import { accentText, inkOn } from '../themes';
 import { RADIUS } from '../spacing';
@@ -64,6 +65,8 @@ function ProjectCard({
   const [noteTitle, setNoteTitle] = useState(project.note_title);
   const [editingNote, setEditingNote] = useState(false);
   const [addingTask, setAddingTask] = useState(false);
+  const noteFieldRef = useAutofocus<HTMLTextAreaElement>(editingNote);
+  const newSubtaskRef = useAutofocus<HTMLInputElement>(addingTask);
 
   const key = project.key as ProjectKey;
   const noteField = useAutosave(project.note, (v: string) => projectsApi.update(key, { note: v }).then(onChanged));
@@ -406,8 +409,8 @@ function ProjectCard({
 
         {editingNote || !noteField.value.trim() ? (
           <textarea
+            ref={noteFieldRef}
             value={noteField.value}
-            autoFocus={editingNote}
             onChange={(e) => noteField.setValue(e.target.value)}
             onBlur={() => {
               noteField.flush();
@@ -422,6 +425,14 @@ function ProjectCard({
         ) : (
           <div
             onClick={() => setEditingNote(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setEditingNote(true);
+              }
+            }}
             title="Click to edit"
             style={{
               fontSize: 13,
@@ -640,9 +651,19 @@ function ProjectCard({
                     onClick={() => strikeSubtask(s.pid)}
                     disabled={onToday || (full && !onToday)}
                     title={onToday ? 'Already on today’s list' : 'Commit to today’s 3'}
-                    style={{ fontSize: 12, height: 24, padding: '0 8px', flex: 'none', opacity: onToday ? 0.7 : 1, color: onToday ? accentText(project.accent_color) : undefined }}
+                    style={{
+                      fontSize: 12,
+                      height: 24,
+                      padding: '0 8px',
+                      flex: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      opacity: onToday ? 0.7 : 1,
+                      color: onToday ? accentText(project.accent_color) : undefined,
+                    }}
                   >
-                    {strikeFlash === s.pid ? 'DAY FULL' : onToday ? '✓ ON TODAY' : '+ STRIKE'}
+                    {strikeFlash === s.pid ? 'DAY FULL' : onToday ? <><Check size={12} /> ON TODAY</> : '+ STRIKE'}
                   </button>
                 )}
                 <button
@@ -673,8 +694,8 @@ function ProjectCard({
         {addingTask && (
           <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
             <input
+              ref={newSubtaskRef}
               aria-label="New task for this project"
-              autoFocus
               value={newSubtask}
               onChange={(e) => setNewSubtask(e.target.value)}
               onKeyDown={(e) => {
@@ -727,12 +748,17 @@ export default function ProjectDashboard({
 }) {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
   const [focusTasks, setFocusTasks] = useState<Task[]>([]);
+  // Without this, a failed initial load left `order` at its empty
+  // default with nothing catching the rejection — the panel rendered as
+  // an empty div, indistinguishable from "you have no projects" (ui-ux-
+  // audit verify pass, 2026-09-22).
+  const [loadError, setLoadError] = useState(false);
 
   const refresh = () => {
-    projectsApi.order().then(setOrder);
+    projectsApi.order().then(setOrder).catch(() => setLoadError(true));
     // Fetched once here (not per-card) so every "+ STRIKE" chip agrees
     // about which subtasks are already committed and how full today is.
-    tasksApi.list('focus').then(setFocusTasks);
+    tasksApi.list('focus').then(setFocusTasks).catch(() => setLoadError(true));
     // Every write in this panel goes through onChanged (= refresh), so
     // this one line tells panel 3 about all of them. No loop: this panel
     // listens to a different counter than the one it bumps.
@@ -761,6 +787,28 @@ export default function ProjectDashboard({
 
   return (
     <div>
+      {loadError && (
+        <div
+          style={{
+            fontSize: 12,
+            color: 'var(--danger)',
+            background: 'var(--surface)',
+            border: '1px solid var(--danger)',
+            borderRadius: RADIUS.control,
+            padding: '8px 12px',
+            marginBottom: 8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
+        >
+          Couldn't load projects — check the app is connected.
+          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={() => { setLoadError(false); refresh(); }}>
+            Retry
+          </button>
+        </div>
+      )}
       {order.map((entry) => (
         <ProjectCard
           key={entry.project.key}

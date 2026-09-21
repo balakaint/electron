@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { ProjectKey, Subtask, projectsApi } from '../services/api';
 import { RADIUS } from '../spacing';
 
@@ -70,7 +70,7 @@ export default function ProjectTaskList({ projectKey, accent, onPromoted }: { pr
               color: st.done ? 'var(--on-accent)' : 'transparent',
             }}
           >
-            ✓
+            <Check size={12} />
           </button>
           <span
             style={{

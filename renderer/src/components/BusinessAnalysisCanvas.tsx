@@ -436,7 +436,9 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
           </button>
         )}
         {savedAt > 0 && (
-          <span style={{ fontSize: 12, color: 'var(--success)', whiteSpace: 'nowrap' }}>✓ Saved</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--success)', whiteSpace: 'nowrap' }}>
+            <Check size={12} /> Saved
+          </span>
         )}
       </div>
 

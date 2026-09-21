@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { BoardTask, Goal, GoalOwnerKey, boardTaskApi, goalsApi } from '../services/api';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
@@ -269,6 +269,14 @@ export default function GoalBoardOverlay({ project, goalId }: { project: GoalOwn
   const [newTitle, setNewTitle] = useState('');
   const [renamingId, setRenamingId] = useState<number | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  // Single ref, reused: only one row is ever renaming at a time, so
+  // there is only ever one of these inputs mounted. It's declared here
+  // rather than with `useAutofocus` inside the .map() below because a
+  // hook can't be called a variable number of times per render.
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (renamingId !== null) renameInputRef.current?.focus();
+  }, [renamingId]);
 
   const refreshTasks = () =>
     boardTaskApi.list(goalId).then((ts) => {
@@ -417,10 +425,18 @@ export default function GoalBoardOverlay({ project, goalId }: { project: GoalOwn
                       cursor: 'pointer',
                     }}
                     onClick={() => setSelectedTaskId(task.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setSelectedTaskId(task.id);
+                      }
+                    }}
                   >
                     {renamingId === task.id ? (
                       <input
-                        autoFocus
+                        ref={renameInputRef}
                         value={renameValue}
                         onChange={(e) => setRenameValue(e.target.value)}
                         onClick={(e) => e.stopPropagation()}

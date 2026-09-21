@@ -1,0 +1,1 @@
+npm run test:spacing && npm run test:radius && npm run test:typography && npm run lint

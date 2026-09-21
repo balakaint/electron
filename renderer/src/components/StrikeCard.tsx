@@ -135,6 +135,18 @@ export default function StrikeCard({
               // selectable — _now_task() would refuse it anyway, and a
               // click that visibly does nothing reads as a broken button.
               onClick={t.done ? undefined : () => onSetNow(t.id)}
+              role={t.done ? undefined : 'button'}
+              tabIndex={t.done ? undefined : 0}
+              onKeyDown={
+                t.done
+                  ? undefined
+                  : (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSetNow(t.id);
+                      }
+                    }
+              }
               style={{
                 display: 'flex',
                 alignItems: 'center',

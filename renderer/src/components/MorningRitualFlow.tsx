@@ -11,7 +11,9 @@ import {
   tasksApi,
 } from '../services/api';
 import { RADIUS } from '../spacing';
+import { Check } from 'lucide-react';
 import RitualRing from './RitualRing';
+import { useAutofocus } from '../hooks/useAutofocus';
 import breatheAudioUrl from '../assets/audio/breath.mp3';
 
 // Redesigned 2026-09-19 to match Zahid's morning-activation.html sample
@@ -142,13 +144,13 @@ function ResetRow({
         gap: 12,
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${border}`,
-        borderRadius: 10,
-        padding: '10px 12px',
+        borderRadius: RADIUS.card,
+        padding: '8px 12px',
         background: 'var(--surface)',
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 7 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
           {dotClassName !== undefined && (
             <span
               className={dotClassName || undefined}
@@ -164,7 +166,7 @@ function ResetRow({
   );
 }
 
-function ResetButton({ label, onClick, disabled, done }: { label: string; onClick: () => void; disabled?: boolean; done?: boolean }) {
+function ResetButton({ label, onClick, disabled, done }: { label: React.ReactNode; onClick: () => void; disabled?: boolean; done?: boolean }) {
   return (
     <button
       onClick={onClick}
@@ -173,8 +175,11 @@ function ResetButton({ label, onClick, disabled, done }: { label: string; onClic
       className={done ? undefined : 'btn-ghost'}
       style={{
         fontSize: 12,
-        padding: '5px 11px',
+        padding: '4px 12px',
         flex: 'none',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 4,
         background: done ? 'var(--accent-light)' : undefined,
         borderColor: done ? 'var(--success)' : undefined,
         color: done ? 'var(--success)' : undefined,
@@ -194,11 +199,11 @@ function PrimeItem({ border, name, children }: { border: string; name: string; c
       style={{
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${border}`,
-        borderRadius: 10,
+        borderRadius: RADIUS.card,
         padding: 12,
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{name}</div>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{name}</div>
       {children}
     </div>
   );
@@ -211,6 +216,8 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
   const [firstMoveDraft, setFirstMoveDraft] = useState('');
   const [editingOutcome, setEditingOutcome] = useState(false);
   const [editingFirstMove, setEditingFirstMove] = useState(false);
+  const outcomeInputRef = useAutofocus<HTMLInputElement>(editingOutcome);
+  const firstMoveInputRef = useAutofocus<HTMLInputElement>(editingFirstMove);
   const [journalDraft, setJournalDraft] = useState('');
   const [journalTouched, setJournalTouched] = useState(false);
   const [gratitudeDraft, setGratitudeDraft] = useState('');
@@ -407,11 +414,11 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           </div>
           <span
             style={{
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 600,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
-              padding: '3px 9px',
+              padding: '4px 8px',
               borderRadius: RADIUS.pill,
               border: '1px solid var(--border)',
               borderLeft: `3px solid ${MODE_COLOR[mode]}`,
@@ -431,7 +438,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
             borderLeft: `3px solid ${ACCENT}`,
             borderRadius: RADIUS.card,
             padding: 16,
-            marginTop: 14,
+            marginTop: 12,
             boxShadow: 'var(--shadow-sm)',
           }}
         >
@@ -443,7 +450,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
               "{ritual.today_outcome || 'Outcome'}" — first move: {ritual.first_move || 'not set'}
             </div>
           ) : (
-            <div style={{ fontSize: 13.5, color: 'var(--text-muted)', marginTop: 8 }}>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 8 }}>
               Nothing carried over yet. Close tonight out on Night Closure and it will be waiting here.
             </div>
           )}
@@ -464,16 +471,16 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
               border: '1px solid var(--border)',
               borderTop: '2px solid var(--success)',
               borderRadius: RADIUS.card,
-              padding: 14,
+              padding: 12,
               boxShadow: 'var(--shadow-sm)',
             }}
           >
-            <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-faint)', fontWeight: 600 }}>
+            <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-faint)', fontWeight: 600 }}>
               Today
             </div>
             {editingOutcome ? (
               <input
-                autoFocus
+                ref={outcomeInputRef}
                 value={outcomeDraft}
                 onChange={(e) => setOutcomeDraft(e.target.value)}
                 onBlur={() => {
@@ -481,7 +488,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                   morningRitualApi.setOutcome(outcomeDraft).then(setRitual);
                 }}
                 onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                style={{ width: '100%', fontSize: 16, fontWeight: 600, marginTop: 6 }}
+                style={{ width: '100%', fontSize: 16, fontWeight: 600, marginTop: 8 }}
               />
             ) : (
               <button
@@ -496,7 +503,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                   padding: 0,
                   fontSize: 16,
                   fontWeight: 600,
-                  marginTop: 6,
+                  marginTop: 8,
                   cursor: 'text',
                   color: outcomeDraft ? undefined : 'var(--text-faint)',
                 }}
@@ -512,16 +519,16 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
               border: '1px solid var(--border)',
               borderTop: '2px solid var(--warning)',
               borderRadius: RADIUS.card,
-              padding: 14,
+              padding: 12,
               boxShadow: 'var(--shadow-sm)',
             }}
           >
-            <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-faint)', fontWeight: 600 }}>
+            <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-faint)', fontWeight: 600 }}>
               First move
             </div>
             {editingFirstMove ? (
               <input
-                autoFocus
+                ref={firstMoveInputRef}
                 value={firstMoveDraft}
                 onChange={(e) => setFirstMoveDraft(e.target.value)}
                 onBlur={() => {
@@ -529,7 +536,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                   morningRitualApi.setFirstMove(firstMoveDraft).then(setRitual);
                 }}
                 onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                style={{ width: '100%', fontSize: 16, fontWeight: 600, marginTop: 6 }}
+                style={{ width: '100%', fontSize: 16, fontWeight: 600, marginTop: 8 }}
               />
             ) : (
               <button
@@ -544,7 +551,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                   padding: 0,
                   fontSize: 16,
                   fontWeight: 600,
-                  marginTop: 6,
+                  marginTop: 8,
                   cursor: 'text',
                   color: firstMoveDraft ? undefined : 'var(--text-faint)',
                 }}
@@ -625,7 +632,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                     type="time"
                     value={wakeDraft}
                     onChange={(e) => setWakeDraft(e.target.value)}
-                    style={{ fontSize: 12, padding: '4px 34px 4px 8px' }}
+                    style={{ fontSize: 12, padding: '4px 32px 4px 8px' }}
                   />
                   <button
                     onClick={() => setWakeDraft(nowHHMM())}
@@ -634,9 +641,9 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                       right: 3,
                       top: '50%',
                       transform: 'translateY(-50%)',
-                      fontSize: 10,
+                      fontSize: 12,
                       fontWeight: 600,
-                      padding: '2px 6px',
+                      padding: '2px 8px',
                       border: 'none',
                       borderRadius: RADIUS.control,
                       background: 'var(--accent-light)',
@@ -651,7 +658,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                   onClick={() => morningRitualApi.setCheckIn(undefined, undefined, undefined, wakeDraft).then(setRitual)}
                   className="btn-ghost"
                   disabled={!wakeDraft}
-                  style={{ fontSize: 12, padding: '4px 10px' }}
+                  style={{ fontSize: 12, padding: '4px 8px' }}
                 >
                   Set
                 </button>
@@ -663,7 +670,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           )}
         </div>
 
-        <MicroLabel style={{ marginTop: 18 }}>RESET</MicroLabel>
+        <MicroLabel style={{ marginTop: 16 }}>RESET</MicroLabel>
         <div ref={resetSectionRef} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <ResetRow
             border="var(--ba-upside)"
@@ -671,7 +678,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
             sub={gentle ? "One glass. That's the whole task." : "A glass before coffee — you've gone all night without any."}
             right={
               <ResetButton
-                label={ritual.reset_water ? 'Done ✓' : 'Done'}
+                label={ritual.reset_water ? <>Done <Check size={12} /></> : 'Done'}
                 done={ritual.reset_water}
                 onClick={() => morningRitualApi.setResetWater(!ritual.reset_water).then(setRitual)}
               />
@@ -744,14 +751,14 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           )}
         </div>
 
-        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--border)' }}>
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--border)' }}>
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
             Worth trying, not proven
           </div>
-          <ul style={{ margin: '8px 0 6px', paddingLeft: 18, display: 'grid', gap: 4 }}>
-            <li style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>Hold off on coffee for the first hour or so.</li>
-            <li style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>Keep the phone out of the first 30 minutes.</li>
-            <li style={{ fontSize: 13.5, color: 'var(--text-muted)' }}>Cold water on the face if you're still foggy.</li>
+          <ul style={{ margin: '8px 0 8px', paddingLeft: 16, display: 'grid', gap: 4 }}>
+            <li style={{ fontSize: 14, color: 'var(--text-muted)' }}>Hold off on coffee for the first hour or so.</li>
+            <li style={{ fontSize: 14, color: 'var(--text-muted)' }}>Keep the phone out of the first 30 minutes.</li>
+            <li style={{ fontSize: 14, color: 'var(--text-muted)' }}>Cold water on the face if you're still foggy.</li>
           </ul>
           <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
             Evidence for these three is thin. Keep whichever actually helps you, drop the rest.
@@ -771,7 +778,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
         </p>
 
         {!wwwHidden && (
-          <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--text-muted)', display: 'grid', gap: 3 }}>
+          <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--text-muted)', display: 'grid', gap: 4 }}>
             <div>
               <strong style={{ color: 'var(--text)' }}>What</strong> — whatever is sitting in your head right now, in any order.
             </div>
@@ -815,7 +822,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
         {journalTouched && journalDraft.trim().length > 0 && (
           <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
             <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Does this need action today?</p>
-            <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <button
                 className="btn-ghost"
                 style={{ fontSize: 12 }}
@@ -840,7 +847,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
             </div>
 
             {suggestOpen && (
-              <div style={{ marginTop: 10, border: '1px solid var(--border)', borderLeft: `3px solid ${MODE_COLOR.fast}`, borderRadius: 10, padding: 12 }}>
+              <div style={{ marginTop: 8, border: '1px solid var(--border)', borderLeft: `3px solid ${MODE_COLOR.fast}`, borderRadius: RADIUS.card, padding: 12 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
                   Suggested next action
                 </div>
@@ -849,7 +856,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                   onChange={(e) => setSuggestDraft(e.target.value)}
                   style={{ width: '100%', fontSize: 14, marginTop: 8 }}
                 />
-                <div style={{ marginTop: 10 }}>
+                <div style={{ marginTop: 8 }}>
                   <button
                     className="btn-ghost"
                     style={{ fontSize: 12 }}
@@ -868,7 +875,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
             )}
 
             {!suggestOpen && ritual.journal_released && (
-              <p style={{ marginTop: 10, fontSize: 13, color: 'var(--text-muted)' }}>
+              <p style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>
                 You don't need to solve everything right now — this stays saved.
               </p>
             )}
@@ -887,13 +894,13 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           }
         }}
       >
-        <summary style={{ padding: 14, cursor: 'pointer', listStyle: 'none', fontSize: 12, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
+        <summary style={{ padding: 12, cursor: 'pointer', listStyle: 'none', fontSize: 12, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
           Morning prime · Meditate · Visualize · Read · Ground · Spiritual
         </summary>
 
-        <div style={{ padding: '0 14px 14px', display: 'grid', gap: 10 }}>
+        <div style={{ padding: '0 12px 12px', display: 'grid', gap: 8 }}>
           <PrimeItem border="var(--ba-idea)" name="Meditate">
-            <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: 0 }}>
+            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>
               {ritual.prime_meditation ? 'Done' : medRunning ? `${medSecs}s remaining` : '90 seconds. Sit, eyes closed, let the timer keep time for you.'}
             </p>
             {!ritual.prime_meditation && (
@@ -915,11 +922,11 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           </PrimeItem>
 
           <PrimeItem border="var(--ba-decide)" name="Visualize">
-            <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: 0 }}>{visualizeText}</p>
+            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>{visualizeText}</p>
           </PrimeItem>
 
           <PrimeItem border="var(--ba-upside)" name="Read">
-            <p style={{ fontFamily: 'Georgia, "Noto Serif Bengali", serif', fontSize: 15, lineHeight: 1.6, margin: '0 0 8px' }}>
+            <p style={{ fontFamily: 'Georgia, "Noto Serif Bengali", serif', fontSize: 16, lineHeight: 1.6, margin: '0 0 8px' }}>
               {READING_LINES[readingIdx]}
             </p>
             <button
@@ -949,7 +956,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
               placeholder="One thing you're grateful for"
               style={{ width: '100%', fontSize: 14 }}
             />
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
               {INTENTION_OPTIONS.map((v) => (
                 <Pill
                   key={v}
@@ -983,10 +990,10 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
         {ritual.started_first_action_at === null ? (
           <div
             className="card-elevated"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `3px solid ${MODE_COLOR.fast}`, borderRadius: RADIUS.card, padding: 18, boxShadow: 'var(--shadow-sm)' }}
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `3px solid ${MODE_COLOR.fast}`, borderRadius: RADIUS.card, padding: 16, boxShadow: 'var(--shadow-sm)' }}
           >
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-faint)' }}>Ready</div>
-            <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
+            <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
               <div>
                 <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Today's outcome</div>
                 <div style={{ fontSize: 16, fontWeight: 600 }}>{outcomeText}</div>
@@ -998,7 +1005,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
             </div>
 
             {pendingTasks.length > 0 && (
-              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+              <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 600, letterSpacing: 0.5, marginBottom: 8 }}>
                   PENDING · EXECUTE
                 </div>
@@ -1026,7 +1033,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                 dismissNudge();
                 morningRitualApi.startNow().then(setRitual);
               }}
-              style={{ marginTop: 16, width: '100%', padding: '13px 0', background: ACCENT, borderColor: ACCENT, color: 'var(--on-accent)', fontSize: 15, fontWeight: 600 }}
+              style={{ marginTop: 16, width: '100%', padding: '12px 0', background: ACCENT, borderColor: ACCENT, color: 'var(--on-accent)', fontSize: 16, fontWeight: 600 }}
             >
               Start now →
             </button>
@@ -1038,7 +1045,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           >
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
               <RitualRing progress={1} size={56} stroke={4} accent={ACCENT}>
-                <span style={{ fontSize: 24, color: ACCENT }}>✓</span>
+                <Check size={24} color={ACCENT} />
               </RitualRing>
             </div>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: ACCENT, marginBottom: 8 }}>IN MOTION</div>
@@ -1048,7 +1055,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
         )}
       </div>
 
-      <p style={{ marginTop: 28, fontSize: 12, color: 'var(--text-faint)', lineHeight: 1.6 }}>
+      <p style={{ marginTop: 24, fontSize: 12, color: 'var(--text-faint)', lineHeight: 1.6 }}>
         This page supports routine and planning. It is not medical or mental-health care. If sleep, mood, or
         energy problems keep affecting your daily life, talk to a qualified healthcare professional.
       </p>

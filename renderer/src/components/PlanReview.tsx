@@ -149,7 +149,7 @@ function DesignTodayBox() {
   }, []);
 
   return (
-    <div style={{ marginBottom: 20, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+    <div style={{ marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
       <div style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: 4 }}>DESIGN TODAY</div>
       <textarea
         value={note.value}
