@@ -40,6 +40,7 @@ const CARD_STYLE: React.CSSProperties = {
   background: 'var(--surface)',
   border: '1px solid var(--border)',
   borderRadius: RADIUS.card,
+  boxShadow: 'var(--shadow-sm)',
 };
 
 // A single labeled, editable callout row — OUTCOME and NEXT ACTION
@@ -386,7 +387,7 @@ export default function GoalBoardOverlay({ project, goalId }: { project: GoalOwn
       <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0, maxHeight: 'calc(100vh - 220px)' }}>
         {/* Left rail: this goal's tasks. Each one owns its own board —
             this list is the "break the goal into parts" step itself. */}
-        <div style={{ width: 260, flex: 'none', display: 'flex', flexDirection: 'column', minHeight: 0, ...CARD_STYLE, padding: 12 }}>
+        <div className="card-elevated" style={{ width: 260, flex: 'none', display: 'flex', flexDirection: 'column', minHeight: 0, ...CARD_STYLE, padding: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-muted)' }}>TASKS</span>
             <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{tasks.length}</span>

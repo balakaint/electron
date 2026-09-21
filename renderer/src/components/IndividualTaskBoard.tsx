@@ -192,7 +192,7 @@ function CardRow({
     // pilot's own board and said he liked ("typography box design").
     return (
       <div
-        className="goal-row"
+        className="goal-row card-elevated"
         draggable
         onDragStart={(e) => e.dataTransfer.setData('text/board-card', String(card.id))}
         style={{
@@ -203,6 +203,7 @@ function CardRow({
           padding: 8,
           marginBottom: 8,
           cursor: 'grab',
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 4 }}>
@@ -311,7 +312,7 @@ function CardRow({
 
   return (
     <div
-      className="goal-row"
+      className="goal-row card-elevated"
       style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
@@ -319,6 +320,7 @@ function CardRow({
         borderRadius: RADIUS.card,
         padding: '8px 8px',
         margin: '4px 0',
+        boxShadow: 'var(--shadow-sm)',
       }}
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
     >
@@ -424,6 +426,7 @@ function BoardSection({
         padding: 8,
         outline: dragOver ? `2px dashed ${accent}` : undefined,
         outlineOffset: -2,
+        boxShadow: 'var(--shadow-sm)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 4px 4px', borderBottom: '1px solid var(--border)', marginBottom: 4 }}>

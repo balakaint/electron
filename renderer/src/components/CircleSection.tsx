@@ -104,6 +104,7 @@ export default function CircleSection({
         {people.map((p) => (
           <div
             key={p.id}
+            className="card-elevated"
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -113,6 +114,7 @@ export default function CircleSection({
               border: '1px solid var(--border)',
               background: 'var(--surface)',
               minWidth: 0,
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>

@@ -68,6 +68,7 @@ export default function OnboardingModal({ onDone }: { onDone: () => void }) {
           padding: 32,
           width: 360,
           textAlign: 'center',
+          boxShadow: 'var(--shadow-md)',
         }}
       >
         <div style={{ fontSize: 30, marginBottom: 8 }}>{current.icon}</div>

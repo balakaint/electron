@@ -263,7 +263,10 @@ export default function DeepWorkTrend() {
     // the spacing cannot be the sum of two decisions made in two files —
     // which is what it was: 16 here plus 24 on the review card made a
     // 40px trench between these two, against 12 everywhere else.
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 12, marginBottom: 12 }}>
+    <div
+      className="card-elevated"
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 12, marginBottom: 12, boxShadow: 'var(--shadow-sm)' }}
+    >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
         <div style={{ fontSize: 13, fontWeight: 700 }}>
           {/* "Deep Work", not "Month Execution". The whole app calls this

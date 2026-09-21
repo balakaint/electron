@@ -311,6 +311,7 @@ function PlanCard({
 
   return (
     <div
+      className="card-elevated"
       style={{
         border: '1px solid var(--border)',
         borderLeft: `3px solid ${STATUS_COLOR[plan.status]}`,
@@ -318,6 +319,7 @@ function PlanCard({
         padding: 12,
         marginBottom: 12,
         background: 'var(--surface)',
+        boxShadow: 'var(--shadow-sm)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>

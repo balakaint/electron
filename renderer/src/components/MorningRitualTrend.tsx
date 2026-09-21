@@ -323,7 +323,10 @@ function CombinedTrendChart({
 // twice.
 function RecentList({ title, entries, emptyText }: { title: string; entries: MindsetEntry[]; emptyText: string }) {
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 20 }}>
+    <div
+      className="card-elevated"
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 20, boxShadow: 'var(--shadow-sm)' }}
+    >
       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 12 }}>{title}</div>
       {entries.length === 0 ? (
         <div style={{ fontSize: 13, color: 'var(--text-faint)' }}>{emptyText}</div>
@@ -423,7 +426,10 @@ export default function MorningRitualTrend({ accent }: { accent: string }) {
         </div>
       </div>
 
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 16, marginBottom: 12 }}>
+      <div
+        className="card-elevated"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 16, marginBottom: 12, boxShadow: 'var(--shadow-sm)' }}
+      >
         <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
           {MONTH_NAMES[cursor.month - 1]} {cursor.year} · {doneCount} completed
         </div>

@@ -147,12 +147,14 @@ export default function NowCard({
 
   return (
     <div
+      className="card-elevated"
       style={{
         border: '1px solid var(--border)',
         borderLeft: '4px solid var(--accent)',
         borderRadius: RADIUS.card,
         padding: task ? 12 : 10,
         marginBottom: task ? 16 : 10,
+        boxShadow: 'var(--shadow-sm)',
         // This card is the one place the app names as its own strongest
         // execution element (see comments below) — every other card on
         // this panel (Deep Work, Mindset) shares the same plain

@@ -32,6 +32,7 @@ export default function ShortcutsHelp({ onClose }: { onClose: () => void }) {
           borderRadius: RADIUS.card,
           padding: 24,
           width: 320,
+          boxShadow: 'var(--shadow-md)',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>

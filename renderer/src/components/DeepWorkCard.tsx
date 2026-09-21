@@ -102,12 +102,14 @@ export default function DeepWorkCard({
 
   return (
     <div
+      className="card-elevated"
       style={{
         border: '1px solid var(--border)',
         borderRadius: RADIUS.card,
         background: 'var(--surface)',
         padding: 8,
         marginBottom: 12,
+        boxShadow: 'var(--shadow-sm)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4, padding: '0 4px' }}>

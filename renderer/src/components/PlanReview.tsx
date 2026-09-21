@@ -332,10 +332,12 @@ export default function PlanReview({
     // card — the one place on this screen where nothing at all is being
     // said.
     <div
+      className="card-elevated"
       style={{
         border: '1px solid var(--border)',
         borderRadius: RADIUS.card,
         padding: 12,
+        boxShadow: 'var(--shadow-sm)',
         flex: 1,
         minHeight: 0,
         display: 'flex',

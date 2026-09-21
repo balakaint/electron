@@ -424,6 +424,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
         </div>
 
         <div
+          className="card-elevated"
           style={{
             background: 'var(--surface)',
             border: '1px solid var(--border)',
@@ -431,6 +432,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
             borderRadius: RADIUS.card,
             padding: 16,
             marginTop: 14,
+            boxShadow: 'var(--shadow-sm)',
           }}
         >
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
@@ -456,12 +458,14 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           }}
         >
           <div
+            className="card-elevated"
             style={{
               background: 'var(--surface)',
               border: '1px solid var(--border)',
               borderTop: '2px solid var(--success)',
               borderRadius: RADIUS.card,
               padding: 14,
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-faint)', fontWeight: 600 }}>
@@ -489,12 +493,14 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
             )}
           </div>
           <div
+            className="card-elevated"
             style={{
               background: 'var(--surface)',
               border: '1px solid var(--border)',
               borderTop: '2px solid var(--warning)',
               borderRadius: RADIUS.card,
               padding: 14,
+              boxShadow: 'var(--shadow-sm)',
             }}
           >
             <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-faint)', fontWeight: 600 }}>
@@ -846,7 +852,8 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
 
       {/* ── MORNING PRIME ───────────────────────────────────────── */}
       <details
-        style={{ border: '1px solid var(--border)', borderRadius: RADIUS.card, marginBottom: 32, padding: 0 }}
+        className="card-elevated"
+        style={{ border: '1px solid var(--border)', borderRadius: RADIUS.card, marginBottom: 32, padding: 0, boxShadow: 'var(--shadow-sm)' }}
         onToggle={(e) => {
           if ((e.target as HTMLDetailsElement).open && !visualizeMarkedRef.current) {
             visualizeMarkedRef.current = true;
@@ -948,7 +955,10 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
       {/* ── START NOW ───────────────────────────────────────────── */}
       <div ref={startSectionRef}>
         {ritual.started_first_action_at === null ? (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `3px solid ${MODE_COLOR.fast}`, borderRadius: RADIUS.card, padding: 18 }}>
+          <div
+            className="card-elevated"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `3px solid ${MODE_COLOR.fast}`, borderRadius: RADIUS.card, padding: 18, boxShadow: 'var(--shadow-sm)' }}
+          >
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-faint)' }}>Ready</div>
             <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
               <div>
@@ -996,7 +1006,10 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
             </button>
           </div>
         ) : (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 24, textAlign: 'center' }}>
+          <div
+            className="card-elevated"
+            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 24, textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}
+          >
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
               <RitualRing progress={1} size={56} stroke={4} accent={ACCENT}>
                 <span style={{ fontSize: 24, color: ACCENT }}>✓</span>

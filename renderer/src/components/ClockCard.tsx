@@ -66,12 +66,14 @@ export default function ClockCard() {
     // rather than the headline. On a fixed-width panel the two sit side
     // by side comfortably and save a good deal of vertical space.
     <div
+      className="card-elevated"
       style={{
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderRadius: RADIUS.card,
         padding: 12,
         marginBottom: 12,
+        boxShadow: 'var(--shadow-sm)',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>

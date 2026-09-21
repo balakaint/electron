@@ -971,7 +971,7 @@ export default function TaskList({
             zIndex: 100,
           }}
         >
-          <div style={{ background: 'var(--surface)', borderRadius: RADIUS.card, padding: 24, width: 320 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: RADIUS.card, padding: 24, width: 320, boxShadow: 'var(--shadow-md)' }}>
             <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warning)', marginBottom: 4 }}>
               ★ WHAT'S TODAY'S MIT?
             </div>

@@ -292,6 +292,7 @@ const Card = forwardRef<HTMLDivElement, {
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderLeft: `4px solid ${filled ? accent : `color-mix(in srgb, ${accent} 30%, var(--border))`}`,
+        boxShadow: 'var(--shadow-sm)',
         ...style,
       }}
     >

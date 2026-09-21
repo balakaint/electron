@@ -99,12 +99,14 @@ export default function DisciplineModuleCards({
   return (
     <div>
       <div
+        className="card-elevated"
         style={{
           background: 'var(--accent-light)',
           border: '1px solid var(--accent)',
           borderRadius: RADIUS.card,
           padding: 12,
           marginBottom: 12,
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -161,6 +163,7 @@ export default function DisciplineModuleCards({
           Ritual above, since it's a real module now (converted from
           Zahid's night-closure.html mockup), not a "Soon" placeholder. */}
       <div
+        className="card-elevated"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -169,6 +172,7 @@ export default function DisciplineModuleCards({
           borderRadius: RADIUS.card,
           padding: 12,
           marginBottom: 8,
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
         <span style={{ fontSize: 16, color: 'var(--text-faint)', flex: 'none' }}>☾</span>
@@ -190,6 +194,7 @@ export default function DisciplineModuleCards({
       {[{ label: 'Exercise', icon: '◆', desc: "Today's set, logged and tracked." }].map((m) => (
         <div
           key={m.label}
+          className="card-elevated"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -198,6 +203,7 @@ export default function DisciplineModuleCards({
             borderRadius: RADIUS.card,
             padding: 8,
             marginBottom: 8,
+            boxShadow: 'var(--shadow-sm)',
           }}
         >
           <span style={{ fontSize: 16, color: 'var(--text-faint)', flex: 'none' }}>{m.icon}</span>

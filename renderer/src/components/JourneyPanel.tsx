@@ -77,7 +77,7 @@ function StageColumn({
         cursor: 'pointer',
         color: 'var(--text)',
         transform: hovered ? 'translateY(-2px)' : 'none',
-        boxShadow: hovered ? `0 4px 12px color-mix(in srgb, ${color} 20%, transparent)` : 'none',
+        boxShadow: hovered ? `0 4px 12px color-mix(in srgb, ${color} 20%, transparent)` : 'var(--shadow-sm)',
         transition: 'transform 0.12s ease-out, box-shadow 0.12s ease-out',
       }}
     >
@@ -295,7 +295,7 @@ function StageDetail({
   const doneCount = stage.tasks.filter((t) => t.done).length;
 
   return (
-    <div style={{ background: 'var(--surface)', borderRadius: RADIUS.card, padding: 12 }}>
+    <div style={{ background: 'var(--surface)', borderRadius: RADIUS.card, padding: 12, boxShadow: 'var(--shadow-sm)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <input
           aria-label="Stage name"
