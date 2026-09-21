@@ -137,6 +137,28 @@ const CHART_SERIES_DARK = {
   '--chart-3': '#199e70',
 };
 
+// --shadow-sm/md (2026-09-21) — this app had NO resting elevation
+// anywhere before this: every card in every theme was a flat 1px
+// border, box-shadow existed only for transient things (toasts,
+// menus, focus/drag rings). Zahid's own call after seeing the
+// restrained token-locked pass read as "washed out" rather than
+// premium: real depth, not new colors. Split light/dark the same way
+// CHART_SERIES_LIGHT/DARK and BDP_LIGHT/DARK already are (light:
+// focus/energy/corporate/rize; dark: warroom/journey) — dark themes
+// get 'none' deliberately. A shadow barely reads against a near-black
+// surface; this app already elevates raised surfaces on dark themes
+// via a lighter --surface-2 step instead (several components already
+// lean on that), so dark themes keep using that existing mechanism
+// rather than gaining a shadow that would be nearly invisible anyway.
+const SHADOW_LIGHT = {
+  '--shadow-sm': '0 1px 2px rgba(20,20,20,0.05), 0 1px 1px rgba(20,20,20,0.03)',
+  '--shadow-md': '0 4px 16px rgba(20,20,20,0.10), 0 2px 6px rgba(20,20,20,0.05)',
+};
+const SHADOW_DARK = {
+  '--shadow-sm': 'none',
+  '--shadow-md': 'none',
+};
+
 // --input-color-scheme feeds a bare CSS `color-scheme` declaration on
 // every native `<input type="date">` in the app (GoalsPanel's STARTED/
 // DEADLINE/composer pickers, MorningRitualFlow's Wake up field). Without
@@ -222,6 +244,18 @@ const BDP_DARK = {
 // --danger — e.g. warroom's habit "success" is cyan-teal (#00D4AA) while
 // its app-wide --success is green; both are legacy-correct for their
 // own screen, just not the same value.
+//
+// --habit-appearance/social (2026-09-21) — NOT from legacy: legacy's
+// _VB dict only ever covered 4 categories, but QuarterlyPlanPanel.tsx
+// has 6 (Zahid, wanting a little color to tell the collapsed area rows
+// apart at a glance). Picked the same way as --chart-1/2/3 above
+// (computed, not eyeballed): hue 312 (magenta/rose, "appearance") and
+// 183 (teal/cyan, "social") sit in the two widest gaps on the existing
+// money(~200-212)/health(~154-168)/relation(~26-43)/mind(~223-271) hue
+// wheel for every theme, then lightness is binary-searched per theme
+// against that theme's own --surface until contrast clears this file's
+// same 7:1 AAA floor (every value lands 7.2-7.3:1) — see
+// palette.test.ts's own `habit-appearance/social on surface` rows.
 // THREE text tiers, and only three. Measured against BOTH --bg and
 // --surface, because text lands on either:
 //
@@ -240,6 +274,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-ring': '#000000',
     ...BA_STATUS_LIGHT,
     ...CHART_SERIES_LIGHT,
+    ...SHADOW_LIGHT,
     ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
@@ -247,6 +282,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--habit-health': '#2A634A',
     '--habit-relation': '#785117',
     '--habit-mind': '#5B21B6',
+    '--habit-appearance': '#9D1A83',
+    '--habit-social': '#106065',
     '--habit-success': '#2A634A',
     '--habit-warning': '#92400E',
     '--habit-danger': '#9B2335',
@@ -279,6 +316,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-ring': '#FFFFFF',
     ...BA_STATUS_DARK,
     ...CHART_SERIES_DARK,
+    ...SHADOW_DARK,
     ...INPUT_SCHEME_DARK,
     ...BA_SECTION_COLORS,
     ...BDP_DARK,
@@ -286,6 +324,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--habit-health': '#00D4AA',
     '--habit-relation': '#FFB800',
     '--habit-mind': '#C186F9',
+    '--habit-appearance': '#FB6BDE',
+    '--habit-social': '#05B4BD',
     '--habit-success': '#00D4AA',
     '--habit-warning': '#FFB800',
     '--habit-danger': '#FF728B',
@@ -318,6 +358,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-ring': '#000000',
     ...BA_STATUS_LIGHT,
     ...CHART_SERIES_LIGHT,
+    ...SHADOW_LIGHT,
     ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
@@ -325,6 +366,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--habit-health': '#036648',
     '--habit-relation': '#864A03',
     '--habit-mind': '#6A1FEA',
+    '--habit-appearance': '#A20A84',
+    '--habit-social': '#076166',
     '--habit-success': '#036648',
     '--habit-warning': '#864A03',
     '--habit-danger': '#AE1D1D',
@@ -369,6 +412,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-ring': '#000000',
     ...BA_STATUS_LIGHT,
     ...CHART_SERIES_LIGHT,
+    ...SHADOW_LIGHT,
     ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
@@ -376,6 +420,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--habit-health': '#036648',
     '--habit-relation': '#914207',
     '--habit-mind': '#6A1FEA',
+    '--habit-appearance': '#A20A84',
+    '--habit-social': '#076166',
     '--habit-success': '#036648',
     '--habit-warning': '#864A03',
     '--habit-danger': '#AE1D1D',
@@ -408,6 +454,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-ring': '#FFFFFF',
     ...BA_STATUS_DARK,
     ...CHART_SERIES_DARK,
+    ...SHADOW_DARK,
     ...INPUT_SCHEME_DARK,
     ...BA_SECTION_COLORS,
     ...BDP_DARK,
@@ -415,6 +462,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--habit-health': '#3AB988',
     '--habit-relation': '#F5C451',
     '--habit-mind': '#82A2F5',
+    '--habit-appearance': '#E587D2',
+    '--habit-social': '#29B8BF',
     '--habit-success': '#4CE0A0',
     '--habit-warning': '#F5C451',
     '--habit-danger': '#F2867B',
@@ -456,6 +505,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--progress-ring': '#000000',
     ...BA_STATUS_LIGHT,
     ...CHART_SERIES_LIGHT,
+    ...SHADOW_LIGHT,
     ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
     ...BDP_LIGHT,
@@ -463,6 +513,8 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--habit-health': '#036648',
     '--habit-relation': '#914207',
     '--habit-mind': '#373AED',
+    '--habit-appearance': '#A01084',
+    '--habit-social': '#0A6166',
     '--habit-success': '#036648',
     '--habit-warning': '#864A03',
     '--habit-danger': '#AE1D1D',

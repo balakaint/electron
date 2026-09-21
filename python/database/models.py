@@ -812,6 +812,35 @@ class QuarterlyAnswer(Base):
     goal_history: Mapped[list] = mapped_column(JSON, default=list)
 
 
+class Q90AreaMeta(Base):
+    """User overrides for one Q90 area's label/description — Q90_AREAS
+    above is only the seed value a fresh install starts from, same
+    "seed, then user-renamable" split JourneyStage already uses for its
+    stage name/description (see JOURNEY_STAGES' own comment). Global,
+    not per-cycle: renaming "Money" to "Finances" should survive every
+    cycle rollover, not reset along with the plan itself, which is why
+    this is its own singleton-per-area table rather than columns on
+    QuarterlyAnswer. A row only exists once its area has been renamed;
+    engine.quarterly falls back to the Q90_AREAS default whenever no
+    row (or a blanked-out field) is found, so an area can never end up
+    with a blank name or description.
+
+    sort_order (2026-09-21, drag-to-reorder): the area's position in
+    the panel. Defaults to its index in Q90_AREAS for any area that has
+    never been touched; engine.quarterly.reorder_areas writes an
+    explicit value for every area at once (never just the two that
+    visibly swapped), so once a user has reordered even once, ordering
+    is unambiguous — no area is ever comparing an explicit value
+    against another area's implicit tuple-index default."""
+
+    __tablename__ = "q90_area_meta"
+
+    area_key: Mapped[str] = mapped_column(String, primary_key=True)
+    label: Mapped[str] = mapped_column(String, default="")
+    description: Mapped[str] = mapped_column(String, default="")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class HourSlot(Base):
     """One planned hour of one day — the TODAY tab's hour-by-hour plan.
 

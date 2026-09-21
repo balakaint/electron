@@ -23,10 +23,16 @@ fields is not the same as actually proving the outcome.
 import datetime as dt
 from datetime import date, datetime
 
-from database.models import Q90_AREAS, Q90_CYCLE_MAX, Q90_CYCLE_MIN, QuarterlyAnswer
+from database.models import Q90_AREAS, Q90_CYCLE_MAX, Q90_CYCLE_MIN, Q90AreaMeta, QuarterlyAnswer
 from database.repository import QuarterlyRepository
 
 AREA_KEYS = tuple(a[0] for a in Q90_AREAS)
+AREA_DEFAULTS = {a[0]: (a[1], a[3]) for a in Q90_AREAS}  # area_key -> (label, description)
+
+# The two area-identity fields a user can rename, distinct from the
+# 7-step FIELD_KEYS below (those are per-cycle answers; these are the
+# area's own name, global across cycles — see Q90AreaMeta's docstring).
+META_FIELD_KEYS = ("label", "description")
 
 # The 7 free-text fields settable through the generic `set_field`.
 # `achieved` (bool), `major_changes` (list) and destination-versioning
@@ -152,6 +158,28 @@ def _area_dict(area_key: str, label: str, glyph: str, description: str, row: Qua
     }
 
 
+def _area_defs(repo: QuarterlyRepository) -> list[tuple[str, str, str, str]]:
+    """Q90_AREAS' (key, label, glyph, description) rows, with any saved
+    Q90AreaMeta override applied to label/description, sorted by
+    sort_order. glyph is never user-editable (no icon picker), so it
+    always comes from the default. A blanked-out override (someone
+    clears the field down to empty and blurs) falls back to the
+    default rather than shipping an unnamed area — same "never end up
+    blank" rule set_area_meta's caller relies on. An area with no meta
+    row yet sorts by its original Q90_AREAS position, so an
+    unreordered panel reads exactly as it always has."""
+    metas = {m.area_key: m for m in repo.list_area_meta()}
+    rows = []
+    for i, (area_key, def_label, glyph, def_description) in enumerate(Q90_AREAS):
+        m = metas.get(area_key)
+        label = m.label.strip() if m and m.label.strip() else def_label
+        description = m.description.strip() if m and m.description.strip() else def_description
+        order = m.sort_order if m else i
+        rows.append((order, area_key, label, glyph, description))
+    rows.sort(key=lambda r: r[0])
+    return [(area_key, label, glyph, description) for _, area_key, label, glyph, description in rows]
+
+
 def get_panel(repo: QuarterlyRepository, d: date | None = None) -> dict:
     key = cycle_key(repo, d)
     start, end = cycle_span(repo, d)
@@ -159,7 +187,7 @@ def get_panel(repo: QuarterlyRepository, d: date | None = None) -> dict:
     rows = {a.area: a for a in repo.list_answers(key)}
     areas = [
         _area_dict(area_key, label, glyph, description, rows.get(area_key))
-        for area_key, label, glyph, description in Q90_AREAS
+        for area_key, label, glyph, description in _area_defs(repo)
     ]
     # "Done" now means PROVEN, not just filled in — matches the status
     # precedence above and keeps the top-level AREAS progress indicator
@@ -295,6 +323,51 @@ def reset_strategy(repo: QuarterlyRepository, area: str, d: date | None = None) 
     row.response_then = ""
     repo.save_answer(row)
     return get_panel(repo, d)
+
+
+def set_area_meta(repo: QuarterlyRepository, area: str, field: str, text: str) -> dict:
+    """Rename an area's label or tweak its description — the "head" of
+    each area card. Global and cycle-independent (see Q90AreaMeta's
+    docstring): unlike set_field, this never touches QuarterlyAnswer.
+    An empty/whitespace-only save still writes the row (so a save
+    confirmation is honest), but _area_defs falls back to the
+    Q90_AREAS default when reading it back, so the area can't end up
+    with a blank name in the UI."""
+    if area not in AREA_KEYS:
+        raise ValueError(f"area must be one of {AREA_KEYS}")
+    if field not in META_FIELD_KEYS:
+        raise ValueError(f"field must be one of {META_FIELD_KEYS}")
+    meta = repo.get_area_meta(area)
+    if meta is None:
+        default_label, default_description = AREA_DEFAULTS[area]
+        meta = Q90AreaMeta(area_key=area, label=default_label, description=default_description)
+        setattr(meta, field, text)
+        repo.add_area_meta(meta)
+    else:
+        setattr(meta, field, text)
+        repo.save_area_meta(meta)
+    return get_panel(repo)
+
+
+def reorder_areas(repo: QuarterlyRepository, order: list[str]) -> dict:
+    """Drag-to-reorder: `order` is the full 6-key list in its new
+    top-to-bottom position. Writes an explicit sort_order for every
+    area in the same pass (not just the two that visibly swapped) —
+    see Q90AreaMeta.sort_order's own docstring for why a partial write
+    would leave ordering ambiguous against areas still on their
+    implicit Q90_AREAS-index default."""
+    if sorted(order) != sorted(AREA_KEYS):
+        raise ValueError(f"order must contain exactly {AREA_KEYS}, each once")
+    for i, area in enumerate(order):
+        meta = repo.get_area_meta(area)
+        if meta is None:
+            default_label, default_description = AREA_DEFAULTS[area]
+            meta = Q90AreaMeta(area_key=area, label=default_label, description=default_description, sort_order=i)
+            repo.add_area_meta(meta)
+        else:
+            meta.sort_order = i
+            repo.save_area_meta(meta)
+    return get_panel(repo)
 
 
 def set_cycle(repo: QuarterlyRepository, start: str, days: int) -> dict:

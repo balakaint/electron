@@ -26,6 +26,7 @@ from database.models import (
     ProjectActivity,
     ProjectJourney,
     ProjectSubtask,
+    Q90AreaMeta,
     QuarterlyAnswer,
     Task,
 )
@@ -652,6 +653,23 @@ class QuarterlyRepository:
         for row in self.list_answers(old_start):
             row.cycle_start = new_start
         self.db.commit()
+
+    def get_area_meta(self, area_key: str) -> Q90AreaMeta | None:
+        return self.db.get(Q90AreaMeta, area_key)
+
+    def list_area_meta(self) -> list[Q90AreaMeta]:
+        return list(self.db.scalars(select(Q90AreaMeta)))
+
+    def add_area_meta(self, meta: Q90AreaMeta) -> Q90AreaMeta:
+        self.db.add(meta)
+        self.db.commit()
+        self.db.refresh(meta)
+        return meta
+
+    def save_area_meta(self, meta: Q90AreaMeta) -> Q90AreaMeta:
+        self.db.commit()
+        self.db.refresh(meta)
+        return meta
 
 
 class HourPlanRepository:

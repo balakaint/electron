@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from api.schemas import (
     Q90AchievedSet,
+    Q90AreaMetaSet,
+    Q90AreaReorder,
     Q90CycleSet,
     Q90DestinationChange,
     Q90FieldSet,
@@ -65,6 +67,22 @@ def write_change_goal(payload: Q90DestinationChange, repo: QuarterlyRepository =
 def write_change_strategy(payload: Q90StrategyReset, repo: QuarterlyRepository = Depends(get_repo)):
     try:
         return quarterly.reset_strategy(repo, payload.area)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/area-meta", response_model=Q90PanelOut)
+def write_area_meta(payload: Q90AreaMetaSet, repo: QuarterlyRepository = Depends(get_repo)):
+    try:
+        return quarterly.set_area_meta(repo, payload.area, payload.field, payload.text)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/reorder-areas", response_model=Q90PanelOut)
+def write_reorder_areas(payload: Q90AreaReorder, repo: QuarterlyRepository = Depends(get_repo)):
+    try:
+        return quarterly.reorder_areas(repo, payload.order)
     except ValueError as e:
         raise HTTPException(400, str(e))
 

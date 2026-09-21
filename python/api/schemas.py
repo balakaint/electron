@@ -858,6 +858,16 @@ class Q90StrategyReset(BaseModel):
     area: Q90AreaKeyT
 
 
+class Q90AreaMetaSet(BaseModel):
+    area: Q90AreaKeyT
+    field: Literal["label", "description"]
+    text: str
+
+
+class Q90AreaReorder(BaseModel):
+    order: list[Q90AreaKeyT]
+
+
 class Q90CycleSet(BaseModel):
     start: str  # ISO date
     days: int

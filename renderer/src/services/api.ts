@@ -745,6 +745,7 @@ export type Q90Field =
   | 'obstacle_if'
   | 'response_then';
 export type Q90Status = 'not_started' | 'defined' | 'planned' | 'active' | 'proven';
+export type Q90MetaField = 'label' | 'description';
 
 export interface Q90MajorChange {
   id: number;
@@ -793,6 +794,8 @@ export const quarterlyApi = {
   getPanel: () => req('GET', '/api/quarterly/panel') as Promise<Q90Panel>,
   setField: (area: Q90AreaKey, field: Q90Field, text: string) =>
     req('POST', '/api/quarterly/field', { area, field, text }) as Promise<Q90Panel>,
+  setAreaMeta: (area: Q90AreaKey, field: Q90MetaField, text: string) =>
+    req('POST', '/api/quarterly/area-meta', { area, field, text }) as Promise<Q90Panel>,
   setAchieved: (area: Q90AreaKey, achieved: boolean) =>
     req('POST', '/api/quarterly/achieved', { area, achieved }) as Promise<Q90Panel>,
   setMajorChanges: (area: Q90AreaKey, changes: Array<{ id?: number; text: string; done?: boolean }>) =>
@@ -808,6 +811,8 @@ export const quarterlyApi = {
     req('POST', '/api/quarterly/change-strategy', { area }) as Promise<Q90Panel>,
   setCycle: (start: string, days: number) =>
     req('POST', '/api/quarterly/cycle', { start, days }) as Promise<Q90Panel>,
+  reorderAreas: (order: Q90AreaKey[]) =>
+    req('POST', '/api/quarterly/reorder-areas', { order }) as Promise<Q90Panel>,
 };
 
 export const exportApi = {

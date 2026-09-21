@@ -117,7 +117,7 @@ for (const theme of THEME_ORDER) {
   // HabitDashboard's own 7-colour mini-palette, each drawn as text on
   // its card's surface — distinct from the app-wide success/warning/
   // danger above, and never checked before this audit.
-  for (const k of ['money', 'health', 'relation', 'mind', 'success', 'warning', 'danger']) {
+  for (const k of ['money', 'health', 'relation', 'mind', 'appearance', 'social', 'success', 'warning', 'danger']) {
     check(theme, `habit-${k} on surface`, p[`--habit-${k}`], surface);
   }
   // BusinessAnalysisCanvas's PRIORITY_COLOR (HIGH/MED/LOW), drawn as
