@@ -88,7 +88,7 @@ the existing route modules.
 - `POST /api/habits` — create `{kind, name, time, priority, tracking_basis}`.
 - `POST /api/habits/{id}/checkin` — `{date, done}`, upserts today's entry in `history`
   by date (idempotent — checking twice doesn't duplicate).
-- `PATCH /api/habits/{id}` — edit `name`/`time`/`priority`/`tracking_basis`.
+- `PUT /api/habits/{id}` — edit `name`/`time`/`priority`/`tracking_basis`.
 - `DELETE /api/habits/{id}` — real delete.
 - `POST /api/habits/reorder` — `{ids: [...]}`, same shape as
   `quarterlyApi.reorderAreas`.

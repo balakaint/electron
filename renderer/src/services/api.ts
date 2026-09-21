@@ -815,6 +815,39 @@ export const quarterlyApi = {
     req('POST', '/api/quarterly/reorder-areas', { order }) as Promise<Q90Panel>,
 };
 
+// ── Daily Do's / Don'ts ──────────────────────────────────────────────
+// Standing daily commitments shown in Morning Ritual — see
+// database/models.py's HabitItem docstring (Python) for the storage
+// shape and engine/habits.py for streak computation.
+export type HabitKind = 'do' | 'dont';
+export type HabitPriority = 'low' | 'normal' | 'high';
+
+export interface HabitItem {
+  id: number;
+  kind: HabitKind;
+  name: string;
+  time: string;
+  priority: HabitPriority;
+  tracking_basis: string;
+  sort_order: number;
+  done_today: boolean;
+  streak: number;
+}
+
+export const habitsApi = {
+  list: () => req('GET', '/api/habits') as Promise<HabitItem[]>,
+  create: (kind: HabitKind, name: string, time = '', priority: HabitPriority = 'normal', trackingBasis = '') =>
+    req('POST', '/api/habits', { kind, name, time, priority, tracking_basis: trackingBasis }) as Promise<HabitItem[]>,
+  edit: (
+    id: number,
+    patch: Partial<{ name: string; time: string; priority: HabitPriority; tracking_basis: string }>
+  ) => req('PUT', `/api/habits/${id}`, patch) as Promise<HabitItem[]>,
+  checkin: (id: number, date: string, done: boolean) =>
+    req('POST', `/api/habits/${id}/checkin`, { date, done }) as Promise<HabitItem[]>,
+  remove: (id: number) => req('DELETE', `/api/habits/${id}`) as Promise<HabitItem[]>,
+  reorder: (ids: number[]) => req('POST', '/api/habits/reorder', { ids }) as Promise<HabitItem[]>,
+};
+
 export const exportApi = {
   backup: () => req('GET', '/api/export/backup') as Promise<{ filename: string; data: unknown }>,
   csv: () => req('GET', '/api/export/csv') as Promise<{ filename: string; csv: string }>,

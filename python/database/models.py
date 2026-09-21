@@ -1058,3 +1058,42 @@ class NightClosure(Base):
     # for this row's own UI, same role start_now's completed_at plays
     # for MorningRitual).
     closed_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class HabitItem(Base):
+    """A standing daily DO/DON'T commitment — "wake up early", "stop
+    smoking" — checked off fresh every day, shown in Morning Ritual.
+
+    Its own table rather than columns on MorningRitual: MorningRitual is
+    one row per calendar day (see its own docstring), while a HabitItem
+    is a durable thing the user defines once and keeps for months; the
+    per-day state lives inside THIS row's own `history`, not as a column
+    on the day's row, so the set of habits isn't fixed at however many
+    columns a migration once created.
+
+    `history` follows this app's own established convention for
+    list-shaped user data (QuarterlyAnswer.major_changes/goal_history)
+    rather than a separate checkins table — one JSON array of
+    {"date": "YYYY-MM-DD", "done": bool}, one entry per day it was ever
+    explicitly checked or unchecked. Small and slow-growing (one entry
+    per day, not per interaction), and engine.habits.streak walks it
+    backward from today rather than needing a query — same "no
+    complicated universal calculation engine" call QuarterlyAnswer's own
+    docstring already made for this class of feature.
+    """
+
+    __tablename__ = "habit_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String)  # "do" | "dont"
+    name: Mapped[str] = mapped_column(String)
+    # Freeform — "Morning", "07:00", "Anytime". A label, not a schedule;
+    # nothing reads this to fire a reminder.
+    time: Mapped[str] = mapped_column(String, default="")
+    priority: Mapped[str] = mapped_column(String, default="normal")  # "low" | "normal" | "high"
+    # Freeform, in the user's own words — how THEY judge this is being
+    # kept (e.g. "no cigarettes, all day" vs "gym receipt"). Never
+    # parsed or validated server-side.
+    tracking_basis: Mapped[str] = mapped_column(String, default="")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    history: Mapped[list] = mapped_column(JSON, default=list)

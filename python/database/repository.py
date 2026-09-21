@@ -15,6 +15,7 @@ from database.models import (
     DailyIntention,
     DecisionLog,
     Goal,
+    HabitItem,
     HourSlot,
     JourneyLogEntry,
     JourneyStage,
@@ -670,6 +671,37 @@ class QuarterlyRepository:
         self.db.commit()
         self.db.refresh(meta)
         return meta
+
+
+class HabitRepository:
+    """Daily DO/DON'T commitments shown in Morning Ritual. See
+    HabitItem's own docstring for why this is a durable per-item table
+    rather than columns on MorningRitual."""
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def list(self) -> list[HabitItem]:
+        stmt = select(HabitItem).order_by(HabitItem.sort_order, HabitItem.id)
+        return list(self.db.scalars(stmt))
+
+    def get(self, item_id: int) -> HabitItem | None:
+        return self.db.get(HabitItem, item_id)
+
+    def add(self, item: HabitItem) -> HabitItem:
+        self.db.add(item)
+        self.db.commit()
+        self.db.refresh(item)
+        return item
+
+    def save(self, item: HabitItem) -> HabitItem:
+        self.db.commit()
+        self.db.refresh(item)
+        return item
+
+    def delete(self, item: HabitItem) -> None:
+        self.db.delete(item)
+        self.db.commit()
 
 
 class HourPlanRepository:

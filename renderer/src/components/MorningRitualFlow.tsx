@@ -14,6 +14,7 @@ import { RADIUS } from '../spacing';
 import { Check } from 'lucide-react';
 import RitualRing from './RitualRing';
 import { useAutofocus } from '../hooks/useAutofocus';
+import DoDontList from './DoDontList';
 import breatheAudioUrl from '../assets/audio/breath.mp3';
 
 // Redesigned 2026-09-19 to match Zahid's morning-activation.html sample
@@ -769,6 +770,9 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           I'm ready →
         </button>
       </div>
+
+      {/* ── DO'S & DON'TS ────────────────────────────────────────── */}
+      <DoDontList />
 
       {/* ── CLEAR YOUR MIND ─────────────────────────────────────── */}
       <div ref={clearSectionRef} style={{ marginBottom: 32 }}>

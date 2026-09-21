@@ -1,194 +1,146 @@
+"""Daily DO/DON'T commitments — a standing list shown in Morning
+Ritual, checked off fresh every day, each with a running streak.
+
+Distinct from Tasks (one-off), Goals (long-horizon) and the 90-Day
+Plan's weekly_lead_behavior (exactly one repeated behavior per area):
+this is many small binary daily habits. See HabitItem's own docstring
+in database/models.py for the storage shape and why streak is computed
+here rather than kept as a stored column — same "computed, not stored"
+call this app already makes for goal_board_progress and Q90's
+compute_status.
+"""
+
 from datetime import date, timedelta
 
-from database.models import Habit
+from database.models import HabitItem
 from database.repository import HabitRepository
 
-CATEGORIES = ("money", "health", "relation", "mind")
+VALID_KINDS = ("do", "dont")
+VALID_PRIORITIES = ("low", "normal", "high")
 
 
-class HabitEngine:
-    def __init__(self, repo: HabitRepository):
-        self.repo = repo
+def _today() -> str:
+    return str(date.today())
 
-    def list_habits(self, category: str | None = None) -> list[Habit]:
-        return self.repo.list(category)
 
-    def list_with_status(self, day: str, category: str | None = None) -> list[dict]:
-        habits = self.repo.list(category)
-        done_ids = {c.habit_id for c in self.repo.completions_for_day(day) if c.done}
-        return [
-            {
-                "id": h.id,
-                "category": h.category,
-                "name": h.name,
-                "sort_order": h.sort_order,
-                "active": h.active,
-                "done": h.id in done_ids,
-            }
-            for h in habits
-        ]
+def _history_map(item: HabitItem) -> dict[str, bool]:
+    return {row["date"]: row["done"] for row in item.history}
 
-    def create_habit(self, category: str, name: str) -> Habit:
+
+def streak(item: HabitItem, today: str | None = None) -> int:
+    """Consecutive days checked done, walking backward from today.
+    Stops at the first missing day or the first explicit done=False —
+    a gap breaks the streak whether it's an unchecked day or a day the
+    user actively marked as not done."""
+    today_d = date.fromisoformat(today or _today())
+    by_date = _history_map(item)
+    count = 0
+    d = today_d
+    while by_date.get(str(d)) is True:
+        count += 1
+        d -= timedelta(days=1)
+    return count
+
+
+def _out(item: HabitItem, today: str | None = None) -> dict:
+    today = today or _today()
+    return {
+        "id": item.id,
+        "kind": item.kind,
+        "name": item.name,
+        "time": item.time,
+        "priority": item.priority,
+        "tracking_basis": item.tracking_basis,
+        "sort_order": item.sort_order,
+        "done_today": _history_map(item).get(today, False),
+        "streak": streak(item, today),
+    }
+
+
+def list_habits(repo: HabitRepository) -> list[dict]:
+    today = _today()
+    return [_out(item, today) for item in repo.list()]
+
+
+def create_habit(
+    repo: HabitRepository, kind: str, name: str, time: str = "", priority: str = "normal", tracking_basis: str = ""
+) -> list[dict]:
+    if kind not in VALID_KINDS:
+        raise ValueError(f"invalid kind: {kind}")
+    if priority not in VALID_PRIORITIES:
+        raise ValueError(f"invalid priority: {priority}")
+    name = name.strip()
+    if not name:
+        raise ValueError("name is required")
+    existing = repo.list()
+    next_order = max((i.sort_order for i in existing), default=-1) + 1
+    repo.add(
+        HabitItem(
+            kind=kind,
+            name=name,
+            time=time.strip(),
+            priority=priority,
+            tracking_basis=tracking_basis.strip(),
+            sort_order=next_order,
+        )
+    )
+    return list_habits(repo)
+
+
+def edit_habit(
+    repo: HabitRepository,
+    item_id: int,
+    name: str | None = None,
+    time: str | None = None,
+    priority: str | None = None,
+    tracking_basis: str | None = None,
+) -> list[dict]:
+    item = repo.get(item_id)
+    if item is None:
+        raise ValueError(f"no habit item {item_id}")
+    if name is not None:
         name = name.strip()
         if not name:
-            raise ValueError("Habit name cannot be empty")
-        existing = self.repo.list(category)
-        sort_order = (max((h.sort_order for h in existing), default=-1)) + 1
-        habit = Habit(category=category, name=name, sort_order=sort_order, active=True)
-        return self.repo.add(habit)
+            raise ValueError("name is required")
+        item.name = name
+    if time is not None:
+        item.time = time.strip()
+    if priority is not None:
+        if priority not in VALID_PRIORITIES:
+            raise ValueError(f"invalid priority: {priority}")
+        item.priority = priority
+    if tracking_basis is not None:
+        item.tracking_basis = tracking_basis.strip()
+    repo.save(item)
+    return list_habits(repo)
 
-    def rename_habit(self, habit_id: int, name: str) -> Habit | None:
-        habit = self.repo.get(habit_id)
-        if habit is None:
-            return None
-        name = name.strip()
-        if name:
-            habit.name = name
-        return self.repo.save(habit)
 
-    def deactivate_habit(self, habit_id: int) -> Habit | None:
-        habit = self.repo.get(habit_id)
-        if habit is None:
-            return None
-        habit.active = False
-        return self.repo.save(habit)
+def checkin(repo: HabitRepository, item_id: int, day: str, done: bool) -> list[dict]:
+    """Upsert `day`'s entry in the item's history — idempotent, checking
+    the same day twice just overwrites rather than duplicating."""
+    item = repo.get(item_id)
+    if item is None:
+        raise ValueError(f"no habit item {item_id}")
+    history = [row for row in item.history if row["date"] != day]
+    history.append({"date": day, "done": done})
+    item.history = history
+    repo.save(item)
+    return list_habits(repo)
 
-    def toggle_completion(self, habit_id: int, day: str) -> bool:
-        row = self.repo.get_completion(habit_id, day)
-        new_done = not (row.done if row is not None else False)
-        self.repo.upsert_completion(habit_id, day, new_done)
-        return new_done
 
-    def _day_counts(self, day: str) -> tuple[int, int]:
-        """(done, total) across all active habits for one ISO date —
-        mirrors _habit_day_counts: total is today's active habit set,
-        applied uniformly to every day checked (the legacy app never
-        reconstructed a historical habit list either)."""
-        active_ids = {h.id for h in self.repo.list()}
-        total = len(active_ids)
-        if total == 0:
-            return 0, 0
-        done = sum(
-            1
-            for c in self.repo.completions_for_day(day)
-            if c.done and c.habit_id in active_ids
-        )
-        return done, total
+def delete_habit(repo: HabitRepository, item_id: int) -> list[dict]:
+    item = repo.get(item_id)
+    if item is not None:
+        repo.delete(item)
+    return list_habits(repo)
 
-    def day_summary(self, day: str) -> dict:
-        habits_by_cat = {cat: self.repo.list(cat) for cat in CATEGORIES}
-        completions = {c.habit_id: c.done for c in self.repo.completions_for_day(day)}
 
-        categories = {}
-        total_done = total_all = 0
-        for cat, habits in habits_by_cat.items():
-            done = sum(1 for h in habits if completions.get(h.id, False))
-            total = len(habits)
-            categories[cat] = {
-                "done": done,
-                "total": total,
-                "pct": int(done / total * 100) if total else 0,
-            }
-            total_done += done
-            total_all += total
-
-        return {
-            "day": day,
-            "score": int(total_done / total_all * 100) if total_all else 0,
-            "categories": categories,
-        }
-
-    def streak(self) -> int:
-        """Consecutive days ending today with >=50% of active habits
-        done — matches _habit_streak's deliberately-forgiving threshold."""
-        streak = 0
-        d = date.today()
-        while True:
-            done, total = self._day_counts(str(d))
-            if total == 0 or done / total < 0.5:
-                break
-            streak += 1
-            d -= timedelta(days=1)
-        return streak
-
-    def week_scores(self) -> list[dict]:
-        out = []
-        for i in range(6, -1, -1):
-            d = date.today() - timedelta(days=i)
-            done, total = self._day_counts(str(d))
-            out.append({
-                "day": str(d),
-                "label": d.strftime("%a"),
-                "pct": int(done / total * 100) if total else 0,
-            })
-        return out
-
-    def get_intention(self, day: str) -> str:
-        row = self.repo.get_intention(day)
-        return row.text if row is not None else ""
-
-    def set_intention(self, day: str, text: str) -> str:
-        row = self.repo.set_intention(day, text)
-        return row.text
-
-    def get_win(self, day: str) -> str:
-        row = self.repo.get_journal(day)
-        return row.win if row is not None else ""
-
-    def set_win(self, day: str, text: str) -> str:
-        row = self.repo.set_win(day, text)
-        return row.win
-
-    def get_reflection(self, day: str) -> str:
-        row = self.repo.get_journal(day)
-        return row.reflection if row is not None else ""
-
-    def set_reflection(self, day: str, text: str) -> str:
-        row = self.repo.set_reflection(day, text)
-        return row.reflection
-
-    def get_mindset(self, day: str) -> str:
-        row = self.repo.get_journal(day)
-        return row.mindset if row is not None else ""
-
-    def set_mindset(self, day: str, text: str) -> str:
-        row = self.repo.set_mindset(day, text)
-        return row.mindset
-
-    def mindset_history(self, days_back: int = 7) -> list[dict]:
-        """The last `days_back` days of mindset notes, newest first,
-        skipping days with nothing written.
-
-        The history IS the feature, in legacy's own words: "A single note
-        box is just a scratchpad you overwrite every morning; seven of
-        them next to each other is the only way to notice you've written
-        'stop procrastinating on the export docs' five days running."
-        Today is excluded — it is already on screen in the editor above.
-        """
-        today = date.today()
-        days = [str(today - timedelta(days=i)) for i in range(1, days_back + 1)]
-        found = self.repo.mindset_history(days)
-        return [
-            {
-                "day": d,
-                "label": date.fromisoformat(d).strftime("%a %d"),
-                "text": found[d],
-            }
-            for d in days
-            if d in found
-        ]
-
-    def monthly_report(self) -> dict:
-        """Avg score / streak / days-used for the current calendar
-        month — matches legacy's monthly report card. "Days Done" is
-        every day the app recorded a habit toggle this month, not every
-        day that hit 100% (legacy's own m_scores loop counts distinct
-        _habit_data day-keys, not perfect days)."""
-        month_prefix = str(date.today())[:7]
-        days = self.repo.distinct_days_with_completions(month_prefix)
-        scores = []
-        for day in days:
-            done, total = self._day_counts(day)
-            scores.append(int(done / total * 100) if total else 0)
-        avg = int(sum(scores) / len(scores)) if scores else 0
-        return {"avg_score": avg, "streak": self.streak(), "days_done": len(scores)}
+def reorder(repo: HabitRepository, ids: list[int]) -> list[dict]:
+    items = {i.id: i for i in repo.list()}
+    for order, item_id in enumerate(ids):
+        item = items.get(item_id)
+        if item is not None:
+            item.sort_order = order
+    for item in items.values():
+        repo.save(item)
+    return list_habits(repo)

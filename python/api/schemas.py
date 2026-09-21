@@ -1029,3 +1029,47 @@ class NightClosureTextSet(BaseModel):
 
 class NightClosureTimeSet(BaseModel):
     value: str
+
+
+# ── Daily Do's / Don'ts ──────────────────────────────────────────────
+# Standing daily commitments shown in Morning Ritual — see
+# database/models.py's HabitItem docstring and engine/habits.py's
+# module docstring.
+HabitKindT = Literal["do", "dont"]
+HabitPriorityT = Literal["low", "normal", "high"]
+
+
+class HabitItemOut(BaseModel):
+    id: int
+    kind: HabitKindT
+    name: str
+    time: str
+    priority: HabitPriorityT
+    tracking_basis: str
+    sort_order: int
+    done_today: bool
+    streak: int
+
+
+class HabitCreate(BaseModel):
+    kind: HabitKindT
+    name: str
+    time: str = ""
+    priority: HabitPriorityT = "normal"
+    tracking_basis: str = ""
+
+
+class HabitEdit(BaseModel):
+    name: str | None = None
+    time: str | None = None
+    priority: HabitPriorityT | None = None
+    tracking_basis: str | None = None
+
+
+class HabitCheckin(BaseModel):
+    date: str  # ISO date
+    done: bool
+
+
+class HabitReorder(BaseModel):
+    ids: list[int]

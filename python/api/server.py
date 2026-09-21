@@ -8,6 +8,7 @@ from api.routes.board import router as board_router
 from api.routes.business_analysis import router as business_analysis_router
 from api.routes.export import router as export_router
 from api.routes.goals import panel_router as goals_panel_router, router as goals_router
+from api.routes.habits import router as habits_router
 from api.routes.journey import (
     logs_router as journey_logs_router,
     router as journey_router,
@@ -75,6 +76,7 @@ app.include_router(circle_router)
 app.include_router(business_analysis_router)
 app.include_router(goals_router)
 app.include_router(goals_panel_router)
+app.include_router(habits_router)
 app.include_router(board_router)
 app.include_router(export_router)
 app.include_router(now_router)
