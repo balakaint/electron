@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { BoardTask, Goal, GoalOwnerKey, boardTaskApi, goalsApi } from '../services/api';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { RADIUS } from '../spacing';
@@ -462,9 +463,9 @@ export default function GoalBoardOverlay({ project, goalId }: { project: GoalOwn
                       }}
                       title="Delete this task and its board"
                       aria-label="Delete this task and its board"
-                      style={{ width: 20, height: 20, flex: 'none', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: 0 }}
+                      style={{ width: 20, height: 20, flex: 'none', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
-                      ✕
+                      <X size={12} />
                     </button>
                   </div>
                 );

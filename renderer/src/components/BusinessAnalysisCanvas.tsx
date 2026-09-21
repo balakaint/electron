@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useRef, useState } from 'react';
+import { Check } from 'lucide-react';
 import CircleSection from './CircleSection';
 import { useAutosave } from '../useAutosave';
 import { RADIUS } from '../spacing';
@@ -104,7 +105,7 @@ function Stepper({ done, current, onJump }: { done: boolean[]; current: number; 
                 border: done[i] || i === current ? 'none' : '1px solid var(--border)',
               }}
             >
-              {done[i] ? '✓' : i + 1}
+              {done[i] ? <Check size={13} /> : i + 1}
             </div>
             <div
               style={{

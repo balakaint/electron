@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import MorningRitualFlow from './MorningRitualFlow';
 import MorningRitualTrend from './MorningRitualTrend';
 
@@ -29,8 +30,8 @@ export default function MorningRitualPanel({ initialView, onBack }: { initialVie
 
   return (
     <div>
-      <button onClick={onBack} style={{ fontSize: 12, marginBottom: 12 }}>
-        ← Back to Goals
+      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, marginBottom: 12 }}>
+        <ArrowLeft size={14} /> Back to Goals
       </button>
       {view === 'flow' ? (
         <MorningRitualFlow onViewTrend={() => setView('trend')} />

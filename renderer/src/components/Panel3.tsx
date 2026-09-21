@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { FocusTab, ProjectKey, settingsApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
@@ -133,10 +134,12 @@ export default function Panel3({
           top: 0,
           left: 0,
           zIndex: 2,
-          fontSize: 12,
-          padding: '0 4px',
+          padding: 0,
           width: 24,
           height: 24,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         {/* The arrow shows what THIS CLICK DOES, not what is currently
@@ -150,7 +153,7 @@ export default function Panel3({
             of the ladder — full, partial, compact — and it reverses at
             the ends, the way a blind does. Ctrl+F remains the express
             route between the two extremes. */}
-        {stepGlyph}
+        {stepGlyph === '◀' ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
       </button>
 
       {/* paddingLeft clears the collapse chevron pinned top-left; the

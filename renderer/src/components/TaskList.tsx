@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Pause, Play, RotateCcw, Star, X } from 'lucide-react';
 import { DayView, ListKey, Project, ProjectKey, STRIKE_MAX, Task, hoursApi, nowApi, projectsApi, tasksApi } from '../services/api';
 import { useUndo } from '../undo';
 import { accentText } from '../themes';
@@ -827,10 +828,15 @@ export default function TaskList({
                     : tasksApi.toggleTimer(t.id).then(refresh)
                 }
                 title={listKey === 'focus' ? 'Work on this now' : 'Start/stop timer'}
+                aria-label={listKey === 'focus' ? 'Work on this now' : 'Start or stop timer'}
                 className="btn-ghost"
-                style={{ width: 28, height: 28, padding: 0, flex: 'none', color: 'var(--accent)' }}
+                style={{ width: 28, height: 28, padding: 0, flex: 'none', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
-                {t.sessions.length > 0 && t.sessions[t.sessions.length - 1].end === null ? '⏸' : '▶'}
+                {t.sessions.length > 0 && t.sessions[t.sessions.length - 1].end === null ? (
+                  <Pause size={13} fill="currentColor" />
+                ) : (
+                  <Play size={13} fill="currentColor" />
+                )}
               </button>
 
               {/* The star only means something on a committed task —
@@ -842,17 +848,20 @@ export default function TaskList({
                   onClick={() => setMit(t)}
                   aria-pressed={t.mit}
                   title={t.mit ? 'First of the three — NOW opens here' : 'Make this the first of the three'}
+                  aria-label={t.mit ? 'First of the three — NOW opens here' : 'Make this the first of the three'}
                   className="btn-ghost"
                   style={{
                     width: 24,
                     height: 24,
                     padding: 0,
                     flex: 'none',
-                    fontSize: 14,
                     color: t.mit ? 'var(--warning)' : 'var(--text-faint)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  {t.mit ? '★' : '☆'}
+                  <Star size={13} fill={t.mit ? 'currentColor' : 'none'} />
                 </button>
               )}
 
@@ -929,12 +938,12 @@ export default function TaskList({
                     to throw away — an always-on destructive control does
                     nothing useful on a fresh task. */}
                 {t.secs > 0 && (
-                  <button onClick={() => resetTaskTimer(t)} title="Reset this task's timer" style={{ height: 24, padding: '0 8px', fontSize: 12 }}>
-                    ↺ reset
+                  <button onClick={() => resetTaskTimer(t)} title="Reset this task's timer" style={{ height: 24, padding: '0 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <RotateCcw size={12} /> reset
                   </button>
                 )}
-                <button onClick={() => deleteTask(t)} title="Delete this task" style={{ height: 24, padding: '0 8px', fontSize: 12 }}>
-                  ✕ delete
+                <button onClick={() => deleteTask(t)} title="Delete this task" style={{ height: 24, padding: '0 8px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <X size={12} /> delete
                 </button>
                 {t.sessions.length > 0 && (
                   <span style={{ fontSize: 12, color: 'var(--text-faint)', marginLeft: 4 }}>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Pause, Play } from 'lucide-react';
 import { Project, ProjectKey, ProjectOrderEntry, projectsApi } from '../services/api';
 import { useL } from '../i18n';
 import { accentText } from '../themes';
@@ -248,9 +249,12 @@ export default function DeepWorkCard({
                 padding: 0,
                 flex: 'none',
                 color: live ? 'var(--danger)' : 'var(--accent)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              {live ? '⏸' : '▶'}
+              {live ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
             </button>
           </div>
           </div>

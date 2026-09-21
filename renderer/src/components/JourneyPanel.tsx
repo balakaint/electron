@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Check, Circle, X } from 'lucide-react';
 import { inkOn } from '../themes';
 import { Journey, JourneyStage, ProjectKey, ProjectOrderEntry, journeyApi, projectsApi } from '../services/api';
 import { useAutoTimer } from '../useAutoTimer';
@@ -6,11 +7,10 @@ import { RADIUS, SPACE } from '../spacing';
 import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
 
 function StatusDot({ status }: { status: string }) {
-  const label = status === 'ok' ? '✓' : status === 'no' ? '✕' : '·';
   const color = status === 'ok' ? 'var(--success)' : status === 'no' ? 'var(--danger)' : 'var(--text)';
   return (
-    <span style={{ color, fontWeight: 700, width: 14, display: 'inline-block', textAlign: 'center' }}>
-      {label}
+    <span style={{ color, width: 14, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+      {status === 'ok' ? <Check size={12} /> : status === 'no' ? <X size={12} /> : <Circle size={4} fill="currentColor" />}
     </span>
   );
 }
@@ -99,7 +99,7 @@ function StageColumn({
             justifyContent: 'center',
           }}
         >
-          {stage.done ? '✓' : stage.stage_index + 1}
+          {stage.done ? <Check size={14} /> : stage.stage_index + 1}
         </span>
         <div
           style={{
@@ -237,7 +237,7 @@ function MiniStagePill({
           justifyContent: 'center',
         }}
       >
-        {stage.done ? '✓' : stage.stage_index + 1}
+        {stage.done ? <Check size={12} /> : stage.stage_index + 1}
       </span>
       <span
         style={{
@@ -317,8 +317,13 @@ function StageDetail({
       />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <button onClick={onToggleGate} disabled={!gate.trim()} title={gate.trim() ? 'Toggle gate' : 'Write a gate first'}>
-          {stage.gate_done ? '✓' : '○'}
+        <button
+          onClick={onToggleGate}
+          disabled={!gate.trim()}
+          title={gate.trim() ? 'Toggle gate' : 'Write a gate first'}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {stage.gate_done ? <Check size={13} /> : <Circle size={13} />}
         </button>
         <input
           value={gate}
@@ -336,8 +341,12 @@ function StageDetail({
           </div>
           {stage.tasks.map((t) => (
             <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <button onClick={() => onToggleTask(t.id)} title="Toggle done" style={{ width: 20 }}>
-                {t.done ? '✓' : '○'}
+              <button
+                onClick={() => onToggleTask(t.id)}
+                title="Toggle done"
+                style={{ width: 20, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                {t.done ? <Check size={13} /> : <Circle size={13} />}
               </button>
               <input
                 defaultValue={t.text}
@@ -351,7 +360,7 @@ function StageDetail({
                   textDecoration: t.done ? 'line-through' : 'none',
                 }}
               />
-              <button onClick={() => onDeleteTask(t.id)} title="Delete" aria-label="Delete task">✕</button>
+              <button onClick={() => onDeleteTask(t.id)} title="Delete" aria-label="Delete task" style={{ display: 'flex', padding: 4 }}><X size={13} /></button>
             </div>
           ))}
           <form
@@ -385,7 +394,7 @@ function StageDetail({
                 <div style={{ fontSize: 12 }}>{l.text}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{l.date}</div>
               </div>
-              <button onClick={() => onDeleteLog(l.id)} title="Delete" aria-label="Delete log entry">✕</button>
+              <button onClick={() => onDeleteLog(l.id)} title="Delete" aria-label="Delete log entry" style={{ display: 'flex', padding: 4 }}><X size={13} /></button>
             </div>
           ))}
           <form
@@ -480,8 +489,8 @@ function CoverImage({
       <button onClick={onPick} title="Change cover image" style={{ position: 'absolute', bottom: 6, right: 34, fontSize: 12, padding: '4px 8px' }}>
         Change
       </button>
-      <button onClick={onRemove} title="Remove cover image" aria-label="Remove cover image" style={{ position: 'absolute', bottom: 6, right: 6, fontSize: 12, padding: '4px 8px' }}>
-        ✕
+      <button onClick={onRemove} title="Remove cover image" aria-label="Remove cover image" style={{ position: 'absolute', bottom: 6, right: 6, padding: '4px 8px', display: 'flex' }}>
+        <X size={13} />
       </button>
     </div>
   );

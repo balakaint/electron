@@ -1,3 +1,4 @@
+import { ArrowLeft } from 'lucide-react';
 import NightClosureFlow, { NC } from './NightClosureFlow';
 import { RADIUS, SPACE } from '../spacing';
 import { TYPE_SIZE } from '../typography';
@@ -21,6 +22,9 @@ export default function NightClosurePanel({ onBack }: { onBack: () => void }) {
       <button
         onClick={onBack}
         style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: SPACE.xs,
           fontSize: TYPE_SIZE.xs,
           marginBottom: SPACE.md,
           background: 'transparent',
@@ -30,7 +34,7 @@ export default function NightClosurePanel({ onBack }: { onBack: () => void }) {
           padding: `${SPACE.xs}px ${SPACE.sm}px`,
         }}
       >
-        ← Back to Goals
+        <ArrowLeft size={14} /> Back to Goals
       </button>
       <NightClosureFlow />
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Check, ChevronDown, ChevronRight, Circle, Pencil, X } from 'lucide-react';
 import { Q90Area, Q90AreaKey, Q90MajorChange, Q90Panel, Q90Status, quarterlyApi } from '../services/api';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { RADIUS, SPACE } from '../spacing';
@@ -119,7 +120,7 @@ function StepBadge({ n, done }: { n: number; done: boolean }) {
         color: done ? 'var(--success)' : 'var(--accent)',
       }}
     >
-      {done ? '✓' : String(n).padStart(2, '0')}
+      {done ? <Check size={16} /> : String(n).padStart(2, '0')}
     </div>
   );
 }
@@ -242,8 +243,8 @@ function AreaSummary({ area }: { area: Q90Area }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs }}>
             {changes.map((c, i) => (
               <div key={c.id ?? i} style={{ display: 'flex', alignItems: 'center', gap: SPACE.xs }}>
-                <span style={{ fontSize: TYPE_SIZE.sm, color: c.done ? 'var(--success)' : 'var(--text-faint)' }}>
-                  {c.done ? '✓' : '○'}
+                <span style={{ display: 'flex', color: c.done ? 'var(--success)' : 'var(--text-faint)' }}>
+                  {c.done ? <Check size={14} /> : <Circle size={14} />}
                 </span>
                 <span
                   style={{
@@ -388,9 +389,9 @@ function MajorChangesEditor({ changes, onSave }: { changes: Q90MajorChange[]; on
             onClick={() => commit(rows.filter((_, ri) => ri !== i))}
             aria-label={c.text.trim() ? `Remove change: ${c.text}` : 'Remove change'}
             title="Remove"
-            style={{ fontSize: TYPE_SIZE.xs, padding: '2px 8px', border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer' }}
+            style={{ padding: '2px 8px', border: 'none', background: 'transparent', color: 'var(--text-faint)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
           >
-            ✕
+            <X size={13} />
           </button>
         </div>
       ))}
@@ -530,7 +531,9 @@ function AreaAccordion({
           textAlign: 'left',
         }}
       >
-        <span style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)', width: 12 }}>{isOpen ? '▾' : '▸'}</span>
+        <span style={{ color: 'var(--text-faint)', width: 12, display: 'flex' }}>
+          {isOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        </span>
         <span style={{ fontSize: TYPE_SIZE.base, color: areaColor }}>{area.glyph}</span>
         <span style={{ fontWeight: TYPE_WEIGHT.bold, fontSize: TYPE_SIZE.sm, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {area.label}
@@ -584,9 +587,18 @@ function AreaAccordion({
                 whiteSpace: 'nowrap',
                 color: 'var(--accent)',
                 borderColor: 'var(--accent)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: SPACE.hair,
               }}
             >
-              {mode === 'view' ? 'Edit ✎' : 'Done'}
+              {mode === 'view' ? (
+                <>
+                  Edit <Pencil size={12} />
+                </>
+              ) : (
+                'Done'
+              )}
             </button>
           </div>
 
@@ -811,11 +823,15 @@ export default function QuarterlyPlanPanel() {
             padding: 0,
             cursor: 'pointer',
             whiteSpace: 'nowrap',
+            display: 'flex',
+            alignItems: 'center',
+            gap: SPACE.xs,
           }}
           title="Change the start date or the length"
+          aria-label="Change the cycle's start date or length"
         >
-          {formatDate(panel.cycle_start)} → {formatDate(panel.cycle_end)}{' '}
-          <span style={{ color: 'var(--text-faint)', fontWeight: TYPE_WEIGHT.normal }}>✎</span>
+          {formatDate(panel.cycle_start)} → {formatDate(panel.cycle_end)}
+          <Pencil size={12} color="var(--text-faint)" />
         </button>
       </div>
 

@@ -1,3 +1,4 @@
+import { Check, Square, Star } from 'lucide-react';
 import { STRIKE_MAX, Task } from '../services/api';
 import { useL } from '../i18n';
 import { formatSecs } from '../format';
@@ -178,13 +179,15 @@ export default function StrikeCard({
                 style={{
                   color: t.mit ? 'var(--warning)' : 'var(--text-faint)',
                   cursor: 'pointer',
-                  padding: '0 4px',
-                  fontSize: 14,
+                  padding: 0,
                   width: 24,
                   height: 24,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                {t.mit ? '★' : '☆'}
+                <Star size={14} fill={t.mit ? 'currentColor' : 'none'} />
               </button>
               <button
                 onClick={(e) => {
@@ -197,12 +200,14 @@ export default function StrikeCard({
                   color: t.done ? 'var(--success)' : 'var(--text-muted, inherit)',
                   cursor: 'pointer',
                   padding: 0,
-                  fontSize: 14,
                   width: 24,
                   height: 24,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                {t.done ? '✓' : '□'}
+                {t.done ? <Check size={15} /> : <Square size={15} />}
               </button>
               <span
                 style={{

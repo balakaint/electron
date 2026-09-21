@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Check, Moon, Sun } from 'lucide-react';
 import { MorningRitual, NightClosure, morningRitualApi, nightClosureApi } from '../services/api';
 import { RADIUS } from '../spacing';
 import RitualRing from './RitualRing';
@@ -71,10 +72,9 @@ function ringProgress(r: MorningRitual | null): number {
   return Math.min(0.9, done / PROGRESS_FIELDS.length);
 }
 
-function ringGlyph(r: MorningRitual | null): string {
-  if (!r || r.started_at === null) return '☀';
-  if (r.completed) return '✓';
-  return '☀';
+function RingGlyph({ r }: { r: MorningRitual | null }) {
+  if (r?.completed) return <Check size={14} />;
+  return <Sun size={14} />;
 }
 
 export default function DisciplineModuleCards({
@@ -111,7 +111,9 @@ export default function DisciplineModuleCards({
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <RitualRing progress={ringProgress(today)} size={40} stroke={3} accent="var(--accent)">
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>{ringGlyph(today)}</span>
+            <span style={{ color: 'var(--accent)', display: 'flex' }}>
+              <RingGlyph r={today} />
+            </span>
           </RitualRing>
 
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -175,7 +177,9 @@ export default function DisciplineModuleCards({
           boxShadow: 'var(--shadow-sm)',
         }}
       >
-        <span style={{ fontSize: 16, color: 'var(--text-faint)', flex: 'none' }}>☾</span>
+        <span style={{ color: 'var(--text-faint)', flex: 'none', display: 'flex' }}>
+          <Moon size={16} />
+        </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700 }}>Night Closure</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>

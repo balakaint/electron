@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { Settings, SettingsPatch, settingsApi } from '../services/api';
 import { THEME_LABELS, THEME_ORDER, Theme, themeSwatch } from '../themes';
 import { RADIUS } from '../spacing';
@@ -245,7 +246,7 @@ export default function SettingsDialog({
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
           <h2 id="settings-title" style={{ margin: 0, fontSize: 16 }}>Settings</h2>
-          <button onClick={onClose} title="Close" aria-label="Close">✕</button>
+          <button onClick={onClose} title="Close" aria-label="Close" style={{ display: 'flex', padding: 4 }}><X size={15} /></button>
         </div>
         <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 12 }}>
           {saving ? 'Saving…' : 'Every change is saved automatically'}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { ChevronUp, Pause, Play, Star, X } from 'lucide-react';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { BoardCard, BoardCol, BoardPriority, boardApi } from '../services/api';
 import { RADIUS } from '../spacing';
@@ -53,6 +54,7 @@ function CardTimer({ card, onToggle }: { card: BoardCard; onToggle: () => void }
           onToggle();
         }}
         title={running ? 'Pause timer' : 'Start timer'}
+        aria-label={running ? 'Pause timer' : 'Start timer'}
         aria-pressed={running}
         style={{
           width: 22,
@@ -62,12 +64,14 @@ function CardTimer({ card, onToggle }: { card: BoardCard; onToggle: () => void }
           borderRadius: RADIUS.pill,
           background: running ? 'var(--accent)' : 'var(--accent-light)',
           color: running ? 'var(--on-accent)' : 'var(--accent)',
-          fontSize: 12,
           cursor: 'pointer',
           padding: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        {running ? '⏸' : '▶'}
+        {running ? <Pause size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
       </button>
       <span
         style={{
@@ -164,11 +168,13 @@ function CardRow({
         background: 'transparent',
         cursor: 'pointer',
         color: card.pinned ? 'var(--accent)' : 'var(--text-faint)',
-        fontSize: 13,
         padding: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
-      {card.pinned ? '★' : '☆'}
+      <Star size={13} fill={card.pinned ? 'currentColor' : 'none'} />
     </button>
   );
 
@@ -181,9 +187,9 @@ function CardRow({
       }}
       title="Delete this card"
       aria-label="Delete this card"
-      style={{ width: 22, height: 22, flex: 'none', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12, padding: 0 }}
+      style={{ width: 22, height: 22, flex: 'none', border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
     >
-      ✕
+      <X size={13} />
     </button>
   );
 
@@ -335,8 +341,8 @@ function CardRow({
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', color: 'var(--text)', fontSize: 13, fontWeight: 700, padding: '4px 0' }}
         />
-        <button onClick={onClose} title="Close" aria-label="Close" style={{ width: 22, height: 22, border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}>
-          ⌃
+        <button onClick={onClose} title="Close" aria-label="Close" style={{ width: 22, height: 22, border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <ChevronUp size={14} />
         </button>
         {del}
       </div>

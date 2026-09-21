@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Check, ChevronUp, Circle, X } from 'lucide-react';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { useAutoTimer } from '../useAutoTimer';
 import { accentText } from '../themes';
@@ -196,11 +197,13 @@ function GoalRow({
         cursor: 'pointer',
         color: goal.done ? 'var(--success)' : 'var(--text-faint)',
         transition: 'color 0.12s ease-out',
-        fontSize: 14,
         padding: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
-      {goal.done ? '✓' : '○'}
+      {goal.done ? <Check size={15} /> : <Circle size={15} />}
     </button>
   );
 
@@ -226,11 +229,13 @@ function GoalRow({
         background: 'transparent',
         color: 'var(--text-muted)',
         cursor: 'pointer',
-        fontSize: 12,
         padding: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
-      ✕
+      <X size={13} />
     </button>
   );
 
@@ -328,9 +333,9 @@ function GoalRow({
           onClick={onClose}
           title="Close"
           aria-label="Close"
-          style={{ width: 24, height: 24, border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
+          style={{ width: 24, height: 24, border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          ⌃
+          <ChevronUp size={14} />
         </button>
         {del}
       </div>

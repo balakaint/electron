@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { ProjectKey, Subtask, projectsApi } from '../services/api';
 import { RADIUS } from '../spacing';
 
@@ -98,10 +99,11 @@ export default function ProjectTaskList({ projectKey, accent, onPromoted }: { pr
           <button
             onClick={() => projectsApi.deleteSubtask(st.pid).then(load)}
             title="Delete this"
+            aria-label="Delete this task"
             className="btn-ghost"
-            style={{ width: 28, height: 28, padding: 0, flex: 'none' }}
+            style={{ width: 28, height: 28, padding: 0, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            ✕
+            <X size={15} />
           </button>
         </div>
       ))}

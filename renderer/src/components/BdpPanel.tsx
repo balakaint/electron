@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Archive, Check, ChevronDown, ChevronUp, Circle, Copy, ExternalLink, LayoutGrid, List, Table2, X } from 'lucide-react';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { BdpPlan, BdpPriority, BdpSort, BdpStatus, BdpView, bdpApi } from '../services/api';
 import { RADIUS } from '../spacing';
@@ -175,8 +176,13 @@ function ActionsChecklist({
       </div>
       {plan.next_actions.map((a) => (
         <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <button onClick={() => onToggle(a.id)} title="Toggle done" style={{ width: 18 }}>
-            {a.done ? '✓' : '○'}
+          <button
+            onClick={() => onToggle(a.id)}
+            title="Toggle done"
+            aria-label={a.done ? 'Mark not done' : 'Mark done'}
+            style={{ width: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {a.done ? <Check size={14} /> : <Circle size={14} />}
           </button>
           <input
             defaultValue={a.text}
@@ -190,7 +196,7 @@ function ActionsChecklist({
               textDecoration: a.done ? 'line-through' : 'none',
             }}
           />
-          <button onClick={() => onDelete(a.id)} title="Delete" aria-label="Delete">✕</button>
+          <button onClick={() => onDelete(a.id)} title="Delete" aria-label="Delete" style={{ display: 'flex', padding: 4 }}><X size={14} /></button>
         </div>
       ))}
       <form
@@ -360,22 +366,30 @@ function PlanCard({
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-end' }}>
           <div style={{ display: 'flex', gap: 4 }}>
-            <button onClick={() => setExpanded((v) => !v)} style={{ fontSize: 12 }}>
-              {expanded ? 'Collapse ▲' : 'Details ▼'}
+            <button onClick={() => setExpanded((v) => !v)} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {expanded ? (
+                <>
+                  Collapse <ChevronUp size={12} />
+                </>
+              ) : (
+                <>
+                  Details <ChevronDown size={12} />
+                </>
+              )}
             </button>
-            <button onClick={onOpen} title="Open full page" style={{ fontSize: 12 }}>
-              ⤢
+            <button onClick={onOpen} title="Open full page" aria-label="Open full page" style={{ display: 'flex', padding: 4 }}>
+              <ExternalLink size={13} />
             </button>
           </div>
           <div style={{ display: 'flex', gap: 4 }}>
-            <button onClick={onDuplicate} title="Duplicate" aria-label="Duplicate" style={{ fontSize: 12 }}>
-              ⧉
+            <button onClick={onDuplicate} title="Duplicate" aria-label="Duplicate" style={{ display: 'flex', padding: 4 }}>
+              <Copy size={14} />
             </button>
-            <button onClick={onArchive} title="Archive" aria-label="Archive" style={{ fontSize: 12 }}>
-              🗄
+            <button onClick={onArchive} title="Archive" aria-label="Archive" style={{ display: 'flex', padding: 4 }}>
+              <Archive size={14} />
             </button>
-            <button onClick={onDelete} title="Delete" aria-label="Delete" style={{ fontSize: 12 }}>
-              ✕
+            <button onClick={onDelete} title="Delete" aria-label="Delete" style={{ display: 'flex', padding: 4 }}>
+              <X size={14} />
             </button>
           </div>
         </div>
@@ -780,14 +794,16 @@ export default function BdpPanel() {
                     ? 'Table view — dense summary rows'
                     : 'List view — one line per plan'
               }
+              aria-label={`${v === 'card' ? 'Card' : v === 'table' ? 'Table' : 'List'} view`}
               style={{
-                fontSize: 12,
                 fontWeight: view === v ? 700 : 400,
                 background: view === v ? 'var(--accent-light)' : undefined,
                 borderColor: view === v ? 'var(--accent)' : undefined,
+                display: 'flex',
+                padding: 4,
               }}
             >
-              {v === 'card' ? '▤' : v === 'table' ? '▦' : '☰'}
+              {v === 'card' ? <LayoutGrid size={14} /> : v === 'table' ? <Table2 size={14} /> : <List size={14} />}
             </button>
           ))}
         </div>

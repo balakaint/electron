@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Check, Pause, Pencil, Play, Square, X } from 'lucide-react';
 import {
   ActivityEntry,
   Project,
@@ -201,7 +202,7 @@ function ProjectCard({
             userSelect: 'none',
           }}
         >
-          {project.done_today ? '✓' : number}
+          {project.done_today ? <Check size={13} /> : number}
         </button>
         <button
           onClick={() => {
@@ -257,6 +258,7 @@ function ProjectCard({
         <button
           onClick={() => projectsApi.toggleTimer(key).then(onChanged)}
           title={running ? 'Stop working on this project' : 'Start working on this project'}
+          aria-label={running ? 'Stop working on this project' : 'Start working on this project'}
           style={{
             width: 28,
             minWidth: 28,
@@ -265,12 +267,14 @@ function ProjectCard({
             borderRadius: RADIUS.control,
             border: 'none',
             cursor: 'pointer',
-            fontSize: 12,
             background: running ? project.accent_color : 'transparent',
             color: running ? inkOn(project.accent_color) : 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
-          {running ? '⏸' : '▶'}
+          {running ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
         </button>
       </div>
     );
@@ -323,7 +327,7 @@ function ProjectCard({
               userSelect: 'none',
             }}
           >
-            {project.done_today ? '✓' : number}
+            {project.done_today ? <Check size={13} /> : number}
           </button>
           <input
             aria-label="Project name"
@@ -387,13 +391,15 @@ function ProjectCard({
                 border: 'none',
                 background: 'transparent',
                 color: 'var(--text-faint)',
-                fontSize: 12,
                 cursor: 'pointer',
                 padding: '0 8px',
                 height: 24,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
               }}
             >
-              ✎ edit
+              <Pencil size={12} /> edit
             </button>
           )}
         </div>
@@ -455,6 +461,7 @@ function ProjectCard({
               <button
                 onClick={() => projectsApi.toggleTimer(key).then(onChanged)}
                 title="Start / stop working on this project"
+                aria-label={running ? 'Stop working on this project' : 'Start working on this project'}
                 aria-pressed={running}
                 style={{
                   background: running ? project.accent_color : 'transparent',
@@ -463,14 +470,17 @@ function ProjectCard({
                   cursor: 'pointer',
                   padding: '0 8px',
                   height: 28,
-                  // ⏸ is a NARROWER glyph than ▶ in most faces, so a
-                  // button sized by its content shrinks below the
-                  // minimum the moment the timer starts — the one state
-                  // where you are most likely to reach for it.
+                  // Real icons fixed at one size make the old glyph-width
+                  // problem (⏸ narrower than ▶ in most faces, shrinking
+                  // the button below its minimum right when the timer
+                  // starts) moot — both render in the same fixed box now.
                   minWidth: 28,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
               >
-                {running ? '⏸' : '▶'}
+                {running ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
               </button>
               {/* Elapsed AND target, because "a target you set in a
                   different panel is a target you forget you set"
@@ -591,12 +601,13 @@ function ProjectCard({
                 <button
                   onClick={() => projectsApi.toggleSubtask(s.pid).then(refreshSubtasks)}
                   title="Toggle done"
-                  style={{ width: 24, height: 24, padding: 0, flex: 'none' }}
+                  aria-label={s.done ? 'Mark not done' : 'Mark done'}
+                  style={{ width: 24, height: 24, padding: 0, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   {/* A box, not a circle — legacy uses a real checkbox
                       here, and the STRIKE rows in panel 3 already use
                       □/✓. One tick idiom across the app. */}
-                  {s.done ? '✓' : '□'}
+                  {s.done ? <Check size={15} /> : <Square size={15} />}
                 </button>
                 {/* minWidth: 0 is load-bearing. A flex item defaults to
                     min-width: auto — its own content's width as a floor —
@@ -638,9 +649,9 @@ function ProjectCard({
                   onClick={() => projectsApi.deleteSubtask(s.pid).then(refreshSubtasks)}
                   title="Delete"
                   aria-label="Delete task"
-                  style={{ width: 28, height: 28, padding: 0, flex: 'none' }}
+                  style={{ width: 28, height: 28, padding: 0, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
-                  ✕
+                  <X size={15} />
                 </button>
               </li>
             );

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Check, ChevronDown, ChevronRight, Circle, Repeat, X } from 'lucide-react';
 import { HourPlan as HourPlanData, HourSlot, hoursApi } from '../services/api';
 import { useL } from '../i18n';
 
@@ -97,6 +98,9 @@ function Row({
           height: 24,
           flex: 'none',
           padding: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           fontSize: 12,
           cursor: filled ? 'pointer' : 'default',
           color: slot.done ? 'var(--success)' : 'var(--text-muted)',
@@ -108,7 +112,7 @@ function Row({
           opacity: filled ? 1 : isNow ? 0.75 : 0.3,
         }}
       >
-        {slot.done ? '✓' : '○'}
+        {slot.done ? <Check size={14} /> : <Circle size={14} />}
       </button>
 
       {/* The hour label is NOT inactive — it is the row's address, the
@@ -193,20 +197,22 @@ function Row({
             ? 'Repeats every day until you finish it — click to stop'
             : 'Keep this on every day until it is finished'
         }
+        aria-label={slot.repeat ? 'Stop repeating this hour' : 'Repeat this hour every day'}
         className="btn-ghost"
         style={{
           width: 24,
           height: 24,
           flex: 'none',
           padding: 0,
-          fontSize: 12,
           cursor: filled ? 'pointer' : 'default',
           color: slot.repeat ? color : 'var(--text-faint)',
           visibility: filled ? 'visible' : 'hidden',
-          fontWeight: slot.repeat ? 700 : 400,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        ↻
+        <Repeat size={13} />
       </button>
 
       {/* Only a row you have written in shows its clear button. Legacy
@@ -215,19 +221,22 @@ function Row({
       <button
         onClick={onClear}
         title="Clear this hour"
+        aria-label="Clear this hour"
         className="btn-ghost"
         style={{
           width: 24,
           height: 24,
           flex: 'none',
           padding: 0,
-          fontSize: 12,
           cursor: 'pointer',
           color: 'var(--text-muted)',
           visibility: filled ? 'visible' : 'hidden',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        ✕
+        <X size={13} />
       </button>
     </div>
   );
@@ -378,7 +387,7 @@ export default function HourPlanTab({
                 userSelect: 'none',
               }}
             >
-              <span style={{ color, fontSize: 12 }}>{shown ? '▾' : '▸'}</span>
+              <span style={{ color, display: 'flex' }}>{shown ? <ChevronDown size={12} /> : <ChevronRight size={12} />}</span>
               {/* Names and counts step up; the captions around them stay
                   small. The block name used to be the same size as the
                   task text inside it, so nothing led the eye anywhere. */}

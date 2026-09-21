@@ -24,7 +24,8 @@
     "dist": "npm run build && electron-builder"
   },
   "dependencies": {
-    "electron-updater": "^6.3.9"
+    "electron-updater": "^6.3.9",
+    "lucide-react": "^1.47.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Check, X } from 'lucide-react';
 import { CirclePerson, ProjectKey, circleApi } from '../services/api';
 import { RADIUS } from '../spacing';
 
@@ -183,11 +184,11 @@ export default function CircleSection({
                 every {p.cadence_days}d
               </button>
               <span style={{ flex: 1 }} />
-              <button onClick={() => circleApi.markContacted(p.id).then(refresh)} title="Mark contacted today" aria-label="Mark contacted today" style={{ fontSize: 12, color: 'var(--success)' }}>
-                ✓
+              <button onClick={() => circleApi.markContacted(p.id).then(refresh)} title="Mark contacted today" aria-label="Mark contacted today" style={{ display: 'flex', padding: 4, color: 'var(--success)' }}>
+                <Check size={14} />
               </button>
-              <button onClick={() => circleApi.remove(p.id).then(refresh)} title="Remove" aria-label="Remove" style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                ✕
+              <button onClick={() => circleApi.remove(p.id).then(refresh)} title="Remove" aria-label="Remove" style={{ display: 'flex', padding: 4, color: 'var(--text-muted)' }}>
+                <X size={14} />
               </button>
             </div>
           </div>

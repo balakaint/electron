@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import { GoalOwnerKey, ListKey, PanelLayout, ProjectKey, exportApi, goalsApi, settingsApi } from './services/api';
 import Panel3 from './components/Panel3';
 import BusinessAnalysisCanvas from './components/BusinessAnalysisCanvas';
@@ -448,12 +449,23 @@ function AppShell() {
                 <button
                   onClick={() => setLayout(layout === 'full' ? 'partial' : 'full')}
                   title={layout === 'full' ? 'Hide the projects panel' : 'Show the projects panel'}
-                  style={{ position: 'absolute', top: 0, left: 0, zIndex: 2, fontSize: 12, padding: 0, width: 24, height: 24 }}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    zIndex: 2,
+                    padding: 0,
+                    width: 24,
+                    height: 24,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
                 >
                   {/* Same direction rule as panel 3's: the panel this hides
-                      is to the LEFT, so ▶ sends it away and ◀ brings it
-                      back. Legacy's own glyph. */}
-                  {layout === 'full' ? '▶' : '◀'}
+                      is to the LEFT, so this points away when hiding and
+                      back when restoring. */}
+                  {layout === 'full' ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
                 </button>
                 {/* GoalsPanel used to also take onGoalOpenChange, feeding a
                     goalOpenProject state that ProjectDashboard's openProject
@@ -612,8 +624,11 @@ function AppShell() {
               content itself was packed). Content now gets the actual
               remaining space via flex:1, and scrolls on its own if it
               still doesn't fit. */}
-          <button onClick={() => setOverlay(null)} style={{ fontSize: 12, marginBottom: 12, flex: 'none' }}>
-            ←  Back
+          <button
+            onClick={() => setOverlay(null)}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, marginBottom: 12, flex: 'none' }}
+          >
+            <ArrowLeft size={14} /> Back
           </button>
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {overlay.kind === 'analysis' && (
