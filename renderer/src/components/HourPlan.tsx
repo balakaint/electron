@@ -245,9 +245,20 @@ function Row({
 export default function HourPlanTab({
   refreshSignal = 0,
   onChanged,
+  hideHeader = false,
+  onPlanLoaded,
 }: {
   refreshSignal?: number;
   onChanged?: () => void;
+  // The EXECUTE accordion's own AccordionSection header already shows
+  // this same date/done-count line for DAILY (see Panel3.tsx) — without
+  // this, wrapping this component there would stack two redundant
+  // headers where the design only ever shows one.
+  hideHeader?: boolean;
+  // Lets Panel3's AccordionSection header show the same done/total this
+  // component already fetches for itself, without a second hoursApi.get
+  // call for the same day.
+  onPlanLoaded?: (done: number, total: number) => void;
 }) {
   const L = useL();
   const [plan, setPlan] = useState<HourPlanData | null>(null);
@@ -289,6 +300,11 @@ export default function HourPlanTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nowHour]);
 
+  useEffect(() => {
+    if (plan) onPlanLoaded?.(plan.total_done, plan.total_planned);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan]);
+
   if (!plan) return null;
 
   // Every write tells the card above too. Without this, writing an
@@ -304,31 +320,33 @@ export default function HourPlanTab({
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
-        <span style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)' }}>
-          {L('TO-DO', 'আজকের কাজ')}
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>({plan.total_planned})</span>
-        <span style={{ flex: 1 }} />
-        <span
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            // Legacy paints this DONE_GREEN when the day is finished and
-            // TEXT2 otherwise (5636-5638). The port had TEXT-on-0.7-opacity
-            // instead, which is not the same colour and is not a colour at
-            // all: opacity multiplies whatever is behind it, so the one
-            // number saying how the day went was the least readable thing
-            // in its own row.
-            color:
-              plan.total_planned > 0 && plan.total_done === plan.total_planned
-                ? 'var(--success)'
-                : 'var(--text-muted)',
-          }}
-        >
-          {plan.total_done}/{plan.total_planned} done
-        </span>
-      </div>
+      {!hideHeader && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 8 }}>
+          <span style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)' }}>
+            {L('TO-DO', 'আজকের কাজ')}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>({plan.total_planned})</span>
+          <span style={{ flex: 1 }} />
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              // Legacy paints this DONE_GREEN when the day is finished and
+              // TEXT2 otherwise (5636-5638). The port had TEXT-on-0.7-opacity
+              // instead, which is not the same colour and is not a colour at
+              // all: opacity multiplies whatever is behind it, so the one
+              // number saying how the day went was the least readable thing
+              // in its own row.
+              color:
+                plan.total_planned > 0 && plan.total_done === plan.total_planned
+                  ? 'var(--success)'
+                  : 'var(--text-muted)',
+            }}
+          >
+            {plan.total_done}/{plan.total_planned} done
+          </span>
+        </div>
+      )}
 
       {plan.blocks.map((b) => {
         const isNow = b.key === plan.current_block;

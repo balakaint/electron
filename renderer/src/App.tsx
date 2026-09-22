@@ -562,6 +562,11 @@ function AppShell() {
             // and move Panel 1/2 (2026-09-20, Zahid: less clutter when a
             // project is open, without losing MIT's own quick-switch).
             activeProjectKey={allProjectsCollapsed ? null : goalsProject}
+            // Same resolution GoalsPanel itself uses (falls back to the
+            // "life" virtual owner when every project is collapsed) —
+            // WEEKLY/MONTHLY/YEARLY must never disagree with what Panel 2
+            // is showing at the same moment.
+            goalsOwnerKey={allProjectsCollapsed ? 'life' : goalsProject}
             view={tab}
             onSelectView={setTab}
             // The arrow is a DIRECTION, not a state and not an action.

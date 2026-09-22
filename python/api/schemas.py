@@ -603,7 +603,7 @@ class BoardCardOut(BaseModel):
 ThemeT = Literal["focus", "warroom", "energy", "corporate", "journey", "rize"]
 LangT = Literal["en", "bn"]
 PanelLayoutT = Literal["full", "partial", "compact"]
-FocusTabT = Literal["hours", "mit", "list"]
+FocusTabT = Literal["daily", "weekly", "monthly", "yearly"]
 
 
 class SettingsOut(BaseModel):

@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { FocusTab, ProjectKey, settingsApi } from '../services/api';
+import { FocusTab, GoalOwnerKey, ProjectKey, settingsApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
 import NowCard from './NowCard';
 import DeepWorkTrend from './DeepWorkTrend';
 import PlanReview from './PlanReview';
 import TaskList from './TaskList';
+import AccordionSection from './AccordionSection';
+import GoalHorizonSection from './GoalHorizonSection';
+import { RADIUS, SPACE } from '../spacing';
 import { useL } from '../i18n';
 
 // Panel 3 — legacy's `_build_left` (the naming is legacy's own; it is the
@@ -28,29 +31,42 @@ import { useL } from '../i18n';
 
 type View = 'classic' | 'focus';
 
-// Level 2, and it must not look like level 1. PLAN|EXECUTE is a filled
-// segmented control; these are underlined text tabs. Legacy's reason
-// (5199-5207): both strips drew the selected item as a full accent block
-// of the same height and weight, so nothing on screen said which strip
-// contained the other. The unselected tabs carry a transparent rule of
-// the same height, so switching does not shift the row.
-//
-// Order is the order of the day, left to right: the hours you have, the
-// few things that matter in them, then everything else you wrote down.
-// HOURS leads because it is the one you open the app inside — the
-// question at the start of a block is "what hour am I in".
-const FOCUS_TABS: [FocusTab, string, string][] = [
-  ['hours', 'HOURS', 'ঘণ্টা'],
-  ['mit', 'MIT', 'MIT'],
-  ['list', 'TASK LIST', 'টাস্ক লিস্ট'],
+// EXECUTE's four planning zoom levels, most-detailed first, per the
+// 2026-09-22 accordion redesign (docs/superpowers/specs/2026-09-22-
+// execute-panel-redesign-design.md). Replaces the old three-tab strip
+// (HOURS/MIT/LIST): MIT folded into an inline expand under NOW, LIST
+// became the DAILY section's own "Tomorrow" popover — neither survives
+// as a level of its own. Order matches the brief's own priority order
+// (NOW, then DAILY, WEEKLY, MONTHLY, YEARLY, most detail first).
+const LEVELS: [FocusTab, string, string][] = [
+  ['daily', 'DAILY', 'দৈনিক'],
+  ['weekly', 'WEEKLY', 'সাপ্তাহিক'],
+  ['monthly', 'MONTHLY', 'মাসিক'],
+  ['yearly', 'YEARLY', 'বার্ষিক'],
 ];
 
-function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) => void }) {
+// The segmented nav both jumps to and expands a level — the four
+// sections always exist, stacked, in one continuous scroll (the brief's
+// own rule: "the four levels still exist in one continuous planning
+// screen", no tab-swap hiding the others). Sticky so it stays reachable
+// while a long WEEKLY/MONTHLY list scrolls past it.
+function LevelNav({ level, onSelect }: { level: FocusTab; onSelect: (l: FocusTab) => void }) {
   const L = useL();
   return (
-    <div role="tablist" style={{ display: 'flex', marginBottom: 12 }}>
-      {FOCUS_TABS.map(([key, en, bn]) => {
-        const on = tab === key;
+    <div
+      role="tablist"
+      style={{
+        display: 'flex',
+        marginBottom: SPACE.md,
+        position: 'sticky',
+        top: 0,
+        zIndex: 2,
+        background: 'var(--surface)',
+        paddingTop: SPACE.xs,
+      }}
+    >
+      {LEVELS.map(([key, en, bn]) => {
+        const on = level === key;
         return (
           <button
             key={key}
@@ -78,6 +94,57 @@ function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) =
   );
 }
 
+// The old LIST tab (tomorrow's focus list) demoted to a small anchored
+// popover — same click-outside-closes pattern ToolsMenu.tsx already
+// uses, rather than a new overlay primitive. Lives in the DAILY
+// section's own header (via AccordionSection's headerExtra slot), not
+// as a level of its own.
+function TomorrowLink({ focusVersion, onFocusChanged }: { focusVersion: number; onFocusChanged: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDocDown);
+    return () => document.removeEventListener('mousedown', onDocDown);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flex: 'none' }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        title="Tomorrow's focus list"
+        style={{ fontSize: 12, background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: `0 ${SPACE.xs}px` }}
+      >
+        Tomorrow →
+      </button>
+      {open && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '100%',
+            right: 0,
+            zIndex: 5,
+            width: 320,
+            maxWidth: '80vw',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: RADIUS.card,
+            boxShadow: 'var(--shadow-md)',
+            padding: SPACE.md,
+            marginTop: SPACE.xs,
+          }}
+        >
+          <TaskList listKey="focus" dayView="tomorrow" focusVersion={focusVersion} onFocusChanged={onFocusChanged} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Panel3({
   focusVersion,
   onFocusChanged,
@@ -90,6 +157,7 @@ export default function Panel3({
   onOpenMorningRitual,
   onOpenNightClosure,
   activeProjectKey,
+  goalsOwnerKey,
 }: {
   focusVersion: number;
   onFocusChanged: () => void;
@@ -102,21 +170,52 @@ export default function Panel3({
   onOpenMorningRitual: (view: 'flow' | 'trend') => void;
   onOpenNightClosure: () => void;
   activeProjectKey: ProjectKey | null;
+  // Same owner GoalsPanel (Panel 2) is currently showing, "life" fallback
+  // included — drives WEEKLY/MONTHLY/YEARLY so the two panels never
+  // disagree about whose goals they're both looking at. Distinct from
+  // `activeProjectKey` above (a real project only, no "life"), which
+  // still only feeds the inline MIT picker's DeepWorkCard context.
+  goalsOwnerKey: GoalOwnerKey | null;
 }) {
   const L = useL();
-  // Null until settings answer, so the strip does not paint HOURS and
-  // then jump to the tab the user actually left it on.
-  const [tab, setTabState] = useState<FocusTab | null>(null);
+  // Null until settings answer, so nothing paints expanded and then
+  // jumps to the level the user actually left it on.
+  const [level, setLevelState] = useState<FocusTab | null>(null);
   const [nowBump, setNowBump] = useState(0);
+  const [mitOpen, setMitOpen] = useState(false);
+  const [dailyDone, setDailyDone] = useState(0);
+  const [dailyTotal, setDailyTotal] = useState(0);
+
+  const dailyRef = useRef<HTMLDivElement>(null);
+  const weeklyRef = useRef<HTMLDivElement>(null);
+  const monthlyRef = useRef<HTMLDivElement>(null);
+  const yearlyRef = useRef<HTMLDivElement>(null);
+  const levelRefs = { daily: dailyRef, weekly: weeklyRef, monthly: monthlyRef, yearly: yearlyRef } as const;
 
   useEffect(() => {
-    settingsApi.get().then((s) => setTabState(s.focus_tab));
+    settingsApi.get().then((s) => setLevelState(s.focus_tab));
   }, []);
 
-  const selectTab = (next: FocusTab) => {
-    setTabState(next);
+  const selectLevel = (next: FocusTab) => {
+    setLevelState(next);
     settingsApi.update({ focus_tab: next });
+    levelRefs[next].current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+
+  const ownerKey: GoalOwnerKey = goalsOwnerKey ?? 'life';
+
+  const dateStr = (() => {
+    // "Tuesday, 8 Sep 2026" — legacy's own order
+    // (f"{dayname}, {now.day} {now.strftime('%b %Y')}", 5020).
+    // toLocaleDateString with the default locale gives "Tuesday, Sep 8,
+    // 2026" on a US machine, a different reading order in the one line
+    // that says what day it is. Assembled from parts so it reads the
+    // same wherever it runs.
+    const d = new Date();
+    const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
+    const month = d.toLocaleDateString(undefined, { month: 'short' });
+    return `${weekday}, ${d.getDate()} ${month} ${d.getFullYear()}`;
+  })();
 
   // The two project fetches that fed the progress bar are gone with it.
   // DEEP WORK asks for its own order, and asks only while a timer runs.
@@ -133,7 +232,7 @@ export default function Panel3({
           position: 'absolute',
           top: 0,
           left: 0,
-          zIndex: 2,
+          zIndex: 3,
           padding: 0,
           width: 24,
           height: 24,
@@ -224,84 +323,144 @@ export default function Panel3({
           </div>
         ) : (
           <>
-            {/* The date is one line now, with no card around it and no
-                progress bar under it.
-                The bar drew today's six projects as six numbered
-                segments; the DEEP WORK card on the MIT tab draws the
-                same six with their NAMES, their minutes and a button
-                that starts them. Two readings of one fact, and the
-                anonymous one was on top — legacy's own rule against
-                "two places to look for the same four items" applies to
-                itself here. Losing it gives the panel back about 60px
-                and leaves the date as what legacy asked for in the
-                first place (5004-5007): "deliberately demoted to one
-                quiet header line". */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>
-                {/* "Tuesday, 8 Sep 2026" — legacy's own order
-                    (f"{dayname}, {now.day} {now.strftime('%b %Y')}",
-                    5020). toLocaleDateString with the default locale
-                    gives "Tuesday, Sep 8, 2026" on a US machine, which
-                    is a different reading order in the one line that
-                    tells you what day it is. Assembled from parts so it
-                    reads the same wherever it runs. */}
-                {(() => {
-                  const d = new Date();
-                  const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
-                  const month = d.toLocaleDateString(undefined, { month: 'short' });
-                  return `${weekday}, ${d.getDate()} ${month} ${d.getFullYear()}`;
-                })()}
-              </div>
-            </div>
-
-            {/* NOW stays ABOVE the tabs, never inside one. It is the
-                single thing you are doing; hiding it behind a tab would
-                make the answer to "what now" depend on which tab you
-                last clicked (legacy 5177-5180). */}
+            {/* NOW stays first, above every accordion level — it is the
+                single thing you are doing; hiding it behind a collapsed
+                DAILY section would make the answer to "what now" depend
+                on which level happens to be open (legacy 5177-5180). The
+                standalone date line that used to sit here is gone — the
+                DAILY section's own header shows the same date now,
+                whether DAILY is collapsed or open, so it was a second
+                copy of one fact rather than a second fact. */}
             <NowCard
               refreshSignal={nowBump}
               onChanged={() => setNowBump((b) => b + 1)}
-              // An empty NOW with a real choice to make hands you over
-              // to the tab where that choice is made, rather than
-              // reprinting the list here.
-              onGoToMit={() => selectTab('mit')}
+              // An empty NOW with a real choice to make opens the same
+              // inline picker the small "Today's 3" link below opens —
+              // see that link's own comment for why both exist.
+              onGoToMit={() => setMitOpen((v) => !v)}
             />
 
-            {tab && (
-              <FocusTabs tab={tab} onSelect={selectTab} />
+            {/* A persistent way back into the STRIKE picker. NowCard's
+                own "Choose today's 3 →" only appears while NOW has no
+                current task — once you're working on one of today's
+                three, there was previously no way back to the MIT tab to
+                add a second or third from here without switching tabs
+                manually. Folding MIT into NOW's own empty-state button
+                loses that reachability outright, so this small link
+                stays visible regardless of what NOW is showing. */}
+            <div style={{ marginBottom: SPACE.sm }}>
+              <button
+                onClick={() => setMitOpen((v) => !v)}
+                style={{ fontSize: 12, color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                {mitOpen ? '▴ Hide today’s 3' : '▾ Today’s 3'}
+              </button>
+            </div>
+            {mitOpen && (
+              <div style={{ marginBottom: SPACE.md }}>
+                <TaskList
+                  listKey="focus"
+                  dayView="today"
+                  activeProjectKey={activeProjectKey}
+                  focusVersion={focusVersion}
+                  // NOW is a SIBLING of this list, not its child, so a
+                  // write here reached panel 1 but never reached the card
+                  // directly above. Striking a task from here put it in
+                  // the STRIKE card and left NOW still saying "Choose
+                  // today's 3" until something unrelated happened to
+                  // refresh it.
+                  onFocusChanged={() => {
+                    onFocusChanged();
+                    setNowBump((b) => b + 1);
+                  }}
+                />
+              </div>
             )}
 
-            {tab === 'hours' && (
-              <HourPlanTab refreshSignal={nowBump} onChanged={() => setNowBump((b) => b + 1)} />
-            )}
-            {tab === 'mit' && (
-              <TaskList
-                listKey="focus"
-                dayView="today"
-                activeProjectKey={activeProjectKey}
-                focusVersion={focusVersion}
-                // NOW is a SIBLING of this list, not its child, so a
-                // write here reached panel 1 but never reached the card
-                // directly above. Striking a task from MIT put it in the
-                // STRIKE card and left NOW still saying "Choose today's
-                // 3" until something unrelated happened to refresh it.
-                onFocusChanged={() => {
-                  onFocusChanged();
-                  setNowBump((b) => b + 1);
-                }}
-              />
-            )}
-            {tab === 'list' && (
-              <TaskList
-                listKey="focus"
-                dayView="tomorrow"
-                focusVersion={focusVersion}
-                onFocusChanged={() => {
-                  onFocusChanged();
-                  setNowBump((b) => b + 1);
-                }}
-              />
-            )}
+            {level && <LevelNav level={level} onSelect={selectLevel} />}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md, paddingBottom: SPACE.md }}>
+              <div ref={dailyRef}>
+                <AccordionSection
+                  glyph="◷"
+                  label={L('DAILY', 'দৈনিক')}
+                  period={dateStr}
+                  done={dailyDone}
+                  total={dailyTotal}
+                  accent="var(--accent)"
+                  expanded={level === 'daily'}
+                  onToggle={() => selectLevel('daily')}
+                  headerExtra={
+                    <TomorrowLink
+                      focusVersion={focusVersion}
+                      onFocusChanged={() => {
+                        onFocusChanged();
+                        setNowBump((b) => b + 1);
+                      }}
+                    />
+                  }
+                >
+                  <HourPlanTab
+                    hideHeader
+                    refreshSignal={nowBump}
+                    onChanged={() => setNowBump((b) => b + 1)}
+                    onPlanLoaded={(d, t) => {
+                      setDailyDone(d);
+                      setDailyTotal(t);
+                    }}
+                  />
+                </AccordionSection>
+              </div>
+
+              {/* ⚠ horizon crossing: Panel 2 (GoalsPanel.tsx) deliberately
+                  stores/labels these backwards — stored "yearly" is shown
+                  as "WEEKLY GOAL", stored "monthly" as "MONTHLY GOAL",
+                  stored "weekly" as "YEARLY GOAL". These three sections
+                  follow the DISPLAYED meaning the user already knows from
+                  Panel 2, not the raw column name — do not "fix" this
+                  mapping without re-reading GoalsPanel.tsx's own warning
+                  first, or Panel 3's WEEKLY would silently start showing
+                  Panel 2's YEARLY GOAL data. */}
+              <div ref={weeklyRef}>
+                <GoalHorizonSection
+                  horizon="yearly"
+                  ownerKey={ownerKey}
+                  accent="var(--goal-yearly)"
+                  glyph="◈"
+                  label={L('WEEKLY', 'সাপ্তাহিক')}
+                  noun="priority"
+                  periodKind="week"
+                  expanded={level === 'weekly'}
+                  onToggle={() => selectLevel('weekly')}
+                />
+              </div>
+              <div ref={monthlyRef}>
+                <GoalHorizonSection
+                  horizon="monthly"
+                  ownerKey={ownerKey}
+                  accent="var(--goal-monthly)"
+                  glyph="❖"
+                  label={L('MONTHLY', 'মাসিক')}
+                  noun="goal"
+                  periodKind="month"
+                  expanded={level === 'monthly'}
+                  onToggle={() => selectLevel('monthly')}
+                />
+              </div>
+              <div ref={yearlyRef}>
+                <GoalHorizonSection
+                  horizon="weekly"
+                  ownerKey={ownerKey}
+                  accent="var(--goal-weekly)"
+                  glyph="◆"
+                  label={L('YEARLY', 'বার্ষিক')}
+                  noun="milestone"
+                  periodKind="year"
+                  expanded={level === 'yearly'}
+                  onToggle={() => selectLevel('yearly')}
+                />
+              </div>
+            </div>
           </>
         )}
       </div>

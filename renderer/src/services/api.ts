@@ -1,9 +1,9 @@
 import type { Theme } from '../themes';
 
 export type ListKey = 'classic' | 'focus';
-// EXECUTE's three tabs. Stored keys, so they must match FOCUS_TABS in
-// python/engine/settings.py.
-export type FocusTab = 'hours' | 'mit' | 'list';
+// EXECUTE's four planning zoom levels (which one is expanded). Stored
+// keys, so they must match FOCUS_TABS in python/engine/settings.py.
+export type FocusTab = 'daily' | 'weekly' | 'monthly' | 'yearly';
 export type Urgency = 'low' | 'med' | 'high';
 export type DayView = 'today' | 'tomorrow';
 

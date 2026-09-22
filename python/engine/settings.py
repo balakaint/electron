@@ -21,10 +21,13 @@ LANGS = ("en", "bn")
 # columns to hide; the three-column shell restores the state it
 # describes, so it is a real layout again.
 PANEL_LAYOUTS = ("full", "partial", "compact")
-# EXECUTE's three tabs, in the order the day asks for them: the hours
-# you have, the few things that matter in them, then everything else
-# you wrote down (legacy 5170-5189).
-FOCUS_TABS = ("hours", "mit", "list")
+# EXECUTE's four planning zoom levels, most-detailed first — DAILY is the
+# execution engine (was "hours"; MIT folded into an inline NOW expand and
+# LIST became a small "Tomorrow" popover, so neither survives as its own
+# level), then WEEKLY/MONTHLY/YEARLY, compact views onto the same Goal
+# data Panel 2 already owns. Which one is expanded, not which is "active"
+# — see AppState.focus_tab's own comment.
+FOCUS_TABS = ("daily", "weekly", "monthly", "yearly")
 
 _IDLE_MIN, _IDLE_MAX = 2, 120
 _PHASE_MIN, _PHASE_MAX = 0, 23

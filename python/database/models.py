@@ -555,10 +555,12 @@ class AppState(Base):
     bdp_sort: Mapped[str] = mapped_column(String, default="manual")
     bdp_view: Mapped[str] = mapped_column(String, default="card")
     panel_layout: Mapped[str] = mapped_column(String, default="full")
-    # Which of EXECUTE's three tabs is showing. Legacy persists this
-    # (its `focus_tab`) rather than resetting to HOURS each launch: the
-    # tab you work in is a preference, not a per-session accident.
-    focus_tab: Mapped[str] = mapped_column(String, default="hours")
+    # Which of EXECUTE's four zoom levels (DAILY/WEEKLY/MONTHLY/YEARLY) is
+    # expanded. Persisted rather than resetting to DAILY each launch: the
+    # level you're working in is a preference, not a per-session accident.
+    # Column predates the accordion redesign (was "hours"/"mit"/"list" —
+    # see migration b2f7a83c9e14 for the rewrite of existing rows).
+    focus_tab: Mapped[str] = mapped_column(String, default="daily")
     q90_cycle_start: Mapped[str | None] = mapped_column(String, nullable=True)
     q90_cycle_days: Mapped[int] = mapped_column(Integer, default=90)
     task_title_classic_today: Mapped[str | None] = mapped_column(String, nullable=True)
