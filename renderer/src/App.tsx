@@ -71,6 +71,13 @@ function AppShell() {
   // single shared number would have each panel re-fetching in response
   // to itself, which is a loop, not a sync.
   const [panel1Wrote, setPanel1Wrote] = useState(0);
+  // Panel 2's own goal-task "+ STRIKE" chips (GoalsPanel) are a third
+  // writer of the same shared Focus list — same counter-per-writer
+  // shape as panel1Wrote/panel3Wrote, extended from two panels to
+  // three: each panel bumps the one counter it owns and listens to the
+  // SUM of the other two (never its own), so no panel ever reacts to
+  // its own write.
+  const [panel2Wrote, setPanel2Wrote] = useState(0);
   const [panel3Wrote, setPanel3Wrote] = useState(0);
 
   const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking');
@@ -424,7 +431,7 @@ function AppShell() {
               PROJECTS
             </div>
             <ProjectDashboard
-              focusVersion={panel3Wrote}
+              focusVersion={panel2Wrote + panel3Wrote}
               onFocusChanged={() => setPanel1Wrote((v) => v + 1)}
               onOpenAnalysis={(k) => setOverlay({ kind: 'analysis', project: k })}
               onOpenJourney={(k) => setOverlay({ kind: 'journey', project: k })}
@@ -490,6 +497,8 @@ function AppShell() {
                   return (
                     <GoalsPanel
                       projectKey={goalsPanelKey}
+                      focusVersion={panel1Wrote + panel3Wrote}
+                      onFocusChanged={() => setPanel2Wrote((v) => v + 1)}
                       onOpenBoard={(goalId) =>
                         goalsPanelKey && setOverlay({ kind: 'goalBoard', project: goalsPanelKey, goalId })
                       }
@@ -543,7 +552,7 @@ function AppShell() {
       />
           </div>
           <Panel3
-            focusVersion={panel1Wrote}
+            focusVersion={panel1Wrote + panel2Wrote}
             onFocusChanged={() => setPanel3Wrote((v) => v + 1)}
             // Panel 2 already follows whichever project Panel 1 has open
             // (same fallback: all collapsed reads as none open, not

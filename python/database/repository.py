@@ -15,6 +15,7 @@ from database.models import (
     DailyIntention,
     DecisionLog,
     Goal,
+    GoalTask,
     HabitItem,
     HourSlot,
     JourneyLogEntry,
@@ -81,6 +82,12 @@ class TaskRepository:
         """The live Focus task promoted from project-subtask row `pid`,
         if any — matches _pt_committed."""
         stmt = select(Task).where(Task.psrc == pid)
+        return self.db.scalars(stmt).first()
+
+    def get_by_gsrc(self, pid: str) -> Task | None:
+        """The goal-task twin of get_by_psrc — the live Focus task
+        promoted from goal-task row `pid`, if any."""
+        stmt = select(Task).where(Task.gsrc == pid)
         return self.db.scalars(stmt).first()
 
     def get_by_hour_slot(self, slot_id: int) -> Task | None:
@@ -334,6 +341,35 @@ class GoalRepository:
 
     def delete(self, goal: Goal) -> None:
         self.db.delete(goal)
+        self.db.commit()
+
+    # ── Goal tasks (flat checklist) ──────────────────────────────────
+    def list_goal_tasks(self, goal_id: int) -> list[GoalTask]:
+        stmt = select(GoalTask).where(GoalTask.goal_id == goal_id)
+        return list(self.db.scalars(stmt))
+
+    def get_goal_task(self, pid: str) -> GoalTask | None:
+        return self.db.get(GoalTask, pid)
+
+    def add_goal_task(self, task: GoalTask) -> GoalTask:
+        self.db.add(task)
+        self.db.commit()
+        self.db.refresh(task)
+        return task
+
+    def save_goal_task(self, task: GoalTask) -> GoalTask:
+        self.db.commit()
+        self.db.refresh(task)
+        return task
+
+    def delete_goal_task(self, task: GoalTask) -> None:
+        """Unlink any Task still pointing at this goal-task via gsrc
+        before deleting it — same reasoning as
+        ProjectRepository.delete_subtask unlinking psrc."""
+        orphaned = self.db.scalars(select(Task).where(Task.gsrc == task.pid))
+        for t in orphaned:
+            t.gsrc = None
+        self.db.delete(task)
         self.db.commit()
 
 

@@ -25,6 +25,10 @@ class Task(Base):
     strike: Mapped[bool] = mapped_column(Boolean, default=False)
     project: Mapped[str | None] = mapped_column(ForeignKey("projects.key"), nullable=True)
     psrc: Mapped[str | None] = mapped_column(ForeignKey("project_subtasks.pid"), nullable=True)
+    # The goal-task twin of psrc, set the same way by NowEngine.strike_goal_task
+    # when "+ STRIKE" promotes a Goal's own checklist item instead of a
+    # project subtask — see GoalTask's own docstring.
+    gsrc: Mapped[str | None] = mapped_column(ForeignKey("goal_tasks.pid"), nullable=True)
     # The hour-plan row this task was started from, if it was.
     #
     # A task can reach the Focus list two ways now. "+ STRIKE" promotes a
@@ -288,6 +292,30 @@ class Goal(Base):
     # warning — the two crossings must match or the deadline shown next
     # to "WEEKLY GOAL" would silently stop being 7 days out.
     deadline: Mapped[str] = mapped_column(String, default="")
+
+
+class GoalTask(Base):
+    """A goal's own flat task checklist — add/check/remove straight from
+    the Goals panel card, no need to open the goal's Individual Task
+    Board (BoardTask/BoardCard) just to jot down and strike a quick
+    task. Mirrors ProjectSubtask's shape and convention exactly (`pid`
+    is a preserved string id, same "why remap an id nothing outside
+    this table needs to be an int" reasoning), scoped to `goal_id`
+    rather than `project_key` since Goal's own project_key is opaque
+    and sometimes the reserved "life" owner with no real Project row
+    (see Goal.project_key's own comment).
+
+    ondelete="CASCADE": a goal-task has no meaning without its Goal —
+    same reasoning as BoardTask.goal_id.
+    """
+
+    __tablename__ = "goal_tasks"
+
+    pid: Mapped[str] = mapped_column(String, primary_key=True)
+    goal_id: Mapped[int] = mapped_column(ForeignKey("goals.id", ondelete="CASCADE"))
+    text: Mapped[str] = mapped_column(String)
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    added_date: Mapped[str] = mapped_column(String)  # ISO date string
 
 
 BOARD_COLS = ("todo", "focus", "done")

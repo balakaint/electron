@@ -2,7 +2,7 @@ import calendar
 import time
 from datetime import date, timedelta
 
-from database.models import GOAL_HORIZONS, Goal
+from database.models import GOAL_HORIZONS, Goal, GoalTask
 from database.repository import GoalRepository, ProjectRepository
 
 
@@ -161,6 +161,35 @@ class GoalEngine:
         if goal is None:
             return False
         self.repo.delete(goal)
+        return True
+
+    # ── Goal tasks (flat checklist) ──────────────────────────────────
+    # Mirrors ProjectEngine's list_subtasks/add_subtask/toggle_subtask/
+    # delete_subtask exactly, scoped to goal_id instead of project_key.
+    def list_goal_tasks(self, goal_id: int) -> list[GoalTask]:
+        return self.repo.list_goal_tasks(goal_id)
+
+    def add_goal_task(self, goal_id: int, text: str) -> GoalTask:
+        text = text.strip()
+        if not text:
+            raise ValueError("Task text cannot be empty")
+        idx = len(self.repo.list_goal_tasks(goal_id))
+        pid = f"g{goal_id}:{int(time.time() * 1000)}:{idx}"
+        task = GoalTask(pid=pid, goal_id=goal_id, text=text, done=False, added_date=_today())
+        return self.repo.add_goal_task(task)
+
+    def toggle_goal_task(self, pid: str) -> GoalTask | None:
+        task = self.repo.get_goal_task(pid)
+        if task is None:
+            return None
+        task.done = not task.done
+        return self.repo.save_goal_task(task)
+
+    def delete_goal_task(self, pid: str) -> bool:
+        task = self.repo.get_goal_task(pid)
+        if task is None:
+            return False
+        self.repo.delete_goal_task(task)
         return True
 
     @staticmethod

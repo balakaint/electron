@@ -3,19 +3,20 @@ from sqlalchemy.orm import Session
 
 from api.schemas import TaskOut
 from database.connection import get_db
-from database.repository import HourPlanRepository, ProjectRepository, TaskRepository
+from database.repository import GoalRepository, HourPlanRepository, ProjectRepository, TaskRepository
 from engine.now import NowEngine
 from engine.tasks import STRIKE_MAX, StrikeLimitReached
 
 router = APIRouter(prefix="/api/now", tags=["now"])
 # Same prefix as api.routes.projects's router, matching how goals.py
 # already splits one feature across two routers with different prefixes
-# — "+ STRIKE" is a project-subtask action backed by NowEngine.
+# — "+ STRIKE" is a project-subtask (or, below, goal-task) action backed
+# by NowEngine.
 strike_router = APIRouter(prefix="/api/projects", tags=["now"])
 
 
 def get_engine(db: Session = Depends(get_db)) -> NowEngine:
-    return NowEngine(TaskRepository(db), ProjectRepository(db), HourPlanRepository(db))
+    return NowEngine(TaskRepository(db), ProjectRepository(db), HourPlanRepository(db), GoalRepository(db))
 
 
 @router.get("", response_model=TaskOut | None)
@@ -56,6 +57,16 @@ def set_now(task_id: int, engine: NowEngine = Depends(get_engine)):
 def strike_project_task(pid: str, engine: NowEngine = Depends(get_engine)):
     try:
         return engine.strike_project_task(pid)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except StrikeLimitReached:
+        raise HTTPException(409, f"Already {STRIKE_MAX}/{STRIKE_MAX} — full")
+
+
+@strike_router.post("/goals/tasks/{pid}/strike", response_model=TaskOut)
+def strike_goal_task(pid: str, engine: NowEngine = Depends(get_engine)):
+    try:
+        return engine.strike_goal_task(pid)
     except ValueError as e:
         raise HTTPException(404, str(e))
     except StrikeLimitReached:

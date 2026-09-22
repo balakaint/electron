@@ -1,9 +1,24 @@
-import { useEffect, useState } from 'react';
-import { Check, ChevronUp, Circle, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Check, ChevronUp, Circle, Square, X } from 'lucide-react';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { useAutoTimer } from '../useAutoTimer';
 import { accentText } from '../themes';
-import { Goal, GoalHorizon, GoalOwnerKey, GoalPanel, ProjectKey, ProjectOrderEntry, goalsApi, projectsApi } from '../services/api';
+import {
+  Goal,
+  GoalHorizon,
+  GoalOwnerKey,
+  GoalPanel,
+  GoalTask,
+  ProjectKey,
+  ProjectOrderEntry,
+  STRIKE_MAX,
+  Task,
+  goalTasksApi,
+  goalsApi,
+  projectsApi,
+  tasksApi,
+} from '../services/api';
+import { dayNumber } from '../format';
 import { RADIUS } from '../spacing';
 import { useAutofocus } from '../hooks/useAutofocus';
 
@@ -136,9 +151,10 @@ function GoalRow({
   onEditText,
   onEditNote,
   onEditStartDate,
-  onEditNextAction,
   onEditDeadline,
   onOpenBoard,
+  focusTasks,
+  onFocusListChanged,
 }: {
   goal: Goal;
   accent: string;
@@ -150,20 +166,80 @@ function GoalRow({
   onEditText: (text: string) => void;
   onEditNote: (note: string) => void;
   onEditStartDate: (date: string) => void;
-  onEditNextAction: (nextAction: string) => void;
   onEditDeadline: (deadline: string) => void;
   onOpenBoard: () => void;
+  // Every goal's "+ STRIKE" chips share this one Focus-list snapshot
+  // (fetched once by GoalsPanel, not per-row) so they agree about which
+  // tasks are already committed and how full today is — same reasoning
+  // ProjectDashboard fetches focusTasks once for every ProjectCard.
+  focusTasks: Task[];
+  // Called after a strike attempt (success or 409) so GoalsPanel
+  // re-fetches focusTasks and tells the other panels — mirrors
+  // ProjectCard's strikeSubtask calling its own onChanged either way.
+  onFocusListChanged: () => void;
 }) {
   const [text, setText] = useState(goal.text);
   const textInputRef = useAutofocus<HTMLInputElement>(open);
   const [startDate, setStartDate] = useState(goal.start_date);
   const [deadline, setDeadline] = useState(goal.deadline);
   const noteField = useAutosave(goal.note, onEditNote);
-  const nextActionField = useAutosave(goal.next_action, onEditNextAction);
+
+  const [tasks, setTasks] = useState<GoalTask[]>([]);
+  const [newTaskText, setNewTaskText] = useState('');
+  const [addingTask, setAddingTask] = useState(false);
+  const tasksBlockRef = useRef<HTMLDivElement>(null);
+  const [strikeFlash, setStrikeFlash] = useState<string | null>(null);
+  const newTaskRef = useAutofocus<HTMLInputElement>(addingTask);
+
+  const refreshTasks = () => goalTasksApi.list(goal.id).then(setTasks);
 
   useEffect(() => setText(goal.text), [goal.text]);
   useEffect(() => setStartDate(goal.start_date), [goal.start_date]);
   useEffect(() => setDeadline(goal.deadline), [goal.deadline]);
+  // Fetched regardless of open/collapsed — the collapsed row's own
+  // tooltip surfaces the first pending task, same as ProjectCard's
+  // collapsed preview needing subtasks whether or not the card is open.
+  useEffect(() => {
+    refreshTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goal.id]);
+
+  const addTask = () => {
+    const t = newTaskText.trim();
+    if (!t) return;
+    goalTasksApi.add(goal.id, t).then(() => {
+      setNewTaskText('');
+      refreshTasks();
+    });
+  };
+
+  const strikeTask = (pid: string) => {
+    goalTasksApi
+      .strike(pid)
+      .then(() => onFocusListChanged())
+      .catch(() => {
+        setStrikeFlash(pid);
+        setTimeout(() => setStrikeFlash(null), 1500);
+        onFocusListChanged();
+      });
+  };
+
+  const pendingTasks = tasks.filter((t) => !t.done);
+  const tasksDone = tasks.length - pendingTasks.length;
+
+  // Click outside the add-task form closes it, same pattern ToolsMenu
+  // uses for its own popup — without this it stayed open until "+ task"
+  // was pressed again, the only way out being the button that opened it
+  // (Zahid caught this live: "outside click will collapse add task
+  // window, it remain same until i click + button again").
+  useEffect(() => {
+    if (!addingTask) return;
+    const onDocDown = (e: MouseEvent) => {
+      if (tasksBlockRef.current && !tasksBlockRef.current.contains(e.target as Node)) setAddingTask(false);
+    };
+    document.addEventListener('mousedown', onDocDown);
+    return () => document.removeEventListener('mousedown', onDocDown);
+  }, [addingTask]);
 
   // The bar means board completion — how much of the work under this
   // goal is actually done, not how much time has passed. Zahid
@@ -254,7 +330,10 @@ function GoalRow({
             reader. */}
         <button
           onClick={onOpen}
-          title="Open this goal"
+          // Same treatment as ProjectCard's collapsed preview tooltip —
+          // the top pending task, without adding a second visible line
+          // to a row this app already fixed once for being too tall.
+          title={pendingTasks.length > 0 ? `${goal.text}  ·  → ${pendingTasks[0].text}` : 'Open this goal'}
           style={{
             flex: 1,
             minWidth: 0,
@@ -450,62 +529,117 @@ function GoalRow({
         </MetaRow>
       </div>
 
-      {/* NEXT ACTION — the single field Zahid's review called the
-          biggest UX opportunity on this panel ("Very High" in his own
-          priority table, above everything else here): the one concrete,
-          physical next step, not an abstract restatement of the goal.
-          Boxed and bolded like GoalBoardOverlay's own NEXT ACTION
-          callout so the two screens read as the same idea at two
-          levels, not two unrelated features. */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          marginTop: 8,
-          background: 'var(--surface)',
-          border: '1px solid var(--border)',
-          borderLeft: `3px solid ${accent}`,
-          borderRadius: RADIUS.control,
-          padding: '8px 12px',
-        }}
-      >
-        <label
-          htmlFor={`next-action-${goal.id}`}
-          style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: accent, flex: 'none' }}
-        >
-          NEXT ACTION
-        </label>
-        <input
-          id={`next-action-${goal.id}`}
-          // Defaults to the goal's own top FOCUS card ("board_focus_title",
-          // added 2026-09-16 alongside this) whenever nobody has typed a
-          // manual NEXT ACTION — Zahid's own words: "next action by
-          // default its board 1st focused 1st card name". Typing
-          // anything here still saves as an explicit override into
-          // goal.next_action exactly as before; clearing it back to
-          // empty reverts to showing the board's own current top card
-          // again on the next refresh, since the fallback is live, not
-          // copied in.
-          value={nextActionField.value || goal.board_focus_title || ''}
-          onChange={(e) => nextActionField.setValue(e.target.value)}
-          onBlur={nextActionField.flush}
-          placeholder="The next concrete step — e.g. Open Seller Central → create listing"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            border: 'none',
-            background: 'transparent',
-            fontSize: 13,
-            // Bold only when there's real text (typed or board-derived)
-            // — a bold empty-state placeholder read as if it were
-            // actual content (same issue fixed on GoalBoardOverlay's
-            // own NEXT ACTION field this same round).
-            fontWeight: nextActionField.value || goal.board_focus_title ? 700 : 400,
-            padding: '2px 0',
-            ...savedFlashStyle(nextActionField.state),
-          }}
-        />
+      {/* TASKS — replaces the old single free-text NEXT ACTION field.
+          Zahid's own review called that field the biggest UX
+          opportunity on this panel, but a single line couldn't hold
+          more than one next step and still meant opening the full
+          Individual Task Board (→ BOARD above) for anything beyond it.
+          This is ProjectCard's own TASKS block (add/check/strike/
+          remove, no board needed) ported here verbatim — same shape,
+          same "+ STRIKE" cap, so a quick goal-level task moves exactly
+          as fast as a project-level one. */}
+      <div ref={tasksBlockRef} style={{ marginTop: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 4 }}>
+          <span style={{ color: 'var(--text-faint)', letterSpacing: 0.5 }}>TASKS</span>
+          <span style={{ flex: 1 }} />
+          <span style={{ color: 'var(--text-muted)' }}>
+            {tasksDone}/{tasks.length}
+          </span>
+          <button
+            onClick={() => setAddingTask((v) => !v)}
+            title="Add a task to this goal"
+            style={{ fontSize: 12, height: 24, padding: '0 8px' }}
+          >
+            + task
+          </button>
+        </div>
+
+        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 8px 0' }}>
+          {tasks.map((t) => {
+            const committed = focusTasks.find((ft) => ft.gsrc === t.pid);
+            const onToday = committed !== undefined && committed.strike && !committed.done;
+            const full = focusTasks.filter((ft) => ft.strike && !ft.done).length >= STRIKE_MAX;
+            return (
+              <li key={t.pid} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0' }}>
+                <span style={{ width: 3, alignSelf: 'stretch', minHeight: 16, background: t.done ? 'var(--border)' : accent }} />
+                <button
+                  onClick={() => goalTasksApi.toggle(t.pid).then(refreshTasks)}
+                  title="Toggle done"
+                  aria-label={t.done ? 'Mark not done' : 'Mark done'}
+                  style={{ width: 24, height: 24, padding: 0, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {t.done ? <Check size={15} /> : <Square size={15} />}
+                </button>
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    textDecoration: t.done ? 'line-through' : 'none',
+                  }}
+                  title={t.text}
+                >
+                  {t.text}
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  {dayNumber(t.added_date)}
+                </span>
+                {!t.done && (
+                  <button
+                    onClick={() => strikeTask(t.pid)}
+                    disabled={onToday || (full && !onToday)}
+                    title={onToday ? 'Already on today’s list' : 'Commit to today’s 3'}
+                    style={{
+                      fontSize: 12,
+                      height: 24,
+                      padding: '0 8px',
+                      flex: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      opacity: onToday ? 0.7 : 1,
+                      color: onToday ? accent : undefined,
+                    }}
+                  >
+                    {strikeFlash === t.pid ? 'DAY FULL' : onToday ? <><Check size={12} /> ON TODAY</> : '+ STRIKE'}
+                  </button>
+                )}
+                <button
+                  onClick={() => goalTasksApi.remove(t.pid).then(refreshTasks)}
+                  title="Delete"
+                  aria-label="Delete task"
+                  style={{ width: 28, height: 28, padding: 0, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <X size={15} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        {tasks.length > 0 && (
+          <div title={`${tasksDone}/${tasks.length} tasks done`} style={{ height: 4, background: 'var(--progress-track)', marginBottom: 8 }}>
+            <div style={{ height: '100%', width: `${(tasksDone / tasks.length) * 100}%`, background: accent }} />
+          </div>
+        )}
+        {addingTask && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            <input
+              ref={newTaskRef}
+              aria-label="New task for this goal"
+              value={newTaskText}
+              onChange={(e) => setNewTaskText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') addTask();
+                if (e.key === 'Escape') setAddingTask(false);
+              }}
+              placeholder="Add task…"
+              style={{ flex: 1, fontSize: 12, padding: 4 }}
+            />
+            <button onClick={addTask} title="Add task">+</button>
+          </div>
+        )}
       </div>
 
       {/* NOTES — "Very Low" in the same priority table, so it stays the
@@ -551,10 +685,11 @@ function GoalSection({
   onEditText,
   onEditNote,
   onEditStartDate,
-  onEditNextAction,
   onEditDeadline,
   onRenameTitle,
   onOpenBoard,
+  focusTasks,
+  onFocusListChanged,
 }: {
   horizon: GoalHorizon;
   label: string;
@@ -571,10 +706,11 @@ function GoalSection({
   onEditText: (id: number, text: string) => void;
   onEditNote: (id: number, note: string) => void;
   onEditStartDate: (id: number, date: string) => void;
-  onEditNextAction: (id: number, nextAction: string) => void;
   onEditDeadline: (id: number, deadline: string) => void;
   onRenameTitle: (title: string) => void;
   onOpenBoard: (goal: Goal) => void;
+  focusTasks: Task[];
+  onFocusListChanged: () => void;
 }) {
   const [title, setTitle] = useState(label);
   const [composing, setComposing] = useState(false);
@@ -747,9 +883,10 @@ function GoalSection({
             onEditText={(text) => onEditText(g.id, text)}
             onEditNote={(note) => onEditNote(g.id, note)}
             onEditStartDate={(date) => onEditStartDate(g.id, date)}
-            onEditNextAction={(nextAction) => onEditNextAction(g.id, nextAction)}
             onEditDeadline={(deadline) => onEditDeadline(g.id, deadline)}
             onOpenBoard={() => onOpenBoard(g)}
+            focusTasks={focusTasks}
+            onFocusListChanged={onFocusListChanged}
           />
         ))}
       </div>
@@ -760,6 +897,8 @@ function GoalSection({
 export default function GoalsPanel({
   projectKey,
   onOpenBoard,
+  focusVersion,
+  onFocusChanged,
 }: {
   // The reserved "life" key (App.tsx passes it whenever every real
   // project in panel 1 is collapsed) renders this exact same component —
@@ -772,10 +911,19 @@ export default function GoalsPanel({
   // goal — GoalsPanel itself no longer talks to boardApi at all (see
   // the superseded design note on GoalRow's button above).
   onOpenBoard: (goalId: number) => void;
+  // Bumped by panel 1 or panel 3 when either writes to the shared Focus
+  // list, so this panel's own "+ STRIKE" chips (GoalRow's TASKS block)
+  // re-fetch and stay in sync — same three-way counter contract as
+  // ProjectDashboard/Panel3, see App.tsx's panel2Wrote comment.
+  focusVersion: number;
+  // Called when THIS panel writes (a goal task struck), so the other
+  // two panels re-fetch.
+  onFocusChanged: () => void;
 }) {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
   const [panel, setPanel] = useState<GoalPanel | null>(null);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [focusTasks, setFocusTasks] = useState<Task[]>([]);
   // ONE open goal across the whole panel, not one per section. Two open
   // editors would be two places to look for the thing you are editing,
   // and the panel is 545px wide — there is room for exactly one.
@@ -788,11 +936,28 @@ export default function GoalsPanel({
 
   const refreshGoals = (key: GoalOwnerKey) => goalsApi.list(key).then(setGoals).catch(() => setLoadError(true));
   const refreshOrder = () => projectsApi.order().then(setOrder).catch(() => setLoadError(true));
+  const refreshFocusTasks = () => tasksApi.list('focus').then(setFocusTasks);
+  // Called after a goal task is struck (success or 409) — refreshes this
+  // panel's own copy AND tells the other two panels, same as
+  // ProjectCard's strikeSubtask calling onChanged either way.
+  const onFocusListChanged = () => {
+    refreshFocusTasks();
+    onFocusChanged();
+  };
 
   useEffect(() => {
     refreshOrder();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    refreshFocusTasks();
   }, []);
+
+  // Panel 1 or panel 3 struck, completed or deleted something; this
+  // panel's own "+ STRIKE" chips are computed from focusTasks, so they
+  // are now wrong until we re-read — mirrors ProjectDashboard's own
+  // focusVersion effect exactly.
+  useEffect(() => {
+    if (focusVersion === 0) return;
+    refreshFocusTasks();
+  }, [focusVersion]);
 
   // Re-runs whenever the shell points this panel at another project.
   // getPanel is still the source for the section titles, and it also
@@ -944,12 +1109,11 @@ export default function GoalsPanel({
             onEditStartDate={(id, start_date) =>
               goalsApi.edit(id, { start_date }).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))
             }
-            onEditNextAction={(id, next_action) =>
-              goalsApi.edit(id, { next_action }).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))
-            }
             onEditDeadline={(id, deadline) =>
               goalsApi.edit(id, { deadline }).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))
             }
+            focusTasks={focusTasks}
+            onFocusListChanged={onFocusListChanged}
             onRenameTitle={(title) => goalsApi.setSectionTitle(key, title).then(setPanel)}
             onOpenBoard={(goal) => onOpenBoard(goal.id)}
           />

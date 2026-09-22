@@ -2,7 +2,7 @@ import time
 from datetime import date
 
 from database.models import Task
-from database.repository import ProjectRepository, TaskRepository
+from database.repository import GoalRepository, ProjectRepository, TaskRepository
 from engine.tasks import StrikeLimitReached, STRIKE_MAX, reset_strike_if_new_day, struck_tasks_in_view, sync_project_row
 from engine.timer_reconciliation import start_project, stop_task_and_project
 
@@ -23,12 +23,14 @@ class NowEngine:
     everything else is derived live from Task/Project, same split
     legacy keeps between _now_id and _now_task()."""
 
-    def __init__(self, task_repo: TaskRepository, project_repo: ProjectRepository, hour_repo=None):
+    def __init__(self, task_repo: TaskRepository, project_repo: ProjectRepository, hour_repo=None, goal_repo: GoalRepository | None = None):
         self.tasks = task_repo
         self.projects = project_repo
         # Optional so every existing construction site keeps working;
         # only start_hour and the write-back in complete() need it.
         self.hours = hour_repo
+        # Optional for the same reason — only strike_goal_task needs it.
+        self.goals = goal_repo
 
     def get(self) -> Task | None:
         """An explicit pointer wins only while it still qualifies
@@ -235,5 +237,51 @@ class NowEngine:
             strike=True,
             project=subtask.project_key,
             psrc=pid,
+        )
+        return self.tasks.add(task)
+
+    def strike_goal_task(self, pid: str) -> Task:
+        """The goal-task twin of strike_project_task. `project` is only
+        set when the goal's owner is a REAL Project row — the reserved
+        "life" owner (and any future non-project owner) has none, so
+        Task.project's FK would reject it; see Goal.project_key's own
+        comment on why "life" is opaque to this engine."""
+        if self.goals is None:
+            raise ValueError("Goal tasks not available")
+        goal_task = self.goals.get_goal_task(pid)
+        if goal_task is None:
+            raise ValueError("Goal task not found")
+        goal = self.goals.get(goal_task.goal_id)
+        owner_project = self.projects.get(goal.project_key) if goal else None
+        project_key = owner_project.key if owner_project else None
+
+        cur = self.tasks.get_by_gsrc(pid)
+        if cur is not None and not cur.done:
+            if not cur.strike:
+                if len(struck_tasks_in_view(self.tasks)) >= STRIKE_MAX:
+                    raise StrikeLimitReached(STRIKE_MAX)
+                cur.strike = True
+            cur.day = _today()
+            cur.project = project_key
+            cur.text = goal_task.text
+            return self.tasks.save(cur)
+
+        if len(struck_tasks_in_view(self.tasks)) >= STRIKE_MAX:
+            raise StrikeLimitReached(STRIKE_MAX)
+        task = Task(
+            id=int(time.time() * 1000),
+            list_key="focus",
+            text=goal_task.text,
+            done=False,
+            secs=0.0,
+            sessions=[],
+            est=0,
+            mit=False,
+            day=_today(),
+            urgency="med",
+            strike=True,
+            project=project_key,
+            psrc=None,
+            gsrc=pid,
         )
         return self.tasks.add(task)

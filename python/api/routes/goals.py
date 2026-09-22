@@ -9,6 +9,8 @@ from api.schemas import (
     GoalOwnerKeyT,
     GoalPanelOut,
     GoalProjectSet,
+    GoalTaskCreate,
+    GoalTaskOut,
     SectionTitleSet,
 )
 from database.connection import get_db
@@ -94,6 +96,36 @@ def toggle_goal(goal_id: int, engine: GoalEngine = Depends(get_engine), db: Sess
 def delete_goal(goal_id: int, engine: GoalEngine = Depends(get_engine)):
     if not engine.delete_goal(goal_id):
         raise HTTPException(404, "Goal not found")
+    return {"ok": True}
+
+
+# ── Goal tasks (flat checklist, editable right from the Goals panel card
+# — no need to open the goal's board) ────────────────────────────────
+@router.get("/goals/{goal_id}/tasks", response_model=list[GoalTaskOut])
+def list_goal_tasks(goal_id: int, engine: GoalEngine = Depends(get_engine)):
+    return engine.list_goal_tasks(goal_id)
+
+
+@router.post("/goals/{goal_id}/tasks", response_model=GoalTaskOut)
+def add_goal_task(goal_id: int, payload: GoalTaskCreate, engine: GoalEngine = Depends(get_engine)):
+    try:
+        return engine.add_goal_task(goal_id, payload.text)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/goals/tasks/{pid}/toggle", response_model=GoalTaskOut)
+def toggle_goal_task(pid: str, engine: GoalEngine = Depends(get_engine)):
+    task = engine.toggle_goal_task(pid)
+    if task is None:
+        raise HTTPException(404, "Goal task not found")
+    return task
+
+
+@router.delete("/goals/tasks/{pid}")
+def delete_goal_task(pid: str, engine: GoalEngine = Depends(get_engine)):
+    if not engine.delete_goal_task(pid):
+        raise HTTPException(404, "Goal task not found")
     return {"ok": True}
 
 

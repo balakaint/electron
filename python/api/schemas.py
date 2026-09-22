@@ -521,6 +521,22 @@ class SectionTitleSet(BaseModel):
     title: str  # blank resets to the default label, client-side
 
 
+# A goal's own flat checklist — mirrors SubtaskCreate/SubtaskOut above,
+# scoped to goal_id instead of project_key. See GoalTask's own docstring.
+class GoalTaskCreate(BaseModel):
+    text: str
+
+
+class GoalTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pid: str
+    goal_id: int
+    text: str
+    done: bool
+    added_date: str
+
+
 # ── Individual Task Board (Goal -> Task -> that Task's own kanban) ───
 # Superseded design note: this used to be a flat per-project board with
 # an optional goal_id backlink on each card (see the dropped

@@ -26,6 +26,9 @@ export interface Task {
   strike: boolean;
   project: string | null;
   psrc: string | null;
+  // The goal-task twin of psrc — set when "+ STRIKE" promoted this task
+  // from a Goal's own checklist (GoalsPanel) instead of a project's.
+  gsrc: string | null;
   // Set when this task was started from an hour you planned, so
   // finishing it can tick that hour back.
   hour_slot_id: number | null;
@@ -448,6 +451,27 @@ export const goalsApi = {
     req('POST', '/api/goals/panel/project', { project_key: key }) as Promise<GoalPanel>,
   setSectionTitle: (horizon: GoalHorizon, title: string) =>
     req('POST', '/api/goals/panel/section-title', { horizon, title }) as Promise<GoalPanel>,
+};
+
+// A goal's own flat task checklist — mirrors Subtask/projectsApi's
+// subtask methods above, scoped to goal_id instead of project_key. Lets
+// GoalsPanel add/check/remove tasks straight from the card, with no need
+// to open the goal's Individual Task Board.
+export interface GoalTask {
+  pid: string;
+  goal_id: number;
+  text: string;
+  done: boolean;
+  added_date: string;
+}
+
+export const goalTasksApi = {
+  list: (goalId: number) => req('GET', `/api/projects/goals/${goalId}/tasks`) as Promise<GoalTask[]>,
+  add: (goalId: number, text: string) =>
+    req('POST', `/api/projects/goals/${goalId}/tasks`, { text }) as Promise<GoalTask>,
+  toggle: (pid: string) => req('POST', `/api/projects/goals/tasks/${pid}/toggle`) as Promise<GoalTask>,
+  remove: (pid: string) => req('DELETE', `/api/projects/goals/tasks/${pid}`) as Promise<{ ok: true }>,
+  strike: (pid: string) => req('POST', `/api/projects/goals/tasks/${pid}/strike`) as Promise<Task>,
 };
 
 // ── Individual Task Board (Goal -> Task -> that Task's own kanban) ───
