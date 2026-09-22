@@ -116,6 +116,12 @@ function AppShell() {
   // actually shows on every launch — the only thing on the critical path
   // to a usable window."
   const [layout, setLayoutState] = useState<PanelLayout | null>(null);
+  // A calendar day clicked in Panel 3's WEEKLY/MONTHLY (GoalHorizonSection)
+  // asks Panel 2 to open that same goal. `token` (not just the id) forces
+  // GoalsPanel's effect to re-fire even when the SAME goal is clicked
+  // twice in a row — an id alone wouldn't change and the effect wouldn't
+  // re-run the second time.
+  const [jumpToGoal, setJumpToGoal] = useState<{ id: number; token: number } | null>(null);
   const [onboarded, setOnboarded] = useState<boolean | null>(null); // null = not loaded yet
   // The overlay dialog and OnboardingModal are fixed-position covers, not
   // route changes — <main> stays mounted (and, without this, reachable by
@@ -502,6 +508,7 @@ function AppShell() {
                       onOpenBoard={(goalId) =>
                         goalsPanelKey && setOverlay({ kind: 'goalBoard', project: goalsPanelKey, goalId })
                       }
+                      jumpToGoal={jumpToGoal}
                     />
                   );
                 })()}
@@ -554,6 +561,15 @@ function AppShell() {
           <Panel3
             focusVersion={panel1Wrote + panel2Wrote}
             onFocusChanged={() => setPanel3Wrote((v) => v + 1)}
+            // A WEEKLY/MONTHLY calendar day click asks Panel 2 to open
+            // that goal — ensure it's actually visible first (same
+            // force-to-'partial' precedent as onOpenMorningRitual/
+            // onOpenNightClosure below: 'compact' hides Panel 2 entirely,
+            // so opening a goal nobody can see would silently do nothing).
+            onOpenGoalInPanel2={(goalId) => {
+              if (layout !== 'partial' && layout !== 'full') setLayout('partial');
+              setJumpToGoal({ id: goalId, token: Date.now() });
+            }}
             // Panel 2 already follows whichever project Panel 1 has open
             // (same fallback: all collapsed reads as none open, not
             // stuck on the last one). DEEP WORK's own selection now

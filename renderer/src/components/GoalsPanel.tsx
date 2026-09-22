@@ -320,6 +320,7 @@ function GoalRow({
   if (!open) {
     return (
       <div
+        id={`goal-${goal.id}`}
         className="goal-row"
         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 4px', borderRadius: RADIUS.control }}
       >
@@ -384,6 +385,7 @@ function GoalRow({
     // does nothing.
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
+      id={`goal-${goal.id}`}
       className="goal-row goal-row-open card-elevated"
       style={{
         background: 'var(--surface)',
@@ -899,6 +901,7 @@ export default function GoalsPanel({
   onOpenBoard,
   focusVersion,
   onFocusChanged,
+  jumpToGoal,
 }: {
   // The reserved "life" key (App.tsx passes it whenever every real
   // project in panel 1 is collapsed) renders this exact same component —
@@ -919,6 +922,11 @@ export default function GoalsPanel({
   // Called when THIS panel writes (a goal task struck), so the other
   // two panels re-fetch.
   onFocusChanged: () => void;
+  // A calendar day clicked in Panel 3's WEEKLY/MONTHLY asks this goal to
+  // open here — `token` changes on every click (even re-clicking the
+  // same goal), since the id alone wouldn't change and the effect below
+  // wouldn't re-fire a second time.
+  jumpToGoal: { id: number; token: number } | null;
 }) {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
   const [panel, setPanel] = useState<GoalPanel | null>(null);
@@ -933,6 +941,19 @@ export default function GoalsPanel({
   // rendered with no visible signal anything had gone wrong (ui-ux-audit
   // verify pass, 2026-09-22).
   const [loadError, setLoadError] = useState(false);
+
+  // Opens the goal and scrolls it into view within its own section — the
+  // section itself may be scrolled past it even though the goal is
+  // technically "in" the panel. `id="goal-<id>"` on GoalRow's own root
+  // (both collapsed/expanded) is what this targets.
+  useEffect(() => {
+    if (!jumpToGoal) return;
+    setOpenGoalId(jumpToGoal.id);
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(`goal-${jumpToGoal.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [jumpToGoal]);
 
   const refreshGoals = (key: GoalOwnerKey) => goalsApi.list(key).then(setGoals).catch(() => setLoadError(true));
   const refreshOrder = () => projectsApi.order().then(setOrder).catch(() => setLoadError(true));

@@ -227,6 +227,7 @@ export default function GoalHorizonSection({
   periodKind,
   expanded,
   onToggle,
+  onOpenGoal,
 }: {
   horizon: GoalHorizon;
   ownerKey: GoalOwnerKey;
@@ -239,6 +240,10 @@ export default function GoalHorizonSection({
   periodKind: 'week' | 'month' | 'year';
   expanded: boolean;
   onToggle: () => void;
+  // Fired (alongside the local flash) when a calendar day with a
+  // deadline dot is clicked — Panel3 wires this to actually open that
+  // goal in Panel 2, not just highlight it in this already-visible list.
+  onOpenGoal: (goalId: number) => void;
 }) {
   const [goals, setGoals] = useState<Goal[]>([]);
   // Distinct from "genuinely zero goals" — without this, a slow or
@@ -284,6 +289,11 @@ export default function GoalHorizonSection({
   const selectDeadline = (iso: string) => {
     setFlashDeadline(iso);
     setTimeout(() => setFlashDeadline((cur) => (cur === iso ? null : cur)), 1500);
+    // Same-deadline collisions resolve to the first match, same
+    // limitation the flash itself already has — good enough for "which
+    // goal is that", not a guarantee of uniqueness.
+    const match = goals.find((g) => g.deadline === iso);
+    if (match) onOpenGoal(match.id);
   };
 
   return (

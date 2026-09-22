@@ -134,10 +134,12 @@ function HoursAccordion({
   ownerKey,
   refreshSignal,
   onChanged,
+  onOpenGoal,
 }: {
   ownerKey: GoalOwnerKey;
   refreshSignal: number;
   onChanged: () => void;
+  onOpenGoal: (goalId: number) => void;
 }) {
   const L = useL();
   const [level, setLevel] = useState<HoursLevel>('daily');
@@ -232,6 +234,7 @@ function HoursAccordion({
           periodKind="week"
           expanded={level === 'weekly'}
           onToggle={() => setLevel('weekly')}
+          onOpenGoal={onOpenGoal}
         />
         <GoalHorizonSection
           horizon="monthly"
@@ -243,6 +246,7 @@ function HoursAccordion({
           periodKind="month"
           expanded={level === 'monthly'}
           onToggle={() => setLevel('monthly')}
+          onOpenGoal={onOpenGoal}
         />
         <GoalHorizonSection
           horizon="weekly"
@@ -254,6 +258,7 @@ function HoursAccordion({
           periodKind="year"
           expanded={level === 'yearly'}
           onToggle={() => setLevel('yearly')}
+          onOpenGoal={onOpenGoal}
         />
       </div>
     </div>
@@ -273,6 +278,7 @@ export default function Panel3({
   onOpenNightClosure,
   activeProjectKey,
   goalsOwnerKey,
+  onOpenGoalInPanel2,
 }: {
   focusVersion: number;
   onFocusChanged: () => void;
@@ -289,6 +295,9 @@ export default function Panel3({
   // included — feeds the HOURS tab's nested WEEKLY/MONTHLY/YEARLY so the
   // two panels never disagree about whose goals they're both looking at.
   goalsOwnerKey: GoalOwnerKey | null;
+  // A WEEKLY/MONTHLY calendar day click asks Panel 2 to open that goal
+  // — App.tsx owns making Panel 2 actually visible first.
+  onOpenGoalInPanel2: (goalId: number) => void;
 }) {
   const L = useL();
   // Null until settings answer, so the strip does not paint HOURS and
@@ -462,6 +471,7 @@ export default function Panel3({
                 ownerKey={ownerKey}
                 refreshSignal={nowBump}
                 onChanged={() => setNowBump((b) => b + 1)}
+                onOpenGoal={onOpenGoalInPanel2}
               />
             </div>
             {tab === 'mit' && (
