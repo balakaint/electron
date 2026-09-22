@@ -1,5 +1,17 @@
 # EXECUTE Panel Redesign — Phase 1: Daily/Weekly/Monthly/Yearly Accordion
 
+> **Simplified after this spec shipped (2026-09-22, same day):** the user
+> asked to keep HOURS/MIT/LIST exactly as they were and nest the DAILY/
+> WEEKLY/MONTHLY/YEARLY accordion *inside* the HOURS tab instead of
+> replacing the tab strip with it. MIT and LIST are no longer folded into
+> NOW or a popover — that whole section below is superseded. The nested
+> accordion's expanded level is in-memory only (not persisted), matching
+> `HourPlanTab`'s own existing convention for its phase-block open state.
+> Left the rest of this doc as the historical record of what was designed
+> and why (the horizon-crossing table, the Goal-data-reuse decision, and
+> the Phase 2 scope boundary all still apply unchanged) — see
+> `HoursAccordion` in `Panel3.tsx` for what actually shipped.
+
 ## Summary
 
 Panel 3's EXECUTE mode currently shows three tabs — HOURS, MIT, LIST — switched

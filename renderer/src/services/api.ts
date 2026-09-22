@@ -1,9 +1,15 @@
 import type { Theme } from '../themes';
 
 export type ListKey = 'classic' | 'focus';
-// EXECUTE's four planning zoom levels (which one is expanded). Stored
-// keys, so they must match FOCUS_TABS in python/engine/settings.py.
-export type FocusTab = 'daily' | 'weekly' | 'monthly' | 'yearly';
+// EXECUTE's three tabs. Stored keys, so they must match FOCUS_TABS in
+// python/engine/settings.py. The HOURS tab's own body nests a further
+// DAILY/WEEKLY/MONTHLY/YEARLY accordion (see Panel3.tsx / HoursLevel)
+// — that nested level is intentionally not part of this persisted type.
+export type FocusTab = 'hours' | 'mit' | 'list';
+
+// The HOURS tab's own nested accordion levels — in-memory only (see
+// Panel3.tsx), not persisted like FocusTab above.
+export type HoursLevel = 'daily' | 'weekly' | 'monthly' | 'yearly';
 export type Urgency = 'low' | 'med' | 'high';
 export type DayView = 'today' | 'tomorrow';
 
