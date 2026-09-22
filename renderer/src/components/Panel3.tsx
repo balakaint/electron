@@ -9,6 +9,7 @@ import PlanReview from './PlanReview';
 import TaskList from './TaskList';
 import AccordionSection from './AccordionSection';
 import GoalHorizonSection from './GoalHorizonSection';
+import NotesTab from './NotesTab';
 import { RADIUS, SPACE } from '../spacing';
 import { useL } from '../i18n';
 
@@ -46,6 +47,7 @@ const FOCUS_TABS: [FocusTab, string, string][] = [
   ['hours', 'HOURS', 'ঘণ্টা'],
   ['mit', 'MIT', 'MIT'],
   ['list', 'TASK LIST', 'টাস্ক লিস্ট'],
+  ['notes', 'NOTES', 'নোট'],
 ];
 
 function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) => void }) {
@@ -490,6 +492,7 @@ export default function Panel3({
                 }}
               />
             )}
+            {tab === 'notes' && <NotesTab />}
           </>
         )}
       </div>

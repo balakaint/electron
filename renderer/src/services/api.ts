@@ -1,11 +1,11 @@
 import type { Theme } from '../themes';
 
 export type ListKey = 'classic' | 'focus';
-// EXECUTE's three tabs. Stored keys, so they must match FOCUS_TABS in
+// EXECUTE's four tabs. Stored keys, so they must match FOCUS_TABS in
 // python/engine/settings.py. The HOURS tab's own body nests a further
 // DAILY/WEEKLY/MONTHLY/YEARLY accordion (see Panel3.tsx / HoursLevel)
 // — that nested level is intentionally not part of this persisted type.
-export type FocusTab = 'hours' | 'mit' | 'list';
+export type FocusTab = 'hours' | 'mit' | 'list' | 'notes';
 
 // The HOURS tab's own nested accordion levels — in-memory only (see
 // Panel3.tsx), not persisted like FocusTab above.
@@ -1044,4 +1044,25 @@ export const nightClosureApi = {
   setNote: (text: string) => req('POST', '/api/night-closure/note', { text }) as Promise<NightClosure>,
   setCloseTime: (value: string) => req('POST', '/api/night-closure/close-time', { value }) as Promise<NightClosure>,
   closeDay: () => req('POST', '/api/night-closure/close') as Promise<NightClosure>,
+};
+
+// Global quick-capture notes — EXECUTE's own NOTES tab. `title` is
+// derived server-side from the body's own first line, not a separate
+// field to keep in sync (see the backend Note model's own docstring).
+export interface Note {
+  id: number;
+  title: string;
+  body: string;
+  pinned: boolean;
+  created_at: number;
+  updated_at: number;
+}
+
+export const notesApi = {
+  list: () => req('GET', '/api/notes') as Promise<Note[]>,
+  create: (body = '') => req('POST', '/api/notes', { body }) as Promise<Note>,
+  edit: (id: number, patch: Partial<Pick<Note, 'body' | 'pinned'>>) =>
+    req('PUT', `/api/notes/${id}`, patch) as Promise<Note>,
+  remove: (id: number) => req('DELETE', `/api/notes/${id}`) as Promise<{ ok: true }>,
+  restore: (id: number) => req('POST', `/api/notes/${id}/restore`) as Promise<Note>,
 };

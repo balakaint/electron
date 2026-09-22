@@ -24,6 +24,7 @@ from database.models import (
     LegacyAnalysisBox,
     MorningRitual,
     NightClosure,
+    Note,
     Project,
     ProjectActivity,
     ProjectJourney,
@@ -943,3 +944,32 @@ class NightClosureRepository:
             return {}
         rows = self.db.query(NightClosure).filter(NightClosure.day.in_(days)).all()
         return {r.day: r for r in rows}
+
+
+class NoteRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def list(self) -> list[Note]:
+        # Pinned first, then most-recently-updated — matches
+        # BoardCardRepository's own pinned-then-id ordering convention.
+        stmt = (
+            select(Note)
+            .where(Note.deleted_at.is_(None))
+            .order_by(Note.pinned.desc(), Note.updated_at.desc())
+        )
+        return list(self.db.scalars(stmt))
+
+    def get(self, note_id: int) -> Note | None:
+        return self.db.get(Note, note_id)
+
+    def add(self, note: Note) -> Note:
+        self.db.add(note)
+        self.db.commit()
+        self.db.refresh(note)
+        return note
+
+    def save(self, note: Note) -> Note:
+        self.db.commit()
+        self.db.refresh(note)
+        return note

@@ -603,7 +603,7 @@ class BoardCardOut(BaseModel):
 ThemeT = Literal["focus", "warroom", "energy", "corporate", "journey", "rize"]
 LangT = Literal["en", "bn"]
 PanelLayoutT = Literal["full", "partial", "compact"]
-FocusTabT = Literal["hours", "mit", "list"]
+FocusTabT = Literal["hours", "mit", "list", "notes"]
 
 
 class SettingsOut(BaseModel):
@@ -1089,3 +1089,24 @@ class HabitCheckin(BaseModel):
 
 class HabitReorder(BaseModel):
     ids: list[int]
+
+
+# Global quick-capture notes (EXECUTE's NOTES tab) — see Note's own
+# docstring in database/models.py for why there's no title field here
+# either; NoteOut's `title` is derived server-side, not stored.
+class NoteCreate(BaseModel):
+    body: str = ""
+
+
+class NoteEdit(BaseModel):
+    body: str | None = None
+    pinned: bool | None = None
+
+
+class NoteOut(BaseModel):
+    id: int
+    title: str
+    body: str
+    pinned: bool
+    created_at: float
+    updated_at: float

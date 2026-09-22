@@ -1130,3 +1130,37 @@ class HabitItem(Base):
     tracking_basis: Mapped[str] = mapped_column(String, default="")
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     history: Mapped[list] = mapped_column(JSON, default=list)
+
+
+class Note(Base):
+    """A quick-capture note, shown in EXECUTE's own NOTES tab — global,
+    not scoped to any project (Zahid's own choice: "one global list"),
+    unlike Goal/GoalTask which are per-project. Deliberately plain text,
+    not markdown: no markdown renderer exists anywhere else in this app,
+    and speed of capture (the whole point of this feature) favors a
+    plain autosizing textarea over a new rendering pipeline.
+
+    `title` is NOT a column — it's derived from the body's own first
+    line at read time (engine.notes._title_from_body), the same "don't
+    store what you can derive live" choice this app already makes for
+    e.g. Goal's day-count progress bar. A single quick-capture box can
+    double as both title and body this way, with nothing to keep in
+    sync.
+
+    Soft-delete only (`deleted_at`), same convention as every other
+    "user asked for this gone but nothing forces immediate destruction"
+    choice in this app — here it's also what makes the Ctrl+Z undo
+    toast (this app's existing global undo stack, see renderer's
+    `undo.tsx`) able to bring a deleted note back with one call rather
+    than needing to reconstruct it from scratch.
+    """
+
+    __tablename__ = "notes"
+
+    # ms-timestamp id, matching Task/Goal/CirclePerson's convention.
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    body: Mapped[str] = mapped_column(String, default="")
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[float] = mapped_column(Float)
+    updated_at: Mapped[float] = mapped_column(Float)
+    deleted_at: Mapped[float | None] = mapped_column(Float, nullable=True)

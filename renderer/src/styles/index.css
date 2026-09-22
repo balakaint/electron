@@ -370,3 +370,15 @@ input[type='date'] {
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
+
+/* NOTES tab card actions (Pin/Delete) — same hover/focus-within reveal
+   as .goal-x above, for the same reason: findable by keyboard and
+   touch (:focus-within), not just mouse hover. */
+.note-actions {
+  opacity: 0;
+  transition: opacity 0.12s ease-out;
+}
+.note-card:hover .note-actions,
+.note-card:focus-within .note-actions {
+  opacity: 1;
+}
