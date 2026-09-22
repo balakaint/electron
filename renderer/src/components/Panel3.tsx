@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Calendar, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Target } from 'lucide-react';
 import { FocusTab, GoalOwnerKey, HoursLevel, ProjectKey, settingsApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
@@ -9,7 +9,7 @@ import PlanReview from './PlanReview';
 import TaskList from './TaskList';
 import AccordionSection from './AccordionSection';
 import GoalHorizonSection from './GoalHorizonSection';
-import { SPACE } from '../spacing';
+import { RADIUS, SPACE } from '../spacing';
 import { useL } from '../i18n';
 
 // Panel 3 — legacy's `_build_left` (the naming is legacy's own; it is the
@@ -50,16 +50,44 @@ const FOCUS_TABS: [FocusTab, string, string][] = [
 
 function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) => void }) {
   const L = useL();
+  const refs = useRef<Partial<Record<FocusTab, HTMLButtonElement | null>>>({});
+
+  // The ARIA tabs pattern promises arrow-key movement between tabs once
+  // focus is inside the tablist — role="tab"/aria-selected alone (the
+  // previous implementation) announces that promise to screen readers
+  // without keeping it. Roving tabIndex: only the active tab is in the
+  // normal Tab order; arrows move both focus and selection (ui-ux-audit,
+  // 2026-09-22).
+  const move = (dir: 1 | -1) => {
+    const idx = FOCUS_TABS.findIndex(([k]) => k === tab);
+    const next = FOCUS_TABS[(idx + dir + FOCUS_TABS.length) % FOCUS_TABS.length][0];
+    onSelect(next);
+    refs.current[next]?.focus();
+  };
+
   return (
-    <div role="tablist" style={{ display: 'flex', marginBottom: 12 }}>
+    <div role="tablist" aria-label="EXECUTE view" style={{ display: 'flex', marginBottom: 12 }}>
       {FOCUS_TABS.map(([key, en, bn]) => {
         const on = tab === key;
         return (
           <button
             key={key}
+            ref={(el) => {
+              refs.current[key] = el;
+            }}
             role="tab"
             aria-selected={on}
+            tabIndex={on ? 0 : -1}
             onClick={() => onSelect(key)}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                move(1);
+              } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                move(-1);
+              }
+            }}
             style={{
               flex: 1,
               padding: '8px 0 4px',
@@ -89,11 +117,15 @@ function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) =
 // Simplified down from an earlier version of this redesign that
 // replaced the whole HOURS/MIT/LIST tab strip; the user asked to keep
 // MIT/LIST exactly as they were and nest this here instead.
-const HOURS_LEVELS: [HoursLevel, string, string][] = [
-  ['daily', 'DAILY', 'দৈনিক'],
-  ['weekly', 'WEEKLY', 'সাপ্তাহিক'],
-  ['monthly', 'MONTHLY', 'মাসিক'],
-  ['yearly', 'YEARLY', 'বার্ষিক'],
+// Icons instead of the old Unicode dingbats (◷◈❖◆) — those mixed a
+// separate "font glyph" icon system into a component that already
+// imports lucide-react for its chevron, which read as two different UI
+// kits assembled together (ui-ux-audit, 2026-09-22).
+const HOURS_LEVELS: [HoursLevel, string, string, JSX.Element][] = [
+  ['daily', 'DAILY', 'দৈনিক', <Calendar size={14} />],
+  ['weekly', 'WEEKLY', 'সাপ্তাহিক', <CalendarDays size={14} />],
+  ['monthly', 'MONTHLY', 'মাসিক', <CalendarRange size={14} />],
+  ['yearly', 'YEARLY', 'বার্ষিক', <Target size={14} />],
 ];
 
 function HoursAccordion({
@@ -107,8 +139,10 @@ function HoursAccordion({
 }) {
   const L = useL();
   const [level, setLevel] = useState<HoursLevel>('daily');
-  const [dailyDone, setDailyDone] = useState(0);
-  const [dailyTotal, setDailyTotal] = useState(0);
+  // null = not loaded yet, so the DAILY row shows "…" rather than a
+  // flash of "0/0" before the hour plan's first fetch resolves.
+  const [dailyDone, setDailyDone] = useState<number | null>(null);
+  const [dailyTotal, setDailyTotal] = useState<number | null>(null);
 
   const dateStr = (() => {
     const d = new Date();
@@ -119,28 +153,38 @@ function HoursAccordion({
 
   return (
     <div>
-      <div role="tablist" style={{ display: 'flex', marginBottom: SPACE.md }}>
-        {HOURS_LEVELS.map(([key, en, bn]) => {
+      {/* A compact left-aligned pill control, not a full-width underlined
+          tab strip — deliberately different in shape, fill, and
+          alignment from FocusTabs above it, so this reads as a view
+          switch NESTED inside HOURS rather than a sibling of HOURS/MIT/
+          TASK LIST at the same level (ui-ux-audit, 2026-09-22: the two
+          previously shared byte-identical styling). Plain buttons with
+          aria-pressed, not role="tab" — this control has no arrow-key
+          navigation, so it doesn't announce the ARIA tabs pattern it
+          wouldn't deliver. */}
+      <div style={{ display: 'flex', gap: SPACE.xs, marginBottom: SPACE.md, flexWrap: 'wrap' }}>
+        {HOURS_LEVELS.map(([key, en, bn, icon]) => {
           const on = level === key;
           return (
             <button
               key={key}
-              role="tab"
-              aria-selected={on}
+              aria-pressed={on}
               onClick={() => setLevel(key)}
               style={{
-                flex: 1,
-                padding: '8px 0 4px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: SPACE.xs,
+                padding: '4px 12px',
                 fontSize: 12,
-                letterSpacing: 0.5,
                 fontWeight: on ? 700 : 400,
-                color: on ? 'var(--accent)' : 'var(--text-muted)',
-                background: 'transparent',
-                border: 'none',
-                borderBottom: `2px solid ${on ? 'var(--accent)' : 'transparent'}`,
+                borderRadius: RADIUS.pill,
+                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                background: on ? 'var(--accent)' : 'transparent',
+                color: on ? 'var(--on-accent)' : 'var(--text-muted)',
                 cursor: 'pointer',
               }}
             >
+              {icon}
               {L(en, bn)}
             </button>
           );
@@ -149,10 +193,10 @@ function HoursAccordion({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
         <AccordionSection
-          glyph="◷"
+          glyph={<Calendar size={16} />}
           label={L('DAILY', 'দৈনিক')}
           period={dateStr}
-          done={dailyDone}
+          done={dailyDone ?? 0}
           total={dailyTotal}
           accent="var(--accent)"
           expanded={level === 'daily'}
@@ -180,7 +224,7 @@ function HoursAccordion({
           horizon="yearly"
           ownerKey={ownerKey}
           accent="var(--goal-yearly)"
-          glyph="◈"
+          glyph={<CalendarDays size={16} />}
           label={L('WEEKLY', 'সাপ্তাহিক')}
           noun="priority"
           periodKind="week"
@@ -191,7 +235,7 @@ function HoursAccordion({
           horizon="monthly"
           ownerKey={ownerKey}
           accent="var(--goal-monthly)"
-          glyph="❖"
+          glyph={<CalendarRange size={16} />}
           label={L('MONTHLY', 'মাসিক')}
           noun="goal"
           periodKind="month"
@@ -202,7 +246,7 @@ function HoursAccordion({
           horizon="weekly"
           ownerKey={ownerKey}
           accent="var(--goal-weekly)"
-          glyph="◆"
+          glyph={<Target size={16} />}
           label={L('YEARLY', 'বার্ষিক')}
           noun="milestone"
           periodKind="year"
@@ -404,13 +448,20 @@ export default function Panel3({
               <FocusTabs tab={tab} onSelect={selectTab} />
             )}
 
-            {tab === 'hours' && (
+            {/* Always mounted, hidden via CSS rather than conditionally
+                rendered — HoursAccordion's own `level` pointer and its
+                DAILY done-count previously reset every time the user
+                switched to MIT or TASK LIST and back, since the whole
+                subtree unmounted (ui-ux-audit, 2026-09-22). Switching
+                among these three tabs is this screen's core loop, so
+                that reset fired constantly. */}
+            <div style={{ display: tab === 'hours' ? undefined : 'none' }}>
               <HoursAccordion
                 ownerKey={ownerKey}
                 refreshSignal={nowBump}
                 onChanged={() => setNowBump((b) => b + 1)}
               />
-            )}
+            </div>
             {tab === 'mit' && (
               <TaskList
                 listKey="focus"

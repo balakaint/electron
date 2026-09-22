@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Check, Circle } from 'lucide-react';
 import { Goal, GoalHorizon, GoalOwnerKey, goalsApi } from '../services/api';
 import AccordionSection from './AccordionSection';
@@ -55,7 +55,7 @@ export default function GoalHorizonSection({
   horizon: GoalHorizon;
   ownerKey: GoalOwnerKey;
   accent: string;
-  glyph: string;
+  glyph: ReactNode;
   label: string;
   // "priorities" / "goals" / "milestones" — only used in the empty-state
   // copy, so each level still reads as its own thing at a glance.
@@ -65,9 +65,33 @@ export default function GoalHorizonSection({
   onToggle: () => void;
 }) {
   const [goals, setGoals] = useState<Goal[]>([]);
+  // Distinct from "genuinely zero goals" — without this, a slow or
+  // failed fetch rendered identically to a confirmed-empty horizon,
+  // telling the user "you have nothing here" when the truth was "still
+  // loading" or "couldn't reach the app" (ui-ux-audit, 2026-09-22; same
+  // class of bug GoalsPanel.tsx's own loadError already fixed for this
+  // exact Goal data — this component just hadn't inherited it).
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+
+  const refresh = () => {
+    setLoadError(false);
+    goalsApi
+      .list(ownerKey, horizon)
+      .then((gs) => {
+        setGoals(gs);
+        setLoaded(true);
+      })
+      .catch(() => {
+        setLoadError(true);
+        setLoaded(true);
+      });
+  };
 
   useEffect(() => {
-    goalsApi.list(ownerKey, horizon).then(setGoals);
+    setLoaded(false);
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ownerKey, horizon]);
 
   const done = goals.filter((g) => g.done).length;
@@ -82,12 +106,31 @@ export default function GoalHorizonSection({
       label={label}
       period={period}
       done={done}
-      total={goals.length}
+      total={loaded ? goals.length : null}
       accent={accent}
       expanded={expanded}
       onToggle={onToggle}
     >
-      {goals.length === 0 ? (
+      {!loaded ? (
+        <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>Loading…</div>
+      ) : loadError ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: SPACE.sm,
+            fontSize: 12,
+            color: 'var(--danger)',
+            padding: `${SPACE.sm}px 0`,
+          }}
+        >
+          <span>Couldn't load — check the app is connected.</span>
+          <button className="btn-ghost" style={{ fontSize: 12, flex: 'none' }} onClick={refresh}>
+            Retry
+          </button>
+        </div>
+      ) : goals.length === 0 ? (
         <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
           Nothing here yet — add a {noun} in the Goals panel.
         </div>

@@ -269,9 +269,16 @@ export default function HourPlanTab({
   // toggle is "let me look at that now", not a preference.
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [nowHour, setNowHour] = useState(new Date().getHours());
+  // Distinct from "still loading" — without this a failed fetch left
+  // `plan` null forever, rendering nothing at all with no error, no
+  // retry (ui-ux-audit, 2026-09-22).
+  const [loadError, setLoadError] = useState(false);
   const day = todayIso();
 
-  const refresh = () => hoursApi.get(day).then(setPlan);
+  const refresh = () => {
+    setLoadError(false);
+    hoursApi.get(day).then(setPlan).catch(() => setLoadError(true));
+  };
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -305,7 +312,27 @@ export default function HourPlanTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan]);
 
-  if (!plan) return null;
+  if (loadError) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+          fontSize: 12,
+          color: 'var(--danger)',
+          padding: '8px 0',
+        }}
+      >
+        <span>Couldn't load — check the app is connected.</span>
+        <button className="btn-ghost" style={{ fontSize: 12, flex: 'none' }} onClick={refresh}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+  if (!plan) return <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Loading…</div>;
 
   // Every write tells the card above too. Without this, writing an
   // entry into the hour you are standing in leaves NOW still offering
