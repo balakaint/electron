@@ -19,6 +19,7 @@ from api.routes.morning_ritual import router as morning_ritual_router
 from api.routes.night_closure import router as night_closure_router
 from api.routes.notes import router as notes_router
 from api.routes.now import router as now_router, strike_router as now_strike_router
+from api.routes.planning import router as planning_router
 from api.routes.projects import circle_router, router as projects_router
 from api.routes.quarterly import router as quarterly_router
 from api.routes.hour_plan import router as hour_plan_router
@@ -90,6 +91,7 @@ app.include_router(settings_router)
 app.include_router(bdp_router)
 app.include_router(bdp_actions_router)
 app.include_router(quarterly_router)
+app.include_router(planning_router)
 app.include_router(hour_plan_router)
 app.include_router(morning_ritual_router)
 app.include_router(night_closure_router)
