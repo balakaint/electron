@@ -45,7 +45,7 @@ def create_outcome(owner_key: GoalOwnerKeyT, payload: OutcomeCreate, engine: Pla
         raise HTTPException(400, str(e))
 
 
-@router.patch("/outcomes/{outcome_id}", response_model=OutcomeOut)
+@router.put("/outcomes/{outcome_id}", response_model=OutcomeOut)
 def edit_outcome(outcome_id: int, payload: OutcomeEdit, engine: PlanningEngine = Depends(get_engine)):
     outcome = engine.edit_outcome(outcome_id, payload.title, payload.status)
     if outcome is None:
@@ -77,7 +77,7 @@ def create_milestone(payload: MilestoneCreate, engine: PlanningEngine = Depends(
         raise HTTPException(400, str(e))
 
 
-@router.patch("/milestones/{milestone_id}", response_model=MilestoneOut)
+@router.put("/milestones/{milestone_id}", response_model=MilestoneOut)
 def edit_milestone(milestone_id: int, payload: MilestoneEdit, engine: PlanningEngine = Depends(get_engine)):
     milestone = engine.edit_milestone(milestone_id, payload.title, payload.status, payload.outcome_id)
     if milestone is None:
@@ -109,7 +109,7 @@ def create_win(payload: WinCreate, engine: PlanningEngine = Depends(get_engine))
         raise HTTPException(400, str(e))
 
 
-@router.patch("/wins/{win_id}", response_model=WinOut)
+@router.put("/wins/{win_id}", response_model=WinOut)
 def edit_win(win_id: int, payload: WinEdit, engine: PlanningEngine = Depends(get_engine)):
     win = engine.edit_win(win_id, payload.title, payload.criteria, payload.status, payload.milestone_id)
     if win is None:
@@ -146,7 +146,7 @@ def create_plan_task(owner_key: GoalOwnerKeyT, payload: PlanTaskCreate, engine: 
         raise HTTPException(400, str(e))
 
 
-@router.patch("/tasks/{task_id}", response_model=PlanTaskOut)
+@router.put("/tasks/{task_id}", response_model=PlanTaskOut)
 def edit_plan_task(task_id: int, payload: PlanTaskEdit, engine: PlanningEngine = Depends(get_engine)):
     task = engine.edit_plan_task(task_id, payload.title, payload.status)
     if task is None:
@@ -154,7 +154,7 @@ def edit_plan_task(task_id: int, payload: PlanTaskEdit, engine: PlanningEngine =
     return task
 
 
-@router.patch("/tasks/{task_id}/schedule", response_model=PlanTaskOut)
+@router.put("/tasks/{task_id}/schedule", response_model=PlanTaskOut)
 def schedule_plan_task(task_id: int, payload: ScheduleSet, engine: PlanningEngine = Depends(get_engine)):
     task = engine.schedule_plan_task(task_id, payload.scheduled_date, payload.win_id)
     if task is None:

@@ -545,7 +545,7 @@ export const planningApi = {
   createOutcome: (ownerKey: GoalOwnerKey, title: string, year: number) =>
     req('POST', `/api/planning/${ownerKey}/outcomes`, { title, year }) as Promise<Outcome>,
   editOutcome: (id: number, patch: Partial<Pick<Outcome, 'title' | 'status'>>) =>
-    req('PATCH', `/api/planning/outcomes/${id}`, patch) as Promise<Outcome>,
+    req('PUT', `/api/planning/outcomes/${id}`, patch) as Promise<Outcome>,
   deleteOutcome: (id: number, force = false) =>
     req('DELETE', `/api/planning/outcomes/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
 
@@ -554,7 +554,7 @@ export const planningApi = {
   createMilestone: (outcomeId: number, title: string, month: number, year: number) =>
     req('POST', '/api/planning/milestones', { outcome_id: outcomeId, title, month, year }) as Promise<Milestone>,
   editMilestone: (id: number, patch: Partial<Pick<Milestone, 'title' | 'status' | 'outcome_id'>>) =>
-    req('PATCH', `/api/planning/milestones/${id}`, patch) as Promise<Milestone>,
+    req('PUT', `/api/planning/milestones/${id}`, patch) as Promise<Milestone>,
   deleteMilestone: (id: number, force = false) =>
     req('DELETE', `/api/planning/milestones/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
 
@@ -562,7 +562,7 @@ export const planningApi = {
   createWin: (milestoneId: number, title: string, weekStartDate: string, criteria = '') =>
     req('POST', '/api/planning/wins', { milestone_id: milestoneId, title, week_start_date: weekStartDate, criteria }) as Promise<Win>,
   editWin: (id: number, patch: Partial<Pick<Win, 'title' | 'criteria' | 'status' | 'milestone_id'>>) =>
-    req('PATCH', `/api/planning/wins/${id}`, patch) as Promise<Win>,
+    req('PUT', `/api/planning/wins/${id}`, patch) as Promise<Win>,
   deleteWin: (id: number, force = false) =>
     req('DELETE', `/api/planning/wins/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
 
@@ -572,9 +572,9 @@ export const planningApi = {
   createTask: (ownerKey: GoalOwnerKey, title: string, winId?: number, scheduledDate?: string) =>
     req('POST', `/api/planning/${ownerKey}/tasks`, { title, win_id: winId ?? null, scheduled_date: scheduledDate ?? null }) as Promise<PlanTask>,
   editTask: (id: number, patch: Partial<Pick<PlanTask, 'title' | 'status'>>) =>
-    req('PATCH', `/api/planning/tasks/${id}`, patch) as Promise<PlanTask>,
+    req('PUT', `/api/planning/tasks/${id}`, patch) as Promise<PlanTask>,
   scheduleTask: (id: number, scheduledDate: string | null, winId: number | null) =>
-    req('PATCH', `/api/planning/tasks/${id}/schedule`, { scheduled_date: scheduledDate, win_id: winId }) as Promise<PlanTask>,
+    req('PUT', `/api/planning/tasks/${id}/schedule`, { scheduled_date: scheduledDate, win_id: winId }) as Promise<PlanTask>,
   carryForwardTask: (id: number, action: CarryForwardActionKind) =>
     req('POST', `/api/planning/tasks/${id}/carry-forward`, { action }) as Promise<PlanTask>,
   removeTask: (id: number) => req('DELETE', `/api/planning/tasks/${id}`) as Promise<{ ok: true }>,

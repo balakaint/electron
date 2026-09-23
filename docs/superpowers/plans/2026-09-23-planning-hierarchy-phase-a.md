@@ -1515,7 +1515,7 @@ def create_outcome(owner_key: GoalOwnerKeyT, payload: OutcomeCreate, engine: Pla
         raise HTTPException(400, str(e))
 
 
-@router.patch("/outcomes/{outcome_id}", response_model=OutcomeOut)
+@router.put("/outcomes/{outcome_id}", response_model=OutcomeOut)
 def edit_outcome(outcome_id: int, payload: OutcomeEdit, engine: PlanningEngine = Depends(get_engine)):
     outcome = engine.edit_outcome(outcome_id, payload.title, payload.status)
     if outcome is None:
@@ -1547,7 +1547,7 @@ def create_milestone(payload: MilestoneCreate, engine: PlanningEngine = Depends(
         raise HTTPException(400, str(e))
 
 
-@router.patch("/milestones/{milestone_id}", response_model=MilestoneOut)
+@router.put("/milestones/{milestone_id}", response_model=MilestoneOut)
 def edit_milestone(milestone_id: int, payload: MilestoneEdit, engine: PlanningEngine = Depends(get_engine)):
     milestone = engine.edit_milestone(milestone_id, payload.title, payload.status, payload.outcome_id)
     if milestone is None:
@@ -1579,7 +1579,7 @@ def create_win(payload: WinCreate, engine: PlanningEngine = Depends(get_engine))
         raise HTTPException(400, str(e))
 
 
-@router.patch("/wins/{win_id}", response_model=WinOut)
+@router.put("/wins/{win_id}", response_model=WinOut)
 def edit_win(win_id: int, payload: WinEdit, engine: PlanningEngine = Depends(get_engine)):
     win = engine.edit_win(win_id, payload.title, payload.criteria, payload.status, payload.milestone_id)
     if win is None:
@@ -1616,7 +1616,7 @@ def create_plan_task(owner_key: GoalOwnerKeyT, payload: PlanTaskCreate, engine: 
         raise HTTPException(400, str(e))
 
 
-@router.patch("/tasks/{task_id}", response_model=PlanTaskOut)
+@router.put("/tasks/{task_id}", response_model=PlanTaskOut)
 def edit_plan_task(task_id: int, payload: PlanTaskEdit, engine: PlanningEngine = Depends(get_engine)):
     task = engine.edit_plan_task(task_id, payload.title, payload.status)
     if task is None:
@@ -1624,7 +1624,7 @@ def edit_plan_task(task_id: int, payload: PlanTaskEdit, engine: PlanningEngine =
     return task
 
 
-@router.patch("/tasks/{task_id}/schedule", response_model=PlanTaskOut)
+@router.put("/tasks/{task_id}/schedule", response_model=PlanTaskOut)
 def schedule_plan_task(task_id: int, payload: ScheduleSet, engine: PlanningEngine = Depends(get_engine)):
     task = engine.schedule_plan_task(task_id, payload.scheduled_date, payload.win_id)
     if task is None:
@@ -1817,7 +1817,7 @@ export const planningApi = {
   createOutcome: (ownerKey: GoalOwnerKey, title: string, year: number) =>
     req('POST', `/api/planning/${ownerKey}/outcomes`, { title, year }) as Promise<Outcome>,
   editOutcome: (id: number, patch: Partial<Pick<Outcome, 'title' | 'status'>>) =>
-    req('PATCH', `/api/planning/outcomes/${id}`, patch) as Promise<Outcome>,
+    req('PUT', `/api/planning/outcomes/${id}`, patch) as Promise<Outcome>,
   deleteOutcome: (id: number, force = false) =>
     req('DELETE', `/api/planning/outcomes/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
 
@@ -1826,7 +1826,7 @@ export const planningApi = {
   createMilestone: (outcomeId: number, title: string, month: number, year: number) =>
     req('POST', '/api/planning/milestones', { outcome_id: outcomeId, title, month, year }) as Promise<Milestone>,
   editMilestone: (id: number, patch: Partial<Pick<Milestone, 'title' | 'status' | 'outcome_id'>>) =>
-    req('PATCH', `/api/planning/milestones/${id}`, patch) as Promise<Milestone>,
+    req('PUT', `/api/planning/milestones/${id}`, patch) as Promise<Milestone>,
   deleteMilestone: (id: number, force = false) =>
     req('DELETE', `/api/planning/milestones/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
 
@@ -1834,7 +1834,7 @@ export const planningApi = {
   createWin: (milestoneId: number, title: string, weekStartDate: string, criteria = '') =>
     req('POST', '/api/planning/wins', { milestone_id: milestoneId, title, week_start_date: weekStartDate, criteria }) as Promise<Win>,
   editWin: (id: number, patch: Partial<Pick<Win, 'title' | 'criteria' | 'status' | 'milestone_id'>>) =>
-    req('PATCH', `/api/planning/wins/${id}`, patch) as Promise<Win>,
+    req('PUT', `/api/planning/wins/${id}`, patch) as Promise<Win>,
   deleteWin: (id: number, force = false) =>
     req('DELETE', `/api/planning/wins/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
 
@@ -1844,9 +1844,9 @@ export const planningApi = {
   createTask: (ownerKey: GoalOwnerKey, title: string, winId?: number, scheduledDate?: string) =>
     req('POST', `/api/planning/${ownerKey}/tasks`, { title, win_id: winId ?? null, scheduled_date: scheduledDate ?? null }) as Promise<PlanTask>,
   editTask: (id: number, patch: Partial<Pick<PlanTask, 'title' | 'status'>>) =>
-    req('PATCH', `/api/planning/tasks/${id}`, patch) as Promise<PlanTask>,
+    req('PUT', `/api/planning/tasks/${id}`, patch) as Promise<PlanTask>,
   scheduleTask: (id: number, scheduledDate: string | null, winId: number | null) =>
-    req('PATCH', `/api/planning/tasks/${id}/schedule`, { scheduled_date: scheduledDate, win_id: winId }) as Promise<PlanTask>,
+    req('PUT', `/api/planning/tasks/${id}/schedule`, { scheduled_date: scheduledDate, win_id: winId }) as Promise<PlanTask>,
   carryForwardTask: (id: number, action: CarryForwardActionKind) =>
     req('POST', `/api/planning/tasks/${id}/carry-forward`, { action }) as Promise<PlanTask>,
   removeTask: (id: number) => req('DELETE', `/api/planning/tasks/${id}`) as Promise<{ ok: true }>,
