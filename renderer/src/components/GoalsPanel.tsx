@@ -113,6 +113,7 @@ function PlanningNodeRow({
   onToggle,
   onDelete,
   onEditText,
+  onEditCriteria,
   onOpenBoard,
 }: {
   node: PlanningNode;
@@ -124,10 +125,19 @@ function PlanningNodeRow({
   onToggle: () => void;
   onDelete: () => void;
   onEditText: (text: string) => void;
+  onEditCriteria?: (criteria: string) => void;
   onOpenBoard: (legacyGoalId: number) => void;
 }) {
   const [text, setText] = useState(node.title);
   const textInputRef = useAutofocus<HTMLInputElement>(open);
+
+  // Only Win carries `criteria` — the "done" line in the locked
+  // interaction contract's "WIN ≠ Task" (a Win is title + progress bar
+  // + criteria string). Backend/API always supported it
+  // (createWin/editWin both take it), but nothing in this panel ever
+  // exposed a field to set it — a real gap, not a deliberate omission.
+  const [criteria, setCriteria] = useState(level === 'win' ? (node as Win).criteria : '');
+  useEffect(() => setCriteria(level === 'win' ? (node as Win).criteria : ''), [level, node]);
 
   const [tasks, setTasks] = useState<ChecklistItem[]>([]);
   const [newTaskText, setNewTaskText] = useState('');
@@ -346,6 +356,24 @@ function PlanningNodeRow({
         {del}
       </div>
 
+      {level === 'win' && onEditCriteria && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginTop: 4 }}>
+          <span
+            style={{ width: 72, flex: 'none', fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}
+          >
+            CRITERIA
+          </span>
+          <input
+            value={criteria}
+            onChange={(e) => setCriteria(e.target.value)}
+            onBlur={() => criteria.trim() !== ((node as Win).criteria ?? '') && onEditCriteria(criteria.trim())}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            placeholder="What does done look like?"
+            style={{ flex: 1, minWidth: 0, fontSize: 12, padding: 4, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }}
+          />
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
           <span
@@ -490,6 +518,7 @@ function PlanningLevelSection({
   onToggle,
   onDelete,
   onEditText,
+  onEditCriteria,
   onRenameTitle,
   onOpenBoard,
 }: {
@@ -509,6 +538,7 @@ function PlanningLevelSection({
   onToggle: (id: number) => void;
   onDelete: (id: number) => void;
   onEditText: (id: number, text: string) => void;
+  onEditCriteria?: (id: number, criteria: string) => void;
   onRenameTitle: (title: string) => void;
   onOpenBoard: (legacyGoalId: number) => void;
 }) {
@@ -716,6 +746,7 @@ function PlanningLevelSection({
             onToggle={() => onToggle(n.id)}
             onDelete={() => onDelete(n.id)}
             onEditText={(text) => onEditText(n.id, text)}
+            onEditCriteria={onEditCriteria ? (criteria) => onEditCriteria(n.id, criteria) : undefined}
             onOpenBoard={onOpenBoard}
           />
         ))}
@@ -973,6 +1004,7 @@ export default function GoalsPanel({
                 else if (key === 'milestone') planningApi.editMilestone(id, { title: text }).then(refetch);
                 else planningApi.editWin(id, { title: text }).then(refetch);
               }}
+              onEditCriteria={key === 'win' ? (id, criteria) => planningApi.editWin(id, { criteria }).then(() => refreshTree(shownKey)) : undefined}
               onRenameTitle={(title) => goalsApi.setSectionTitle(legacyHorizon, title).then(setPanel)}
               onOpenBoard={onOpenBoard}
             />
