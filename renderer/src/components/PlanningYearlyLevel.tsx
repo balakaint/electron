@@ -4,6 +4,7 @@ import AccordionSection from './AccordionSection';
 import PlanningProgressCard from './PlanningProgressCard';
 import { useFetchState } from '../hooks/useFetchState';
 import { SPACE } from '../spacing';
+import { useL } from '../i18n';
 
 // Ported verbatim from GoalHorizonSection.tsx (superseded by the
 // Planning*Level components) — a generic Jan-Dec strip keyed by a
@@ -66,7 +67,10 @@ function DayCell({
   );
 }
 
-function YearStrip({ deadlines, accent, onSelectDeadline }: { deadlines: Set<string>; accent: string; onSelectDeadline: (iso: string) => void }) {
+// `onSelect` deliberately never wired — see PlanningMonthlyLevel.tsx's
+// MonthGrid for why (an interactive-looking dot that does nothing is
+// worse than a plain inert one; caught in code review).
+function YearStrip({ deadlines, accent }: { deadlines: Set<string>; accent: string }) {
   const today = new Date();
   const year = today.getFullYear();
   const currentMonth = today.getMonth();
@@ -76,8 +80,7 @@ function YearStrip({ deadlines, accent, onSelectDeadline }: { deadlines: Set<str
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: SPACE.xs, marginBottom: SPACE.md }}>
       {MONTH_ABBR.map((label, i) => {
         const prefix = `${year}-${String(i + 1).padStart(2, '0')}`;
-        const monthDeadlines = sortedDeadlines.filter((iso) => iso.startsWith(prefix));
-        const hasDeadline = monthDeadlines.length > 0;
+        const hasDeadline = sortedDeadlines.some((iso) => iso.startsWith(prefix));
         return (
           <DayCell
             key={label}
@@ -86,7 +89,6 @@ function YearStrip({ deadlines, accent, onSelectDeadline }: { deadlines: Set<str
             hasDeadline={hasDeadline}
             dim={false}
             accent={accent}
-            onSelect={hasDeadline ? () => onSelectDeadline(monthDeadlines[0]) : undefined}
           />
         );
       })}
@@ -119,6 +121,7 @@ export default function PlanningYearlyLevel({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const L = useL();
   const year = new Date().getFullYear();
 
   const { data: rows, loaded, loadError, refresh } = useFetchState<OwnedOutcome[]>(
@@ -136,7 +139,7 @@ export default function PlanningYearlyLevel({
   return (
     <AccordionSection
       glyph={<Target size={16} />}
-      label="YEARLY"
+      label={L('YEARLY', 'বার্ষিক')}
       period={String(year)}
       done={rows.filter((r) => r.outcome.progress === 100).length}
       total={loaded ? rows.length : null}
@@ -153,7 +156,7 @@ export default function PlanningYearlyLevel({
         </div>
       ) : (
         <>
-          <YearStrip deadlines={deadlines} accent={accent} onSelectDeadline={() => {}} />
+          <YearStrip deadlines={deadlines} accent={accent} />
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
               No Outcome set for this year yet — add one from the Goals panel.

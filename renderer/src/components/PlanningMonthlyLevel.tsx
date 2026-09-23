@@ -4,6 +4,7 @@ import AccordionSection from './AccordionSection';
 import PlanningProgressCard from './PlanningProgressCard';
 import { useFetchState } from '../hooks/useFetchState';
 import { RADIUS, SPACE } from '../spacing';
+import { useL } from '../i18n';
 
 // Ported verbatim from GoalHorizonSection.tsx (superseded by the
 // Planning*Level components) — these are pure calendar-grid primitives
@@ -73,7 +74,14 @@ function DayCell({
   );
 }
 
-function MonthGrid({ deadlines, accent, onSelectDeadline }: { deadlines: Set<string>; accent: string; onSelectDeadline: (iso: string) => void }) {
+// `onSelect` is deliberately never wired here — a dot with no click
+// handler behind it (caught in code review: it was rendered as a
+// `<button>` with `cursor: pointer` and a "Jump to this deadline below"
+// title that did nothing) is worse than a plain, honestly inert `<div>`.
+// Wiring these to actually jump to Panel 2 is real follow-up work for
+// Checkpoint 2, once Panel 2 understands Wins/Milestones instead of
+// flat Goals.
+function MonthGrid({ deadlines, accent }: { deadlines: Set<string>; accent: string }) {
   const today = new Date();
   const todayIso = isoDate(today);
   const year = today.getFullYear();
@@ -117,7 +125,6 @@ function MonthGrid({ deadlines, accent, onSelectDeadline }: { deadlines: Set<str
               hasDeadline={hasDeadline}
               dim={!c.inMonth}
               accent={accent}
-              onSelect={hasDeadline ? () => onSelectDeadline(c.iso) : undefined}
             />
           );
         })}
@@ -154,6 +161,7 @@ export default function PlanningMonthlyLevel({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const L = useL();
   const today = new Date();
   const year = today.getFullYear();
   const month = today.getMonth() + 1;
@@ -169,10 +177,18 @@ export default function PlanningMonthlyLevel({
   const deadlines = new Set(rows.flatMap((r) => r.wins.map((w) => w.week_start_date)));
   const monthLabel = today.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
+  // Time-vs-Progress-vs-Pace — locked at Week/Month level per the
+  // interaction contract (elapsed-time % vs completed-work % vs a
+  // derived pace chip). Caught in code review: PlanningProgressCard
+  // already implemented the whole row, but neither caller passed it.
+  const daysInMonth = new Date(year, today.getMonth() + 1, 0).getDate();
+  const dayOfMonth = today.getDate();
+  const pace = { elapsedPct: Math.round((dayOfMonth / daysInMonth) * 100), elapsedLabel: `day ${dayOfMonth} of ${daysInMonth}` };
+
   return (
     <AccordionSection
       glyph={<CalendarRange size={16} />}
-      label="MONTHLY"
+      label={L('MONTHLY', 'মাসিক')}
       period={monthLabel}
       done={rows.filter((r) => r.milestone.progress === 100).length}
       total={loaded ? rows.length : null}
@@ -189,7 +205,7 @@ export default function PlanningMonthlyLevel({
         </div>
       ) : (
         <>
-          <MonthGrid deadlines={deadlines} accent={accent} onSelectDeadline={() => {}} />
+          <MonthGrid deadlines={deadlines} accent={accent} />
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
               No Milestone set for this month yet — add one from the Goals panel.
@@ -204,6 +220,7 @@ export default function PlanningMonthlyLevel({
                   title={row.milestone.title}
                   progress={row.milestone.progress}
                   fixed={row.milestone.fixed}
+                  pace={pace}
                   detailsSummary={`${row.wins.length} weekly win(s)`}
                 >
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>

@@ -6,6 +6,7 @@ import PlanningProgressCard from './PlanningProgressCard';
 import { useFetchState } from '../hooks/useFetchState';
 import { RADIUS, SPACE } from '../spacing';
 import { TYPE_SIZE } from '../typography';
+import { useL } from '../i18n';
 
 function mondayOf(d: Date): string {
   const copy = new Date(d);
@@ -55,6 +56,7 @@ export default function PlanningWeeklyLevel({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const L = useL();
   const monday = mondayOf(new Date());
   const {
     data: rows,
@@ -100,10 +102,17 @@ export default function PlanningWeeklyLevel({
   const totalWins = rows.length;
   const achievedWins = rows.filter((r) => r.win.progress === 100).length;
 
+  // Time-vs-Progress-vs-Pace, locked at Week/Month level — see
+  // PlanningMonthlyLevel.tsx's own comment on the same fix. `elapsedDays`
+  // is 1-indexed and capped at 7 (today counts as a day in progress even
+  // this early in it).
+  const elapsedDays = Math.min(7, Math.max(1, Math.floor((Date.now() - new Date(`${monday}T00:00:00`).getTime()) / 86400000) + 1));
+  const pace = { elapsedPct: Math.round((elapsedDays / 7) * 100), elapsedLabel: `${elapsedDays}/7 days` };
+
   return (
     <AccordionSection
       glyph={<CalendarDays size={16} />}
-      label="WEEKLY"
+      label={L('WEEKLY', 'সাপ্তাহিক')}
       period={weekRangeLabel(monday)}
       done={achievedWins}
       total={loaded ? totalWins : null}
@@ -133,6 +142,7 @@ export default function PlanningWeeklyLevel({
               criteria={row.win.criteria}
               progress={row.win.progress}
               fixed={row.win.fixed}
+              pace={pace}
               detailsSummary={`${row.tasks.filter((t) => t.status === 'done').length} / ${row.tasks.length} supporting actions`}
             >
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
