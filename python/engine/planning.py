@@ -22,6 +22,27 @@ def _today() -> str:
     return str(date.today())
 
 
+def _apply_achieved_pin(node: Outcome | Milestone | Win, status: str) -> None:
+    """Panel 2's tick writes `status`, and this is the one place that
+    status has a side effect on progress. Marking a node 'achieved' pins
+    it (`fixed=True, progress=100`) so the achieved tick is visible
+    everywhere progress is read from (Panel 2's own bar, and every
+    Panel 3 level, which all key off `progress === 100` for the
+    achieved badge) — before this, ticking 'achieved' only wrote
+    `status`, which nothing in win_progress/milestone_progress/
+    outcome_progress reads, so the tick was cosmetic in Panel 2 and
+    invisible everywhere else (caught in code review). Moving off
+    'achieved' un-pins it (`fixed=False`), which hands progress back to
+    the normal derived-from-children computation — this is also the
+    only write path `fixed` has at all in Phase A, closing that gap
+    too, deliberately scoped to "the achieved tick" rather than a bare
+    settable field a caller could set unrelated to that.
+    """
+    node.fixed = status == "achieved"
+    if node.fixed:
+        node.progress = 100
+
+
 def win_progress(win: Win, repo: PlanningRepository) -> int:
     if win.fixed:
         return win.progress or 0
@@ -81,6 +102,7 @@ class PlanningEngine:
             outcome.title = title.strip()
         if status is not None:
             outcome.status = status
+            _apply_achieved_pin(outcome, status)
         return self._outcome_out(self.repo.save_outcome(outcome))
 
     def delete_outcome(self, outcome_id: int, force: bool = False) -> bool:
@@ -122,6 +144,7 @@ class PlanningEngine:
             milestone.title = title.strip()
         if status is not None:
             milestone.status = status
+            _apply_achieved_pin(milestone, status)
         if outcome_id is not None:
             # Re-parent fix-up; children stay linked via their own FK,
             # never touched here. A stale/wrong id must not silently
@@ -178,6 +201,7 @@ class PlanningEngine:
             win.criteria = criteria.strip()
         if status is not None:
             win.status = status
+            _apply_achieved_pin(win, status)
         if milestone_id is not None:
             if self.repo.get_milestone(milestone_id) is None:
                 raise ValueError(f"no milestone {milestone_id}")

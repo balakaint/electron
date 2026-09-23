@@ -102,12 +102,18 @@ interface OwnedOutcome {
   owner: GoalOwnerMeta;
 }
 
-async function findCurrentOutcome(owner: GoalOwnerMeta, year: number): Promise<OwnedOutcome | null> {
+// Returns EVERY Outcome this owner has for this year — see
+// PlanningWeeklyLevel.tsx's own comment on findCurrentWins for why a
+// single `.find()` silently hid real data the moment more than one
+// Outcome could exist for the same year (caught in code review — this
+// was the same failure mode the Phase A migration's dedupe fixed on the
+// write side, reappearing here on the read side).
+async function findCurrentOutcomes(owner: GoalOwnerMeta, year: number): Promise<OwnedOutcome[]> {
   const outcomes = await planningApi.listOutcomes(owner.key);
-  const outcome = outcomes.find((o) => o.year === year);
-  if (!outcome) return null;
-  const milestones = await planningApi.listMilestones(outcome.id);
-  return { outcome, milestones, owner };
+  const yearOutcomes = outcomes.filter((o) => o.year === year);
+  return Promise.all(
+    yearOutcomes.map(async (outcome) => ({ outcome, milestones: await planningApi.listMilestones(outcome.id), owner })),
+  );
 }
 
 export default function PlanningYearlyLevel({
@@ -126,7 +132,7 @@ export default function PlanningYearlyLevel({
 
   const { data: rows, loaded, loadError, refresh } = useFetchState<OwnedOutcome[]>(
     owners
-      ? () => Promise.all(owners.map((o) => findCurrentOutcome(o, year))).then((rs) => rs.filter((r): r is OwnedOutcome => r !== null))
+      ? () => Promise.all(owners.map((o) => findCurrentOutcomes(o, year))).then((rs) => rs.flat())
       : null,
     [owners, year],
     [],

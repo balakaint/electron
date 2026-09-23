@@ -520,12 +520,25 @@ function PlanningLevelSection({
 
   useEffect(() => setTitle(label), [label]);
   // Defaults to the owner's only option when there's exactly one —
-  // matches the design spec's parent-picker default. Re-runs whenever
-  // the option list changes (a new Outcome just added, the composer
-  // just opened) so the select isn't left pointing at nothing.
+  // matches the design spec's parent-picker default. With TWO OR MORE
+  // options this used to leave `newParentId` at null while a native
+  // `<select>` with no matching value still visually selects its first
+  // option anyway (React re-resolves an unmatched controlled value to
+  // the first non-disabled one) — so the dropdown showed a parent that
+  // submitAdd's `newParentId === null` guard silently refused to submit
+  // against. Caught in code review: the composer's Add button went
+  // dead the moment a second parent option existed. Now defaults (or
+  // re-defaults, if the previously-picked parent disappeared) to the
+  // first option whenever one exists, keeping the visible selection and
+  // the state that actually submits in sync.
   useEffect(() => {
-    if (parentOptions.length === 1) setNewParentId(parentOptions[0].id);
-    else if (newParentId !== null && !parentOptions.some((p) => p.id === newParentId)) setNewParentId(null);
+    if (parentOptions.length === 0) {
+      if (newParentId !== null) setNewParentId(null);
+      return;
+    }
+    if (newParentId === null || !parentOptions.some((p) => p.id === newParentId)) {
+      setNewParentId(parentOptions[0].id);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [parentOptions]);
 

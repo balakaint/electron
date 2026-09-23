@@ -139,15 +139,19 @@ interface OwnedMilestone {
   owner: GoalOwnerMeta;
 }
 
-async function findCurrentMilestone(owner: GoalOwnerMeta, year: number, month: number): Promise<OwnedMilestone | null> {
+// Returns EVERY Milestone this owner has for this month — see
+// PlanningWeeklyLevel.tsx's own comment on findCurrentWins for why a
+// single `.find()` silently hid real data the moment more than one
+// Outcome/Milestone could exist for the same period (caught in code
+// review).
+async function findCurrentMilestones(owner: GoalOwnerMeta, year: number, month: number): Promise<OwnedMilestone[]> {
   const outcomes = await planningApi.listOutcomes(owner.key);
-  const outcome = outcomes.find((o) => o.year === year);
-  if (!outcome) return null;
-  const milestones = await planningApi.listMilestones(outcome.id);
-  const milestone = milestones.find((m) => m.month === month && m.year === year);
-  if (!milestone) return null;
-  const wins = await planningApi.listWins(milestone.id);
-  return { milestone, wins, owner };
+  const yearOutcomes = outcomes.filter((o) => o.year === year);
+  const milestoneLists = await Promise.all(yearOutcomes.map((o) => planningApi.listMilestones(o.id)));
+  const monthMilestones = milestoneLists.flat().filter((m) => m.month === month && m.year === year);
+  return Promise.all(
+    monthMilestones.map(async (milestone) => ({ milestone, wins: await planningApi.listWins(milestone.id), owner })),
+  );
 }
 
 export default function PlanningMonthlyLevel({
@@ -168,7 +172,7 @@ export default function PlanningMonthlyLevel({
 
   const { data: rows, loaded, loadError, refresh } = useFetchState<OwnedMilestone[]>(
     owners
-      ? () => Promise.all(owners.map((o) => findCurrentMilestone(o, year, month))).then((rs) => rs.filter((r): r is OwnedMilestone => r !== null))
+      ? () => Promise.all(owners.map((o) => findCurrentMilestones(o, year, month))).then((rs) => rs.flat())
       : null,
     [owners, year, month],
     [],

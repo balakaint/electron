@@ -30,19 +30,25 @@ interface OwnedWin {
   tasks: PlanTask[];
 }
 
-async function findCurrentWin(owner: GoalOwnerMeta, monday: string): Promise<OwnedWin | null> {
+// Returns EVERY Win this owner has for this week, not just the first —
+// nothing in the schema stops a user creating two yearly goals for the
+// same year (or two monthly/weekly goals for the same month/week), and
+// Panel 2's composer has no uniqueness check either. An earlier `.find()`
+// here silently hid every Win under any Outcome/Milestone past the
+// first match — caught in code review as the same failure mode the
+// Phase A migration's own dedupe was written to prevent, just moved to
+// the read side and reachable the moment Panel 2 could create nodes.
+async function findCurrentWins(owner: GoalOwnerMeta, monday: string): Promise<OwnedWin[]> {
   const today = new Date(`${monday}T00:00:00`);
   const outcomes = await planningApi.listOutcomes(owner.key);
-  const outcome = outcomes.find((o) => o.year === today.getFullYear());
-  if (!outcome) return null;
-  const milestones = await planningApi.listMilestones(outcome.id);
-  const milestone = milestones.find((m) => m.month === today.getMonth() + 1 && m.year === today.getFullYear());
-  if (!milestone) return null;
-  const wins = await planningApi.listWins(milestone.id);
-  const win = wins.find((w) => w.week_start_date === monday);
-  if (!win) return null;
-  const tasks = await planningApi.listTasksForWin(win.id);
-  return { win, owner, tasks };
+  const yearOutcomes = outcomes.filter((o) => o.year === today.getFullYear());
+  const milestoneLists = await Promise.all(yearOutcomes.map((o) => planningApi.listMilestones(o.id)));
+  const monthMilestones = milestoneLists.flat().filter((m) => m.month === today.getMonth() + 1 && m.year === today.getFullYear());
+  const winLists = await Promise.all(monthMilestones.map((m) => planningApi.listWins(m.id)));
+  const weekWins = winLists.flat().filter((w) => w.week_start_date === monday);
+  return Promise.all(
+    weekWins.map(async (win) => ({ win, owner, tasks: await planningApi.listTasksForWin(win.id) })),
+  );
 }
 
 export default function PlanningWeeklyLevel({
@@ -66,7 +72,7 @@ export default function PlanningWeeklyLevel({
     refresh,
   } = useFetchState<OwnedWin[]>(
     owners
-      ? () => Promise.all(owners.map((o) => findCurrentWin(o, monday))).then((rs) => rs.filter((r): r is OwnedWin => r !== null))
+      ? () => Promise.all(owners.map((o) => findCurrentWins(o, monday))).then((rs) => rs.flat())
       : null,
     [owners, monday],
     [],
