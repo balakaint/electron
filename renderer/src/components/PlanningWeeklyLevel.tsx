@@ -86,6 +86,101 @@ function WeekStrip({ monday, accent, onSelectDate }: { monday: string; accent: s
   );
 }
 
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// The "Any date…" popup — a real calendar grid, not the OS-native
+// input[type=date] popover, per Zahid's own steer ("real calendar-grid
+// popup... modern clean design"). Deliberately its OWN small grid, not
+// a reuse of PlanningMonthlyLevel's MonthGrid/DayCell: that one is
+// hardcoded to the real current month (no prev/next — nothing in the
+// app has ever needed to browse a month other than "now" before this),
+// and carries deadline-dot logic this popup has no use for. Duplicating
+// ~30 lines here beats coupling two components whose only shared trait
+// is "renders a Mo-Su grid."
+function MiniCalendarPicker({
+  year,
+  month,
+  selected,
+  accent,
+  onNavMonth,
+  onSelectDate,
+}: {
+  year: number;
+  month: number; // 1-indexed
+  selected: string | null;
+  accent: string;
+  onNavMonth: (dir: 1 | -1) => void;
+  onSelectDate: (iso: string) => void;
+}) {
+  const todayIso = isoDate(new Date());
+  const first = new Date(year, month - 1, 1);
+  const startOffset = (first.getDay() + 6) % 7; // Monday-start
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const cells: { date: number; iso: string }[] = Array.from({ length: daysInMonth }, (_, i) => {
+    const d = i + 1;
+    return { date: d, iso: `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}` };
+  });
+
+  return (
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: RADIUS.card,
+        background: 'var(--surface)',
+        padding: SPACE.sm,
+        width: 220,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', marginBottom: SPACE.xs }}>
+        <button type="button" className="hover-accent" onClick={() => onNavMonth(-1)} title="Previous month" style={{ background: 'transparent', border: 'none', padding: `0 ${SPACE.xs}px`, fontWeight: 700 }}>
+          ‹
+        </button>
+        <span style={{ flex: 1, textAlign: 'center', fontSize: TYPE_SIZE.xs, fontWeight: 700, color: 'var(--text)' }}>
+          {MONTH_ABBR[month - 1]} {year}
+        </span>
+        <button type="button" className="hover-accent" onClick={() => onNavMonth(1)} title="Next month" style={{ background: 'transparent', border: 'none', padding: `0 ${SPACE.xs}px`, fontWeight: 700 }}>
+          ›
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
+        {WEEKDAY_LETTERS.map((w, i) => (
+          <div key={i} style={{ textAlign: 'center', fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)' }}>
+            {w}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2 }}>
+        {Array.from({ length: startOffset }, (_, i) => <span key={`pad-${i}`} />)}
+        {cells.map((c) => {
+          const isToday = c.iso === todayIso;
+          const isSelected = c.iso === selected;
+          return (
+            <button
+              key={c.iso}
+              type="button"
+              onClick={() => onSelectDate(c.iso)}
+              className="hover-outline"
+              style={{
+                padding: '4px 0',
+                borderRadius: RADIUS.control,
+                border: 'none',
+                cursor: 'pointer',
+                font: 'inherit',
+                fontSize: TYPE_SIZE.xs,
+                background: isSelected ? accent : isToday ? `color-mix(in srgb, ${accent} 16%, transparent)` : undefined,
+                color: isSelected ? 'var(--on-accent)' : isToday ? accent : 'var(--text-muted)',
+                fontWeight: isSelected || isToday ? 700 : 400,
+              }}
+            >
+              {c.date}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface OwnedWin {
   win: Win;
   owner: GoalOwnerMeta;
@@ -173,15 +268,27 @@ export default function PlanningWeeklyLevel({
 
   const [carryOpenFor, setCarryOpenFor] = useState<number | null>(null);
   const [dayPickerFor, setDayPickerFor] = useState<number | null>(null);
+  // "Any date…" — a real calendar-grid popup, separate from the 7
+  // weekday buttons above it (dayPickerFor). The handoff doc's own §5
+  // flagged a real arbitrary-date picker as deliberately out of scope
+  // for Phase A; Zahid asked for it directly in a later session, so
+  // it's real now, not just a documented gap. `calendarMonth` is the
+  // month/year the popup is currently BROWSING, independent of the
+  // task's own scheduled_date — initialised on open, not derived from
+  // `monday`, since the whole point is reaching a month other than the
+  // current week's.
+  const [anyDateFor, setAnyDateFor] = useState<number | null>(null);
+  const [calendarMonth, setCalendarMonth] = useState<{ year: number; month: number }>(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  });
   const [addingFor, setAddingFor] = useState<number | null>(null);
   const [newTaskText, setNewTaskText] = useState('');
   const [addingType, setAddingType] = useState<NewNodeType>('task');
   // The 7 real dates of the win's own week — reused both for a task's
   // own "assign/move to a day" control and as Carry Forward's "pick a
-  // date" option (the spec's own §5 note that a real date-picker was
-  // deliberately deferred applies to an arbitrary-date picker; picking
-  // among THIS week's 7 days is not that, and closes the "Schedule a
-  // specific date" gap the mockup's own carry-forward menu names).
+  // date" option. `anyDateFor`'s calendar popup, right below, covers
+  // anything past this week.
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(`${monday}T00:00:00`);
     d.setDate(d.getDate() + i);
@@ -377,11 +484,48 @@ export default function PlanningWeeklyLevel({
                                 {wd.label}
                               </button>
                             ))}
+                            <button
+                              onClick={() => {
+                                const base = t.scheduled_date ? new Date(`${t.scheduled_date}T00:00:00`) : new Date();
+                                setCalendarMonth({ year: base.getFullYear(), month: base.getMonth() + 1 });
+                                setAnyDateFor(t.id);
+                              }}
+                              className="hover-accent"
+                              style={{
+                                fontSize: TYPE_SIZE.xs,
+                                padding: `${SPACE.hair}px ${SPACE.xs}px`,
+                                borderWidth: 1,
+                                borderStyle: 'dashed',
+                                borderRadius: RADIUS.control,
+                              }}
+                            >
+                              Any date…
+                            </button>
                             {t.scheduled_date && (
                               <button onClick={() => scheduleTaskDay(row, t, null)} style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)' }}>
                                 Clear
                               </button>
                             )}
+                          </div>
+                        )}
+                        {anyDateFor === t.id && (
+                          <div style={{ paddingLeft: SPACE.xl }}>
+                            <MiniCalendarPicker
+                              year={calendarMonth.year}
+                              month={calendarMonth.month}
+                              selected={t.scheduled_date}
+                              accent={accent}
+                              onNavMonth={(dir) =>
+                                setCalendarMonth((cur) => {
+                                  const d = new Date(cur.year, cur.month - 1 + dir, 1);
+                                  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+                                })
+                              }
+                              onSelectDate={(iso) => {
+                                scheduleTaskDay(row, t, iso);
+                                setAnyDateFor(null);
+                              }}
+                            />
                           </div>
                         )}
                         {carryOpenFor === t.id && (
