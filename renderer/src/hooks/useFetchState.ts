@@ -43,7 +43,16 @@ export function useFetchState<T>(
   };
 
   useEffect(() => {
-    setLoaded(false);
+    // NOT setLoaded(false) here. `loaded` only ever flips false→true, on
+    // the very first resolve — a deps change (e.g. Weekly/Monthly/Yearly's
+    // shared refreshSignal bumping after some OTHER section's edit) then
+    // refetches in place, swapping `data` in once ready, rather than
+    // dropping back to the loading branch and unmounting everything that
+    // was already showing. Caught live: bumping refreshSignal from inside
+    // PlanningWeeklyLevel's own type-picker composer collapsed every
+    // Win card's native <details> the instant it refetched itself, since
+    // a remount resets that open/closed state — a real user-visible
+    // regression, not just a flicker.
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);

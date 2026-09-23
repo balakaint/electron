@@ -82,6 +82,11 @@ interface OwnedWin {
   win: Win;
   owner: GoalOwnerMeta;
   tasks: PlanTask[];
+  // The Win's own Milestone's Outcome — not on Win itself (only
+  // milestone_id is). Needed so the composer's Milestone/Outcome type
+  // chips (see NewNodeType below) know what to attach a new Milestone
+  // to without a second round-trip at click time.
+  outcomeId: number | null;
 }
 
 // Returns EVERY Win this owner has for this week, not just the first —
@@ -101,9 +106,29 @@ async function findCurrentWins(owner: GoalOwnerMeta, monday: string): Promise<Ow
   const winLists = await Promise.all(monthMilestones.map((m) => planningApi.listWins(m.id)));
   const weekWins = winLists.flat().filter((w) => w.week_start_date === monday);
   return Promise.all(
-    weekWins.map(async (win) => ({ win, owner, tasks: await planningApi.listTasksForWin(win.id) })),
+    weekWins.map(async (win) => {
+      const milestone = monthMilestones.find((m) => m.id === win.milestone_id);
+      return { win, owner, outcomeId: milestone?.outcome_id ?? null, tasks: await planningApi.listTasksForWin(win.id) };
+    }),
   );
 }
+
+// The "type picker, from any level" interaction — see the mockup's own
+// per-level composer (a row of Task/Outcome/Milestone chips next to its
+// "+ ADD" form) and the handoff doc's §4.1. Reuses the exact same
+// createOutcome/createMilestone/createWin/createTask calls GoalsPanel
+// already makes — this only adds a second, EXECUTE-surface entry point
+// to them, not a new creation path. 'win' isn't in the mockup's own chip
+// set (it IS the level being composed on there); it's included here
+// since this composer lives inside a specific Win's own card, one level
+// below where the mockup's chip row sits.
+type NewNodeType = 'task' | 'win' | 'milestone' | 'outcome';
+const NEW_NODE_TYPES: { key: NewNodeType; label: string }[] = [
+  { key: 'task', label: 'Task' },
+  { key: 'win', label: 'Win' },
+  { key: 'milestone', label: 'Milestone' },
+  { key: 'outcome', label: 'Outcome' },
+];
 
 export default function PlanningWeeklyLevel({
   owners,
@@ -142,6 +167,7 @@ export default function PlanningWeeklyLevel({
   const [dayPickerFor, setDayPickerFor] = useState<number | null>(null);
   const [addingFor, setAddingFor] = useState<number | null>(null);
   const [newTaskText, setNewTaskText] = useState('');
+  const [addingType, setAddingType] = useState<NewNodeType>('task');
   // The 7 real dates of the win's own week — reused both for a task's
   // own "assign/move to a day" control and as Carry Forward's "pick a
   // date" option (the spec's own §5 note that a real date-picker was
@@ -198,12 +224,33 @@ export default function PlanningWeeklyLevel({
       setCarryOpenFor(null);
     });
 
-  const addTask = (row: OwnedWin) => {
+  // Branches on the type chip, not just the title — this is the "type
+  // picker, from any level" contract (handoff doc §4.1): the same
+  // composer that adds a supporting Task can instead reach up and add a
+  // Win/Milestone/Outcome, exactly the calls GoalsPanel's own per-level
+  // "+" already makes, just reachable from EXECUTE now too. A new Win
+  // attaches to THIS win's own milestone; a new Milestone to that
+  // milestone's outcome; a new Outcome is standalone. `refresh()` (not
+  // just `refreshWinAndTasks`) because a new Win can add a whole new
+  // card to `rows`, which a single-row patch can't produce.
+  const addNode = (row: OwnedWin) => {
     const title = newTaskText.trim();
     if (!title) return;
-    planningApi.createTask(row.owner.key, title, row.win.id).then(() => {
+    if (addingType === 'milestone' && row.outcomeId == null) return;
+    const today = new Date();
+    const create =
+      addingType === 'win'
+        ? planningApi.createWin(row.win.milestone_id, title, monday)
+        : addingType === 'milestone'
+          ? planningApi.createMilestone(row.outcomeId as number, title, today.getMonth() + 1, today.getFullYear())
+          : addingType === 'outcome'
+            ? planningApi.createOutcome(row.owner.key, title, today.getFullYear())
+            : planningApi.createTask(row.owner.key, title, row.win.id);
+    create.then(() => {
       setNewTaskText('');
-      refreshWinAndTasks(row);
+      setAddingType('task');
+      refresh();
+      onChanged();
     });
   };
 
@@ -331,29 +378,58 @@ export default function PlanningWeeklyLevel({
                     ))}
                   </ul>
                   {addingFor === row.win.id ? (
-                    <div style={{ display: 'flex', gap: SPACE.xs, marginTop: SPACE.xs }}>
-                      <input
-                        ref={newTaskRef}
-                        aria-label="New task"
-                        value={newTaskText}
-                        onChange={(e) => setNewTaskText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') addTask(row);
-                          if (e.key === 'Escape') { setAddingFor(null); setNewTaskText(''); }
-                        }}
-                        placeholder="Add task…"
-                        style={{ flex: 1, fontSize: TYPE_SIZE.xs, padding: SPACE.xs }}
-                      />
-                      <button onClick={() => addTask(row)} title="Add task" aria-label="Submit new task">+</button>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs, marginTop: SPACE.xs }}>
+                      <div style={{ display: 'flex', gap: SPACE.hair, flexWrap: 'wrap' }}>
+                        {NEW_NODE_TYPES.map((t) => {
+                          const disabled = t.key === 'milestone' && row.outcomeId == null;
+                          const on = addingType === t.key;
+                          return (
+                            <button
+                              key={t.key}
+                              onClick={() => setAddingType(t.key)}
+                              disabled={disabled}
+                              title={disabled ? "This Win's Milestone has no Outcome to attach a new Milestone to" : `Add a ${t.label.toLowerCase()}`}
+                              style={{
+                                fontSize: TYPE_SIZE.xs,
+                                padding: `${SPACE.hair}px ${SPACE.sm}px`,
+                                borderRadius: RADIUS.pill,
+                                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                                background: on ? 'var(--accent-light)' : 'transparent',
+                                color: disabled ? 'var(--text-faint)' : on ? 'var(--accent)' : 'var(--text-muted)',
+                                cursor: disabled ? 'not-allowed' : 'pointer',
+                              }}
+                            >
+                              {t.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', gap: SPACE.xs }}>
+                        <input
+                          ref={newTaskRef}
+                          aria-label={`New ${addingType}`}
+                          value={newTaskText}
+                          onChange={(e) => setNewTaskText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') addNode(row);
+                            if (e.key === 'Escape') { setAddingFor(null); setNewTaskText(''); setAddingType('task'); }
+                          }}
+                          placeholder={
+                            addingType === 'task' ? 'Add task…' : addingType === 'win' ? 'New Win title…' : addingType === 'milestone' ? 'New Milestone title…' : 'New Outcome title…'
+                          }
+                          style={{ flex: 1, fontSize: TYPE_SIZE.xs, padding: SPACE.xs }}
+                        />
+                        <button onClick={() => addNode(row)} title="Add" aria-label="Submit">+</button>
+                      </div>
                     </div>
                   ) : (
                     <button
-                      onClick={() => { setAddingFor(row.win.id); setNewTaskText(''); }}
-                      title="Add a task"
-                      aria-label="Add a supporting task to this Win"
+                      onClick={() => { setAddingFor(row.win.id); setNewTaskText(''); setAddingType('task'); }}
+                      title="Add a task, or reach up to add a Win/Milestone/Outcome"
+                      aria-label="Add to this Win or a level above it"
                       style={{ fontSize: TYPE_SIZE.xs, background: 'transparent', border: '1px solid var(--border)', borderRadius: RADIUS.pill, padding: `${SPACE.hair}px ${SPACE.sm}px`, marginTop: SPACE.xs }}
                     >
-                      + task
+                      + add
                     </button>
                   )}
                 </PlanningProgressCard>
