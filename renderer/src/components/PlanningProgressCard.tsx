@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Check } from 'lucide-react';
 import { RADIUS, SPACE } from '../spacing';
 import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
 
@@ -71,9 +72,21 @@ export default function PlanningProgressCard({
         <div style={{ height: '100%', width: `${progress}%`, background: accent, transition: 'width 300ms ease' }} />
       </div>
       {achieved && (
+        // "COMPLETE", not "ACHIEVED" — this fires on progress === 100
+        // alone, which is a numeric coincidence (every sub-item happens
+        // to be done), not the explicit achieved-pin action
+        // (_apply_achieved_pin sets fixed=True separately). "ACHIEVED"
+        // implied more certainty than a derived percentage carries
+        // (ui-ux-audit, 2026-09-24) — the wording now matches what's
+        // actually known. Check icon, not a 🏆 emoji — this app's own
+        // rule against color emoji in chrome (see Panel3.tsx's
+        // PLAN/EXECUTE toggle comment) applies here too.
         <span
           style={{
             alignSelf: 'flex-start',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: SPACE.hair,
             padding: `${SPACE.xs}px ${SPACE.sm}px`,
             borderRadius: RADIUS.pill,
             fontSize: TYPE_SIZE.xs,
@@ -83,7 +96,8 @@ export default function PlanningProgressCard({
             color: 'var(--success)',
           }}
         >
-          🏆 ACHIEVED{criteria ? ` — ${criteria}` : ''}
+          <Check size={12} />
+          COMPLETE{criteria ? ` — ${criteria}` : ''}
         </span>
       )}
       {children && (

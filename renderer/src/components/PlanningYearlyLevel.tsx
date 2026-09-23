@@ -1,15 +1,30 @@
-import { Target } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Circle, Target } from 'lucide-react';
 import { GoalOwnerMeta, Milestone, Outcome, planningApi } from '../services/api';
 import AccordionSection from './AccordionSection';
 import PlanningProgressCard from './PlanningProgressCard';
 import { useFetchState } from '../hooks/useFetchState';
-import { SPACE } from '../spacing';
+import { useAutofocus } from '../hooks/useAutofocus';
+import { RADIUS, SPACE } from '../spacing';
+import { TYPE_SIZE } from '../typography';
 import { useL } from '../i18n';
 
 // Ported verbatim from GoalHorizonSection.tsx (superseded by the
 // Planning*Level components) — a generic Jan-Dec strip keyed by a
 // `deadlines: Set<string>`, no Goal-specific logic.
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// The type-picker composer's Yearly step — see PlanningWeeklyLevel.tsx's
+// NEW_NODE_TYPES comment for the full contract. An Outcome card's own
+// finest-grain creatable type is Milestone (a Win always needs a
+// specific Milestone parent, which this card can't disambiguate without
+// a second picker); Outcome itself is the only "reach further" option
+// left (ui-ux-audit, 2026-09-24).
+type NewNodeType = 'milestone' | 'outcome';
+const NEW_NODE_TYPES: { key: NewNodeType; label: string }[] = [
+  { key: 'milestone', label: 'Milestone' },
+  { key: 'outcome', label: 'Outcome' },
+];
 
 function DayCell({
   label,
@@ -139,6 +154,7 @@ export default function PlanningYearlyLevel({
   onToggle,
   onSelectDate,
   refreshSignal,
+  onChanged,
 }: {
   owners: GoalOwnerMeta[] | null;
   accent: string;
@@ -146,9 +162,12 @@ export default function PlanningYearlyLevel({
   onToggle: () => void;
   onSelectDate: (iso: string) => void;
   refreshSignal: number;
+  onChanged: () => void;
 }) {
   const L = useL();
-  const year = new Date().getFullYear();
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
 
   const { data: rows, loaded, loadError, refresh } = useFetchState<OwnedOutcome[]>(
     owners
@@ -157,6 +176,26 @@ export default function PlanningYearlyLevel({
     [owners, year, refreshSignal],
     [],
   );
+
+  const [addingFor, setAddingFor] = useState<number | null>(null);
+  const [newTitle, setNewTitle] = useState('');
+  const [addingType, setAddingType] = useState<NewNodeType>('milestone');
+  const newTitleRef = useAutofocus<HTMLInputElement>(addingFor !== null);
+
+  const addNode = (row: OwnedOutcome) => {
+    const title = newTitle.trim();
+    if (!title) return;
+    const create =
+      addingType === 'milestone'
+        ? planningApi.createMilestone(row.outcome.id, title, month, year)
+        : planningApi.createOutcome(row.owner.key, title, year);
+    create.then(() => {
+      setNewTitle('');
+      setAddingType('milestone');
+      refresh();
+      onChanged();
+    });
+  };
 
   const deadlines = new Set(
     rows.flatMap((r) => r.milestones.map((m) => `${m.year}-${String(m.month).padStart(2, '0')}-01`)),
@@ -201,11 +240,72 @@ export default function PlanningYearlyLevel({
                 >
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                     {row.milestones.map((m) => (
-                      <li key={m.id} style={{ fontSize: 12, padding: `${SPACE.xs}px 0` }}>
-                        {m.progress === 100 ? '✓' : '○'} {m.title} — {m.progress}%
+                      <li key={m.id} style={{ display: 'flex', alignItems: 'center', gap: SPACE.xs, fontSize: 12, padding: `${SPACE.xs}px 0` }}>
+                        {m.progress === 100 ? <Check size={12} color="var(--success)" /> : <Circle size={12} color="var(--text-faint)" />}
+                        <span>{m.title} — {m.progress}%</span>
                       </li>
                     ))}
                   </ul>
+                  {addingFor === row.outcome.id ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs, marginTop: SPACE.xs }}>
+                      <div style={{ display: 'flex', gap: SPACE.xs, flexWrap: 'wrap' }}>
+                        {NEW_NODE_TYPES.map((t) => {
+                          const on = addingType === t.key;
+                          return (
+                            <button
+                              key={t.key}
+                              onClick={() => setAddingType(t.key)}
+                              title={`Add a ${t.label.toLowerCase()}`}
+                              style={{
+                                fontSize: TYPE_SIZE.sm,
+                                padding: `${SPACE.hair}px ${SPACE.sm}px`,
+                                borderRadius: RADIUS.pill,
+                                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                                background: on ? 'var(--accent-light)' : 'transparent',
+                                color: on ? 'var(--accent)' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {t.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', gap: SPACE.xs }}>
+                        <input
+                          ref={newTitleRef}
+                          aria-label={`New ${addingType}`}
+                          value={newTitle}
+                          onChange={(e) => setNewTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') addNode(row);
+                            if (e.key === 'Escape') { setAddingFor(null); setNewTitle(''); setAddingType('milestone'); }
+                          }}
+                          placeholder={addingType === 'milestone' ? 'New Milestone title…' : 'New Outcome title…'}
+                          style={{ flex: 1, fontSize: TYPE_SIZE.xs, padding: SPACE.xs }}
+                        />
+                        <button onClick={() => addNode(row)} title="Add" aria-label="Submit">+</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setAddingFor(row.outcome.id); setNewTitle(''); setAddingType('milestone'); }}
+                      title="Add a Milestone, or reach further to a new Outcome"
+                      aria-label="Add to this Outcome or a new Outcome"
+                      className="hover-accent"
+                      style={{
+                        fontSize: TYPE_SIZE.sm,
+                        background: 'transparent',
+                        borderWidth: 1,
+                        borderStyle: 'dashed',
+                        borderRadius: RADIUS.pill,
+                        padding: `${SPACE.hair}px ${SPACE.sm}px`,
+                        marginTop: SPACE.xs,
+                      }}
+                    >
+                      + add
+                    </button>
+                  )}
                 </PlanningProgressCard>
               ))}
             </div>

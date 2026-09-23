@@ -51,13 +51,13 @@ export default function MiniCalendarPicker({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: SPACE.xs }}>
-        <button type="button" className="hover-accent" onClick={() => onNavMonth(-1)} title="Previous month" style={{ background: 'transparent', border: 'none', padding: `0 ${SPACE.xs}px`, fontWeight: 700 }}>
+        <button type="button" className="hover-accent" onClick={() => onNavMonth(-1)} title="Previous month" aria-label="Previous month" style={{ background: 'transparent', border: 'none', padding: `0 ${SPACE.xs}px`, fontWeight: 700 }}>
           ‹
         </button>
         <span style={{ flex: 1, textAlign: 'center', fontSize: TYPE_SIZE.xs, fontWeight: 700, color: 'var(--text)' }}>
           {MONTH_ABBR[month - 1]} {year}
         </span>
-        <button type="button" className="hover-accent" onClick={() => onNavMonth(1)} title="Next month" style={{ background: 'transparent', border: 'none', padding: `0 ${SPACE.xs}px`, fontWeight: 700 }}>
+        <button type="button" className="hover-accent" onClick={() => onNavMonth(1)} title="Next month" aria-label="Next month" style={{ background: 'transparent', border: 'none', padding: `0 ${SPACE.xs}px`, fontWeight: 700 }}>
           ›
         </button>
       </div>

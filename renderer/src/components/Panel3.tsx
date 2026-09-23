@@ -516,6 +516,7 @@ function HoursAccordion({
           onToggle={() => setLevel('monthly')}
           onSelectDate={onSelectDate}
           refreshSignal={refreshSignal}
+          onChanged={onChanged}
         />
         <PlanningYearlyLevel
           owners={owners}
@@ -524,6 +525,7 @@ function HoursAccordion({
           onToggle={() => setLevel('yearly')}
           onSelectDate={onSelectDate}
           refreshSignal={refreshSignal}
+          onChanged={onChanged}
         />
       </div>
     </div>

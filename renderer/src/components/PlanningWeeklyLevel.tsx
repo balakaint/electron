@@ -245,6 +245,20 @@ export default function PlanningWeeklyLevel({
       setCarryOpenFor(null);
     });
 
+  // Opens the real any-date calendar directly, not the 7-day strip —
+  // "Pick a date" used to reopen dayPickerFor (only this week's 7
+  // days), which meant the one button explicitly promising arbitrary-
+  // date choice couldn't reach any date outside the current week
+  // (ui-ux-audit, 2026-09-24: this exact mismatch is what made "how do
+  // I get to Oct 21" unfindable live). Shared by both the standalone
+  // "Any date…" pill and Carry Forward's "Pick a date" so the two never
+  // drift apart again.
+  const openAnyDatePicker = (task: PlanTask) => {
+    const base = task.scheduled_date ? new Date(`${task.scheduled_date}T00:00:00`) : new Date();
+    setCalendarMonth({ year: base.getFullYear(), month: base.getMonth() + 1 });
+    setAnyDateFor(task.id);
+  };
+
   // Branches on the type chip, not just the title — this is the "type
   // picker, from any level" contract (handoff doc §4.1): the same
   // composer that adds a supporting Task can instead reach up and add a
@@ -329,7 +343,17 @@ export default function PlanningWeeklyLevel({
                       <li key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 0' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
                           <input type="checkbox" className="checkbox-custom" checked={t.status === 'done'} onChange={() => toggleTask(row, t)} />
-                          <span style={{ flex: 1, textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? 'var(--text-faint)' : 'var(--text)' }}>
+                          <span
+                            style={{
+                              flex: 1,
+                              minWidth: 0,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              textDecoration: t.status === 'done' ? 'line-through' : 'none',
+                              color: t.status === 'done' ? 'var(--text-faint)' : 'var(--text)',
+                            }}
+                          >
                             {t.title}
                           </span>
                           {/* The one control that makes this task actually
@@ -371,14 +395,14 @@ export default function PlanningWeeklyLevel({
                           )}
                         </label>
                         {dayPickerFor === t.id && (
-                          <div style={{ display: 'flex', gap: SPACE.hair, paddingLeft: SPACE.xl, flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', gap: SPACE.xs, paddingLeft: SPACE.xl, flexWrap: 'wrap' }}>
                             {weekDays.map((wd) => (
                               <button
                                 key={wd.iso}
                                 onClick={() => scheduleTaskDay(row, t, wd.iso)}
                                 className="hover-accent"
                                 style={{
-                                  fontSize: TYPE_SIZE.xs,
+                                  fontSize: TYPE_SIZE.sm,
                                   padding: `${SPACE.hair}px ${SPACE.xs}px`,
                                   borderWidth: 1,
                                   borderStyle: 'solid',
@@ -391,14 +415,10 @@ export default function PlanningWeeklyLevel({
                               </button>
                             ))}
                             <button
-                              onClick={() => {
-                                const base = t.scheduled_date ? new Date(`${t.scheduled_date}T00:00:00`) : new Date();
-                                setCalendarMonth({ year: base.getFullYear(), month: base.getMonth() + 1 });
-                                setAnyDateFor(t.id);
-                              }}
+                              onClick={() => openAnyDatePicker(t)}
                               className="hover-accent"
                               style={{
-                                fontSize: TYPE_SIZE.xs,
+                                fontSize: TYPE_SIZE.sm,
                                 padding: `${SPACE.hair}px ${SPACE.xs}px`,
                                 borderWidth: 1,
                                 borderStyle: 'dashed',
@@ -437,7 +457,7 @@ export default function PlanningWeeklyLevel({
                         {carryOpenFor === t.id && (
                           <div style={{ display: 'flex', gap: SPACE.xs, paddingLeft: SPACE.xl, flexWrap: 'wrap' }}>
                             <button onClick={() => carryForward(row, t, 'nextweek')} style={{ fontSize: TYPE_SIZE.xs }}>Next week</button>
-                            <button onClick={() => { setCarryOpenFor(null); setDayPickerFor(t.id); }} style={{ fontSize: TYPE_SIZE.xs }}>Pick a date</button>
+                            <button onClick={() => { setCarryOpenFor(null); openAnyDatePicker(t); }} style={{ fontSize: TYPE_SIZE.xs }}>Pick a date</button>
                             <button onClick={() => carryForward(row, t, 'backlog')} style={{ fontSize: TYPE_SIZE.xs }}>Backlog</button>
                             <button onClick={() => carryForward(row, t, 'drop')} style={{ fontSize: TYPE_SIZE.xs }}>Drop</button>
                           </div>
@@ -458,7 +478,7 @@ export default function PlanningWeeklyLevel({
                               disabled={disabled}
                               title={disabled ? "This Win's Milestone has no Outcome to attach a new Milestone to" : `Add a ${t.label.toLowerCase()}`}
                               style={{
-                                fontSize: TYPE_SIZE.xs,
+                                fontSize: TYPE_SIZE.sm,
                                 padding: `${SPACE.hair}px ${SPACE.sm}px`,
                                 borderRadius: RADIUS.pill,
                                 border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
@@ -497,7 +517,7 @@ export default function PlanningWeeklyLevel({
                       aria-label="Add to this Win or a level above it"
                       className="hover-accent"
                       style={{
-                        fontSize: TYPE_SIZE.xs,
+                        fontSize: TYPE_SIZE.sm,
                         background: 'transparent',
                         // Dashed, matching the mockup's own
                         // .add-goal-trigger — a distinct visual language

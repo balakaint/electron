@@ -1,9 +1,12 @@
-import { CalendarRange } from 'lucide-react';
+import { useState } from 'react';
+import { CalendarRange, Check, Circle } from 'lucide-react';
 import { GoalOwnerMeta, Milestone, Win, planningApi } from '../services/api';
 import AccordionSection from './AccordionSection';
 import PlanningProgressCard from './PlanningProgressCard';
 import { useFetchState } from '../hooks/useFetchState';
+import { useAutofocus } from '../hooks/useAutofocus';
 import { RADIUS, SPACE } from '../spacing';
+import { TYPE_SIZE } from '../typography';
 import { useL } from '../i18n';
 
 // Ported verbatim from GoalHorizonSection.tsx (superseded by the
@@ -12,6 +15,29 @@ import { useL } from '../i18n';
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+function mondayOf(d: Date): string {
+  const copy = new Date(d);
+  const offset = (d.getDay() + 6) % 7;
+  copy.setDate(d.getDate() - offset);
+  return isoDate(copy);
+}
+
+// The type-picker composer, one level up from Weekly's — see
+// PlanningWeeklyLevel.tsx's own NEW_NODE_TYPES comment for the full
+// "type picker, from any level" contract (handoff doc §4.1). This
+// card is a Milestone, so its own finest-grain creatable type is Win
+// (a Task always needs a specific Win parent, which doesn't exist yet
+// at this card's scope), plus reaching sideways/up to a sibling
+// Milestone or a standalone Outcome — mirrors Weekly's Win/Milestone/
+// Outcome reach exactly, shifted one level (ui-ux-audit, 2026-09-24:
+// Monthly/Yearly had no inline creation at all before this).
+type NewNodeType = 'win' | 'milestone' | 'outcome';
+const NEW_NODE_TYPES: { key: NewNodeType; label: string }[] = [
+  { key: 'win', label: 'Win' },
+  { key: 'milestone', label: 'Milestone' },
+  { key: 'outcome', label: 'Outcome' },
+];
 
 const WEEKDAY_ABBR = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
@@ -177,6 +203,7 @@ export default function PlanningMonthlyLevel({
   onToggle,
   onSelectDate,
   refreshSignal,
+  onChanged,
 }: {
   owners: GoalOwnerMeta[] | null;
   accent: string;
@@ -184,6 +211,7 @@ export default function PlanningMonthlyLevel({
   onToggle: () => void;
   onSelectDate: (iso: string) => void;
   refreshSignal: number;
+  onChanged: () => void;
 }) {
   const L = useL();
   const today = new Date();
@@ -197,6 +225,28 @@ export default function PlanningMonthlyLevel({
     [owners, year, month, refreshSignal],
     [],
   );
+
+  const [addingFor, setAddingFor] = useState<number | null>(null);
+  const [newTitle, setNewTitle] = useState('');
+  const [addingType, setAddingType] = useState<NewNodeType>('win');
+  const newTitleRef = useAutofocus<HTMLInputElement>(addingFor !== null);
+
+  const addNode = (row: OwnedMilestone) => {
+    const title = newTitle.trim();
+    if (!title) return;
+    const create =
+      addingType === 'win'
+        ? planningApi.createWin(row.milestone.id, title, mondayOf(today))
+        : addingType === 'milestone'
+          ? planningApi.createMilestone(row.milestone.outcome_id, title, month, year)
+          : planningApi.createOutcome(row.owner.key, title, year);
+    create.then(() => {
+      setNewTitle('');
+      setAddingType('win');
+      refresh();
+      onChanged();
+    });
+  };
 
   const deadlines = new Set(rows.flatMap((r) => r.wins.map((w) => w.week_start_date)));
   const monthLabel = today.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
@@ -249,11 +299,72 @@ export default function PlanningMonthlyLevel({
                 >
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                     {row.wins.map((w) => (
-                      <li key={w.id} style={{ fontSize: 12, padding: `${SPACE.xs}px 0` }}>
-                        {w.progress === 100 ? '✓' : '○'} {w.title} — {w.progress}%
+                      <li key={w.id} style={{ display: 'flex', alignItems: 'center', gap: SPACE.xs, fontSize: 12, padding: `${SPACE.xs}px 0` }}>
+                        {w.progress === 100 ? <Check size={12} color="var(--success)" /> : <Circle size={12} color="var(--text-faint)" />}
+                        <span>{w.title} — {w.progress}%</span>
                       </li>
                     ))}
                   </ul>
+                  {addingFor === row.milestone.id ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs, marginTop: SPACE.xs }}>
+                      <div style={{ display: 'flex', gap: SPACE.xs, flexWrap: 'wrap' }}>
+                        {NEW_NODE_TYPES.map((t) => {
+                          const on = addingType === t.key;
+                          return (
+                            <button
+                              key={t.key}
+                              onClick={() => setAddingType(t.key)}
+                              title={`Add a ${t.label.toLowerCase()}`}
+                              style={{
+                                fontSize: TYPE_SIZE.sm,
+                                padding: `${SPACE.hair}px ${SPACE.sm}px`,
+                                borderRadius: RADIUS.pill,
+                                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                                background: on ? 'var(--accent-light)' : 'transparent',
+                                color: on ? 'var(--accent)' : 'var(--text-muted)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {t.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', gap: SPACE.xs }}>
+                        <input
+                          ref={newTitleRef}
+                          aria-label={`New ${addingType}`}
+                          value={newTitle}
+                          onChange={(e) => setNewTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') addNode(row);
+                            if (e.key === 'Escape') { setAddingFor(null); setNewTitle(''); setAddingType('win'); }
+                          }}
+                          placeholder={addingType === 'win' ? 'New Win title…' : addingType === 'milestone' ? 'New Milestone title…' : 'New Outcome title…'}
+                          style={{ flex: 1, fontSize: TYPE_SIZE.xs, padding: SPACE.xs }}
+                        />
+                        <button onClick={() => addNode(row)} title="Add" aria-label="Submit">+</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setAddingFor(row.milestone.id); setNewTitle(''); setAddingType('win'); }}
+                      title="Add a Win, or reach sideways/up to a Milestone/Outcome"
+                      aria-label="Add to this Milestone or a level above it"
+                      className="hover-accent"
+                      style={{
+                        fontSize: TYPE_SIZE.sm,
+                        background: 'transparent',
+                        borderWidth: 1,
+                        borderStyle: 'dashed',
+                        borderRadius: RADIUS.pill,
+                        padding: `${SPACE.hair}px ${SPACE.sm}px`,
+                        marginTop: SPACE.xs,
+                      }}
+                    >
+                      + add
+                    </button>
+                  )}
                 </PlanningProgressCard>
               ))}
             </div>
