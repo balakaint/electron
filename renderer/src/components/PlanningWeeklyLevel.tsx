@@ -79,6 +79,8 @@ export default function PlanningWeeklyLevel({
   );
 
   const [carryOpenFor, setCarryOpenFor] = useState<number | null>(null);
+  const [addingFor, setAddingFor] = useState<number | null>(null);
+  const [newTaskText, setNewTaskText] = useState('');
 
   // Refetches both the task list AND the win itself — `win.progress` is
   // resolved server-side (see engine.planning's win_progress), so a
@@ -104,6 +106,15 @@ export default function PlanningWeeklyLevel({
       .carryForwardTask(task.id, action)
       .then(() => refreshWinAndTasks(row))
       .then(() => setCarryOpenFor(null));
+
+  const addTask = (row: OwnedWin) => {
+    const title = newTaskText.trim();
+    if (!title) return;
+    planningApi.createTask(row.owner.key, title, row.win.id).then(() => {
+      setNewTaskText('');
+      refreshWinAndTasks(row);
+    });
+  };
 
   const totalWins = rows.length;
   const achievedWins = rows.filter((r) => r.win.progress === 100).length;
@@ -178,6 +189,32 @@ export default function PlanningWeeklyLevel({
                   </li>
                 ))}
               </ul>
+              {addingFor === row.win.id ? (
+                <div style={{ display: 'flex', gap: SPACE.xs, marginTop: SPACE.xs }}>
+                  <input
+                    autoFocus
+                    aria-label="New task"
+                    value={newTaskText}
+                    onChange={(e) => setNewTaskText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addTask(row);
+                      if (e.key === 'Escape') { setAddingFor(null); setNewTaskText(''); }
+                    }}
+                    placeholder="Add task…"
+                    style={{ flex: 1, fontSize: TYPE_SIZE.xs, padding: SPACE.xs }}
+                  />
+                  <button onClick={() => addTask(row)} title="Add task" aria-label="Submit new task">+</button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setAddingFor(row.win.id); setNewTaskText(''); }}
+                  title="Add a task"
+                  aria-label="Add a supporting task to this Win"
+                  style={{ fontSize: TYPE_SIZE.xs, background: 'transparent', border: '1px solid var(--border)', borderRadius: RADIUS.pill, padding: `${SPACE.hair}px ${SPACE.sm}px`, marginTop: SPACE.xs }}
+                >
+                  + task
+                </button>
+              )}
             </PlanningProgressCard>
           ))}
         </div>
