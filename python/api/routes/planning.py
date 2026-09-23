@@ -79,7 +79,10 @@ def create_milestone(payload: MilestoneCreate, engine: PlanningEngine = Depends(
 
 @router.put("/milestones/{milestone_id}", response_model=MilestoneOut)
 def edit_milestone(milestone_id: int, payload: MilestoneEdit, engine: PlanningEngine = Depends(get_engine)):
-    milestone = engine.edit_milestone(milestone_id, payload.title, payload.status, payload.outcome_id)
+    try:
+        milestone = engine.edit_milestone(milestone_id, payload.title, payload.status, payload.outcome_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     if milestone is None:
         raise HTTPException(404, "Milestone not found")
     return milestone
@@ -111,7 +114,10 @@ def create_win(payload: WinCreate, engine: PlanningEngine = Depends(get_engine))
 
 @router.put("/wins/{win_id}", response_model=WinOut)
 def edit_win(win_id: int, payload: WinEdit, engine: PlanningEngine = Depends(get_engine)):
-    win = engine.edit_win(win_id, payload.title, payload.criteria, payload.status, payload.milestone_id)
+    try:
+        win = engine.edit_win(win_id, payload.title, payload.criteria, payload.status, payload.milestone_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     if win is None:
         raise HTTPException(404, "Win not found")
     return win

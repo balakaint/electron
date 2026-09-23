@@ -198,6 +198,131 @@ def test_migration_copies_goal_hierarchy_and_leaves_goals_table_untouched():
         check("goal_tasks table row count unchanged", len(goal_tasks_after) == len(goal_tasks_before))
 
 
+def test_migration_dedupes_two_yearly_goals_for_the_same_owner_and_year():
+    with FreshDB() as f:
+        from database.models import Goal
+        from database.repository import PlanningRepository
+        f.repo.db.add(Goal(id=10, project_key="proj1", horizon="yearly", text="Year A", done=False, start_date="2026-01-01", deadline="2026-12-31", note="", next_action=""))
+        f.repo.db.add(Goal(id=11, project_key="proj1", horizon="yearly", text="Year B", done=False, start_date="2026-02-01", deadline="2026-12-31", note="", next_action=""))
+        f.repo.db.add(Goal(id=12, project_key="proj1", horizon="monthly", text="Month goal", done=False, start_date="2026-09-01", deadline="2026-09-30", note="", next_action=""))
+        f.repo.db.commit()
+
+        from alembic import command
+        from alembic.config import Config
+        cfg = Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
+        command.downgrade(cfg, "-1")
+        command.upgrade(cfg, "head")
+
+        planning_repo = PlanningRepository(f.repo.db)
+        outcomes = planning_repo.list_outcomes("proj1")
+        check("two yearly goals for the same owner+year collapse to ONE Outcome", len(outcomes) == 1)
+        milestones = planning_repo.list_milestones(outcomes[0].id)
+        # The second yearly Goal ("Year B") itself folds in as a Milestone
+        # (see the migration's own comment) alongside the real monthly
+        # Goal — both must be reachable from the one surviving Outcome,
+        # nothing silently dropped.
+        check("the monthly goal attached to that single Outcome", any(m.title == "Month goal" for m in milestones))
+        check("the second yearly Goal also folded in as a Milestone rather than being dropped", any(m.title == "Year B" for m in milestones))
+
+
+def test_outcome_progress_respects_fixed():
+    with FreshDB() as f:
+        from database.models import Outcome
+        from engine.planning import outcome_progress
+        f.repo.db.add(Outcome(id=888, owner_key="life", title="fixed outcome", year=2026, fixed=True, progress=80))
+        f.repo.db.commit()
+        outcome = f.repo.get_outcome(888)
+        check("fixed outcome with progress=80 and an unrelated 0% milestone still reports 80", outcome_progress(outcome, f.repo) == 80)
+
+
+def test_win_progress_excludes_dropped_tasks_from_denominator():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        ms = eng.create_milestone(out["id"], "M", 9, 2026)
+        win = eng.create_win(ms["id"], "W", "2026-09-21")
+        t1 = eng.create_plan_task("life", "done task", win_id=win["id"], scheduled_date="2026-09-21")
+        t2 = eng.create_plan_task("life", "dropped task", win_id=win["id"], scheduled_date="2026-09-22")
+        eng.edit_plan_task(t1["id"], status="done")
+        eng.edit_plan_task(t2["id"], status="dropped")
+        refreshed = eng.list_wins(ms["id"])[0]
+        check("1 done + 1 dropped -> 100% (dropped excluded from denominator)", refreshed["progress"] == 100)
+
+
+def test_reparent_to_nonexistent_parent_raises():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        ms = eng.create_milestone(out["id"], "M", 9, 2026)
+        raised = False
+        try:
+            eng.edit_milestone(ms["id"], outcome_id=999999999)
+        except ValueError:
+            raised = True
+        check("re-parenting to a non-existent outcome raises instead of silently no-op'ing", raised)
+        unchanged = f.repo.get_milestone(ms["id"])
+        check("milestone's outcome_id is unchanged after the rejected reparent", unchanged.outcome_id == out["id"])
+
+
+def test_carry_forward_nextweek_moves_win_id_when_target_win_exists():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        ms = eng.create_milestone(out["id"], "M", 9, 2026)
+        this_week = eng.create_win(ms["id"], "This week", "2026-09-21")
+        next_week = eng.create_win(ms["id"], "Next week", "2026-09-28")
+        task = eng.create_plan_task("life", "carry me", win_id=this_week["id"], scheduled_date="2026-09-21")
+        moved = eng.carry_forward_plan_task(task["id"], "nextweek")
+        check("task's win_id points at next week's real Win", moved["win_id"] == next_week["id"])
+        check("task's scheduled_date shifted 7 days", moved["scheduled_date"] == "2026-09-28")
+        this_week_after = eng.list_wins(ms["id"])
+        this = next(w for w in this_week_after if w["id"] == this_week["id"])
+        check("source win no longer counts the moved task (0 tasks -> 0%, not stuck non-zero)", this["progress"] == 0)
+
+
+def test_carry_forward_nextweek_falls_back_to_backlog_when_no_target_win():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        ms = eng.create_milestone(out["id"], "M", 9, 2026)
+        this_week = eng.create_win(ms["id"], "This week", "2026-09-21")
+        task = eng.create_plan_task("life", "carry me", win_id=this_week["id"], scheduled_date="2026-09-21")
+        moved = eng.carry_forward_plan_task(task["id"], "nextweek")
+        check("no Win exists for next week -> task detaches to backlog rather than a silent no-op", moved["win_id"] is None)
+        check("scheduled_date still shifts 7 days even when detached", moved["scheduled_date"] == "2026-09-28")
+
+
+def test_force_delete_cascades_fully_at_every_level_with_checklist_items():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        eng.add_checklist_item("outcome note", outcome_id=out["id"])
+        ms = eng.create_milestone(out["id"], "M", 9, 2026)
+        eng.add_checklist_item("milestone note", milestone_id=ms["id"])
+        win = eng.create_win(ms["id"], "W", "2026-09-21")
+        eng.add_checklist_item("win note", win_id=win["id"])
+        task = eng.create_plan_task("life", "t", win_id=win["id"], scheduled_date="2026-09-21")
+
+        check("delete_milestone(force=True) cascades through its Win", eng.delete_milestone(ms["id"], force=True))
+        check("milestone gone", f.repo.get_milestone(ms["id"]) is None)
+        check("win gone", f.repo.get_win(win["id"]) is None)
+        check("milestone's own checklist item cascaded away", len(f.repo.list_checklist_items(milestone_id=ms["id"])) == 0)
+        check("win's own checklist item cascaded away", len(f.repo.list_checklist_items(win_id=win["id"])) == 0)
+        check("outcome's checklist item is untouched (outcome itself not deleted yet)", len(f.repo.list_checklist_items(outcome_id=out["id"])) == 1)
+        # the task itself survives (win_id FK is SET NULL, not CASCADE) but is now orphaned
+        task_after = f.repo.get_plan_task(task["id"])
+        check("plan task survives the cascade (SET NULL, not deleted)", task_after is not None)
+        check("plan task's win_id nulled out", task_after.win_id is None)
+
+        check("delete_outcome(force=True) on the now-childless outcome still works", eng.delete_outcome(out["id"], force=True))
+        check("outcome's own checklist item cascaded away too", len(f.repo.list_checklist_items(outcome_id=out["id"])) == 0)
+
+
 def main():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
     for t in tests:

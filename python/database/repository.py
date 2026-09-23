@@ -1044,6 +1044,21 @@ class PlanningRepository:
     def get_win(self, win_id: int) -> Win | None:
         return self.db.get(Win, win_id)
 
+    def find_win_by_owner_and_week(self, owner_key: str, week_start_date: str) -> Win | None:
+        """The Win (if any) whose week this owner already has under some
+        Milestone/Outcome — used by Carry Forward's "next week" action to
+        find the real target Win rather than just shifting a task's
+        `scheduled_date` and leaving its `win_id` pointed at last week's
+        Win (caught in code review as a visual no-op: the task never
+        actually left the old Win's list)."""
+        stmt = (
+            select(Win)
+            .join(Milestone, Win.milestone_id == Milestone.id)
+            .join(Outcome, Milestone.outcome_id == Outcome.id)
+            .where(Outcome.owner_key == owner_key, Win.week_start_date == week_start_date)
+        )
+        return self.db.scalars(stmt).first()
+
     def add_win(self, win: Win) -> Win:
         self.db.add(win)
         self.db.commit()

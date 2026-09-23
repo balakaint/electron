@@ -25,7 +25,13 @@ def _today() -> str:
 def win_progress(win: Win, repo: PlanningRepository) -> int:
     if win.fixed:
         return win.progress or 0
-    tasks = repo.list_plan_tasks(win.id)
+    # Dropped tasks are excluded from both numerator and denominator — a
+    # task the user has explicitly dropped is resolved, not "still
+    # outstanding work this Win is waiting on" (caught in code review:
+    # a Win with 1 done + 1 dropped task was stuck at 50%, so dropping
+    # the one task you'll never do made the Win's own completion
+    # unreachable).
+    tasks = [t for t in repo.list_plan_tasks(win.id) if t.status != "dropped"]
     if not tasks:
         return win.progress or 0
     done = sum(1 for t in tasks if t.status == "done")
@@ -43,6 +49,8 @@ def milestone_progress(milestone: Milestone, repo: PlanningRepository) -> int:
 
 
 def outcome_progress(outcome: Outcome, repo: PlanningRepository) -> int:
+    if outcome.fixed:
+        return outcome.progress or 0
     milestones = repo.list_milestones(outcome.id)
     if not milestones:
         return outcome.progress or 0
@@ -114,8 +122,15 @@ class PlanningEngine:
             milestone.title = title.strip()
         if status is not None:
             milestone.status = status
-        if outcome_id is not None and self.repo.get_outcome(outcome_id) is not None:
-            milestone.outcome_id = outcome_id  # re-parent fix-up; children stay linked via their own FK
+        if outcome_id is not None:
+            # Re-parent fix-up; children stay linked via their own FK,
+            # never touched here. A stale/wrong id must not silently
+            # no-op — caught in code review: it previously fell through
+            # to a 200 with the row unchanged, which reads to the caller
+            # as a successful move that didn't happen.
+            if self.repo.get_outcome(outcome_id) is None:
+                raise ValueError(f"no outcome {outcome_id}")
+            milestone.outcome_id = outcome_id
         return self._milestone_out(self.repo.save_milestone(milestone))
 
     def delete_milestone(self, milestone_id: int, force: bool = False) -> bool:
@@ -163,7 +178,9 @@ class PlanningEngine:
             win.criteria = criteria.strip()
         if status is not None:
             win.status = status
-        if milestone_id is not None and self.repo.get_milestone(milestone_id) is not None:
+        if milestone_id is not None:
+            if self.repo.get_milestone(milestone_id) is None:
+                raise ValueError(f"no milestone {milestone_id}")
             win.milestone_id = milestone_id
         return self._win_out(self.repo.save_win(win))
 
@@ -205,17 +222,29 @@ class PlanningEngine:
 
     def carry_forward_plan_task(self, task_id: int, action: str) -> dict | None:
         """action: 'nextweek' | 'date' (Phase A: aliases to 'nextweek',
-        see the design spec's Carry Forward edge case) | 'backlog' | 'drop'."""
+        see the design spec's Carry Forward edge case) | 'backlog' | 'drop'.
+
+        'nextweek'/'date' re-point win_id at the real Win for next week
+        when one exists (found via `find_win_by_owner_and_week`), or
+        detach to backlog (win_id=None) when none does — caught in code
+        review: the previous version only shifted `scheduled_date` and
+        left `win_id` on the OLD Win, so the task never actually left
+        the list it was supposedly carried forward out of.
+        """
         task = self.repo.get_plan_task(task_id)
         if task is None:
             return None
         if action in ("nextweek", "date"):
             if task.win_id is not None:
                 win = self.repo.get_win(task.win_id)
-                if win is not None and task.scheduled_date:
-                    next_start = str(date.fromisoformat(win.week_start_date) + timedelta(days=7))
-                    task.scheduled_date = str(date.fromisoformat(task.scheduled_date) + timedelta(days=7))
-                    _ = next_start  # week reassignment across the boundary is a Panel-side follow-up call, not required for the date shift itself
+                if win is not None:
+                    next_week_start = str(date.fromisoformat(win.week_start_date) + timedelta(days=7))
+                    if task.scheduled_date:
+                        task.scheduled_date = str(date.fromisoformat(task.scheduled_date) + timedelta(days=7))
+                    target = self.repo.find_win_by_owner_and_week(task.owner_key, next_week_start)
+                    task.win_id = target.id if target else None
+            elif task.scheduled_date:
+                task.scheduled_date = str(date.fromisoformat(task.scheduled_date) + timedelta(days=7))
         elif action == "backlog":
             task.win_id = None
             task.scheduled_date = None

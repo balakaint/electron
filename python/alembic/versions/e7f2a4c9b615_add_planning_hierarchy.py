@@ -157,15 +157,45 @@ def upgrade() -> None:
     weekly = [g for g in all_goals if g["horizon"] == "weekly"]
 
     for g in yearly:
-        oid = next_id()
-        conn.execute(
-            outcomes_t.insert().values(
-                id=oid, owner_key=g["project_key"], title=g["text"], year=year_of(g["start_date"]),
-                fixed=False, progress=0, legacy_goal_id=g["id"],
+        yr = year_of(g["start_date"])
+        okey = (g["project_key"], yr)
+        if okey not in outcome_index:
+            # First yearly Goal for this (owner, year) becomes the real
+            # Outcome. The old Goals panel is a free-form list per
+            # horizon — a second yearly Goal for the same owner+year is
+            # not exotic (caught in code review: `outcome_index[okey] =
+            # oid` with no dedup check meant a second one silently
+            # replaced the first in the index, so every monthly/weekly
+            # goal under the FIRST one became unreachable from the
+            # frontend's `outcomes.find(o => o.year === year)` lookup —
+            # not a null FK, a wrong one).
+            oid = next_id()
+            conn.execute(
+                outcomes_t.insert().values(
+                    id=oid, owner_key=g["project_key"], title=g["text"], year=yr,
+                    fixed=False, progress=0, legacy_goal_id=g["id"],
+                )
             )
-        )
-        outcome_index[(g["project_key"], year_of(g["start_date"]))] = oid
-        goal_to_node[g["id"]] = ("outcome", oid)
+            outcome_index[okey] = oid
+            goal_to_node[g["id"]] = ("outcome", oid)
+        else:
+            # A second-or-later yearly Goal for the same owner+year
+            # folds in as a Milestone under the shared Outcome instead
+            # of being silently dropped or shadowing the first — same
+            # dedup key (`milestone_index`) the monthly/weekly loops
+            # below already use, so a later monthly/weekly Goal that
+            # happens to fall in this one's month still attaches to it
+            # rather than creating a duplicate synthetic Milestone.
+            mid = next_id()
+            mo = month_of(g["start_date"])
+            conn.execute(
+                milestones_t.insert().values(
+                    id=mid, outcome_id=outcome_index[okey], title=g["text"], month=mo,
+                    year=yr, fixed=False, progress=0, legacy_goal_id=g["id"],
+                )
+            )
+            milestone_index[(g["project_key"], yr, mo)] = mid
+            goal_to_node[g["id"]] = ("milestone", mid)
 
     for g in monthly:
         yr = year_of(g["start_date"])
