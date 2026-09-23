@@ -1872,7 +1872,7 @@ export const planningApi = {
 
 - [ ] **Step 2: Typecheck**
 
-Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit -p renderer/tsconfig.json`
+Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit`
 Expected: no new errors attributable to `api.ts` (pre-existing unrelated
 warnings in other files are fine — see the ESLint output from the
 earlier commit hook for what's already there).
@@ -2023,7 +2023,7 @@ export default function PlanningProgressCard({
 
 - [ ] **Step 2: Typecheck**
 
-Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit -p renderer/tsconfig.json`
+Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit`
 Expected: no new errors from this file.
 
 - [ ] **Step 3: Commit**
@@ -2238,7 +2238,7 @@ export default function PlanningWeeklyLevel({
 
 - [ ] **Step 3: Typecheck**
 
-Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit -p renderer/tsconfig.json`
+Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit`
 Expected: no new errors from this file (pre-existing errors in
 `Panel3.tsx` about the still-present `GoalHorizonSection` import are
 expected until Task 16 lands).
@@ -2386,7 +2386,7 @@ export default function PlanningMonthlyLevel({
 
 - [ ] **Step 3: Typecheck**
 
-Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit -p renderer/tsconfig.json`
+Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit`
 Expected: no new errors from this file.
 
 - [ ] **Step 4: Commit**
@@ -2526,7 +2526,7 @@ export default function PlanningYearlyLevel({
 
 - [ ] **Step 3: Typecheck**
 
-Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit -p renderer/tsconfig.json`
+Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit`
 Expected: no new errors from this file.
 
 - [ ] **Step 4: Commit**
@@ -2654,7 +2654,7 @@ Replace the single `goals: Goal[]` state (line 940) with three: `outcomes: Outco
 
 - [ ] **Step 5: Typecheck**
 
-Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit -p renderer/tsconfig.json`
+Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit`
 Expected: no errors in `GoalsPanel.tsx`. Errors in `Panel3.tsx` about
 `GoalHorizonSection` are still expected until Task 16.
 
@@ -2735,7 +2735,7 @@ re-adding it — check with whoever executes this task if unsure.
 
 - [ ] **Step 3: Typecheck**
 
-Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit -p renderer/tsconfig.json`
+Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit`
 Expected: no errors anywhere in `renderer/src`.
 
 - [ ] **Step 4: Run the full verification chain**
@@ -2773,7 +2773,7 @@ git rm renderer/src/components/GoalHorizonSection.tsx
 
 - [ ] **Step 3: Typecheck once more**
 
-Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit -p renderer/tsconfig.json`
+Run: `cd /home/zahid/dev/habit-os && npx tsc --noEmit`
 Expected: no errors.
 
 - [ ] **Step 4: Commit**
