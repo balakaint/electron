@@ -54,7 +54,8 @@ function railColor(t: Task): string {
 const SEARCH_FROM = 8;
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
 export default function TaskList({
