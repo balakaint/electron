@@ -60,7 +60,8 @@ function Breadcrumb({ level, dailyDate, onLevel }: { level: HoursLevel; dailyDat
           ) : (
             <button
               onClick={() => onLevel(c.level)}
-              style={{ background: 'transparent', border: 'none', color: 'var(--text-faint)', fontWeight: 700, fontSize: TYPE_SIZE.xs, padding: `${SPACE.hair}px ${SPACE.xs}px`, cursor: 'pointer', borderRadius: RADIUS.control }}
+              className="hover-tint"
+              style={{ border: 'none', color: 'var(--text-faint)', fontWeight: 700, fontSize: TYPE_SIZE.xs, padding: `${SPACE.hair}px ${SPACE.xs}px`, cursor: 'pointer', borderRadius: RADIUS.control }}
             >
               {c.label}
             </button>
@@ -143,7 +144,7 @@ function DailyTasksList({
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
         {rows.map((row) => (
           <li key={row.task.id} style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
-            <input type="checkbox" checked={row.task.status === 'done'} onChange={() => toggleTask(row)} />
+            <input type="checkbox" className="checkbox-custom" checked={row.task.status === 'done'} onChange={() => toggleTask(row)} />
             <span
               style={{
                 flex: 1,

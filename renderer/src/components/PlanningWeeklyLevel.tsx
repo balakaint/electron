@@ -54,6 +54,7 @@ function WeekStrip({ monday, accent, onSelectDate }: { monday: string; accent: s
             key={iso}
             onClick={() => onSelectDate(iso)}
             title="Jump to DAILY for this date"
+            className="hover-tint"
             style={{
               flex: 1,
               display: 'flex',
@@ -65,8 +66,15 @@ function WeekStrip({ monday, accent, onSelectDate }: { monday: string; accent: s
               border: 'none',
               cursor: 'pointer',
               font: 'inherit',
-              background: isToday ? accent : 'transparent',
-              color: isToday ? 'var(--on-accent)' : 'var(--text-muted)',
+              // `undefined`, never `'transparent'`, in the non-today
+              // case — an inline background (even 'transparent') shadows
+              // .hover-tint's :hover rule in index.css. Tinted via
+              // color-mix rather than the generic --accent-light token,
+              // since `accent` here is the LEVEL's own colour
+              // (--goal-yearly for Weekly), not the theme's accent —
+              // --accent-light has no per-level equivalent to reuse.
+              background: isToday ? `color-mix(in srgb, ${accent} 16%, transparent)` : undefined,
+              color: isToday ? accent : 'var(--text-muted)',
             }}
           >
             <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1 }}>{WEEKDAY_LETTERS[i]}</span>
@@ -307,7 +315,7 @@ export default function PlanningWeeklyLevel({
                     {row.tasks.map((t) => (
                       <li key={t.id} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 0' }}>
                         <label style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
-                          <input type="checkbox" checked={t.status === 'done'} onChange={() => toggleTask(row, t)} />
+                          <input type="checkbox" className="checkbox-custom" checked={t.status === 'done'} onChange={() => toggleTask(row, t)} />
                           <span style={{ flex: 1, textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? 'var(--text-faint)' : 'var(--text)' }}>
                             {t.title}
                           </span>
@@ -319,11 +327,18 @@ export default function PlanningWeeklyLevel({
                           <button
                             onClick={(e) => { e.preventDefault(); setDayPickerFor((cur) => (cur === t.id ? null : t.id)); }}
                             title={t.scheduled_date ? 'Change which day this is scheduled for' : 'Schedule this task to a day'}
+                            className="hover-accent"
                             style={{
                               fontSize: TYPE_SIZE.xs,
-                              background: t.scheduled_date ? 'var(--accent-light)' : 'transparent',
+                              // `undefined`, never `'transparent'`/`var(--border)`,
+                              // when unscheduled — an inline value here
+                              // (background OR the border shorthand) shadows
+                              // .hover-accent's rest/:hover rules in index.css.
+                              background: t.scheduled_date ? 'var(--accent-light)' : undefined,
                               color: t.scheduled_date ? 'var(--accent)' : 'var(--text-faint)',
-                              border: `1px solid ${t.scheduled_date ? 'var(--accent)' : 'var(--border)'}`,
+                              borderWidth: 1,
+                              borderStyle: 'solid',
+                              borderColor: t.scheduled_date ? 'var(--accent)' : undefined,
                               borderRadius: RADIUS.pill,
                               padding: `${SPACE.hair}px ${SPACE.sm}px`,
                               flex: 'none',
@@ -336,7 +351,7 @@ export default function PlanningWeeklyLevel({
                           {t.status !== 'done' && (
                             <button
                               onClick={() => setCarryOpenFor((cur) => (cur === t.id ? null : t.id))}
-                              style={{ fontSize: TYPE_SIZE.xs, background: 'transparent', border: '1px solid var(--border)', borderRadius: RADIUS.pill, padding: `${SPACE.hair}px ${SPACE.sm}px` }}
+                              style={{ fontSize: TYPE_SIZE.xs, borderRadius: RADIUS.pill, padding: `${SPACE.hair}px ${SPACE.sm}px` }}
                             >
                               Carry forward
                             </button>
@@ -348,10 +363,13 @@ export default function PlanningWeeklyLevel({
                               <button
                                 key={wd.iso}
                                 onClick={() => scheduleTaskDay(row, t, wd.iso)}
+                                className="hover-accent"
                                 style={{
                                   fontSize: TYPE_SIZE.xs,
                                   padding: `${SPACE.hair}px ${SPACE.xs}px`,
-                                  border: `1px solid ${wd.iso === t.scheduled_date ? 'var(--accent)' : 'var(--border)'}`,
+                                  borderWidth: 1,
+                                  borderStyle: 'solid',
+                                  borderColor: wd.iso === t.scheduled_date ? 'var(--accent)' : undefined,
                                   color: wd.iso === t.scheduled_date ? 'var(--accent)' : 'var(--text-muted)',
                                   borderRadius: RADIUS.control,
                                 }}
@@ -427,7 +445,20 @@ export default function PlanningWeeklyLevel({
                       onClick={() => { setAddingFor(row.win.id); setNewTaskText(''); setAddingType('task'); }}
                       title="Add a task, or reach up to add a Win/Milestone/Outcome"
                       aria-label="Add to this Win or a level above it"
-                      style={{ fontSize: TYPE_SIZE.xs, background: 'transparent', border: '1px solid var(--border)', borderRadius: RADIUS.pill, padding: `${SPACE.hair}px ${SPACE.sm}px`, marginTop: SPACE.xs }}
+                      className="hover-accent"
+                      style={{
+                        fontSize: TYPE_SIZE.xs,
+                        background: 'transparent',
+                        // Dashed, matching the mockup's own
+                        // .add-goal-trigger — a distinct visual language
+                        // for "start something new" vs. an ordinary
+                        // action button.
+                        borderWidth: 1,
+                        borderStyle: 'dashed',
+                        borderRadius: RADIUS.pill,
+                        padding: `${SPACE.hair}px ${SPACE.sm}px`,
+                        marginTop: SPACE.xs,
+                      }}
                     >
                       + add
                     </button>

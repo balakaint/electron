@@ -382,3 +382,96 @@ input[type='date'] {
 .note-card:focus-within .note-actions {
   opacity: 1;
 }
+
+/* EXECUTE surface (Panel3's HOURS accordion) hover pass, 2026-09-24 —
+   the v5 mockup's own interaction contract, not a general "add hover
+   everywhere" pass: it deliberately does NOT hover type-chip/owner-chip/
+   mode-btn/nav-tab (they already show state via border+fill, so a hover
+   there would be redundant), only breadcrumb crumbs, day/date cells, and
+   small utility buttons (schedule badge, add-composer trigger,
+   carry-forward menu, day-picker). Same "inline styles cannot express
+   :hover" reasoning as .card-elevated/.goal-row above — the calling
+   component must leave its OWN `background`/`border-color`/`color`
+   unset (`undefined`, not `'transparent'`) for the resting, non-active
+   state, or these rules are shadowed the same way button:hover already
+   is everywhere in Panel3's Planning*Level files today.
+
+   Three shapes, matched 1:1 to the mockup's own three hover treatments:
+   - .hover-tint: a background lift (breadcrumb crumbs, the Weekly
+     7-day strip's day cells) — mockup's .breadcrumb button:hover /
+     .day-col:hover.
+   - .hover-outline: a thin accent ring, no fill change (Monthly's
+     calendar grid, Yearly's month strip) — mockup's .cal-grid
+     span:hover / .m-cell:hover.
+   - .hover-accent: border-color + text color shift to accent, no
+     background (the schedule badge, "+ add"/"+ task" trigger,
+     carry-forward's own buttons, the day-picker's day buttons) —
+     mockup's .sched-btn:hover / .add-goal-trigger:hover /
+     .day-picker-inline button:hover. */
+.hover-tint:hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-2, var(--surface)));
+}
+.hover-outline:hover {
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+/* Rest-state border-color lives here too, not just :hover — a
+   component using this class supplies border-width/style inline but
+   leaves border-color out entirely (never `'transparent'`/`var(--border)`
+   as a literal value), because the shorthand `border` property inline
+   would shadow :hover's border-color the exact same way `background`
+   does above. An element that IS in an active/selected state (the
+   schedule badge once a day is picked) sets its own border-color
+   inline on top of this and stays that way through hover, same as the
+   mockup's own .sched-btn.set not defining its own :hover override. */
+.hover-accent {
+  border-color: var(--border);
+}
+.hover-accent:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Custom checkbox, EXECUTE's DAILY scheduled-tasks list and Weekly's
+   supporting-task rows — the mockup's own rounded, accent-filled check
+   (input[type=checkbox] in its stylesheet) instead of the OS default,
+   which is the one control on this surface that still ignored every
+   theme entirely (a native checkbox is always the platform's own grey,
+   regardless of --accent). Native semantics (space/enter toggle,
+   :checked, form participation) are all still real — this only
+   restyles, via ::before as the box so the native check glyph itself
+   stays fully transparent rather than trying to hide platform UA
+   chrome with appearance:none alone, which some Chromium builds ignore
+   for the check glyph specifically. */
+.checkbox-custom {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin: 0;
+  border-radius: 4px;
+  border: 1.5px solid var(--border);
+  background: var(--surface-2, var(--surface));
+  cursor: pointer;
+  position: relative;
+  transition: background 0.12s ease-out, border-color 0.12s ease-out;
+}
+.checkbox-custom:hover {
+  border-color: var(--accent);
+}
+.checkbox-custom:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.checkbox-custom:checked::after {
+  content: '';
+  position: absolute;
+  left: 4.5px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}

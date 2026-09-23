@@ -43,11 +43,21 @@ function DayCell({
           width: 4,
           height: 4,
           borderRadius: RADIUS.pill,
-          background: hasDeadline ? (isToday ? 'var(--on-accent)' : accent) : 'transparent',
+          background: hasDeadline ? accent : 'transparent',
         }}
       />
     </>
   );
+  // Today used to be a solid accent fill with on-accent text — heavier
+  // than the mockup's own restraint (its .cal-grid span.today /
+  // .m-cell.current both do use a solid fill, actually, so this is a
+  // deliberate softening PAST the mockup, not a mirror of it — matches
+  // Zahid's own "not washed out, but not heavier than it needs to be"
+  // steer from the visual-direction brief). `background` is left
+  // `undefined` (never `'transparent'`) for the non-today case
+  // specifically so .hover-outline's :hover rule below isn't shadowed
+  // by a same-specificity inline declaration — see index.css's own
+  // comment on this exact failure mode.
   const sharedStyle: React.CSSProperties = {
     flex: 1,
     display: 'flex',
@@ -56,8 +66,11 @@ function DayCell({
     gap: 2,
     padding: '4px 0',
     borderRadius: RADIUS.control,
-    background: isToday ? accent : 'transparent',
-    color: isToday ? 'var(--on-accent)' : dim ? 'var(--text-faint)' : 'var(--text-muted)',
+    // Tinted via color-mix, not the generic --accent-light token — this
+    // level's own colour (--goal-monthly here) has no pre-mixed light
+    // variant of its own to reuse.
+    background: isToday ? `color-mix(in srgb, ${accent} 16%, transparent)` : undefined,
+    color: isToday ? accent : dim ? 'var(--text-faint)' : 'var(--text-muted)',
     opacity: dim ? 0.5 : 1,
   };
   if (!onSelect) {
@@ -67,6 +80,7 @@ function DayCell({
     <button
       onClick={onSelect}
       title="Jump to DAILY for this date"
+      className="hover-outline"
       style={{ ...sharedStyle, border: 'none', cursor: 'pointer', font: 'inherit' }}
     >
       {content}

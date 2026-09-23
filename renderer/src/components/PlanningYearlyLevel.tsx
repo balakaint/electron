@@ -36,11 +36,14 @@ function DayCell({
           width: 4,
           height: 4,
           borderRadius: 999,
-          background: hasDeadline ? (isToday ? 'var(--on-accent)' : accent) : 'transparent',
+          background: hasDeadline ? accent : 'transparent',
         }}
       />
     </>
   );
+  // See PlanningMonthlyLevel.tsx's own DayCell for why `background` is
+  // `undefined` (never `'transparent'`) in the non-today case, and why
+  // today is a tint rather than a solid fill.
   const sharedStyle: React.CSSProperties = {
     flex: 1,
     display: 'flex',
@@ -49,8 +52,11 @@ function DayCell({
     gap: 2,
     padding: '4px 0',
     borderRadius: 8,
-    background: isToday ? accent : 'transparent',
-    color: isToday ? 'var(--on-accent)' : dim ? 'var(--text-faint)' : 'var(--text-muted)',
+    // Tinted via color-mix, not the generic --accent-light token — this
+    // level's own colour (--goal-weekly here) has no pre-mixed light
+    // variant of its own to reuse.
+    background: isToday ? `color-mix(in srgb, ${accent} 16%, transparent)` : undefined,
+    color: isToday ? accent : dim ? 'var(--text-faint)' : 'var(--text-muted)',
     opacity: dim ? 0.5 : 1,
   };
   if (!onSelect) {
@@ -60,6 +66,7 @@ function DayCell({
     <button
       onClick={onSelect}
       title="Jump to DAILY for this month"
+      className="hover-outline"
       style={{ ...sharedStyle, border: 'none', cursor: 'pointer', font: 'inherit' }}
     >
       {content}
