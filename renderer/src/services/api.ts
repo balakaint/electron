@@ -597,6 +597,19 @@ export const planningApi = {
   removeChecklistItem: (pid: string) => req('DELETE', `/api/planning/checklist-items/${pid}`) as Promise<{ ok: true }>,
 };
 
+// One entry per fetchable goal/planning owner — the 6 real (`is_named`)
+// projects plus the "life" virtual owner. Moved here from
+// GoalHorizonSection.tsx (superseded by the Planning*Level components)
+// since it's shared by all three of those plus Panel3's own
+// HoursAccordion — this is its natural home now that it outlives that
+// file. `color` is that project's own `accent_color` — null for "life",
+// which has never had one.
+export interface GoalOwnerMeta {
+  key: GoalOwnerKey;
+  label: string;
+  color: string | null;
+}
+
 // ── Individual Task Board (Goal -> Task -> that Task's own kanban) ───
 // Superseded design note: this used to be a flat per-project board
 // (project_key-scoped BoardCard with an optional goal_id backlink).
