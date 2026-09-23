@@ -4,19 +4,18 @@ import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { useAutoTimer } from '../useAutoTimer';
 import { accentText } from '../themes';
 import {
-  Goal,
+  ChecklistItem,
   GoalHorizon,
   GoalOwnerKey,
   GoalPanel,
-  GoalTask,
+  Milestone,
+  Outcome,
   ProjectKey,
   ProjectOrderEntry,
-  STRIKE_MAX,
-  Task,
-  goalTasksApi,
+  Win,
   goalsApi,
+  planningApi,
   projectsApi,
-  tasksApi,
 } from '../services/api';
 import { dayNumber } from '../format';
 import { RADIUS } from '../spacing';
@@ -35,16 +34,19 @@ import { useAutofocus } from '../hooks/useAutofocus';
 // "WEEKLY GOAL".
 //
 // That looks like a bug and it is not one, so: DO NOT "fix" it by
-// renaming the keys or reordering this array. The keys are the stored
-// horizon on every Goal row and the column names behind
-// sec_title_yearly / _monthly / _weekly. Swapping them would move every
-// existing goal to a different section of the screen — a data reshuffle
-// dressed up as a label change. The words on screen are the only thing
-// that changed here.
+// renaming the keys or reordering this array. `legacyHorizon` is the
+// OLD stored `Goal.horizon` value this level replaced — it is kept
+// ONLY because the panel-level section-title override
+// (goalsApi.getPanel/setSectionTitle) still lives on
+// `Project.sec_title_yearly/_monthly/_weekly`, unchanged by this
+// migration (those columns store a display override, not Goal data —
+// orthogonal to the Outcome/Milestone/Win schema change, so there was
+// no reason to touch them). Swapping `legacyHorizon`'s mapping would
+// silently move an existing custom section title to the wrong level.
 //
 // These are DEFAULTS. Each heading is editable and the custom title is
-// stored per horizon, so `sectionTitle[key] || label` means anyone who
-// has already renamed a section keeps their name.
+// stored per legacyHorizon, so `sectionTitle[key] || label` means anyone
+// who has already renamed a section keeps their name.
 //
 // `weight` is the share of the column each section gets — 50 / 30 / 20,
 // Zahid's split. It is a real division of the height, not a maximum:
@@ -58,46 +60,34 @@ import { useAutofocus } from '../hooks/useAutofocus';
 // 50/25/25 said nearly the same thing with the bottom two tied.
 // Icons match Panel3's own WEEKLY/MONTHLY/YEARLY accordion icons
 // (Panel3.tsx's HOURS_LEVELS) by DISPLAYED meaning, not stored key — the
-// same crossing above applies here, so "WEEKLY GOAL" (stored `yearly`)
-// gets the same CalendarDays glyph Panel3's WEEKLY section uses, and so
-// on. Replaces the old ◈❖◆ Unicode dingbats (ui-ux-audit, 2026-09-22,
-// flagged this file's own instances as a follow-up rather than expanding
-// that pass's scope at the time — this is that follow-up).
-const HORIZONS: { key: GoalHorizon; label: string; glyph: ReactNode; accent: string; weight: number }[] = [
-  { key: 'yearly', label: 'WEEKLY GOAL', glyph: <CalendarDays size={14} />, accent: 'var(--goal-yearly)', weight: 50 },
-  { key: 'monthly', label: 'MONTHLY GOAL', glyph: <CalendarRange size={14} />, accent: 'var(--goal-monthly)', weight: 30 },
-  { key: 'weekly', label: 'YEARLY GOAL', glyph: <Target size={14} />, accent: 'var(--goal-weekly)', weight: 20 },
+// same crossing above applies here, so "WEEKLY GOAL" (level `win`) gets
+// the same CalendarDays glyph Panel3's WEEKLY section uses, and so on.
+type PlanningLevel = 'outcome' | 'milestone' | 'win';
+
+const LEVELS: { key: PlanningLevel; legacyHorizon: GoalHorizon; label: string; glyph: ReactNode; accent: string; weight: number }[] = [
+  { key: 'win', legacyHorizon: 'yearly', label: 'WEEKLY GOAL', glyph: <CalendarDays size={14} />, accent: 'var(--goal-yearly)', weight: 50 },
+  { key: 'milestone', legacyHorizon: 'monthly', label: 'MONTHLY GOAL', glyph: <CalendarRange size={14} />, accent: 'var(--goal-monthly)', weight: 30 },
+  { key: 'outcome', legacyHorizon: 'weekly', label: 'YEARLY GOAL', glyph: <Target size={14} />, accent: 'var(--goal-weekly)', weight: 20 },
 ];
 
-// Legacy capped the progress bar at a flat 30-day window for every
-// horizon. Zahid asked for horizon-based defaults instead (weekly goal
-// 7 days, monthly 30, yearly 12 months) AND a calendar picker to
-// override them — so the window is no longer a constant here at all.
-// It's now `goal.deadline`, a real stored/editable field (see the
-// backend's engine.goals._default_deadline for where the 7/30/12mo
-// defaults are actually computed, and its own warning about the
-// crossed horizon<->label mapping). This file only reads the result.
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+function mondayOf(d: Date): string {
+  const copy = new Date(d);
+  const offset = (d.getDay() + 6) % 7;
+  copy.setDate(d.getDate() - offset);
+  return `${copy.getFullYear()}-${String(copy.getMonth() + 1).padStart(2, '0')}-${String(copy.getDate()).padStart(2, '0')}`;
 }
 
-function shortDate(iso: string): string {
-  const d = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return iso;
-  return `${d.getDate()} ${d.toLocaleDateString(undefined, { month: 'short' })}`;
-}
+// Any of the three node types this panel edits — narrowed by `level`
+// wherever the shape actually differs (parent id, week_start_date).
+type PlanningNode = Outcome | Milestone | Win;
 
-// Whole days between two ISO dates, for turning a goal's own
-// start_date/deadline pair into a "day N of M" window — the same shape
-// the old fixed GOAL_WINDOW used to provide, now derived per-goal
-// instead of being one constant for every horizon. Clamped to at least
-// 1 so a same-day or backwards deadline (a user can type anything into
-// the picker) never produces a divide-by-zero or a negative bar.
-function windowDays(startIso: string, deadlineIso: string): number {
-  const start = new Date(`${startIso}T00:00:00`);
-  const end = new Date(`${deadlineIso}T00:00:00`);
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1;
-  return Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000));
+// Which of ChecklistItemCreate's three optional parent fields this
+// level's nodes attach to — engine-enforced to be exactly one (see
+// engine.planning.add_checklist_item).
+function checklistScope(level: PlanningLevel, id: number) {
+  if (level === 'outcome') return { outcomeId: id };
+  if (level === 'milestone') return { milestoneId: id };
+  return { winId: id };
 }
 
 // ONE LINE AT REST, the rest on demand.
@@ -110,45 +100,12 @@ function windowDays(startIso: string, deadlineIso: string): number {
 // telling you that you had written nothing.
 //
 // The panel is read many times a day and edited rarely, so the resting
-// state is the one to optimise. A goal at rest is a tick, its name, a
-// progress spark and its day count. Opening it is what reveals the
-// editor, and only one is open at a time.
-// A compact label+value row for the expanded goal's meta fields
-// (STARTED / DEADLINE / PROGRESS) — Zahid's own mockup asked for these
-// as labeled rows rather than the single run-on "started … · day …
-// ends …" line the panel used to have. NEXT ACTION gets its own
-// heavier, bordered/accented treatment below instead of a MetaRow: his
-// priority table ranked it "Very High" against these three's "Medium",
-// so it needs to look different, not just be positioned lower.
-function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-      <span
-        style={{
-          // 60 was narrower than "PROGRESS" itself at 12px/700/0.5
-          // tracking — the one label this row ever draws — so its last
-          // letter spilled past the box and into the bar beside it.
-          // flex: 'none' fixes the box's width but not what happens
-          // when content exceeds it: with no whiteSpace, the browser
-          // still wraps or overflows visibly rather than clipping.
-          width: 72,
-          flex: 'none',
-          fontSize: 12,
-          fontWeight: 700,
-          letterSpacing: 0.5,
-          color: 'var(--text-faint)',
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {label}
-      </span>
-      <div style={{ flex: 1, minWidth: 0, color: 'var(--text-muted)' }}>{children}</div>
-    </div>
-  );
-}
-
-function GoalRow({
-  goal,
+// state is the one to optimise. A goal at rest is a tick, its name and a
+// progress spark. Opening it is what reveals the editor, and only one is
+// open at a time.
+function PlanningNodeRow({
+  node,
+  level,
   accent,
   open,
   onOpen,
@@ -156,14 +113,10 @@ function GoalRow({
   onToggle,
   onDelete,
   onEditText,
-  onEditNote,
-  onEditStartDate,
-  onEditDeadline,
   onOpenBoard,
-  focusTasks,
-  onFocusListChanged,
 }: {
-  goal: Goal;
+  node: PlanningNode;
+  level: PlanningLevel;
   accent: string;
   open: boolean;
   onOpen: () => void;
@@ -171,64 +124,36 @@ function GoalRow({
   onToggle: () => void;
   onDelete: () => void;
   onEditText: (text: string) => void;
-  onEditNote: (note: string) => void;
-  onEditStartDate: (date: string) => void;
-  onEditDeadline: (deadline: string) => void;
-  onOpenBoard: () => void;
-  // Every goal's "+ STRIKE" chips share this one Focus-list snapshot
-  // (fetched once by GoalsPanel, not per-row) so they agree about which
-  // tasks are already committed and how full today is — same reasoning
-  // ProjectDashboard fetches focusTasks once for every ProjectCard.
-  focusTasks: Task[];
-  // Called after a strike attempt (success or 409) so GoalsPanel
-  // re-fetches focusTasks and tells the other panels — mirrors
-  // ProjectCard's strikeSubtask calling its own onChanged either way.
-  onFocusListChanged: () => void;
+  onOpenBoard: (legacyGoalId: number) => void;
 }) {
-  const [text, setText] = useState(goal.text);
+  const [text, setText] = useState(node.title);
   const textInputRef = useAutofocus<HTMLInputElement>(open);
-  const [startDate, setStartDate] = useState(goal.start_date);
-  const [deadline, setDeadline] = useState(goal.deadline);
-  const noteField = useAutosave(goal.note, onEditNote);
 
-  const [tasks, setTasks] = useState<GoalTask[]>([]);
+  const [tasks, setTasks] = useState<ChecklistItem[]>([]);
   const [newTaskText, setNewTaskText] = useState('');
   const [addingTask, setAddingTask] = useState(false);
   const tasksBlockRef = useRef<HTMLDivElement>(null);
-  const [strikeFlash, setStrikeFlash] = useState<string | null>(null);
   const newTaskRef = useAutofocus<HTMLInputElement>(addingTask);
 
-  const refreshTasks = () => goalTasksApi.list(goal.id).then(setTasks);
+  const scope = checklistScope(level, node.id);
+  const refreshTasks = () => planningApi.listChecklistItems(scope).then(setTasks);
 
-  useEffect(() => setText(goal.text), [goal.text]);
-  useEffect(() => setStartDate(goal.start_date), [goal.start_date]);
-  useEffect(() => setDeadline(goal.deadline), [goal.deadline]);
+  useEffect(() => setText(node.title), [node.title]);
   // Fetched regardless of open/collapsed — the collapsed row's own
   // tooltip surfaces the first pending task, same as ProjectCard's
   // collapsed preview needing subtasks whether or not the card is open.
   useEffect(() => {
     refreshTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [goal.id]);
+  }, [node.id]);
 
   const addTask = () => {
     const t = newTaskText.trim();
     if (!t) return;
-    goalTasksApi.add(goal.id, t).then(() => {
+    planningApi.addChecklistItem(t, scope).then(() => {
       setNewTaskText('');
       refreshTasks();
     });
-  };
-
-  const strikeTask = (pid: string) => {
-    goalTasksApi
-      .strike(pid)
-      .then(() => onFocusListChanged())
-      .catch(() => {
-        setStrikeFlash(pid);
-        setTimeout(() => setStrikeFlash(null), 1500);
-        onFocusListChanged();
-      });
   };
 
   const pendingTasks = tasks.filter((t) => !t.done);
@@ -248,31 +173,20 @@ function GoalRow({
     return () => document.removeEventListener('mousedown', onDocDown);
   }, [addingTask]);
 
-  // The bar means board completion — how much of the work under this
-  // goal is actually done, not how much time has passed. Zahid
-  // confirmed this explicitly (2026-09-14): a freshly-opened goal with
-  // no board yet must read 0%, not a time-elapsed guess — a prior
-  // version of this code filled the bar from elapsed time as a
-  // fallback ("day 1 of 14" -> 7%), which he flagged as wrong on his
-  // own running app. So PROGRESS now shows 0% until a board exists;
-  // the day-count context (start..deadline) still shows elsewhere
-  // (the STARTED/DEADLINE row), just not as a fill on this bar.
-  const hasBoardData = goal.board_total > 0;
-  const goalWindow = windowDays(goal.start_date, goal.deadline);
-  const pct = hasBoardData ? (goal.board_done / goal.board_total) * 100 : 0;
-  const barColor = goal.done ? 'var(--success)' : accent;
-  const dayLabel = hasBoardData
-    ? `${goal.board_done}/${goal.board_total}`
-    : `d${goal.day_number}${goal.day_number <= goalWindow ? `/${goalWindow}` : ''}`;
-  const barTitle = hasBoardData
-    ? `${goal.board_done} of ${goal.board_total} board cards done`
-    : `No board yet — day ${goal.day_number} of ${goalWindow}`;
+  // `node.progress` is already resolved server-side (see
+  // engine.planning's winProgress/milestoneProgress/outcomeProgress) —
+  // this row never derives it itself.
+  const pct = node.progress;
+  const achieved = node.status === 'achieved';
+  const barColor = achieved ? 'var(--success)' : accent;
+  const dayLabel = `${node.progress}%`;
+  const barTitle = `${node.progress}% complete`;
 
   const tick = (
     <button
       onClick={onToggle}
-      title={goal.done ? 'Mark not done' : 'Mark done'}
-      aria-pressed={goal.done}
+      title={achieved ? 'Mark not achieved' : 'Mark achieved'}
+      aria-pressed={achieved}
       style={{
         width: 24,
         height: 24,
@@ -280,7 +194,7 @@ function GoalRow({
         border: 'none',
         background: 'transparent',
         cursor: 'pointer',
-        color: goal.done ? 'var(--success)' : 'var(--text-faint)',
+        color: achieved ? 'var(--success)' : 'var(--text-faint)',
         transition: 'color 0.12s ease-out',
         padding: 0,
         display: 'flex',
@@ -288,7 +202,7 @@ function GoalRow({
         justifyContent: 'center',
       }}
     >
-      {goal.done ? <Check size={15} /> : <Circle size={15} />}
+      {achieved ? <Check size={15} /> : <Circle size={15} />}
     </button>
   );
 
@@ -304,8 +218,8 @@ function GoalRow({
         e.stopPropagation();
         onDelete();
       }}
-      title="Delete this goal"
-      aria-label="Delete this goal"
+      title="Delete"
+      aria-label="Delete"
       style={{
         width: 24,
         height: 24,
@@ -327,7 +241,7 @@ function GoalRow({
   if (!open) {
     return (
       <div
-        id={`goal-${goal.id}`}
+        id={`node-${node.id}`}
         className="goal-row"
         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 4px', borderRadius: RADIUS.control }}
       >
@@ -338,10 +252,7 @@ function GoalRow({
             reader. */}
         <button
           onClick={onOpen}
-          // Same treatment as ProjectCard's collapsed preview tooltip —
-          // the top pending task, without adding a second visible line
-          // to a row this app already fixed once for being too tall.
-          title={pendingTasks.length > 0 ? `${goal.text}  ·  → ${pendingTasks[0].text}` : 'Open this goal'}
+          title={pendingTasks.length > 0 ? `${node.title}  ·  → ${pendingTasks[0].text}` : 'Open this'}
           style={{
             flex: 1,
             minWidth: 0,
@@ -353,14 +264,14 @@ function GoalRow({
             fontWeight: 600,
             padding: '4px 0',
             cursor: 'pointer',
-            color: goal.done ? 'var(--text-faint)' : 'var(--text)',
-            textDecoration: goal.done ? 'line-through' : 'none',
+            color: achieved ? 'var(--text-faint)' : 'var(--text)',
+            textDecoration: achieved ? 'line-through' : 'none',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}
         >
-          {goal.text}
+          {node.title}
         </button>
         <span
           title={barTitle}
@@ -392,7 +303,7 @@ function GoalRow({
     // does nothing.
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
-      id={`goal-${goal.id}`}
+      id={`node-${node.id}`}
       className="goal-row goal-row-open card-elevated"
       style={{
         background: 'var(--surface)',
@@ -411,7 +322,7 @@ function GoalRow({
           ref={textInputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onBlur={() => text.trim() && text !== goal.text && onEditText(text.trim())}
+          onBlur={() => text.trim() && text !== node.title && onEditText(text.trim())}
           onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
           style={{
             flex: 1,
@@ -435,74 +346,14 @@ function GoalRow({
         {del}
       </div>
 
-      {/* Labeled rows: STARTED+DEADLINE / PROGRESS / NEXT ACTION /
-          NOTES, matching the priority order Zahid's own review ranked
-          them in. STARTED and DEADLINE share one row — Zahid's own
-          follow-up after seeing this on his machine ("startted and
-          dateline single row will save space"): as two separate
-          MetaRows, each date input sat inside MetaRow's flex:1 value
-          column but didn't itself stretch to fill it, leaving a wide
-          empty strip beside the STARTED picker (visible as dead space
-          in his screenshot) and costing a whole extra row height for
-          DEADLINE. This row is hand-built instead of two MetaRows for
-          that reason — both pickers hug their own content, and the
-          leftover space goes to the day-count text, not to nothing. */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', flex: 'none' }}>
-            STARTED
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+          <span
+            style={{ width: 72, flex: 'none', fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}
+          >
+            PROGRESS
           </span>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            onBlur={() => startDate !== goal.start_date && onEditStartDate(startDate)}
-            title="Start date"
-            style={{
-              fontSize: 12,
-              border: '1px solid var(--border)',
-              borderRadius: RADIUS.pill,
-              background: 'transparent',
-              color: 'inherit',
-              padding: '2px 4px',
-              flex: 'none',
-              colorScheme: 'var(--input-color-scheme)',
-            }}
-          />
-          <span style={{ color: 'var(--text-faint)', flex: 'none' }}>→</span>
-          <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', flex: 'none' }}>
-            DEADLINE
-          </span>
-          <input
-            type="date"
-            value={deadline}
-            onChange={(e) => setDeadline(e.target.value)}
-            onBlur={() => deadline !== goal.deadline && onEditDeadline(deadline)}
-            title="Deadline — defaults per horizon, editable any time"
-            style={{
-              fontSize: 12,
-              border: '1px solid var(--border)',
-              borderRadius: RADIUS.pill,
-              background: 'transparent',
-              color: 'inherit',
-              padding: '2px 4px',
-              flex: 'none',
-              colorScheme: 'var(--input-color-scheme)',
-            }}
-          />
-          <span style={{ color: 'var(--text-muted)', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-            {!goal.done && goal.day_number > goalWindow ? (
-              <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{goal.day_number - goalWindow}d overdue</span>
-            ) : (
-              <>day {goal.day_number} of {goalWindow}</>
-            )}
-            {goal.done && goal.done_date && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--success)' }}> · <Check size={12} /> {shortDate(goal.done_date)}</span>
-            )}
-          </span>
-        </div>
-        <MetaRow label="PROGRESS">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
             <span
               title={barTitle}
               style={{ flex: 1, minWidth: 0, height: 5, background: 'var(--border)', borderRadius: RADIUS.pill, overflow: 'hidden' }}
@@ -514,39 +365,34 @@ function GoalRow({
                 one status cluster, not three equally-spaced items
                 fighting for attention on one crowded line. */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
-              <span style={{ fontSize: 12, color: 'var(--text-faint)', flex: 'none' }}>
-                {hasBoardData ? `${goal.board_done}/${goal.board_total} tasks done` : `${Math.round(pct)}%`}
-              </span>
-              {/* Breaking a goal into work is a different action from
-                  writing it down. Placed next to PROGRESS rather than as
-                  its own row: the board is what drives this number, so
-                  the button that opens it belongs beside it. Superseded
-                  design note: this used to create one card directly on a
-                  flat per-project Board — the user corrected the shape to
-                  Goal -> Task -> that task's own board, so this opens the
-                  full-window overlay instead of writing anything itself. */}
-              <button
-                onClick={onOpenBoard}
-                title="Break this goal into tasks, each with its own board"
-                className="btn-primary"
-                style={{ fontSize: 12, padding: '4px 8px', flex: 'none' }}
-              >
-                → BOARD
-              </button>
+              <span style={{ fontSize: 12, color: 'var(--text-faint)', flex: 'none' }}>{Math.round(pct)}%</span>
+              {/* Board (Phase B) isn't remapped to this hierarchy yet —
+                  only nodes forward-copied from an old Goal
+                  (legacy_goal_id set) can still open their Board. A
+                  node created after this migration ships has no Board
+                  to open, honestly labeled rather than silently hidden
+                  or pointing at nothing. */}
+              {node.legacy_goal_id != null ? (
+                <button
+                  onClick={() => onOpenBoard(node.legacy_goal_id as number)}
+                  title="Break this into tasks, each with its own board"
+                  className="btn-primary"
+                  style={{ fontSize: 12, padding: '4px 8px', flex: 'none' }}
+                >
+                  → BOARD
+                </button>
+              ) : (
+                <span title="Board support for new goals ships in a later update" style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+                  BOARD (soon)
+                </span>
+              )}
             </div>
           </div>
-        </MetaRow>
+        </div>
       </div>
 
-      {/* TASKS — replaces the old single free-text NEXT ACTION field.
-          Zahid's own review called that field the biggest UX
-          opportunity on this panel, but a single line couldn't hold
-          more than one next step and still meant opening the full
-          Individual Task Board (→ BOARD above) for anything beyond it.
-          This is ProjectCard's own TASKS block (add/check/strike/
-          remove, no board needed) ported here verbatim — same shape,
-          same "+ STRIKE" cap, so a quick goal-level task moves exactly
-          as fast as a project-level one. */}
+      {/* TASKS — a plain, unscheduled checklist (ChecklistItem), same
+          add/check/remove shape as the old GoalTask block it replaces. */}
       <div ref={tasksBlockRef} style={{ marginTop: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 4 }}>
           <span style={{ color: 'var(--text-faint)', letterSpacing: 0.5 }}>TASKS</span>
@@ -556,7 +402,7 @@ function GoalRow({
           </span>
           <button
             onClick={() => setAddingTask((v) => !v)}
-            title="Add a task to this goal"
+            title="Add a task"
             style={{ fontSize: 12, height: 24, padding: '0 8px' }}
           >
             + task
@@ -564,68 +410,43 @@ function GoalRow({
         </div>
 
         <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 8px 0' }}>
-          {tasks.map((t) => {
-            const committed = focusTasks.find((ft) => ft.gsrc === t.pid);
-            const onToday = committed !== undefined && committed.strike && !committed.done;
-            const full = focusTasks.filter((ft) => ft.strike && !ft.done).length >= STRIKE_MAX;
-            return (
-              <li key={t.pid} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0' }}>
-                <span style={{ width: 3, alignSelf: 'stretch', minHeight: 16, background: t.done ? 'var(--border)' : accent }} />
-                <button
-                  onClick={() => goalTasksApi.toggle(t.pid).then(refreshTasks)}
-                  title="Toggle done"
-                  aria-label={t.done ? 'Mark not done' : 'Mark done'}
-                  style={{ width: 24, height: 24, padding: 0, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  {t.done ? <Check size={15} /> : <Square size={15} />}
-                </button>
-                <span
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    textDecoration: t.done ? 'line-through' : 'none',
-                  }}
-                  title={t.text}
-                >
-                  {t.text}
-                </span>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                  {dayNumber(t.added_date)}
-                </span>
-                {!t.done && (
-                  <button
-                    onClick={() => strikeTask(t.pid)}
-                    disabled={onToday || (full && !onToday)}
-                    title={onToday ? 'Already on today’s list' : 'Commit to today’s 3'}
-                    style={{
-                      fontSize: 12,
-                      height: 24,
-                      padding: '0 8px',
-                      flex: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      opacity: onToday ? 0.7 : 1,
-                      color: onToday ? accent : undefined,
-                    }}
-                  >
-                    {strikeFlash === t.pid ? 'DAY FULL' : onToday ? <><Check size={12} /> ON TODAY</> : '+ STRIKE'}
-                  </button>
-                )}
-                <button
-                  onClick={() => goalTasksApi.remove(t.pid).then(refreshTasks)}
-                  title="Delete"
-                  aria-label="Delete task"
-                  style={{ width: 28, height: 28, padding: 0, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <X size={15} />
-                </button>
-              </li>
-            );
-          })}
+          {tasks.map((t) => (
+            <li key={t.pid} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0' }}>
+              <span style={{ width: 3, alignSelf: 'stretch', minHeight: 16, background: t.done ? 'var(--border)' : accent }} />
+              <button
+                onClick={() => planningApi.toggleChecklistItem(t.pid).then(refreshTasks)}
+                title="Toggle done"
+                aria-label={t.done ? 'Mark not done' : 'Mark done'}
+                style={{ width: 24, height: 24, padding: 0, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                {t.done ? <Check size={15} /> : <Square size={15} />}
+              </button>
+              <span
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  textDecoration: t.done ? 'line-through' : 'none',
+                }}
+                title={t.text}
+              >
+                {t.text}
+              </span>
+              <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                {dayNumber(t.added_date)}
+              </span>
+              <button
+                onClick={() => planningApi.removeChecklistItem(t.pid).then(refreshTasks)}
+                title="Delete"
+                aria-label="Delete task"
+                style={{ width: 28, height: 28, padding: 0, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <X size={15} />
+              </button>
+            </li>
+          ))}
         </ul>
         {tasks.length > 0 && (
           <div title={`${tasksDone}/${tasks.length} tasks done`} style={{ height: 4, background: 'var(--progress-track)', marginBottom: 8 }}>
@@ -636,7 +457,7 @@ function GoalRow({
           <div style={{ display: 'flex', gap: 4 }}>
             <input
               ref={newTaskRef}
-              aria-label="New task for this goal"
+              aria-label="New task"
               value={newTaskText}
               onChange={(e) => setNewTaskText(e.target.value)}
               onKeyDown={(e) => {
@@ -650,96 +471,80 @@ function GoalRow({
           </div>
         )}
       </div>
-
-      {/* NOTES — "Very Low" in the same priority table, so it stays the
-          quietest thing on the row: no label box, no accent, smallest
-          type. */}
-      <div style={{ marginTop: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: 4 }}>
-          NOTES
-        </div>
-        <textarea
-          value={noteField.value}
-          onChange={(e) => noteField.setValue(e.target.value)}
-          onBlur={noteField.flush}
-          placeholder="Notes…"
-          rows={2}
-          style={{
-            width: '100%',
-            fontSize: 12,
-            padding: 4,
-            resize: 'vertical',
-            boxSizing: 'border-box',
-            ...savedFlashStyle(noteField.state),
-          }}
-        />
-      </div>
     </div>
   );
 }
 
-function GoalSection({
-  horizon,
+function PlanningLevelSection({
+  level,
   label,
   defaultLabel,
   glyph,
   weight,
   accent,
-  goals,
+  nodes,
+  parentOptions,
   openId,
   onOpenChange,
   onAdd,
   onToggle,
   onDelete,
   onEditText,
-  onEditNote,
-  onEditStartDate,
-  onEditDeadline,
   onRenameTitle,
   onOpenBoard,
-  focusTasks,
-  onFocusListChanged,
 }: {
-  horizon: GoalHorizon;
+  level: PlanningLevel;
   label: string;
   defaultLabel: string;
   glyph: ReactNode;
   weight: number;
   accent: string;
-  goals: Goal[];
+  nodes: PlanningNode[];
+  // Populated for 'milestone' (its Outcomes) and 'win' (its Milestones)
+  // — 'outcome' has no parent, this stays empty for it.
+  parentOptions: { id: number; title: string }[];
   openId: number | null;
   onOpenChange: (id: number | null) => void;
-  onAdd: (text: string, startDate: string) => void;
+  onAdd: (text: string, parentId: number | null) => void;
   onToggle: (id: number) => void;
   onDelete: (id: number) => void;
   onEditText: (id: number, text: string) => void;
-  onEditNote: (id: number, note: string) => void;
-  onEditStartDate: (id: number, date: string) => void;
-  onEditDeadline: (id: number, deadline: string) => void;
   onRenameTitle: (title: string) => void;
-  onOpenBoard: (goal: Goal) => void;
-  focusTasks: Task[];
-  onFocusListChanged: () => void;
+  onOpenBoard: (legacyGoalId: number) => void;
 }) {
   const [title, setTitle] = useState(label);
   const [composing, setComposing] = useState(false);
   const [newText, setNewText] = useState('');
   const newTextInputRef = useAutofocus<HTMLInputElement>(composing);
-  const [newDate, setNewDate] = useState(todayIso);
+  const [newParentId, setNewParentId] = useState<number | null>(null);
 
   useEffect(() => setTitle(label), [label]);
+  // Defaults to the owner's only option when there's exactly one —
+  // matches the design spec's parent-picker default. Re-runs whenever
+  // the option list changes (a new Outcome just added, the composer
+  // just opened) so the select isn't left pointing at nothing.
+  useEffect(() => {
+    if (parentOptions.length === 1) setNewParentId(parentOptions[0].id);
+    else if (newParentId !== null && !parentOptions.some((p) => p.id === newParentId)) setNewParentId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parentOptions]);
 
-  const done = goals.filter((g) => g.done).length;
-  const openCount = goals.length - done;
+  const done = nodes.filter((n) => n.status === 'achieved').length;
+  const openCount = nodes.length - done;
+  const needsParent = level !== 'outcome';
+  const canCompose = !needsParent || parentOptions.length > 0;
+  // milestone's parent level is outcome, win's parent level is
+  // milestone — used only for the disabled-composer hint copy below.
+  const parentLevelLabel = level === 'milestone' ? 'yearly goal' : level === 'win' ? 'monthly goal' : '';
 
   const submitAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const t = newText.trim();
     if (!t) return;
-    onAdd(t, newDate || todayIso());
+    if (needsParent && newParentId === null) return;
+    onAdd(t, needsParent ? newParentId : null);
     setNewText('');
-    setNewDate(todayIso());
-    // Stays open: adding one goal is usually adding three.
+    // Stays open: adding one is usually adding three.
   };
 
   return (
@@ -754,8 +559,8 @@ function GoalSection({
     // holds more than its share scrolls rather than growing: the three
     // always fill the column and never more than it.
     //
-    // EXCEPT when a section is genuinely empty (no goals, not mid-add):
-    // its proportional share was still reserved in full, so a low-goal
+    // EXCEPT when a section is genuinely empty (no nodes, not mid-add):
+    // its proportional share was still reserved in full, so a low-count
     // project could leave ~500px of blank space below "Nothing here
     // yet" (Zahid's UX audit, 2026-09-20). An empty section shrinks to
     // its own content instead — the freed space goes to whichever
@@ -763,7 +568,7 @@ function GoalSection({
     // weights.
     <div
       style={{
-        flex: goals.length === 0 && !composing ? '0 0 auto' : `${weight} 1 0`,
+        flex: nodes.length === 0 && !composing ? '0 0 auto' : `${weight} 1 0`,
         display: 'flex',
         flexDirection: 'column',
         minHeight: 0,
@@ -790,17 +595,10 @@ function GoalSection({
           onChange={(e) => setTitle(e.target.value)}
           // BUG THIS FIXES: this fired on EVERY blur, so merely clicking
           // into a heading and out again persisted whatever it happened
-          // to be showing — including the default. Once the old default
-          // "MID TERM GOAL" was written into sec_title_monthly, it was a
-          // custom title, and changing the default could never reach it
-          // again. Two of three sections picked up the new names and the
-          // middle one did not, which is what it looked like from
-          // outside: a rename that half worked.
-          //
-          // So: persist only a real change, and treat "typed the default
-          // back in" as clearing the override rather than as a custom
-          // title that happens to match. An empty string clears it
-          // server-side, which is what restores default-following.
+          // to be showing — including the default. So: persist only a
+          // real change, and treat "typed the default back in" as
+          // clearing the override rather than as a custom title that
+          // happens to match.
           onBlur={() => {
             const next = title.trim();
             if (next === label) return;
@@ -821,13 +619,14 @@ function GoalSection({
           }}
         />
         <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
-          {done}/{goals.length}
-          {openCount > 0 && goals.length > 0 ? ` · ${openCount} open` : ''}
+          {done}/{nodes.length}
+          {openCount > 0 && nodes.length > 0 ? ` · ${openCount} open` : ''}
         </span>
         <button
           onClick={() => setComposing((v) => !v)}
           aria-expanded={composing}
-          title={`Add a ${label.toLowerCase()}`}
+          disabled={!canCompose}
+          title={canCompose ? `Add a ${label.toLowerCase()}` : `Add a ${parentLevelLabel} first`}
           style={{
             width: 24,
             height: 24,
@@ -835,10 +634,10 @@ function GoalSection({
             border: 'none',
             background: composing ? 'var(--accent-light)' : 'transparent',
             borderRadius: RADIUS.control,
-            color: composing ? 'var(--accent)' : 'var(--text-muted)',
+            color: !canCompose ? 'var(--text-faint)' : composing ? 'var(--accent)' : 'var(--text-muted)',
             fontSize: 16,
             lineHeight: 1,
-            cursor: 'pointer',
+            cursor: canCompose ? 'pointer' : 'not-allowed',
             padding: 0,
           }}
         >
@@ -846,8 +645,8 @@ function GoalSection({
         </button>
       </div>
 
-      {composing && (
-        <form onSubmit={submitAdd} style={{ display: 'flex', gap: 4, margin: '4px 0 4px' }}>
+      {composing && canCompose && (
+        <form onSubmit={submitAdd} style={{ display: 'flex', gap: 4, margin: '4px 0 4px', flexWrap: 'wrap' }}>
           <input
             ref={newTextInputRef}
             value={newText}
@@ -855,15 +654,22 @@ function GoalSection({
             onChange={(e) => setNewText(e.target.value)}
             onKeyDown={(e) => e.key === 'Escape' && setComposing(false)}
             placeholder="What are you aiming at?"
-            style={{ flex: 1, fontSize: 12, padding: 4, minWidth: 0 }}
+            style={{ flex: 1, fontSize: 12, padding: 4, minWidth: 120 }}
           />
-          <input
-            type="date"
-            value={newDate}
-            onChange={(e) => setNewDate(e.target.value)}
-            title="Start date"
-            style={{ fontSize: 12, padding: 4, width: 116, colorScheme: 'var(--input-color-scheme)' }}
-          />
+          {needsParent && (
+            <select
+              aria-label="Parent"
+              value={newParentId ?? ''}
+              onChange={(e) => setNewParentId(e.target.value ? Number(e.target.value) : null)}
+              style={{ fontSize: 12, padding: 4 }}
+            >
+              {parentOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+          )}
           <button type="submit" style={{ fontSize: 12 }}>
             Add
           </button>
@@ -871,31 +677,33 @@ function GoalSection({
       )}
 
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-        {goals.length === 0 && !composing && (
+        {nodes.length === 0 && !composing && (
           // One muted line. Three stacked illustrated empty states was
           // the app apologising three times on a panel that is empty
           // only until you have used it once.
           <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: '8px 4px' }}>
-            Nothing here yet — <span style={{ color: 'var(--accent)' }}>+</span> to add one.
+            {canCompose ? (
+              <>
+                Nothing here yet — <span style={{ color: 'var(--accent)' }}>+</span> to add one.
+              </>
+            ) : (
+              `Add a ${parentLevelLabel} first, then a ${label.toLowerCase()} can attach to it.`
+            )}
           </div>
         )}
-        {goals.map((g) => (
-          <GoalRow
-            key={g.id}
-            goal={g}
+        {nodes.map((n) => (
+          <PlanningNodeRow
+            key={n.id}
+            node={n}
+            level={level}
             accent={accent}
-            open={openId === g.id}
-            onOpen={() => onOpenChange(g.id)}
+            open={openId === n.id}
+            onOpen={() => onOpenChange(n.id)}
             onClose={() => onOpenChange(null)}
-            onToggle={() => onToggle(g.id)}
-            onDelete={() => onDelete(g.id)}
-            onEditText={(text) => onEditText(g.id, text)}
-            onEditNote={(note) => onEditNote(g.id, note)}
-            onEditStartDate={(date) => onEditStartDate(g.id, date)}
-            onEditDeadline={(deadline) => onEditDeadline(g.id, deadline)}
-            onOpenBoard={() => onOpenBoard(g)}
-            focusTasks={focusTasks}
-            onFocusListChanged={onFocusListChanged}
+            onToggle={() => onToggle(n.id)}
+            onDelete={() => onDelete(n.id)}
+            onEditText={(text) => onEditText(n.id, text)}
+            onOpenBoard={onOpenBoard}
           />
         ))}
       </div>
@@ -916,86 +724,85 @@ export default function GoalsPanel({
   // changed to "LIFE PLAN" instead of a project name. See GoalOwnerKey's
   // own comment in services/api.ts.
   projectKey: GoalOwnerKey | null;
-  // Fires when a goal's "→ BOARD" button is pressed. App.tsx wires this
-  // to open the full-window Goal -> Task -> Board overlay for that
-  // goal — GoalsPanel itself no longer talks to boardApi at all (see
-  // the superseded design note on GoalRow's button above).
+  // Fires when a node's "→ BOARD" button is pressed, carrying its
+  // legacy_goal_id (only migrated nodes have one — see PlanningNodeRow's
+  // own conditional). App.tsx wires this to open the full-window
+  // Goal -> Task -> Board overlay — unchanged, Board is still keyed off
+  // the old Goal id until Phase B remaps it.
   onOpenBoard: (goalId: number) => void;
-  // Bumped by panel 1 or panel 3 when either writes to the shared Focus
-  // list, so this panel's own "+ STRIKE" chips (GoalRow's TASKS block)
-  // re-fetch and stay in sync — same three-way counter contract as
-  // ProjectDashboard/Panel3, see App.tsx's panel2Wrote comment.
+  // Kept for prop-signature compatibility with App.tsx — the STRIKE
+  // wiring these used to drive (Goal checklist item -> today's Focus
+  // list, via Task.gsrc) has no equivalent for the new generic
+  // ChecklistItem table in this phase, so neither is read internally
+  // here anymore.
   focusVersion: number;
-  // Called when THIS panel writes (a goal task struck), so the other
-  // two panels re-fetch.
   onFocusChanged: () => void;
-  // A calendar day clicked in Panel 3's WEEKLY/MONTHLY asks this goal to
-  // open here — `token` changes on every click (even re-clicking the
-  // same goal), since the id alone wouldn't change and the effect below
-  // wouldn't re-fire a second time.
+  // A calendar day clicked elsewhere asks this panel to open a node —
+  // dormant in Phase A (Panel 3's calendar dots aren't wired to it yet,
+  // see PlanningMonthlyLevel/PlanningYearlyLevel's own comment on why),
+  // kept so that wiring lands on an already-working target.
   jumpToGoal: { id: number; token: number } | null;
 }) {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
   const [panel, setPanel] = useState<GoalPanel | null>(null);
-  const [goals, setGoals] = useState<Goal[]>([]);
-  const [focusTasks, setFocusTasks] = useState<Task[]>([]);
-  // ONE open goal across the whole panel, not one per section. Two open
+  const [outcomes, setOutcomes] = useState<Outcome[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [wins, setWins] = useState<Win[]>([]);
+  // ONE open node across the whole panel, not one per section. Two open
   // editors would be two places to look for the thing you are editing,
   // and the panel is 545px wide — there is room for exactly one.
-  const [openGoalId, setOpenGoalId] = useState<number | null>(null);
-  // Without this, a failed fetch left `goals`/`panel`/`order` at their
-  // empty defaults with nothing catching the rejection — the panel
-  // rendered with no visible signal anything had gone wrong (ui-ux-audit
-  // verify pass, 2026-09-22).
+  const [openNodeId, setOpenNodeId] = useState<number | null>(null);
+  // Without this, a failed fetch left state at its empty defaults with
+  // nothing catching the rejection — the panel rendered with no visible
+  // signal anything had gone wrong (ui-ux-audit verify pass, 2026-09-22).
   const [loadError, setLoadError] = useState(false);
 
-  // Opens the goal and scrolls it into view within its own section — the
-  // section itself may be scrolled past it even though the goal is
-  // technically "in" the panel. `id="goal-<id>"` on GoalRow's own root
-  // (both collapsed/expanded) is what this targets.
+  // Opens the node and scrolls it into view — `id="node-<id>"` on
+  // PlanningNodeRow's own root (both collapsed/expanded) is what this
+  // targets, regardless of which level the id belongs to.
   useEffect(() => {
     if (!jumpToGoal) return;
-    setOpenGoalId(jumpToGoal.id);
+    setOpenNodeId(jumpToGoal.id);
     const raf = requestAnimationFrame(() => {
-      document.getElementById(`goal-${jumpToGoal.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      document.getElementById(`node-${jumpToGoal.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
     return () => cancelAnimationFrame(raf);
   }, [jumpToGoal]);
 
-  const refreshGoals = (key: GoalOwnerKey) => goalsApi.list(key).then(setGoals).catch(() => setLoadError(true));
+  // Refetches the whole three-level tree — simplest correct option,
+  // this panel's data volume is small (same reasoning the old
+  // GoalRepository.list comment gives for not needing a sort-order
+  // column).
+  const refreshTree = (key: GoalOwnerKey) =>
+    planningApi
+      .listOutcomes(key)
+      .then((os) => {
+        setOutcomes(os);
+        return Promise.all(os.map((o) => planningApi.listMilestones(o.id)));
+      })
+      .then((lists) => {
+        const ms = lists.flat();
+        setMilestones(ms);
+        return Promise.all(ms.map((m) => planningApi.listWins(m.id)));
+      })
+      .then((lists) => setWins(lists.flat()))
+      .catch(() => setLoadError(true));
   const refreshOrder = () => projectsApi.order().then(setOrder).catch(() => setLoadError(true));
-  const refreshFocusTasks = () => tasksApi.list('focus').then(setFocusTasks);
-  // Called after a goal task is struck (success or 409) — refreshes this
-  // panel's own copy AND tells the other two panels, same as
-  // ProjectCard's strikeSubtask calling onChanged either way.
-  const onFocusListChanged = () => {
-    refreshFocusTasks();
-    onFocusChanged();
-  };
 
   useEffect(() => {
     refreshOrder();
-    refreshFocusTasks();
   }, []);
 
-  // Panel 1 or panel 3 struck, completed or deleted something; this
-  // panel's own "+ STRIKE" chips are computed from focusTasks, so they
-  // are now wrong until we re-read — mirrors ProjectDashboard's own
-  // focusVersion effect exactly.
-  useEffect(() => {
-    if (focusVersion === 0) return;
-    refreshFocusTasks();
-  }, [focusVersion]);
-
   // Re-runs whenever the shell points this panel at another project.
-  // getPanel is still the source for the section titles, and it also
+  // getPanel is still the source for the section titles (Project's own
+  // sec_title_* columns, untouched by this migration), and it also
   // covers the first render, before the shell has loaded settings.
   useEffect(() => {
     goalsApi
       .getPanel()
       .then((p) => {
         setPanel(p);
-        refreshGoals(projectKey ?? p.project_key);
+        refreshTree(projectKey ?? p.project_key);
       })
       .catch(() => setLoadError(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1003,27 +810,13 @@ export default function GoalsPanel({
 
   // Zahid's own framing: "goal click means i am working and giving
   // concentration in that project" — the same logic as legacy's
-  // _auto_timer_on_open/_auto_timer_on_close (opening the Business
-  // Analysis or Journey window starts the project's clock), now
-  // extended to this panel. Opening ANY goal in this panel counts as
-  // attention landing on `shownKey`'s project; closing it (or opening
-  // a different project's panel) stops the clock again, but only if
-  // this hook is the one that started it — see useAutoTimer's own
-  // comment for the full auto-start/auto-stop contract (settings gate,
-  // idle auto-stop, short-session discard — all still enforced by the
-  // backend's toggle_timer, this hook just decides when to call it).
-  // Computed with optional chaining because this hook must run on
-  // every render (rules of hooks), including before `panel` loads.
-  //
-  // "life" has no real Project row (see GoalOwnerKey's comment), so it
-  // must never reach useAutoTimer — there is nothing for
-  // projectsApi.toggleTimer to start. useAutoTimer itself stays exactly
-  // as it is for the 6 real projects: it only acts when it finds an
-  // `order` entry for the key it's given, and "life" will never have
-  // one, but resolving to null here rather than relying on that is what
-  // keeps this hook's contract (ProjectKey | null) honest.
+  // _auto_timer_on_open/_auto_timer_on_close, extended to this panel.
+  // Opening ANY node in this panel counts as attention landing on
+  // `shownKey`'s project; closing it (or opening a different project's
+  // panel) stops the clock again, but only if this hook is the one that
+  // started it — see useAutoTimer's own comment for the full contract.
   const timerKey: ProjectKey | null = projectKey === 'life' ? null : projectKey ?? (panel?.project_key ?? null);
-  useAutoTimer(openGoalId !== null ? timerKey : null, order, refreshOrder);
+  useAutoTimer(openNodeId !== null ? timerKey : null, order, refreshOrder);
 
   if (!panel) {
     return loadError ? (
@@ -1049,7 +842,7 @@ export default function GoalsPanel({
             setLoadError(false);
             goalsApi.getPanel().then((p) => {
               setPanel(p);
-              refreshGoals(projectKey ?? p.project_key);
+              refreshTree(projectKey ?? p.project_key);
             }).catch(() => setLoadError(true));
           }}
         >
@@ -1070,6 +863,11 @@ export default function GoalsPanel({
     monthly: panel.sec_title_monthly,
     weekly: panel.sec_title_weekly,
   };
+
+  const today = new Date();
+  const thisMonth = today.getMonth() + 1;
+  const thisYear = today.getFullYear();
+  const thisMonday = mondayOf(today);
 
   return (
     // Fills the column and lets the three sections divide its height,
@@ -1104,48 +902,69 @@ export default function GoalsPanel({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
-        {HORIZONS.map(({ key, label, glyph, accent, weight }) => (
-          <GoalSection
-            key={key}
-            horizon={key}
-            label={sectionTitle[key] || label}
-            defaultLabel={label}
-            glyph={glyph}
-            weight={weight}
-            accent={accent}
-            goals={goals.filter((g) => g.horizon === key)}
-            openId={openGoalId}
-            onOpenChange={setOpenGoalId}
-            onAdd={(text, startDate) =>
-              goalsApi.create(shownKey, key, text, startDate).then(() => refreshGoals(shownKey))
-            }
-            onToggle={(id) => goalsApi.toggle(id).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))}
-            onDelete={(id) =>
-              goalsApi.remove(id).then(() => {
-                setGoals((gs) => gs.filter((x) => x.id !== id));
-                // Deleting the goal that is open would otherwise leave
-                // the panel holding an id that no longer resolves.
-                setOpenGoalId((cur) => (cur === id ? null : cur));
-              })
-            }
-            onEditText={(id, text) =>
-              goalsApi.edit(id, { text }).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))
-            }
-            onEditNote={(id, note) =>
-              goalsApi.edit(id, { note }).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))
-            }
-            onEditStartDate={(id, start_date) =>
-              goalsApi.edit(id, { start_date }).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))
-            }
-            onEditDeadline={(id, deadline) =>
-              goalsApi.edit(id, { deadline }).then((g) => setGoals((gs) => gs.map((x) => (x.id === g.id ? g : x))))
-            }
-            focusTasks={focusTasks}
-            onFocusListChanged={onFocusListChanged}
-            onRenameTitle={(title) => goalsApi.setSectionTitle(key, title).then(setPanel)}
-            onOpenBoard={(goal) => onOpenBoard(goal.id)}
-          />
-        ))}
+        {LEVELS.map(({ key, legacyHorizon, label, glyph, accent, weight }) => {
+          const nodes: PlanningNode[] =
+            key === 'outcome' ? outcomes : key === 'milestone' ? milestones.filter((m) => outcomes.some((o) => o.id === m.outcome_id)) : wins.filter((w) => milestones.some((m) => m.id === w.milestone_id));
+          const parentOptions =
+            key === 'milestone'
+              ? outcomes.map((o) => ({ id: o.id, title: o.title }))
+              : key === 'win'
+                ? milestones.map((m) => ({ id: m.id, title: m.title }))
+                : [];
+
+          return (
+            <PlanningLevelSection
+              key={key}
+              level={key}
+              label={sectionTitle[legacyHorizon] || label}
+              defaultLabel={label}
+              glyph={glyph}
+              weight={weight}
+              accent={accent}
+              nodes={nodes}
+              parentOptions={parentOptions}
+              openId={openNodeId}
+              onOpenChange={setOpenNodeId}
+              onAdd={(text, parentId) => {
+                const refetch = () => refreshTree(shownKey);
+                if (key === 'outcome') {
+                  planningApi.createOutcome(shownKey, text, thisYear).then(refetch);
+                } else if (key === 'milestone' && parentId !== null) {
+                  planningApi.createMilestone(parentId, text, thisMonth, thisYear).then(refetch);
+                } else if (key === 'win' && parentId !== null) {
+                  planningApi.createWin(parentId, text, thisMonday).then(refetch);
+                }
+              }}
+              onToggle={(id) => {
+                const node = nodes.find((n) => n.id === id);
+                if (!node) return;
+                const status = node.status === 'achieved' ? 'active' : 'achieved';
+                const refetch = () => refreshTree(shownKey);
+                if (key === 'outcome') planningApi.editOutcome(id, { status }).then(refetch);
+                else if (key === 'milestone') planningApi.editMilestone(id, { status }).then(refetch);
+                else planningApi.editWin(id, { status }).then(refetch);
+              }}
+              onDelete={(id) => {
+                const refetch = () => refreshTree(shownKey);
+                const afterDelete = () => {
+                  setOpenNodeId((cur) => (cur === id ? null : cur));
+                  refetch();
+                };
+                if (key === 'outcome') planningApi.deleteOutcome(id).then(afterDelete);
+                else if (key === 'milestone') planningApi.deleteMilestone(id).then(afterDelete);
+                else planningApi.deleteWin(id).then(afterDelete);
+              }}
+              onEditText={(id, text) => {
+                const refetch = () => refreshTree(shownKey);
+                if (key === 'outcome') planningApi.editOutcome(id, { title: text }).then(refetch);
+                else if (key === 'milestone') planningApi.editMilestone(id, { title: text }).then(refetch);
+                else planningApi.editWin(id, { title: text }).then(refetch);
+              }}
+              onRenameTitle={(title) => goalsApi.setSectionTitle(legacyHorizon, title).then(setPanel)}
+              onOpenBoard={onOpenBoard}
+            />
+          );
+        })}
       </div>
     </div>
   );
