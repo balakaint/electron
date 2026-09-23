@@ -11,6 +11,7 @@ from database.models import (
     BoardCard,
     BoardTask,
     BusinessAnalysis,
+    ChecklistItem,
     CirclePerson,
     DailyIntention,
     DecisionLog,
@@ -22,9 +23,12 @@ from database.models import (
     JourneyStage,
     JourneyTask,
     LegacyAnalysisBox,
+    Milestone,
     MorningRitual,
     NightClosure,
     Note,
+    Outcome,
+    PlanTask,
     Project,
     ProjectActivity,
     ProjectJourney,
@@ -32,6 +36,7 @@ from database.models import (
     Q90AreaMeta,
     QuarterlyAnswer,
     Task,
+    Win,
 )
 
 
@@ -973,3 +978,159 @@ class NoteRepository:
         self.db.commit()
         self.db.refresh(note)
         return note
+
+
+class PlanningRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    # ── Outcomes ──────────────────────────────────────────────────────
+    def list_outcomes(self, owner_key: str) -> list[Outcome]:
+        stmt = select(Outcome).where(Outcome.owner_key == owner_key).order_by(Outcome.id)
+        return list(self.db.scalars(stmt))
+
+    def get_outcome(self, outcome_id: int) -> Outcome | None:
+        return self.db.get(Outcome, outcome_id)
+
+    def add_outcome(self, outcome: Outcome) -> Outcome:
+        self.db.add(outcome)
+        self.db.commit()
+        self.db.refresh(outcome)
+        return outcome
+
+    def save_outcome(self, outcome: Outcome) -> Outcome:
+        self.db.commit()
+        self.db.refresh(outcome)
+        return outcome
+
+    def delete_outcome(self, outcome: Outcome) -> None:
+        self.db.delete(outcome)
+        self.db.commit()
+
+    def count_milestones(self, outcome_id: int) -> int:
+        return self.db.scalar(select(func.count()).select_from(Milestone).where(Milestone.outcome_id == outcome_id)) or 0
+
+    # ── Milestones ────────────────────────────────────────────────────
+    def list_milestones(self, outcome_id: int) -> list[Milestone]:
+        stmt = select(Milestone).where(Milestone.outcome_id == outcome_id).order_by(Milestone.id)
+        return list(self.db.scalars(stmt))
+
+    def get_milestone(self, milestone_id: int) -> Milestone | None:
+        return self.db.get(Milestone, milestone_id)
+
+    def add_milestone(self, milestone: Milestone) -> Milestone:
+        self.db.add(milestone)
+        self.db.commit()
+        self.db.refresh(milestone)
+        return milestone
+
+    def save_milestone(self, milestone: Milestone) -> Milestone:
+        self.db.commit()
+        self.db.refresh(milestone)
+        return milestone
+
+    def delete_milestone(self, milestone: Milestone) -> None:
+        self.db.delete(milestone)
+        self.db.commit()
+
+    def count_wins(self, milestone_id: int) -> int:
+        return self.db.scalar(select(func.count()).select_from(Win).where(Win.milestone_id == milestone_id)) or 0
+
+    # ── Wins ──────────────────────────────────────────────────────────
+    def list_wins(self, milestone_id: int) -> list[Win]:
+        stmt = select(Win).where(Win.milestone_id == milestone_id).order_by(Win.id)
+        return list(self.db.scalars(stmt))
+
+    def get_win(self, win_id: int) -> Win | None:
+        return self.db.get(Win, win_id)
+
+    def find_win_by_owner_and_week(self, owner_key: str, week_start_date: str) -> Win | None:
+        """The Win (if any) whose week this owner already has under some
+        Milestone/Outcome — used by Carry Forward's "next week" action to
+        find the real target Win rather than just shifting a task's
+        `scheduled_date` and leaving its `win_id` pointed at last week's
+        Win (caught in code review as a visual no-op: the task never
+        actually left the old Win's list)."""
+        stmt = (
+            select(Win)
+            .join(Milestone, Win.milestone_id == Milestone.id)
+            .join(Outcome, Milestone.outcome_id == Outcome.id)
+            .where(Outcome.owner_key == owner_key, Win.week_start_date == week_start_date)
+        )
+        return self.db.scalars(stmt).first()
+
+    def add_win(self, win: Win) -> Win:
+        self.db.add(win)
+        self.db.commit()
+        self.db.refresh(win)
+        return win
+
+    def save_win(self, win: Win) -> Win:
+        self.db.commit()
+        self.db.refresh(win)
+        return win
+
+    def delete_win(self, win: Win) -> None:
+        self.db.delete(win)
+        self.db.commit()
+
+    def count_plan_tasks(self, win_id: int) -> int:
+        return self.db.scalar(select(func.count()).select_from(PlanTask).where(PlanTask.win_id == win_id)) or 0
+
+    # ── Plan tasks ────────────────────────────────────────────────────
+    def list_plan_tasks(self, win_id: int) -> list[PlanTask]:
+        stmt = select(PlanTask).where(PlanTask.win_id == win_id).order_by(PlanTask.id)
+        return list(self.db.scalars(stmt))
+
+    def list_plan_tasks_by_date(self, owner_key: str, scheduled_date: str) -> list[PlanTask]:
+        stmt = select(PlanTask).where(PlanTask.owner_key == owner_key, PlanTask.scheduled_date == scheduled_date).order_by(PlanTask.id)
+        return list(self.db.scalars(stmt))
+
+    def get_plan_task(self, task_id: int) -> PlanTask | None:
+        return self.db.get(PlanTask, task_id)
+
+    def add_plan_task(self, task: PlanTask) -> PlanTask:
+        self.db.add(task)
+        self.db.commit()
+        self.db.refresh(task)
+        return task
+
+    def save_plan_task(self, task: PlanTask) -> PlanTask:
+        self.db.commit()
+        self.db.refresh(task)
+        return task
+
+    def delete_plan_task(self, task: PlanTask) -> None:
+        self.db.delete(task)
+        self.db.commit()
+
+    # ── Checklist items ───────────────────────────────────────────────
+    def list_checklist_items(
+        self, *, outcome_id: int | None = None, milestone_id: int | None = None, win_id: int | None = None
+    ) -> list[ChecklistItem]:
+        stmt = select(ChecklistItem)
+        if outcome_id is not None:
+            stmt = stmt.where(ChecklistItem.outcome_id == outcome_id)
+        elif milestone_id is not None:
+            stmt = stmt.where(ChecklistItem.milestone_id == milestone_id)
+        elif win_id is not None:
+            stmt = stmt.where(ChecklistItem.win_id == win_id)
+        return list(self.db.scalars(stmt))
+
+    def get_checklist_item(self, pid: str) -> ChecklistItem | None:
+        return self.db.get(ChecklistItem, pid)
+
+    def add_checklist_item(self, item: ChecklistItem) -> ChecklistItem:
+        self.db.add(item)
+        self.db.commit()
+        self.db.refresh(item)
+        return item
+
+    def save_checklist_item(self, item: ChecklistItem) -> ChecklistItem:
+        self.db.commit()
+        self.db.refresh(item)
+        return item
+
+    def delete_checklist_item(self, item: ChecklistItem) -> None:
+        self.db.delete(item)
+        self.db.commit()

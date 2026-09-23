@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Calendar, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Target } from 'lucide-react';
-import { FocusTab, GoalOwnerKey, HoursLevel, ProjectKey, projectsApi, settingsApi } from '../services/api';
+import { FocusTab, GoalOwnerKey, GoalOwnerMeta, HoursLevel, ProjectKey, projectsApi, settingsApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
 import NowCard from './NowCard';
@@ -8,7 +8,9 @@ import DeepWorkTrend from './DeepWorkTrend';
 import PlanReview from './PlanReview';
 import TaskList from './TaskList';
 import AccordionSection from './AccordionSection';
-import GoalHorizonSection, { GoalOwnerMeta } from './GoalHorizonSection';
+import PlanningWeeklyLevel from './PlanningWeeklyLevel';
+import PlanningMonthlyLevel from './PlanningMonthlyLevel';
+import PlanningYearlyLevel from './PlanningYearlyLevel';
 import NotesTab from './NotesTab';
 import { RADIUS, SPACE } from '../spacing';
 import { useL } from '../i18n';
@@ -156,6 +158,12 @@ function HoursAccordion({
   // sections just show their existing loading state until this
   // resolves instead of a fourth new loading affordance.
   const [owners, setOwners] = useState<GoalOwnerMeta[] | null>(null);
+  // null = DAILY shows today. Set by a WEEKLY/MONTHLY/YEARLY calendar dot
+  // click, cleared by the "Today" pill. Deliberately not "today's ISO
+  // string by default" — storing a literal date would go stale if the
+  // app sits open across midnight; null always means "whatever today
+  // actually is right now."
+  const [dailyDate, setDailyDate] = useState<string | null>(null);
 
   useEffect(() => {
     projectsApi.order().then((order) => {
@@ -170,11 +178,20 @@ function HoursAccordion({
   }, []);
 
   const dateStr = (() => {
-    const d = new Date();
+    const d = dailyDate ? new Date(`${dailyDate}T00:00:00`) : new Date();
     const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
     const month = d.toLocaleDateString(undefined, { month: 'short' });
     return `${weekday}, ${d.getDate()} ${month} ${d.getFullYear()}`;
   })();
+
+  // Shared by all three calendar levels' dot-click — jump DAILY to that
+  // date and switch the accordion to it. Local to this component (not
+  // threaded through Panel3's own props/App.tsx) since the click and its
+  // destination both live inside this one accordion.
+  const onSelectDate = (iso: string) => {
+    setDailyDate(iso);
+    setLevel('daily');
+  };
 
   return (
     <div>
@@ -227,8 +244,40 @@ function HoursAccordion({
           expanded={level === 'daily'}
           onToggle={() => setLevel('daily')}
         >
+          {/* Only while viewing a jumped-to date — not a permanent
+              fixture of DAILY's own chrome, so today's own normal view
+              stays exactly as it was. Lives inside `children`, not
+              AccordionSection's own header button: that header is
+              itself a `<button onClick={onToggle}>`, and nesting a
+              second interactive control inside it double-fires on click
+              (the exact bug this file's own HOURS_LEVELS/AccordionSection
+              pairing was already burned by once — see that component's
+              own history). */}
+          {dailyDate && (
+            <button
+              onClick={() => setDailyDate(null)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: SPACE.xs,
+                marginBottom: SPACE.sm,
+                padding: '4px 8px',
+                fontSize: 12,
+                fontWeight: 700,
+                borderRadius: RADIUS.pill,
+                border: '1px solid var(--accent)',
+                background: 'transparent',
+                color: 'var(--accent)',
+                cursor: 'pointer',
+              }}
+            >
+              <ChevronLeft size={12} />
+              {L('Today', 'আজ')}
+            </button>
+          )}
           <HourPlanTab
             hideHeader
+            date={dailyDate ?? undefined}
             refreshSignal={refreshSignal}
             onChanged={onChanged}
             onPlanLoaded={(d, t) => {
@@ -238,48 +287,26 @@ function HoursAccordion({
           />
         </AccordionSection>
 
-        {/* ⚠ horizon crossing: Panel 2 (GoalsPanel.tsx) deliberately
-            stores/labels these backwards — stored "yearly" is shown as
-            "WEEKLY GOAL", stored "monthly" as "MONTHLY GOAL", stored
-            "weekly" as "YEARLY GOAL". These three follow the DISPLAYED
-            meaning the user already knows from Panel 2, not the raw
-            column name — do not "fix" this mapping without re-reading
-            GoalsPanel.tsx's own warning first. */}
-        <GoalHorizonSection
-          horizon="yearly"
+        <PlanningWeeklyLevel
           owners={owners}
           accent="var(--goal-yearly)"
-          glyph={<CalendarDays size={16} />}
-          label={L('WEEKLY', 'সাপ্তাহিক')}
-          noun="priority"
-          periodKind="week"
           expanded={level === 'weekly'}
           onToggle={() => setLevel('weekly')}
-          onOpenGoal={onOpenGoal}
+          onSelectDate={onSelectDate}
         />
-        <GoalHorizonSection
-          horizon="monthly"
+        <PlanningMonthlyLevel
           owners={owners}
           accent="var(--goal-monthly)"
-          glyph={<CalendarRange size={16} />}
-          label={L('MONTHLY', 'মাসিক')}
-          noun="goal"
-          periodKind="month"
           expanded={level === 'monthly'}
           onToggle={() => setLevel('monthly')}
-          onOpenGoal={onOpenGoal}
+          onSelectDate={onSelectDate}
         />
-        <GoalHorizonSection
-          horizon="weekly"
+        <PlanningYearlyLevel
           owners={owners}
           accent="var(--goal-weekly)"
-          glyph={<Target size={16} />}
-          label={L('YEARLY', 'বার্ষিক')}
-          noun="milestone"
-          periodKind="year"
           expanded={level === 'yearly'}
           onToggle={() => setLevel('yearly')}
-          onOpenGoal={onOpenGoal}
+          onSelectDate={onSelectDate}
         />
       </div>
     </div>

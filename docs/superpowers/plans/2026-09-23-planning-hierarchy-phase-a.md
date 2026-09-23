@@ -1515,7 +1515,7 @@ def create_outcome(owner_key: GoalOwnerKeyT, payload: OutcomeCreate, engine: Pla
         raise HTTPException(400, str(e))
 
 
-@router.patch("/outcomes/{outcome_id}", response_model=OutcomeOut)
+@router.put("/outcomes/{outcome_id}", response_model=OutcomeOut)
 def edit_outcome(outcome_id: int, payload: OutcomeEdit, engine: PlanningEngine = Depends(get_engine)):
     outcome = engine.edit_outcome(outcome_id, payload.title, payload.status)
     if outcome is None:
@@ -1547,7 +1547,7 @@ def create_milestone(payload: MilestoneCreate, engine: PlanningEngine = Depends(
         raise HTTPException(400, str(e))
 
 
-@router.patch("/milestones/{milestone_id}", response_model=MilestoneOut)
+@router.put("/milestones/{milestone_id}", response_model=MilestoneOut)
 def edit_milestone(milestone_id: int, payload: MilestoneEdit, engine: PlanningEngine = Depends(get_engine)):
     milestone = engine.edit_milestone(milestone_id, payload.title, payload.status, payload.outcome_id)
     if milestone is None:
@@ -1579,7 +1579,7 @@ def create_win(payload: WinCreate, engine: PlanningEngine = Depends(get_engine))
         raise HTTPException(400, str(e))
 
 
-@router.patch("/wins/{win_id}", response_model=WinOut)
+@router.put("/wins/{win_id}", response_model=WinOut)
 def edit_win(win_id: int, payload: WinEdit, engine: PlanningEngine = Depends(get_engine)):
     win = engine.edit_win(win_id, payload.title, payload.criteria, payload.status, payload.milestone_id)
     if win is None:
@@ -1616,7 +1616,7 @@ def create_plan_task(owner_key: GoalOwnerKeyT, payload: PlanTaskCreate, engine: 
         raise HTTPException(400, str(e))
 
 
-@router.patch("/tasks/{task_id}", response_model=PlanTaskOut)
+@router.put("/tasks/{task_id}", response_model=PlanTaskOut)
 def edit_plan_task(task_id: int, payload: PlanTaskEdit, engine: PlanningEngine = Depends(get_engine)):
     task = engine.edit_plan_task(task_id, payload.title, payload.status)
     if task is None:
@@ -1624,7 +1624,7 @@ def edit_plan_task(task_id: int, payload: PlanTaskEdit, engine: PlanningEngine =
     return task
 
 
-@router.patch("/tasks/{task_id}/schedule", response_model=PlanTaskOut)
+@router.put("/tasks/{task_id}/schedule", response_model=PlanTaskOut)
 def schedule_plan_task(task_id: int, payload: ScheduleSet, engine: PlanningEngine = Depends(get_engine)):
     task = engine.schedule_plan_task(task_id, payload.scheduled_date, payload.win_id)
     if task is None:
@@ -1817,7 +1817,7 @@ export const planningApi = {
   createOutcome: (ownerKey: GoalOwnerKey, title: string, year: number) =>
     req('POST', `/api/planning/${ownerKey}/outcomes`, { title, year }) as Promise<Outcome>,
   editOutcome: (id: number, patch: Partial<Pick<Outcome, 'title' | 'status'>>) =>
-    req('PATCH', `/api/planning/outcomes/${id}`, patch) as Promise<Outcome>,
+    req('PUT', `/api/planning/outcomes/${id}`, patch) as Promise<Outcome>,
   deleteOutcome: (id: number, force = false) =>
     req('DELETE', `/api/planning/outcomes/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
 
@@ -1826,7 +1826,7 @@ export const planningApi = {
   createMilestone: (outcomeId: number, title: string, month: number, year: number) =>
     req('POST', '/api/planning/milestones', { outcome_id: outcomeId, title, month, year }) as Promise<Milestone>,
   editMilestone: (id: number, patch: Partial<Pick<Milestone, 'title' | 'status' | 'outcome_id'>>) =>
-    req('PATCH', `/api/planning/milestones/${id}`, patch) as Promise<Milestone>,
+    req('PUT', `/api/planning/milestones/${id}`, patch) as Promise<Milestone>,
   deleteMilestone: (id: number, force = false) =>
     req('DELETE', `/api/planning/milestones/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
 
@@ -1834,7 +1834,7 @@ export const planningApi = {
   createWin: (milestoneId: number, title: string, weekStartDate: string, criteria = '') =>
     req('POST', '/api/planning/wins', { milestone_id: milestoneId, title, week_start_date: weekStartDate, criteria }) as Promise<Win>,
   editWin: (id: number, patch: Partial<Pick<Win, 'title' | 'criteria' | 'status' | 'milestone_id'>>) =>
-    req('PATCH', `/api/planning/wins/${id}`, patch) as Promise<Win>,
+    req('PUT', `/api/planning/wins/${id}`, patch) as Promise<Win>,
   deleteWin: (id: number, force = false) =>
     req('DELETE', `/api/planning/wins/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
 
@@ -1844,9 +1844,9 @@ export const planningApi = {
   createTask: (ownerKey: GoalOwnerKey, title: string, winId?: number, scheduledDate?: string) =>
     req('POST', `/api/planning/${ownerKey}/tasks`, { title, win_id: winId ?? null, scheduled_date: scheduledDate ?? null }) as Promise<PlanTask>,
   editTask: (id: number, patch: Partial<Pick<PlanTask, 'title' | 'status'>>) =>
-    req('PATCH', `/api/planning/tasks/${id}`, patch) as Promise<PlanTask>,
+    req('PUT', `/api/planning/tasks/${id}`, patch) as Promise<PlanTask>,
   scheduleTask: (id: number, scheduledDate: string | null, winId: number | null) =>
-    req('PATCH', `/api/planning/tasks/${id}/schedule`, { scheduled_date: scheduledDate, win_id: winId }) as Promise<PlanTask>,
+    req('PUT', `/api/planning/tasks/${id}/schedule`, { scheduled_date: scheduledDate, win_id: winId }) as Promise<PlanTask>,
   carryForwardTask: (id: number, action: CarryForwardActionKind) =>
     req('POST', `/api/planning/tasks/${id}/carry-forward`, { action }) as Promise<PlanTask>,
   removeTask: (id: number) => req('DELETE', `/api/planning/tasks/${id}`) as Promise<{ ok: true }>,
@@ -2786,7 +2786,26 @@ git commit -m "chore(planning): remove superseded GoalHorizonSection"
 
 ### Task 17: End-to-end live verification via `run-habit-os`
 
-**Files:** none (verification only)
+**STATUS: DONE, verified live 2026-09-23** (two passes — see the note
+at the end of this task). Steps below left as originally written, with
+two corrections struck through and replaced: Step 2.5 named the wrong
+mechanism for moving a Win's progress, and Step 3's FK-cascade claim
+doesn't hold against the real DB. Both corrections were caught only by
+actually running this task, which is the point of it existing.
+
+**Files:** none (verification only) — except the two real gaps this
+task's own literal script surfaced, which needed real fixes before the
+script could pass honestly:
+- `renderer/src/components/PlanningWeeklyLevel.tsx`: `plan_tasks` is
+  the ONLY thing `win_progress` derives from (confirmed against both
+  this spec's own pseudocode and `engine/planning.py`), but no UI
+  anywhere called `planningApi.createTask` — it existed in the API
+  client (Task 9) with zero call sites. Added an inline composer to
+  the Win's supporting-actions list.
+- `renderer/src/components/GoalsPanel.tsx`: the locked interaction
+  contract's own "WIN ≠ Task" line names criteria as one of a Win's
+  three properties (title, progress bar, criteria string), but no UI
+  ever exposed a field to set it. Added one to the Win row's editor.
 
 - [ ] **Step 1: Build and launch**
 
@@ -2800,15 +2819,14 @@ Via the driver:
 2. Add a YEARLY GOAL (Outcome) — `fill`/`click-text` the composer, confirm it appears with 0%.
 3. Open it, add a MONTHLY GOAL (Milestone) under it via the parent picker — confirm it defaults to the just-created Outcome.
 4. Add a WEEKLY GOAL (Win) under that Milestone, with a criteria string.
-5. Add a checklist item to the Win, toggle it done — confirm the Win's own progress bar updates (1 task, 1 done -> 100%) and, on reopening the Outcome/Milestone, their bars show 100% too (single-child average).
+5. ~~Add a checklist item to the Win, toggle it done — confirm the Win's own progress bar updates~~ **Add a plan_task to the Win** (via the composer this verification pass built — a checklist item is a separate, purely cosmetic sub-list that `win_progress` never reads; see `engine/planning.py`'s `win_progress`), toggle it done — confirm the Win's own progress bar updates (1 task, 1 done -> 100%) and, on reopening the Outcome/Milestone, their bars show 100% too (single-child average).
 6. Switch to EXECUTE tab, expand WEEKLY — confirm the same Win/task appear there with the same progress, matching what Panel 2 shows.
 7. `ss` a screenshot at each step, read them back (per this skill's own instruction: open the PNG, a blank/error screenshot means not done).
 
 - [ ] **Step 3: Clean up test data**
 
 Per the `run-habit-os` skill's own gotcha: delete the Outcome created in
-Step 2 above via the app's own delete button (cascades through Milestone/
-Win/checklist item), or directly:
+Step 2 above via the app's own delete button, or directly:
 
 ```bash
 cd python && source .venv/bin/activate && python -c "
@@ -2821,12 +2839,50 @@ with Session(eng) as s:
 "
 ```
 
-(Deleting the `Outcome` row alone is enough — SQLite enforces the
+~~(Deleting the `Outcome` row alone is enough — SQLite enforces the
 `RESTRICT`/`CASCADE` FKs declared in Task 1/3 only if foreign keys are
 turned on for the connection; if this raises an FK error instead of
-cascading, delete Win → Milestone → Outcome in that order instead.)
+cascading, delete Win → Milestone → Outcome in that order instead.)~~
+**Verified live: it does NOT cascade** — this app's SQLite connection
+doesn't have `PRAGMA foreign_keys=ON` set, so deleting only the
+`Outcome` row leaves its Milestone/Win/checklist_items orphaned
+(present in the DB, invisible in the UI since nothing reaches them
+without their parent). Always delete bottom-up: checklist_items/
+plan_tasks → wins → milestones → outcomes.
 
 - [ ] **Step 4: Quit the driver cleanly**
 
 `quit` via the driver (never force-kill — see the `run-habit-os`
 skill's own gotcha about orphaning the Python backend).
+
+---
+
+**Verified live, 2026-09-23, across two passes** (the composer/criteria
+gaps above forced a second pass once the first one exposed them):
+create→schedule→complete→cascade walked end to end — Outcome → Milestone
+→ Win → plan_task, parent-picker defaulted correctly at every level
+(including the dead-Add-button case with 2+ parent options, a code-review
+fix from earlier in this branch), toggling the plan_task moved the Win to
+100% and cascaded to its Milestone/Outcome (single-child average),
+marking a Win achieved pinned it at 100% and showed the "ACHIEVED —
+{criteria}" badge with the criteria this pass set, and Panel 3's
+EXECUTE/HOURS/WEEKLY view matched Panel 2 exactly. `PROJECT1` was
+temporarily renamed both passes (Panel 3's owner list only includes
+`is_named` projects) and reverted after, along with its timer/target
+state — a background click meant for a different element started its
+timer by accident each pass, caught via `secs_today`/`running_since`
+drift in `project_activity`, not by watching the UI. All test data
+deleted bottom-up per the corrected Step 3, app quit clean both times,
+no orphaned Python process.
+
+**Also discovered, unrelated to this task's own script**: this
+worktree shares its physical userData DB
+(`~/.config/habit-os/data/app.db`) with every other worktree of this
+repo — Electron derives the path from `package.json`'s `"name"`, not
+the working directory. `master`'s own `run-habit-os` launch failed
+outright the first time this branch's migration had stamped the
+shared DB's `alembic_version` to a revision `master` doesn't have.
+Live verification here used the real shared DB (per this task's own
+design — Step 3 cleans it up), which is fine for a task that owns the
+DB's current migration head; a launch from a *different* branch during
+that window would have needed a scratch `--user-data-dir` instead.
