@@ -162,12 +162,14 @@ export default function PlanningMonthlyLevel({
   expanded,
   onToggle,
   onSelectDate,
+  refreshSignal,
 }: {
   owners: GoalOwnerMeta[] | null;
   accent: string;
   expanded: boolean;
   onToggle: () => void;
   onSelectDate: (iso: string) => void;
+  refreshSignal: number;
 }) {
   const L = useL();
   const today = new Date();
@@ -178,7 +180,7 @@ export default function PlanningMonthlyLevel({
     owners
       ? () => Promise.all(owners.map((o) => findCurrentMilestones(o, year, month))).then((rs) => rs.flat())
       : null,
-    [owners, year, month],
+    [owners, year, month, refreshSignal],
     [],
   );
 

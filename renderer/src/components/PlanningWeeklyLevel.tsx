@@ -111,12 +111,16 @@ export default function PlanningWeeklyLevel({
   expanded,
   onToggle,
   onSelectDate,
+  refreshSignal,
+  onChanged,
 }: {
   owners: GoalOwnerMeta[] | null;
   accent: string;
   expanded: boolean;
   onToggle: () => void;
   onSelectDate: (iso: string) => void;
+  refreshSignal: number;
+  onChanged: () => void;
 }) {
   const L = useL();
   const monday = mondayOf(new Date());
@@ -130,13 +134,25 @@ export default function PlanningWeeklyLevel({
     owners
       ? () => Promise.all(owners.map((o) => findCurrentWins(o, monday))).then((rs) => rs.flat())
       : null,
-    [owners, monday],
+    [owners, monday, refreshSignal],
     [],
   );
 
   const [carryOpenFor, setCarryOpenFor] = useState<number | null>(null);
+  const [dayPickerFor, setDayPickerFor] = useState<number | null>(null);
   const [addingFor, setAddingFor] = useState<number | null>(null);
   const [newTaskText, setNewTaskText] = useState('');
+  // The 7 real dates of the win's own week — reused both for a task's
+  // own "assign/move to a day" control and as Carry Forward's "pick a
+  // date" option (the spec's own §5 note that a real date-picker was
+  // deliberately deferred applies to an arbitrary-date picker; picking
+  // among THIS week's 7 days is not that, and closes the "Schedule a
+  // specific date" gap the mockup's own carry-forward menu names).
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(`${monday}T00:00:00`);
+    d.setDate(d.getDate() + i);
+    return { iso: isoDate(d), label: `${WEEKDAY_LETTERS[i]}${d.getDate()}` };
+  });
   // One ref/effect at the top level, not inside the row .map() below —
   // only one Win's composer is ever open at a time, and a hook can't
   // live inside a loop whose iteration count changes as Wins are
@@ -154,6 +170,7 @@ export default function PlanningWeeklyLevel({
       ([wins, tasks]) => {
         const win = wins.find((w) => w.id === row.win.id) ?? row.win;
         setRows((rs) => rs.map((r) => (r.win.id === row.win.id ? { ...r, win, tasks } : r)));
+        onChanged();
       },
     );
 
@@ -167,6 +184,19 @@ export default function PlanningWeeklyLevel({
       .carryForwardTask(task.id, action)
       .then(() => refreshWinAndTasks(row))
       .then(() => setCarryOpenFor(null));
+
+  // Real scheduling, not the carry-forward endpoint's 'date' action —
+  // that one is a deliberate alias to 'nextweek' server-side (see
+  // engine/planning.py's own docstring on carry_forward_plan_task), so
+  // routing through it here would silently not do what this button
+  // says. `scheduleTask` is the actual, already-real endpoint for
+  // setting an arbitrary scheduled_date + win_id.
+  const scheduleTaskDay = (row: OwnedWin, task: PlanTask, iso: string | null) =>
+    planningApi.scheduleTask(task.id, iso, row.win.id).then(() => {
+      refreshWinAndTasks(row);
+      setDayPickerFor(null);
+      setCarryOpenFor(null);
+    });
 
   const addTask = (row: OwnedWin) => {
     const title = newTaskText.trim();
@@ -234,6 +264,28 @@ export default function PlanningWeeklyLevel({
                           <span style={{ flex: 1, textDecoration: t.status === 'done' ? 'line-through' : 'none', color: t.status === 'done' ? 'var(--text-faint)' : 'var(--text)' }}>
                             {t.title}
                           </span>
+                          {/* The one control that makes this task actually
+                              "the same object, multiple views" — without a
+                              scheduled_date it never shows up in DAILY at
+                              all (see Panel3.tsx's DailyTasksList), so it
+                              only ever existed inside this Win's own card. */}
+                          <button
+                            onClick={(e) => { e.preventDefault(); setDayPickerFor((cur) => (cur === t.id ? null : t.id)); }}
+                            title={t.scheduled_date ? 'Change which day this is scheduled for' : 'Schedule this task to a day'}
+                            style={{
+                              fontSize: TYPE_SIZE.xs,
+                              background: t.scheduled_date ? 'var(--accent-light)' : 'transparent',
+                              color: t.scheduled_date ? 'var(--accent)' : 'var(--text-faint)',
+                              border: `1px solid ${t.scheduled_date ? 'var(--accent)' : 'var(--border)'}`,
+                              borderRadius: RADIUS.pill,
+                              padding: `${SPACE.hair}px ${SPACE.sm}px`,
+                              flex: 'none',
+                            }}
+                          >
+                            {t.scheduled_date
+                              ? new Date(`${t.scheduled_date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })
+                              : '+ day'}
+                          </button>
                           {t.status !== 'done' && (
                             <button
                               onClick={() => setCarryOpenFor((cur) => (cur === t.id ? null : t.id))}
@@ -243,9 +295,34 @@ export default function PlanningWeeklyLevel({
                             </button>
                           )}
                         </label>
+                        {dayPickerFor === t.id && (
+                          <div style={{ display: 'flex', gap: SPACE.hair, paddingLeft: SPACE.xl, flexWrap: 'wrap' }}>
+                            {weekDays.map((wd) => (
+                              <button
+                                key={wd.iso}
+                                onClick={() => scheduleTaskDay(row, t, wd.iso)}
+                                style={{
+                                  fontSize: TYPE_SIZE.xs,
+                                  padding: `${SPACE.hair}px ${SPACE.xs}px`,
+                                  border: `1px solid ${wd.iso === t.scheduled_date ? 'var(--accent)' : 'var(--border)'}`,
+                                  color: wd.iso === t.scheduled_date ? 'var(--accent)' : 'var(--text-muted)',
+                                  borderRadius: RADIUS.control,
+                                }}
+                              >
+                                {wd.label}
+                              </button>
+                            ))}
+                            {t.scheduled_date && (
+                              <button onClick={() => scheduleTaskDay(row, t, null)} style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)' }}>
+                                Clear
+                              </button>
+                            )}
+                          </div>
+                        )}
                         {carryOpenFor === t.id && (
-                          <div style={{ display: 'flex', gap: SPACE.xs, paddingLeft: SPACE.xl }}>
+                          <div style={{ display: 'flex', gap: SPACE.xs, paddingLeft: SPACE.xl, flexWrap: 'wrap' }}>
                             <button onClick={() => carryForward(row, t, 'nextweek')} style={{ fontSize: TYPE_SIZE.xs }}>Next week</button>
+                            <button onClick={() => { setCarryOpenFor(null); setDayPickerFor(t.id); }} style={{ fontSize: TYPE_SIZE.xs }}>Pick a date</button>
                             <button onClick={() => carryForward(row, t, 'backlog')} style={{ fontSize: TYPE_SIZE.xs }}>Backlog</button>
                             <button onClick={() => carryForward(row, t, 'drop')} style={{ fontSize: TYPE_SIZE.xs }}>Drop</button>
                           </div>

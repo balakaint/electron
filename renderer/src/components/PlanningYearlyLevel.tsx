@@ -131,12 +131,14 @@ export default function PlanningYearlyLevel({
   expanded,
   onToggle,
   onSelectDate,
+  refreshSignal,
 }: {
   owners: GoalOwnerMeta[] | null;
   accent: string;
   expanded: boolean;
   onToggle: () => void;
   onSelectDate: (iso: string) => void;
+  refreshSignal: number;
 }) {
   const L = useL();
   const year = new Date().getFullYear();
@@ -145,7 +147,7 @@ export default function PlanningYearlyLevel({
     owners
       ? () => Promise.all(owners.map((o) => findCurrentOutcomes(o, year))).then((rs) => rs.flat())
       : null,
-    [owners, year],
+    [owners, year, refreshSignal],
     [],
   );
 

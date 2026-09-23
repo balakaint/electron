@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Calendar, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Target } from 'lucide-react';
-import { FocusTab, GoalOwnerKey, GoalOwnerMeta, HoursLevel, ProjectKey, projectsApi, settingsApi } from '../services/api';
+import { FocusTab, GoalOwnerKey, GoalOwnerMeta, HoursLevel, PlanTask, ProjectKey, planningApi, projectsApi, settingsApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
 import NowCard from './NowCard';
@@ -12,8 +12,159 @@ import PlanningWeeklyLevel from './PlanningWeeklyLevel';
 import PlanningMonthlyLevel from './PlanningMonthlyLevel';
 import PlanningYearlyLevel from './PlanningYearlyLevel';
 import NotesTab from './NotesTab';
+import { useFetchState } from '../hooks/useFetchState';
 import { RADIUS, SPACE } from '../spacing';
+import { TYPE_SIZE } from '../typography';
 import { useL } from '../i18n';
+
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function mondayOf(d: Date): string {
+  const copy = new Date(d);
+  const offset = (d.getDay() + 6) % 7;
+  copy.setDate(d.getDate() - offset);
+  return isoDate(copy);
+}
+
+// Year › Month › Week › Day orientation trail — the spec's own "each
+// segment jumps straight to that level" contract. Monthly/Yearly have
+// no independent month/year navigation of their own (they always show
+// the real current period, no prev/next control exists anywhere in
+// this app) — so a Month/Year crumb click only switches `level`; the
+// label itself still truthfully reflects whichever date is being
+// viewed, it just can't jump Monthly to a DIFFERENT month than today's.
+function Breadcrumb({ level, dailyDate, onLevel }: { level: HoursLevel; dailyDate: string | null; onLevel: (l: HoursLevel) => void }) {
+  const d = dailyDate ? new Date(`${dailyDate}T00:00:00`) : new Date();
+  const monday = mondayOf(d);
+  const weekEnd = new Date(`${monday}T00:00:00`);
+  weekEnd.setDate(weekEnd.getDate() + 6);
+  const weekLabel = `${new Date(`${monday}T00:00:00`).getDate()}–${weekEnd.getDate()} ${weekEnd.toLocaleDateString(undefined, { month: 'short' })}`;
+  const dayLabel = `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${d.getDate()}`;
+
+  const crumbs: { label: string; level: HoursLevel; current: boolean }[] = [
+    { label: String(d.getFullYear()), level: 'yearly', current: level === 'yearly' },
+  ];
+  if (level !== 'yearly') crumbs.push({ label: d.toLocaleDateString(undefined, { month: 'long' }), level: 'monthly', current: level === 'monthly' });
+  if (level === 'weekly' || level === 'daily') crumbs.push({ label: weekLabel, level: 'weekly', current: level === 'weekly' });
+  if (level === 'daily') crumbs.push({ label: dayLabel, level: 'daily', current: true });
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.hair, fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)', marginBottom: SPACE.sm, flexWrap: 'wrap' }}>
+      {crumbs.map((c, i) => (
+        <span key={c.level} style={{ display: 'flex', alignItems: 'center', gap: SPACE.hair }}>
+          {i > 0 && <span style={{ color: 'var(--border)' }}>›</span>}
+          {c.current ? (
+            <span style={{ color: 'var(--text)', fontWeight: 700 }}>{c.label}</span>
+          ) : (
+            <button
+              onClick={() => onLevel(c.level)}
+              style={{ background: 'transparent', border: 'none', color: 'var(--text-faint)', fontWeight: 700, fontSize: TYPE_SIZE.xs, padding: `${SPACE.hair}px ${SPACE.xs}px`, cursor: 'pointer', borderRadius: RADIUS.control }}
+            >
+              {c.label}
+            </button>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// DAILY's own "scheduled tasks" list — PlanTasks (win-scoped or not)
+// whose scheduled_date matches this day, across every owner. This is
+// what makes a task genuinely "the same object across Daily/Weekly" —
+// before this, planningApi.listTasksByDate had zero call sites
+// anywhere in the app, so a PlanTask only ever appeared inside its
+// Win's own card in WEEKLY, never in DAILY (caught by direct file
+// audit, not assumed). Hidden entirely when there's nothing scheduled
+// — an empty list under the hour grid would just be noise most days.
+interface OwnedTask {
+  task: PlanTask;
+  owner: GoalOwnerMeta;
+}
+
+async function tasksForOwnerDate(owner: GoalOwnerMeta, date: string): Promise<OwnedTask[]> {
+  const tasks = await planningApi.listTasksByDate(owner.key, date);
+  return tasks.map((task) => ({ task, owner }));
+}
+
+function DailyTasksList({
+  owners,
+  date,
+  refreshSignal,
+  onChanged,
+}: {
+  owners: GoalOwnerMeta[] | null;
+  date: string;
+  refreshSignal: number;
+  onChanged: () => void;
+}) {
+  const {
+    data: rows,
+    setData: setRows,
+    loaded,
+    loadError,
+    refresh,
+  } = useFetchState<OwnedTask[]>(
+    owners ? () => Promise.all(owners.map((o) => tasksForOwnerDate(o, date))).then((rs) => rs.flat()) : null,
+    [owners, date, refreshSignal],
+    [],
+  );
+
+  // Weekly's own task rows live in a sibling component that
+  // AccordionSection never unmounts (its whole point is preserving each
+  // section's local state — open composers, day-pickers — while another
+  // section is expanded), so a toggle here would otherwise never reach
+  // it within the same session. Routes through the same refreshSignal/
+  // onChanged pair HourPlanTab already uses for the identical reason.
+  const toggleTask = (row: OwnedTask) =>
+    planningApi.editTask(row.task.id, { status: row.task.status === 'done' ? 'open' : 'done' }).then((updated) => {
+      setRows((rs) => rs.map((r) => (r.task.id === updated.id ? { ...r, task: updated } : r)));
+      onChanged();
+    });
+
+  if (!loaded) return null;
+  if (loadError) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: 'var(--danger)', marginBottom: SPACE.sm }}>
+        <span>Couldn't load scheduled tasks.</span>
+        <button className="btn-ghost" style={{ fontSize: 12 }} onClick={refresh}>Retry</button>
+      </div>
+    );
+  }
+  if (rows.length === 0) return null;
+
+  return (
+    <div style={{ marginBottom: SPACE.md }}>
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: SPACE.xs }}>
+        SCHEDULED TASKS
+      </div>
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {rows.map((row) => (
+          <li key={row.task.id} style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
+            <input type="checkbox" checked={row.task.status === 'done'} onChange={() => toggleTask(row)} />
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: 13,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                textDecoration: row.task.status === 'done' ? 'line-through' : 'none',
+                color: row.task.status === 'done' ? 'var(--text-faint)' : 'var(--text)',
+              }}
+            >
+              {row.task.title}
+            </span>
+            <span style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)', flex: 'none' }}>{row.owner.label}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 // Panel 3 — legacy's `_build_left` (the naming is legacy's own; it is the
 // RIGHT-hand column). Fixed width, always visible, and the only panel
@@ -204,6 +355,7 @@ function HoursAccordion({
           aria-pressed, not role="tab" — this control has no arrow-key
           navigation, so it doesn't announce the ARIA tabs pattern it
           wouldn't deliver. */}
+      <Breadcrumb level={level} dailyDate={dailyDate} onLevel={setLevel} />
       <div style={{ display: 'flex', gap: SPACE.xs, marginBottom: SPACE.md, flexWrap: 'wrap' }}>
         {HOURS_LEVELS.map(([key, en, bn, icon]) => {
           const on = level === key;
@@ -275,6 +427,7 @@ function HoursAccordion({
               {L('Today', 'আজ')}
             </button>
           )}
+          <DailyTasksList owners={owners} date={dailyDate ?? isoDate(new Date())} refreshSignal={refreshSignal} onChanged={onChanged} />
           <HourPlanTab
             hideHeader
             date={dailyDate ?? undefined}
@@ -293,6 +446,8 @@ function HoursAccordion({
           expanded={level === 'weekly'}
           onToggle={() => setLevel('weekly')}
           onSelectDate={onSelectDate}
+          refreshSignal={refreshSignal}
+          onChanged={onChanged}
         />
         <PlanningMonthlyLevel
           owners={owners}
@@ -300,6 +455,7 @@ function HoursAccordion({
           expanded={level === 'monthly'}
           onToggle={() => setLevel('monthly')}
           onSelectDate={onSelectDate}
+          refreshSignal={refreshSignal}
         />
         <PlanningYearlyLevel
           owners={owners}
@@ -307,6 +463,7 @@ function HoursAccordion({
           expanded={level === 'yearly'}
           onToggle={() => setLevel('yearly')}
           onSelectDate={onSelectDate}
+          refreshSignal={refreshSignal}
         />
       </div>
     </div>
