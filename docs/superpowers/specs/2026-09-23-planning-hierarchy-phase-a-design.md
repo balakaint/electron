@@ -105,6 +105,7 @@ milestoneProgress(milestone):
     return round(avg(wins.map(winProgress)))
 
 outcomeProgress(outcome):
+    if outcome.fixed: return outcome.progress
     milestones = MILESTONE.filter(m => m.outcome_id == outcome.id)
     if not milestones: return outcome.progress or 0
     return round(avg(milestones.map(milestoneProgress)))

@@ -225,6 +225,18 @@ def test_migration_dedupes_two_yearly_goals_for_the_same_owner_and_year():
         check("the second yearly Goal also folded in as a Milestone rather than being dropped", any(m.title == "Year B" for m in milestones))
 
 
+def test_milestone_progress_respects_fixed():
+    with FreshDB() as f:
+        from database.models import Milestone
+        from engine.planning import PlanningEngine, milestone_progress
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        f.repo.db.add(Milestone(id=777, outcome_id=out["id"], title="fixed milestone", month=9, year=2026, fixed=True, progress=65))
+        f.repo.db.commit()
+        milestone = f.repo.get_milestone(777)
+        check("fixed milestone with progress=65 and no wins still reports 65", milestone_progress(milestone, f.repo) == 65)
+
+
 def test_outcome_progress_respects_fixed():
     with FreshDB() as f:
         from database.models import Outcome
