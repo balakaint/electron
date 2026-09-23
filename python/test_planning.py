@@ -1,0 +1,214 @@
+"""Idempotent regression test for the planning hierarchy
+(Outcome/Milestone/Win/PlanTask) and its Goal->hierarchy migration.
+
+    .venv/bin/python test_planning.py
+
+Every test gets its own fresh temp SQLite DB, deleted immediately
+after — never touches the real app.db.
+"""
+
+import os
+import tempfile
+from datetime import date
+
+from alembic import command
+from alembic.config import Config
+
+FAILURES = []
+
+
+def check(label: str, cond: bool, detail: str = "") -> None:
+    status = "PASS" if cond else "FAIL"
+    print(f"[{status}] {label}" + (f" — {detail}" if detail and not cond else ""))
+    if not cond:
+        FAILURES.append(label)
+
+
+class FreshDB:
+    def __enter__(self):
+        fd, self.path = tempfile.mkstemp(suffix=".db")
+        os.close(fd)
+        os.environ["APP_DB_PATH"] = self.path
+
+        import importlib
+        import database.connection as connection
+        importlib.reload(connection)
+
+        cfg = Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
+        command.upgrade(cfg, "head")
+
+        from database.repository import PlanningRepository
+
+        self.db = connection.SessionLocal()
+        self.repo = PlanningRepository(self.db)
+        return self
+
+    def __exit__(self, *exc):
+        self.db.close()
+        os.remove(self.path)
+
+
+def test_win_progress_empty_not_fixed_returns_zero():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "Test outcome", 2026)
+        ms = eng.create_milestone(out["id"], "Test milestone", 9, 2026)
+        win = eng.create_win(ms["id"], "Empty win", "2026-09-21")
+        check("empty non-fixed win -> 0% progress", win["progress"] == 0)
+
+
+def test_win_progress_derives_from_tasks():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        ms = eng.create_milestone(out["id"], "M", 9, 2026)
+        win = eng.create_win(ms["id"], "W", "2026-09-21")
+        t1 = eng.create_plan_task("life", "task 1", win_id=win["id"], scheduled_date="2026-09-21")
+        eng.create_plan_task("life", "task 2", win_id=win["id"], scheduled_date="2026-09-22")
+        eng.edit_plan_task(t1["id"], status="done")
+        refreshed = eng.list_wins(ms["id"])[0]
+        check("1/2 tasks done -> 50% win progress", refreshed["progress"] == 50)
+
+
+def test_milestone_and_outcome_progress_average_children():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        ms = eng.create_milestone(out["id"], "M", 9, 2026)
+        w1 = eng.create_win(ms["id"], "W1", "2026-09-07")
+        w2 = eng.create_win(ms["id"], "W2", "2026-09-14")
+        t1 = eng.create_plan_task("life", "t", win_id=w1["id"], scheduled_date="2026-09-07")
+        eng.edit_plan_task(t1["id"], status="done")  # w1 -> 100%
+        # w2 stays 0% (no tasks)
+        milestones = eng.list_milestones(out["id"])
+        check("milestone progress = avg(100, 0) = 50", milestones[0]["progress"] == 50)
+        outcomes = eng.list_outcomes("life")
+        check("outcome progress = avg over its one milestone = 50", outcomes[0]["progress"] == 50)
+
+
+def test_fixed_node_returns_stored_progress_not_derived():
+    with FreshDB() as f:
+        from database.models import Win
+        from engine.planning import PlanningEngine, win_progress
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        ms = eng.create_milestone(out["id"], "M", 9, 2026)
+        f.repo.db.add(Win(id=999, milestone_id=ms["id"], title="future week", week_start_date="2026-10-05", fixed=True, progress=0))
+        f.repo.db.commit()
+        win = f.repo.get_win(999)
+        check("fixed win with progress=0 stays 0 even with no tasks (not an error)", win_progress(win, f.repo) == 0)
+
+
+def test_delete_outcome_with_children_blocked_unless_forced():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine, ChildrenExistError
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        eng.create_milestone(out["id"], "M", 9, 2026)
+        raised = False
+        try:
+            eng.delete_outcome(out["id"])
+        except ChildrenExistError as e:
+            raised = True
+            check("blocked delete reports 1 child", e.count == 1)
+        check("delete with children raises ChildrenExistError", raised)
+        check("force=True deletes anyway", eng.delete_outcome(out["id"], force=True))
+
+
+def test_checklist_item_requires_exactly_one_parent():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        raised_zero = False
+        try:
+            eng.add_checklist_item("orphan")
+        except ValueError:
+            raised_zero = True
+        check("zero parents rejected", raised_zero)
+        raised_two = False
+        try:
+            eng.add_checklist_item("double", outcome_id=out["id"], win_id=1)
+        except ValueError:
+            raised_two = True
+        check("two parents rejected", raised_two)
+        item = eng.add_checklist_item("valid", outcome_id=out["id"])
+        check("exactly one parent accepted", item.outcome_id == out["id"])
+
+
+def test_reparent_milestone_moves_only_its_own_fk_not_its_wins_directly():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out_a = eng.create_outcome("life", "Outcome A", 2026)
+        out_b = eng.create_outcome("life", "Outcome B", 2026)
+        ms = eng.create_milestone(out_a["id"], "M", 9, 2026)
+        win = eng.create_win(ms["id"], "W", "2026-09-07")
+        eng.edit_milestone(ms["id"], outcome_id=out_b["id"])
+        moved = eng.repo.get_milestone(ms["id"])
+        check("milestone's own outcome_id changed", moved.outcome_id == out_b["id"])
+        still_there = eng.repo.get_win(win["id"])
+        check("win's milestone_id untouched by the reparent (it followed via the existing FK, not a second write)", still_there.milestone_id == ms["id"])
+        b_milestones = eng.list_milestones(out_b["id"])
+        check("outcome B now sees the milestone (and transitively its win) through the one FK change", len(b_milestones) == 1)
+
+
+def test_migration_copies_goal_hierarchy_and_leaves_goals_table_untouched():
+    with FreshDB() as f:
+        from database.models import Goal, GoalTask
+        from database.repository import PlanningRepository
+        # Seed a clean yearly -> monthly -> weekly chain plus a checklist item, all for one owner.
+        f.repo.db.add(Goal(id=1, project_key="proj1", horizon="yearly", text="Year goal", done=False, start_date="2026-01-01", deadline="2026-12-31", note="", next_action=""))
+        f.repo.db.add(Goal(id=2, project_key="proj1", horizon="monthly", text="Month goal", done=False, start_date="2026-09-01", deadline="2026-09-30", note="", next_action=""))
+        f.repo.db.add(Goal(id=3, project_key="proj1", horizon="weekly", text="Week goal", done=False, start_date="2026-09-21", deadline="2026-09-27", note="", next_action=""))
+        # An orphan monthly goal for a DIFFERENT owner with no yearly goal — forces the synthetic-Outcome path.
+        f.repo.db.add(Goal(id=4, project_key="proj2", horizon="monthly", text="Orphan month goal", done=False, start_date="2026-06-01", deadline="2026-06-30", note="", next_action=""))
+        f.repo.db.add(GoalTask(pid="gt1", goal_id=3, text="checklist item", done=False, added_date="2026-09-21"))
+        f.repo.db.commit()
+
+        goals_before = list(f.repo.db.query(Goal).all())
+        goal_tasks_before = list(f.repo.db.query(GoalTask).all())
+
+        from alembic import command
+        from alembic.config import Config
+        cfg = Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
+        command.downgrade(cfg, "-1")
+        command.upgrade(cfg, "head")
+
+        planning_repo = PlanningRepository(f.repo.db)
+        outcomes = planning_repo.list_outcomes("proj1")
+        check("proj1 got exactly one Outcome (from its yearly goal)", len(outcomes) == 1)
+        milestones = planning_repo.list_milestones(outcomes[0].id) if outcomes else []
+        check("proj1's Outcome has exactly one Milestone", len(milestones) == 1)
+        wins = planning_repo.list_wins(milestones[0].id) if milestones else []
+        check("proj1's Milestone has exactly one Win", len(wins) == 1)
+        checklist = planning_repo.list_checklist_items(win_id=wins[0].id) if wins else []
+        check("the checklist item followed its Goal to the new Win", len(checklist) == 1)
+
+        proj2_outcomes = planning_repo.list_outcomes("proj2")
+        check("proj2 (orphan monthly goal) got a synthetic Outcome", len(proj2_outcomes) == 1)
+        check("synthetic Outcome is titled 'General <year>'", proj2_outcomes[0].title.startswith("General "))
+
+        goals_after = list(f.repo.db.query(Goal).all())
+        goal_tasks_after = list(f.repo.db.query(GoalTask).all())
+        check("goals table row count unchanged", len(goals_after) == len(goals_before))
+        check("goal_tasks table row count unchanged", len(goal_tasks_after) == len(goal_tasks_before))
+
+
+def main():
+    tests = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
+    for t in tests:
+        print(f"\n── {t.__name__} ──")
+        t()
+    print(f"\n{len(tests)} tests run, {len(FAILURES)} failures")
+    if FAILURES:
+        for f in FAILURES:
+            print(f"  FAILED: {f}")
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()

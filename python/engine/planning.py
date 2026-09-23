@@ -82,6 +82,12 @@ class PlanningEngine:
         count = self.repo.count_milestones(outcome_id)
         if count and not force:
             raise ChildrenExistError(count)
+        if force:
+            # milestones.outcome_id is ondelete="RESTRICT" (deliberately —
+            # see the model's own docstring), so force must cascade
+            # explicitly here rather than relying on the FK to do it.
+            for milestone in self.repo.list_milestones(outcome_id):
+                self.delete_milestone(milestone.id, force=True)
         self.repo.delete_outcome(outcome)
         return True
 
@@ -119,6 +125,11 @@ class PlanningEngine:
         count = self.repo.count_wins(milestone_id)
         if count and not force:
             raise ChildrenExistError(count)
+        if force:
+            # wins.milestone_id is ondelete="RESTRICT" — same reasoning
+            # as delete_outcome's own force branch.
+            for win in self.repo.list_wins(milestone_id):
+                self.delete_win(win.id, force=True)
         self.repo.delete_milestone(milestone)
         return True
 
