@@ -8,6 +8,7 @@ import DeepWorkTrend from './DeepWorkTrend';
 import PlanReview from './PlanReview';
 import TaskList from './TaskList';
 import AccordionSection from './AccordionSection';
+import MiniCalendarPicker from './MiniCalendarPicker';
 import PlanningWeeklyLevel from './PlanningWeeklyLevel';
 import PlanningMonthlyLevel from './PlanningMonthlyLevel';
 import PlanningYearlyLevel from './PlanningYearlyLevel';
@@ -316,6 +317,18 @@ function HoursAccordion({
   // app sits open across midnight; null always means "whatever today
   // actually is right now."
   const [dailyDate, setDailyDate] = useState<string | null>(null);
+  // "Jump to date" — DAILY's own reach for a date WEEKLY's 7-day strip,
+  // MONTHLY's current-month grid, and YEARLY's month-only jump (lands
+  // on the 1st, never a specific day) can't get to. Zahid hit this
+  // directly: wanted to write a plain hourly note for a day next month,
+  // which has nothing to do with the Win/PlanTask hierarchy those three
+  // calendars serve — this is DAILY navigating itself, no task
+  // involved, so it lives here rather than inside any Planning*Level.
+  const [dateJumpOpen, setDateJumpOpen] = useState(false);
+  const [jumpMonth, setJumpMonth] = useState<{ year: number; month: number }>(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  });
 
   useEffect(() => {
     projectsApi.order().then((order) => {
@@ -406,27 +419,73 @@ function HoursAccordion({
               (the exact bug this file's own HOURS_LEVELS/AccordionSection
               pairing was already burned by once — see that component's
               own history). */}
-          {dailyDate && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.xs, marginBottom: SPACE.sm, flexWrap: 'wrap' }}>
+            {dailyDate && (
+              <button
+                onClick={() => setDailyDate(null)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: SPACE.xs,
+                  padding: '4px 8px',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  borderRadius: RADIUS.pill,
+                  border: '1px solid var(--accent)',
+                  background: 'transparent',
+                  color: 'var(--accent)',
+                  cursor: 'pointer',
+                }}
+              >
+                <ChevronLeft size={12} />
+                {L('Today', 'আজ')}
+              </button>
+            )}
             <button
-              onClick={() => setDailyDate(null)}
+              onClick={() => {
+                const base = dailyDate ? new Date(`${dailyDate}T00:00:00`) : new Date();
+                setJumpMonth({ year: base.getFullYear(), month: base.getMonth() + 1 });
+                setDateJumpOpen((v) => !v);
+              }}
+              className="hover-accent"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: SPACE.xs,
-                marginBottom: SPACE.sm,
                 padding: '4px 8px',
                 fontSize: 12,
                 fontWeight: 700,
                 borderRadius: RADIUS.pill,
-                border: '1px solid var(--accent)',
+                borderWidth: 1,
+                borderStyle: 'dashed',
                 background: 'transparent',
-                color: 'var(--accent)',
+                color: 'var(--text-muted)',
                 cursor: 'pointer',
               }}
             >
-              <ChevronLeft size={12} />
-              {L('Today', 'আজ')}
+              <Calendar size={12} />
+              {L('Jump to date', 'তারিখে যাও')}
             </button>
+          </div>
+          {dateJumpOpen && (
+            <div style={{ marginBottom: SPACE.sm }}>
+              <MiniCalendarPicker
+                year={jumpMonth.year}
+                month={jumpMonth.month}
+                selected={dailyDate}
+                accent="var(--accent)"
+                onNavMonth={(dir) =>
+                  setJumpMonth((cur) => {
+                    const d = new Date(cur.year, cur.month - 1 + dir, 1);
+                    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+                  })
+                }
+                onSelectDate={(iso) => {
+                  onSelectDate(iso);
+                  setDateJumpOpen(false);
+                }}
+              />
+            </div>
           )}
           <DailyTasksList owners={owners} date={dailyDate ?? isoDate(new Date())} refreshSignal={refreshSignal} onChanged={onChanged} />
           <HourPlanTab
