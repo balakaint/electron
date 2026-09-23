@@ -768,6 +768,127 @@ Q90_CYCLE_PRESETS = (30, 60, 90)
 Q90_CYCLE_MIN, Q90_CYCLE_MAX = 7, 365
 
 
+class Outcome(Base):
+    """Top of the planning hierarchy — one per (owner, year). See
+    `engine/planning.py`'s `outcome_progress` for how its progress is
+    always derived from its Milestones, never stored directly unless
+    `fixed`.
+
+    `legacy_goal_id` is set only by the Phase A migration, for rows
+    forward-copied from an old yearly-horizon `Goal` — it exists purely
+    so Panel 2's re-parent fix-up UI can show "this came from your old
+    goal" and so Board (Phase B, still reading `goals`/`goal_tasks`
+    unmodified) can be offered on migrated nodes. Never read by
+    `engine/planning.py`'s progress functions or any other business
+    logic — a manually-created Outcome has this as `None` and behaves
+    identically to a migrated one everywhere except that fix-up hint and
+    Board access.
+    """
+
+    __tablename__ = "outcomes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    owner_key: Mapped[str] = mapped_column(String)  # GoalOwnerKeyT: proj1..proj6 | "life"
+    title: Mapped[str] = mapped_column(String)
+    year: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String, default="active")  # active | achieved | dropped
+    fixed: Mapped[bool] = mapped_column(Boolean, default=False)
+    progress: Mapped[int] = mapped_column(Integer, default=0)  # stored value, only meaningful when fixed
+    legacy_goal_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class Milestone(Base):
+    """One per (Outcome, month). See Outcome's docstring for
+    `legacy_goal_id`; identical reasoning here."""
+
+    __tablename__ = "milestones"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    outcome_id: Mapped[int] = mapped_column(ForeignKey("outcomes.id", ondelete="RESTRICT"))
+    title: Mapped[str] = mapped_column(String)
+    month: Mapped[int] = mapped_column(Integer)
+    year: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String, default="active")
+    fixed: Mapped[bool] = mapped_column(Boolean, default=False)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    legacy_goal_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class Win(Base):
+    """One per (Milestone, week) — a Win is never a checkbox property
+    bolted onto a task (see the Phase A spec's locked interaction
+    contract): it has its own title, a `criteria` string, and progress
+    always derived from its PlanTasks unless `fixed`. `week_start_date`
+    is the Monday of the week this Win belongs to (ISO date string) —
+    there is no separate week-container table; week identity is this
+    column plus ordinary date arithmetic, per the spec's decision not to
+    add one."""
+
+    __tablename__ = "wins"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    milestone_id: Mapped[int] = mapped_column(ForeignKey("milestones.id", ondelete="RESTRICT"))
+    title: Mapped[str] = mapped_column(String)
+    week_start_date: Mapped[str] = mapped_column(String)  # ISO date, Monday
+    criteria: Mapped[str] = mapped_column(String, default="")
+    status: Mapped[str] = mapped_column(String, default="active")  # active | achieved | dropped
+    fixed: Mapped[bool] = mapped_column(Boolean, default=False)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    legacy_goal_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class PlanTask(Base):
+    """The day-scheduled, Board-linkable leaf of the hierarchy — NOT the
+    same thing as `Task` (daily execution / hour-plan) or `GoalTask`
+    (the old flat per-goal checklist, still live under `goals` for
+    Board's sake). `win_id` is nullable: a task can exist unscheduled
+    (Carry Forward's "Backlog" action sets both `win_id` and
+    `scheduled_date` to null) or scheduled to a day without yet being
+    tied to a Win. `owner_key` is denormalized onto the task itself
+    (not derived by walking win->milestone->outcome) so a task can be
+    created and scheduled before it has a Win — same reasoning `Goal`
+    stores its own `project_key` rather than deriving it.
+
+    ondelete="SET NULL" on win_id (not CASCADE): completing/deleting the
+    Win a task supported should not delete the task itself, only detach
+    it — matches Carry Forward's Backlog action already doing this same
+    detach by hand.
+    """
+
+    __tablename__ = "plan_tasks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    win_id: Mapped[int | None] = mapped_column(ForeignKey("wins.id", ondelete="SET NULL"), nullable=True)
+    title: Mapped[str] = mapped_column(String)
+    scheduled_date: Mapped[str | None] = mapped_column(String, nullable=True)  # ISO date
+    status: Mapped[str] = mapped_column(String, default="open")  # open | done | dropped
+    owner_key: Mapped[str] = mapped_column(String)
+
+
+class ChecklistItem(Base):
+    """A plain, unscheduled checklist item — the same shape as the old
+    `GoalTask` (add/check/remove straight from a card, no scheduling, no
+    Board), re-pointed to attach to exactly one of Outcome/Milestone/Win
+    instead of a single flat Goal. Engine-layer enforced: exactly one of
+    `outcome_id`/`milestone_id`/`win_id` is set per row, never zero or
+    two (see `engine/planning.py`'s `add_checklist_item`).
+
+    ondelete="CASCADE" on all three: a checklist item has no meaning
+    without its parent node, same reasoning `GoalTask.goal_id` already
+    uses.
+    """
+
+    __tablename__ = "checklist_items"
+
+    pid: Mapped[str] = mapped_column(String, primary_key=True)
+    outcome_id: Mapped[int | None] = mapped_column(ForeignKey("outcomes.id", ondelete="CASCADE"), nullable=True)
+    milestone_id: Mapped[int | None] = mapped_column(ForeignKey("milestones.id", ondelete="CASCADE"), nullable=True)
+    win_id: Mapped[int | None] = mapped_column(ForeignKey("wins.id", ondelete="CASCADE"), nullable=True)
+    text: Mapped[str] = mapped_column(String)
+    done: Mapped[bool] = mapped_column(Boolean, default=False)
+    added_date: Mapped[str] = mapped_column(String)
+
+
 class QuarterlyAnswer(Base):
     """One row per (cycle, area) — legacy instead keys a single
     `_habit_data["__q90_<cycle-start>"]` dict by cycle-start-date string,
