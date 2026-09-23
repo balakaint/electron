@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { RADIUS, SPACE } from '../spacing';
+import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
 
 // The locked interaction contract's "WIN ≠ Task" card, generalized to
 // all three levels (Outcome/Milestone/Win each get one): a progress
@@ -54,18 +55,18 @@ export default function PlanningProgressCard({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
-        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, color: accent }}>{label}</span>
+        <span style={{ fontSize: TYPE_SIZE.xs, fontWeight: TYPE_WEIGHT.bold, letterSpacing: TRACKING.label, color: accent }}>{label}</span>
         <span style={{ flex: 1 }} />
         {fixed && (
-          <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>not started</span>
+          <span style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)' }}>not started</span>
         )}
         {onEdit && (
-          <button onClick={onEdit} style={{ fontSize: 11, color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+          <button onClick={onEdit} style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
             ✎ Edit
           </button>
         )}
       </div>
-      <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.35 }}>{title}</div>
+      <div style={{ fontSize: TYPE_SIZE.base, fontWeight: TYPE_WEIGHT.bold, lineHeight: 1.35 }}>{title}</div>
       <div style={{ height: 7, borderRadius: RADIUS.pill, background: 'var(--border)', overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${progress}%`, background: accent, transition: 'width 300ms ease' }} />
       </div>
@@ -73,11 +74,11 @@ export default function PlanningProgressCard({
         <span
           style={{
             alignSelf: 'flex-start',
-            padding: '3px 9px',
+            padding: `${SPACE.xs}px ${SPACE.sm}px`,
             borderRadius: RADIUS.pill,
-            fontSize: 10,
-            fontWeight: 800,
-            letterSpacing: 0.4,
+            fontSize: TYPE_SIZE.xs,
+            fontWeight: TYPE_WEIGHT.bold,
+            letterSpacing: TRACKING.label,
             background: 'color-mix(in srgb, var(--success) 16%, transparent)',
             color: 'var(--success)',
           }}
@@ -86,28 +87,28 @@ export default function PlanningProgressCard({
         </span>
       )}
       {children && (
-        <details style={{ fontSize: 12 }}>
-          <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 700 }}>{detailsSummary}</summary>
+        <details style={{ fontSize: TYPE_SIZE.xs }}>
+          <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontWeight: TYPE_WEIGHT.bold }}>{detailsSummary}</summary>
           <div style={{ marginTop: SPACE.xs }}>{children}</div>
         </details>
       )}
       {pace && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: SPACE.xs, borderTop: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs, paddingTop: SPACE.xs, borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: TYPE_SIZE.xs }}>
             <span style={{ color: 'var(--text-faint)' }}>TIME</span>
             <span>{pace.elapsedLabel}</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: TYPE_SIZE.xs }}>
             <span style={{ color: 'var(--text-faint)' }}>PROGRESS</span>
             <span>{progress}%</span>
           </div>
           <span
             style={{
               alignSelf: 'flex-start',
-              padding: '3px 9px',
+              padding: `${SPACE.xs}px ${SPACE.sm}px`,
               borderRadius: RADIUS.pill,
-              fontSize: 10,
-              fontWeight: 800,
+              fontSize: TYPE_SIZE.xs,
+              fontWeight: TYPE_WEIGHT.bold,
               background: paceColor ? `color-mix(in srgb, ${paceColor} 16%, transparent)` : undefined,
               color: paceColor,
             }}

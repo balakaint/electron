@@ -5,6 +5,7 @@ import AccordionSection from './AccordionSection';
 import PlanningProgressCard from './PlanningProgressCard';
 import { useFetchState } from '../hooks/useFetchState';
 import { RADIUS, SPACE } from '../spacing';
+import { TYPE_SIZE } from '../typography';
 
 function mondayOf(d: Date): string {
   const copy = new Date(d);
@@ -133,17 +134,17 @@ export default function PlanningWeeklyLevel({
                       {t.status !== 'done' && (
                         <button
                           onClick={() => setCarryOpenFor((cur) => (cur === t.id ? null : t.id))}
-                          style={{ fontSize: 11, background: 'transparent', border: '1px solid var(--border)', borderRadius: RADIUS.pill, padding: '2px 8px' }}
+                          style={{ fontSize: TYPE_SIZE.xs, background: 'transparent', border: '1px solid var(--border)', borderRadius: RADIUS.pill, padding: `${SPACE.hair}px ${SPACE.sm}px` }}
                         >
                           Carry forward
                         </button>
                       )}
                     </label>
                     {carryOpenFor === t.id && (
-                      <div style={{ display: 'flex', gap: 4, paddingLeft: 24 }}>
-                        <button onClick={() => carryForward(row, t, 'nextweek')} style={{ fontSize: 10 }}>Next week</button>
-                        <button onClick={() => carryForward(row, t, 'backlog')} style={{ fontSize: 10 }}>Backlog</button>
-                        <button onClick={() => carryForward(row, t, 'drop')} style={{ fontSize: 10 }}>Drop</button>
+                      <div style={{ display: 'flex', gap: SPACE.xs, paddingLeft: SPACE.xl }}>
+                        <button onClick={() => carryForward(row, t, 'nextweek')} style={{ fontSize: TYPE_SIZE.xs }}>Next week</button>
+                        <button onClick={() => carryForward(row, t, 'backlog')} style={{ fontSize: TYPE_SIZE.xs }}>Backlog</button>
+                        <button onClick={() => carryForward(row, t, 'drop')} style={{ fontSize: TYPE_SIZE.xs }}>Drop</button>
                       </div>
                     )}
                   </li>

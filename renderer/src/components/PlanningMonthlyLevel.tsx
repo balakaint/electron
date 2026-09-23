@@ -208,7 +208,7 @@ export default function PlanningMonthlyLevel({
                 >
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                     {row.wins.map((w) => (
-                      <li key={w.id} style={{ fontSize: 12, padding: '3px 0' }}>
+                      <li key={w.id} style={{ fontSize: 12, padding: `${SPACE.xs}px 0` }}>
                         {w.progress === 100 ? '✓' : '○'} {w.title} — {w.progress}%
                       </li>
                     ))}

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Calendar, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Target } from 'lucide-react';
-import { FocusTab, GoalOwnerKey, HoursLevel, ProjectKey, projectsApi, settingsApi } from '../services/api';
+import { FocusTab, GoalOwnerKey, GoalOwnerMeta, HoursLevel, ProjectKey, projectsApi, settingsApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
 import NowCard from './NowCard';
@@ -8,7 +8,9 @@ import DeepWorkTrend from './DeepWorkTrend';
 import PlanReview from './PlanReview';
 import TaskList from './TaskList';
 import AccordionSection from './AccordionSection';
-import GoalHorizonSection, { GoalOwnerMeta } from './GoalHorizonSection';
+import PlanningWeeklyLevel from './PlanningWeeklyLevel';
+import PlanningMonthlyLevel from './PlanningMonthlyLevel';
+import PlanningYearlyLevel from './PlanningYearlyLevel';
 import NotesTab from './NotesTab';
 import { RADIUS, SPACE } from '../spacing';
 import { useL } from '../i18n';
@@ -238,48 +240,23 @@ function HoursAccordion({
           />
         </AccordionSection>
 
-        {/* ⚠ horizon crossing: Panel 2 (GoalsPanel.tsx) deliberately
-            stores/labels these backwards — stored "yearly" is shown as
-            "WEEKLY GOAL", stored "monthly" as "MONTHLY GOAL", stored
-            "weekly" as "YEARLY GOAL". These three follow the DISPLAYED
-            meaning the user already knows from Panel 2, not the raw
-            column name — do not "fix" this mapping without re-reading
-            GoalsPanel.tsx's own warning first. */}
-        <GoalHorizonSection
-          horizon="yearly"
+        <PlanningWeeklyLevel
           owners={owners}
           accent="var(--goal-yearly)"
-          glyph={<CalendarDays size={16} />}
-          label={L('WEEKLY', 'সাপ্তাহিক')}
-          noun="priority"
-          periodKind="week"
           expanded={level === 'weekly'}
           onToggle={() => setLevel('weekly')}
-          onOpenGoal={onOpenGoal}
         />
-        <GoalHorizonSection
-          horizon="monthly"
+        <PlanningMonthlyLevel
           owners={owners}
           accent="var(--goal-monthly)"
-          glyph={<CalendarRange size={16} />}
-          label={L('MONTHLY', 'মাসিক')}
-          noun="goal"
-          periodKind="month"
           expanded={level === 'monthly'}
           onToggle={() => setLevel('monthly')}
-          onOpenGoal={onOpenGoal}
         />
-        <GoalHorizonSection
-          horizon="weekly"
+        <PlanningYearlyLevel
           owners={owners}
           accent="var(--goal-weekly)"
-          glyph={<Target size={16} />}
-          label={L('YEARLY', 'বার্ষিক')}
-          noun="milestone"
-          periodKind="year"
           expanded={level === 'yearly'}
           onToggle={() => setLevel('yearly')}
-          onOpenGoal={onOpenGoal}
         />
       </div>
     </div>

@@ -172,7 +172,7 @@ export default function PlanningYearlyLevel({
                 >
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                     {row.milestones.map((m) => (
-                      <li key={m.id} style={{ fontSize: 12, padding: '3px 0' }}>
+                      <li key={m.id} style={{ fontSize: 12, padding: `${SPACE.xs}px 0` }}>
                         {m.progress === 100 ? '✓' : '○'} {m.title} — {m.progress}%
                       </li>
                     ))}
