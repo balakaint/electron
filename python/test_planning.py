@@ -262,6 +262,52 @@ def test_win_progress_excludes_dropped_tasks_from_denominator():
         check("1 done + 1 dropped -> 100% (dropped excluded from denominator)", refreshed["progress"] == 100)
 
 
+def test_marking_win_achieved_pins_progress_to_100():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        ms = eng.create_milestone(out["id"], "M", 9, 2026)
+        win = eng.create_win(ms["id"], "W", "2026-09-21")
+        eng.create_plan_task("life", "unfinished task", win_id=win["id"], scheduled_date="2026-09-21")
+        # Before: win has 1 task, 0 done -> derives to 0%, not 100.
+        before = eng.list_wins(ms["id"])[0]
+        check("win starts at 0% (derived, one unfinished task)", before["progress"] == 0)
+        edited = eng.edit_win(win["id"], status="achieved")
+        check("marking achieved pins progress to 100 even with an unfinished task", edited["progress"] == 100)
+        check("marking achieved sets fixed=True", edited["fixed"] is True)
+        refreshed = eng.list_wins(ms["id"])[0]
+        check("achieved + 100% survives a fresh read (not just the edit response)", refreshed["progress"] == 100 and refreshed["fixed"] is True)
+
+
+def test_unmarking_achieved_returns_to_derived_progress():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        ms = eng.create_milestone(out["id"], "M", 9, 2026)
+        win = eng.create_win(ms["id"], "W", "2026-09-21")
+        eng.create_plan_task("life", "unfinished task", win_id=win["id"], scheduled_date="2026-09-21")
+        eng.edit_win(win["id"], status="achieved")
+        edited = eng.edit_win(win["id"], status="active")
+        check("un-marking achieved clears fixed", edited["fixed"] is False)
+        check("progress goes back to derived (0%, the task is still unfinished)", edited["progress"] == 0)
+
+
+def test_marking_milestone_and_outcome_achieved_cascades_up():
+    with FreshDB() as f:
+        from engine.planning import PlanningEngine
+        eng = PlanningEngine(f.repo)
+        out = eng.create_outcome("life", "O", 2026)
+        ms = eng.create_milestone(out["id"], "M", 9, 2026)
+        eng.create_win(ms["id"], "W", "2026-09-21")  # stays at 0%, never marked achieved
+        eng.edit_milestone(ms["id"], status="achieved")
+        milestone_after = eng.list_milestones(out["id"])[0]
+        check("milestone marked achieved reads 100% regardless of its Win", milestone_after["progress"] == 100)
+        outcomes_after = eng.list_outcomes("life")
+        check("outcome (not itself marked achieved) still averages its one milestone's now-100%", outcomes_after[0]["progress"] == 100)
+
+
 def test_reparent_to_nonexistent_parent_raises():
     with FreshDB() as f:
         from engine.planning import PlanningEngine
