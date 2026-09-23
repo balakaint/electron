@@ -70,8 +70,14 @@ function DayCell({
 // A Milestone only carries year+month, no day — so "jump to this
 // month" lands DAILY on the 1st, the only day the underlying data
 // actually names. `deadlines` already stores that same `YYYY-MM-01`
-// shape (see findCurrentOutcomes' caller below), so the click target
-// is just the matching entry, not a separate lookup.
+// shape (see findCurrentOutcomes' caller below).
+//
+// Every month is clickable, not just ones with a Milestone — gating on
+// a deadline left the whole strip inert for any owner with no
+// Milestone yet this year (confirmed live: a real account with zero
+// Milestones had no clickable cell). Matches WeekStrip's own
+// always-clickable convention. A month with no Milestone still has a
+// real 1st — `${prefix}-01` — so the jump target always exists.
 function YearStrip({ deadlines, accent, onSelectDate }: { deadlines: Set<string>; accent: string; onSelectDate: (iso: string) => void }) {
   const today = new Date();
   const year = today.getFullYear();
@@ -91,7 +97,7 @@ function YearStrip({ deadlines, accent, onSelectDate }: { deadlines: Set<string>
             hasDeadline={!!monthDeadline}
             dim={false}
             accent={accent}
-            onSelect={monthDeadline ? () => onSelectDate(monthDeadline) : undefined}
+            onSelect={() => onSelectDate(monthDeadline ?? `${prefix}-01`)}
           />
         );
       })}

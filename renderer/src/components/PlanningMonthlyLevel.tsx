@@ -118,7 +118,15 @@ function MonthGrid({ deadlines, accent, onSelectDate }: { deadlines: Set<string>
               hasDeadline={hasDeadline}
               dim={!c.inMonth}
               accent={accent}
-              onSelect={hasDeadline ? () => onSelectDate(c.iso) : undefined}
+              // Every in-month day jumps to DAILY, not just ones that
+              // already carry a Win deadline — gating on hasDeadline left
+              // the entire calendar inert for any owner with no Win this
+              // month yet (confirmed live: a real account with zero
+              // Milestones this month had no clickable cell anywhere).
+              // Matches WeekStrip's own always-clickable convention.
+              // Out-of-month cells stay inert — they belong to whichever
+              // adjacent month isn't the one this grid is showing.
+              onSelect={c.inMonth ? () => onSelectDate(c.iso) : undefined}
             />
           );
         })}
