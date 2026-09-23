@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, ChevronRight, Circle, Repeat, X } from 'lucide-react';
 import { HourPlan as HourPlanData, HourSlot, hoursApi } from '../services/api';
+import { useFetchState } from '../hooks/useFetchState';
 import { useL } from '../i18n';
 
 // The day as 24 hour-slots, grouped into the four day-phase blocks.
@@ -261,7 +262,6 @@ export default function HourPlanTab({
   onPlanLoaded?: (done: number, total: number) => void;
 }) {
   const L = useL();
-  const [plan, setPlan] = useState<HourPlanData | null>(null);
   // In memory, deliberately not persisted. Legacy's reason: "auto-collapse
   // when its time zone isn't running" only stays true if the automatic
   // answer is what you get by default — saved to disk, one afternoon of
@@ -269,20 +269,15 @@ export default function HourPlanTab({
   // toggle is "let me look at that now", not a preference.
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [nowHour, setNowHour] = useState(new Date().getHours());
-  // Distinct from "still loading" — without this a failed fetch left
-  // `plan` null forever, rendering nothing at all with no error, no
-  // retry (ui-ux-audit, 2026-09-22).
-  const [loadError, setLoadError] = useState(false);
   const day = todayIso();
 
-  const refresh = () => {
-    setLoadError(false);
-    hoursApi.get(day).then(setPlan).catch(() => setLoadError(true));
-  };
-  useEffect(() => {
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [day]);
+  // loadError distinct from "still loading" — without it a failed fetch
+  // left `plan` null forever, rendering nothing at all with no error, no
+  // retry (ui-ux-audit, 2026-09-22). `loaded` isn't used here: `!plan`
+  // below already means the same thing this component needs (initial
+  // state and a failed fetch both leave `plan` null, and the loadError
+  // branch is checked first either way).
+  const { data: plan, loadError, refresh } = useFetchState<HourPlanData | null>(() => hoursApi.get(day), [day], null);
 
   // NOW can now finish an hour (completing a task started from one ticks
   // it back), so this list goes stale the moment that happens. Same
