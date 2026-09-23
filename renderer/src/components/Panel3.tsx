@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Calendar, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Target } from 'lucide-react';
-import { FocusTab, GoalOwnerKey, HoursLevel, ProjectKey, settingsApi } from '../services/api';
+import { FocusTab, GoalOwnerKey, HoursLevel, ProjectKey, projectsApi, settingsApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
 import NowCard from './NowCard';
@@ -8,7 +8,7 @@ import DeepWorkTrend from './DeepWorkTrend';
 import PlanReview from './PlanReview';
 import TaskList from './TaskList';
 import AccordionSection from './AccordionSection';
-import GoalHorizonSection from './GoalHorizonSection';
+import GoalHorizonSection, { GoalOwnerMeta } from './GoalHorizonSection';
 import NotesTab from './NotesTab';
 import { RADIUS, SPACE } from '../spacing';
 import { useL } from '../i18n';
@@ -131,15 +131,13 @@ const HOURS_LEVELS: [HoursLevel, string, string, JSX.Element][] = [
 ];
 
 function HoursAccordion({
-  ownerKey,
   refreshSignal,
   onChanged,
   onOpenGoal,
 }: {
-  ownerKey: GoalOwnerKey;
   refreshSignal: number;
   onChanged: () => void;
-  onOpenGoal: (goalId: number) => void;
+  onOpenGoal: (goalId: number, owner: GoalOwnerKey) => void;
 }) {
   const L = useL();
   const [level, setLevel] = useState<HoursLevel>('daily');
@@ -147,6 +145,29 @@ function HoursAccordion({
   // flash of "0/0" before the hour plan's first fetch resolves.
   const [dailyDone, setDailyDone] = useState<number | null>(null);
   const [dailyTotal, setDailyTotal] = useState<number | null>(null);
+  // WEEKLY/MONTHLY/YEARLY now aggregate across every real project plus
+  // "life" (2026-09-23) rather than following whichever project happens
+  // to be active in Panel 1/2 — the whole point of a zoomed-out planning
+  // screen is seeing everything due across projects at once, not one
+  // project's slice of it. Fetched ONCE here (not per-section) so
+  // switching among WEEKLY/MONTHLY/YEARLY doesn't refetch the project
+  // list three times — `null` means "not resolved yet," same meaning
+  // GoalHorizonSection's own `loaded` already uses, so the three
+  // sections just show their existing loading state until this
+  // resolves instead of a fourth new loading affordance.
+  const [owners, setOwners] = useState<GoalOwnerMeta[] | null>(null);
+
+  useEffect(() => {
+    projectsApi.order().then((order) => {
+      // Same `is_named` filter DeepWorkCard/PlanReview/TodayProgressBar
+      // already use app-wide for "a real project," not an empty numbered
+      // slot nobody has named yet.
+      const named: GoalOwnerMeta[] = order
+        .filter((e) => e.project.is_named)
+        .map((e) => ({ key: e.project.key, label: e.project.name, color: e.project.accent_color }));
+      setOwners([{ key: 'life', label: 'LIFE', color: null }, ...named]);
+    });
+  }, []);
 
   const dateStr = (() => {
     const d = new Date();
@@ -226,7 +247,7 @@ function HoursAccordion({
             GoalsPanel.tsx's own warning first. */}
         <GoalHorizonSection
           horizon="yearly"
-          ownerKey={ownerKey}
+          owners={owners}
           accent="var(--goal-yearly)"
           glyph={<CalendarDays size={16} />}
           label={L('WEEKLY', 'সাপ্তাহিক')}
@@ -238,7 +259,7 @@ function HoursAccordion({
         />
         <GoalHorizonSection
           horizon="monthly"
-          ownerKey={ownerKey}
+          owners={owners}
           accent="var(--goal-monthly)"
           glyph={<CalendarRange size={16} />}
           label={L('MONTHLY', 'মাসিক')}
@@ -250,7 +271,7 @@ function HoursAccordion({
         />
         <GoalHorizonSection
           horizon="weekly"
-          ownerKey={ownerKey}
+          owners={owners}
           accent="var(--goal-weekly)"
           glyph={<Target size={16} />}
           label={L('YEARLY', 'বার্ষিক')}
@@ -277,7 +298,6 @@ export default function Panel3({
   onOpenMorningRitual,
   onOpenNightClosure,
   activeProjectKey,
-  goalsOwnerKey,
   onOpenGoalInPanel2,
 }: {
   focusVersion: number;
@@ -290,14 +310,15 @@ export default function Panel3({
   onOpenQuarterly: () => void;
   onOpenMorningRitual: (view: 'flow' | 'trend') => void;
   onOpenNightClosure: () => void;
+  // Still feeds the MIT tab's TaskList below — unrelated to WEEKLY/
+  // MONTHLY/YEARLY, which stopped following a single active project
+  // 2026-09-23 (they now aggregate across every project, see
+  // HoursAccordion's own `owners`). Keep this one, it's still live.
   activeProjectKey: ProjectKey | null;
-  // Same owner GoalsPanel (Panel 2) is currently showing, "life" fallback
-  // included — feeds the HOURS tab's nested WEEKLY/MONTHLY/YEARLY so the
-  // two panels never disagree about whose goals they're both looking at.
-  goalsOwnerKey: GoalOwnerKey | null;
-  // A WEEKLY/MONTHLY calendar day click asks Panel 2 to open that goal
-  // — App.tsx owns making Panel 2 actually visible first.
-  onOpenGoalInPanel2: (goalId: number) => void;
+  // A WEEKLY/MONTHLY/YEARLY calendar day click asks Panel 2 to open that
+  // goal AND switch to its owner — App.tsx owns making Panel 2 actually
+  // visible first and switching the active project.
+  onOpenGoalInPanel2: (goalId: number, owner: GoalOwnerKey) => void;
 }) {
   const L = useL();
   // Null until settings answer, so the strip does not paint HOURS and
@@ -313,8 +334,6 @@ export default function Panel3({
     setTabState(next);
     settingsApi.update({ focus_tab: next });
   };
-
-  const ownerKey: GoalOwnerKey = goalsOwnerKey ?? 'life';
 
   // The two project fetches that fed the progress bar are gone with it.
   // DEEP WORK asks for its own order, and asks only while a timer runs.
@@ -468,7 +487,6 @@ export default function Panel3({
                 that reset fired constantly. */}
             <div style={{ display: tab === 'hours' ? undefined : 'none' }}>
               <HoursAccordion
-                ownerKey={ownerKey}
                 refreshSignal={nowBump}
                 onChanged={() => setNowBump((b) => b + 1)}
                 onOpenGoal={onOpenGoalInPanel2}

@@ -122,6 +122,18 @@ function AppShell() {
   // twice in a row — an id alone wouldn't change and the effect wouldn't
   // re-run the second time.
   const [jumpToGoal, setJumpToGoal] = useState<{ id: number; token: number } | null>(null);
+  // Panel 3's WEEKLY/MONTHLY/YEARLY sections aggregate across every
+  // project now (2026-09-23), so a calendar deadline-dot click can name
+  // an owner that ISN'T whatever Panel 1/2 currently has active.
+  // `goalsProject`/`allProjectsCollapsed` can't represent "show life"
+  // as an explicit choice — only as a side effect of every project card
+  // being collapsed — so a real-project jump reuses `selectGoalsProject`
+  // below (exactly what clicking that project in Panel 1 already does),
+  // while a life-owner jump needs this one-shot override since there's
+  // no existing action that means "show Life Plan while a project card
+  // stays expanded." Cleared the moment the user picks a project
+  // themselves, so it can never outlive the jump that set it.
+  const [jumpOwnerOverride, setJumpOwnerOverride] = useState<'life' | null>(null);
   const [onboarded, setOnboarded] = useState<boolean | null>(null); // null = not loaded yet
   // The overlay dialog and OnboardingModal are fixed-position covers, not
   // route changes — <main> stays mounted (and, without this, reachable by
@@ -256,6 +268,11 @@ function AppShell() {
   const selectGoalsProject = (key: ProjectKey) => {
     setGoalsProject(key);
     goalsApi.setPanelProject(key);
+    // A real project pick always wins over a pending life-owner jump —
+    // otherwise picking a project in Panel 1 right after clicking a life
+    // goal's deadline dot would silently do nothing, since the override
+    // would still take priority in goalsPanelKey below.
+    setJumpOwnerOverride(null);
   };
 
   // Which dialogs are open, in the order they were opened. A plain
@@ -499,7 +516,8 @@ function AppShell() {
                     GoalsPanel either way; only which key it's pointed at
                     changes. */}
                 {(() => {
-                  const goalsPanelKey: GoalOwnerKey | null = allProjectsCollapsed ? 'life' : goalsProject;
+                  const goalsPanelKey: GoalOwnerKey | null =
+                    jumpOwnerOverride ?? (allProjectsCollapsed ? 'life' : goalsProject);
                   return (
                     <GoalsPanel
                       projectKey={goalsPanelKey}
@@ -561,13 +579,22 @@ function AppShell() {
           <Panel3
             focusVersion={panel1Wrote + panel2Wrote}
             onFocusChanged={() => setPanel3Wrote((v) => v + 1)}
-            // A WEEKLY/MONTHLY calendar day click asks Panel 2 to open
-            // that goal — ensure it's actually visible first (same
+            // A WEEKLY/MONTHLY/YEARLY calendar day click asks Panel 2 to
+            // open that goal — ensure it's actually visible first (same
             // force-to-'partial' precedent as onOpenMorningRitual/
             // onOpenNightClosure below: 'compact' hides Panel 2 entirely,
-            // so opening a goal nobody can see would silently do nothing).
-            onOpenGoalInPanel2={(goalId) => {
+            // so opening a goal nobody can see would silently do nothing)
+            // AND make Panel 2 show that goal's OWN owner, not whatever
+            // project happened to already be active — these sections
+            // aggregate across every project now (2026-09-23), so the
+            // clicked dot's goal is very often not from the active one.
+            onOpenGoalInPanel2={(goalId, owner) => {
               if (layout !== 'partial' && layout !== 'full') setLayout('partial');
+              if (owner === 'life') {
+                setJumpOwnerOverride('life');
+              } else {
+                selectGoalsProject(owner);
+              }
               setJumpToGoal({ id: goalId, token: Date.now() });
             }}
             // Panel 2 already follows whichever project Panel 1 has open
@@ -578,11 +605,6 @@ function AppShell() {
             // and move Panel 1/2 (2026-09-20, Zahid: less clutter when a
             // project is open, without losing MIT's own quick-switch).
             activeProjectKey={allProjectsCollapsed ? null : goalsProject}
-            // Same resolution GoalsPanel itself uses (falls back to the
-            // "life" virtual owner when every project is collapsed) —
-            // WEEKLY/MONTHLY/YEARLY must never disagree with what Panel 2
-            // is showing at the same moment.
-            goalsOwnerKey={allProjectsCollapsed ? 'life' : goalsProject}
             view={tab}
             onSelectView={setTab}
             // The arrow is a DIRECTION, not a state and not an action.

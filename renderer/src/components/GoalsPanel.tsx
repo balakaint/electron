@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Check, ChevronUp, Circle, Square, X } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { CalendarDays, CalendarRange, Check, ChevronUp, Circle, Square, Target, X } from 'lucide-react';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { useAutoTimer } from '../useAutoTimer';
 import { accentText } from '../themes';
@@ -56,10 +56,17 @@ import { useAutofocus } from '../hooks/useAutofocus';
 // actually gets decided, so it gets half the column; the year is a
 // direction you check rather than edit, so it gets a fifth. Legacy's
 // 50/25/25 said nearly the same thing with the bottom two tied.
-const HORIZONS: { key: GoalHorizon; label: string; glyph: string; accent: string; weight: number }[] = [
-  { key: 'yearly', label: 'WEEKLY GOAL', glyph: '◈', accent: 'var(--goal-yearly)', weight: 50 },
-  { key: 'monthly', label: 'MONTHLY GOAL', glyph: '❖', accent: 'var(--goal-monthly)', weight: 30 },
-  { key: 'weekly', label: 'YEARLY GOAL', glyph: '◆', accent: 'var(--goal-weekly)', weight: 20 },
+// Icons match Panel3's own WEEKLY/MONTHLY/YEARLY accordion icons
+// (Panel3.tsx's HOURS_LEVELS) by DISPLAYED meaning, not stored key — the
+// same crossing above applies here, so "WEEKLY GOAL" (stored `yearly`)
+// gets the same CalendarDays glyph Panel3's WEEKLY section uses, and so
+// on. Replaces the old ◈❖◆ Unicode dingbats (ui-ux-audit, 2026-09-22,
+// flagged this file's own instances as a follow-up rather than expanding
+// that pass's scope at the time — this is that follow-up).
+const HORIZONS: { key: GoalHorizon; label: string; glyph: ReactNode; accent: string; weight: number }[] = [
+  { key: 'yearly', label: 'WEEKLY GOAL', glyph: <CalendarDays size={14} />, accent: 'var(--goal-yearly)', weight: 50 },
+  { key: 'monthly', label: 'MONTHLY GOAL', glyph: <CalendarRange size={14} />, accent: 'var(--goal-monthly)', weight: 30 },
+  { key: 'weekly', label: 'YEARLY GOAL', glyph: <Target size={14} />, accent: 'var(--goal-weekly)', weight: 20 },
 ];
 
 // Legacy capped the progress bar at a flat 30-day window for every
@@ -696,7 +703,7 @@ function GoalSection({
   horizon: GoalHorizon;
   label: string;
   defaultLabel: string;
-  glyph: string;
+  glyph: ReactNode;
   weight: number;
   accent: string;
   goals: Goal[];
@@ -776,7 +783,7 @@ function GoalSection({
           marginBottom: 4,
         }}
       >
-        <span style={{ color: accent, fontSize: 12 }}>{glyph}</span>
+        <span style={{ color: accent, display: 'flex', alignItems: 'center' }}>{glyph}</span>
         <input
           aria-label="Section heading"
           value={title}

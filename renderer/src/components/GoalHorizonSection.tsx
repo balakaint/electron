@@ -1,24 +1,69 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Check, Circle } from 'lucide-react';
 import { Goal, GoalHorizon, GoalOwnerKey, goalsApi } from '../services/api';
 import AccordionSection from './AccordionSection';
+import { useFetchState } from '../hooks/useFetchState';
 import { RADIUS, SPACE } from '../spacing';
 
 // A compact, read-mostly view onto the SAME Goal data Panel 2
 // (GoalsPanel) owns and edits in full — the shared body for EXECUTE's
 // WEEKLY/MONTHLY/YEARLY levels. One parameterized component rather than
 // three near-duplicates, since all three are structurally identical: a
-// list of that horizon's goals for the active owner, a checkbox, an
-// accent rail. Editing a goal's note/deadline/checklist stays in Panel 2
-// — this is a glance, not a second editor (toggling done is the only
-// write this component makes).
+// list of that horizon's goals across EVERY owner, a checkbox, an accent
+// rail. Editing a goal's note/deadline/checklist stays in Panel 2 — this
+// is a glance, not a second editor (toggling done is the only write this
+// component makes).
 //
 // ⚠ `horizon` here must be the STORED key, not the label shown in Panel
 // 2 — GoalsPanel.tsx's own HORIZONS array deliberately crosses them
 // (stored "yearly" displays as "WEEKLY GOAL", etc). The caller is
 // responsible for passing the horizon that matches what the user
 // already understands as "weekly" from Panel 2, not the literal string
-// "weekly" — see Panel3.tsx's own comment where this is wired up.
+// "weekly" — see Panel3.tsx's own comment where this is wired up. THIS
+// crossing is untouched by the 2026-09-23 multi-owner change below.
+
+// One entry per fetchable goal owner — the 6 real (`is_named`) projects
+// plus the "life" virtual owner, same `is_named` filter DeepWorkCard/
+// PlanReview/TodayProgressBar already use app-wide for "real project."
+// `color` is that project's own `accent_color` (same value every other
+// surface in the app already colors that project with) — null for
+// "life", which has never had one; see OwnerTag below for how that null
+// renders differently (plain text tag, not a colored dot) rather than
+// inventing a placeholder color for it.
+export interface GoalOwnerMeta {
+  key: GoalOwnerKey;
+  label: string;
+  color: string | null;
+}
+
+// A goal row's project tag — a colored dot for a real project (title
+// gives the full name, since the dot alone can't), or a plain "LIFE"
+// text badge for the life owner (matches GoalsPanel's own header, which
+// already renders "LIFE PLAN" as plain text rather than inventing a
+// color for a thing that was never a project). Fixed width so goal text
+// still lines up row to row regardless of name length.
+function OwnerTag({ owner }: { owner: GoalOwnerMeta }) {
+  if (!owner.color) {
+    return (
+      <span
+        style={{ flex: 'none', width: 44, fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)' }}
+      >
+        LIFE
+      </span>
+    );
+  }
+  return (
+    <span
+      title={owner.label}
+      style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 'none', width: 44, overflow: 'hidden' }}
+    >
+      <span style={{ width: 6, height: 6, borderRadius: RADIUS.pill, background: owner.color, flex: 'none' }} />
+      <span style={{ fontSize: 12, color: 'var(--text-faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {owner.label}
+      </span>
+    </span>
+  );
+}
 function weekRangeLabel(today = new Date()): string {
   const mondayOffset = (today.getDay() + 6) % 7; // days since Monday, Sun=0 wrapped to 6
   const monday = new Date(today);
@@ -63,6 +108,7 @@ function startOfWeek(d: Date): Date {
 
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const WEEKDAY_ABBR = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 // A day cell shared by both the 7-day strip and the month grid — same
 // today-highlight and deadline-dot idiom in both places, so WEEKLY and
@@ -79,7 +125,7 @@ function DayCell({
   onSelect,
 }: {
   label: string;
-  date: number;
+  date?: number;
   isToday: boolean;
   hasDeadline: boolean;
   dim: boolean;
@@ -91,7 +137,7 @@ function DayCell({
       {label && (
         <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1 }}>{label}</span>
       )}
-      <span style={{ fontSize: 12, lineHeight: 1.4 }}>{date}</span>
+      {date !== undefined && <span style={{ fontSize: 12, lineHeight: 1.4 }}>{date}</span>}
       <span
         style={{
           width: 4,
@@ -217,9 +263,53 @@ function MonthGrid({ deadlines, accent, onSelectDeadline }: { deadlines: Set<str
   );
 }
 
+// Jan–Dec strip for YEARLY — same DayCell idiom as WEEKLY/MONTHLY, but a
+// cell is a whole month: dot means at least one goal deadline falls
+// somewhere in that month (current year only), clicking jumps to the
+// earliest such deadline below (same selectDeadline contract the other
+// two strips already use — no new plumbing needed in the parent).
+function YearStrip({ deadlines, accent, onSelectDeadline }: { deadlines: Set<string>; accent: string; onSelectDeadline: (iso: string) => void }) {
+  const today = new Date();
+  const year = today.getFullYear();
+  const currentMonth = today.getMonth();
+  const sortedDeadlines = Array.from(deadlines).sort();
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: SPACE.xs, marginBottom: SPACE.md }}>
+      {MONTH_ABBR.map((label, i) => {
+        const prefix = `${year}-${String(i + 1).padStart(2, '0')}`;
+        const monthDeadlines = sortedDeadlines.filter((iso) => iso.startsWith(prefix));
+        const hasDeadline = monthDeadlines.length > 0;
+        return (
+          <DayCell
+            key={label}
+            label={label}
+            isToday={i === currentMonth}
+            hasDeadline={hasDeadline}
+            dim={false}
+            accent={accent}
+            onSelect={hasDeadline ? () => onSelectDeadline(monthDeadlines[0]) : undefined}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// A goal paired with the owner it came from — merging 7 separate
+// `goalsApi.list` results into one list loses that association the
+// instant they're concatenated, so it travels alongside the goal rather
+// than being re-derived later (there's nothing on `Goal` itself to
+// re-derive it from besides `project_key`, and `project_key` doesn't
+// carry the display label/color `OwnerTag` needs anyway).
+interface OwnedGoal {
+  goal: Goal;
+  owner: GoalOwnerMeta;
+}
+
 export default function GoalHorizonSection({
   horizon,
-  ownerKey,
+  owners,
   accent,
   glyph,
   label,
@@ -230,7 +320,10 @@ export default function GoalHorizonSection({
   onOpenGoal,
 }: {
   horizon: GoalHorizon;
-  ownerKey: GoalOwnerKey;
+  // Every owner this section aggregates across — null while the caller
+  // is still resolving the project list (see HoursAccordion), same
+  // "not loaded yet" meaning `loaded` below already uses.
+  owners: GoalOwnerMeta[] | null;
   accent: string;
   glyph: ReactNode;
   label: string;
@@ -242,58 +335,73 @@ export default function GoalHorizonSection({
   onToggle: () => void;
   // Fired (alongside the local flash) when a calendar day with a
   // deadline dot is clicked — Panel3 wires this to actually open that
-  // goal in Panel 2, not just highlight it in this already-visible list.
-  onOpenGoal: (goalId: number) => void;
+  // goal in Panel 2 AND switch it to the goal's own owner, since the
+  // clicked deadline may belong to a project that isn't the one
+  // currently active there.
+  onOpenGoal: (goalId: number, owner: GoalOwnerKey) => void;
 }) {
-  const [goals, setGoals] = useState<Goal[]>([]);
-  // Distinct from "genuinely zero goals" — without this, a slow or
-  // failed fetch rendered identically to a confirmed-empty horizon,
-  // telling the user "you have nothing here" when the truth was "still
-  // loading" or "couldn't reach the app" (ui-ux-audit, 2026-09-22; same
-  // class of bug GoalsPanel.tsx's own loadError already fixed for this
-  // exact Goal data — this component just hadn't inherited it).
-  const [loaded, setLoaded] = useState(false);
-  const [loadError, setLoadError] = useState(false);
   // Briefly highlights the goal row a calendar day-dot was clicked for
   // — the click needs to actually DO something, not just decorate the
   // header, since every goal is already visible in this un-scrolled list.
   const [flashDeadline, setFlashDeadline] = useState<string | null>(null);
 
-  const refresh = () => {
-    setLoadError(false);
-    goalsApi
-      .list(ownerKey, horizon)
-      .then((gs) => {
-        setGoals(gs);
-        setLoaded(true);
-      })
-      .catch(() => {
-        setLoadError(true);
-        setLoaded(true);
-      });
-  };
+  // Fetches all 7 owners' lists in parallel (one small local-SQLite-
+  // backed request each — negligible even run together; this is the
+  // same `goalsApi.list` a single-owner view already called, just
+  // fanned out instead of widened, so no backend change was needed).
+  // `Promise.all` means one owner's failure fails the whole refresh —
+  // acceptable here: a partial goal list with no indication some
+  // project's data is missing would be a worse failure mode than the
+  // existing retry banner. `owners === null` (still resolving the
+  // project list) passes `null` for the fetch function itself — see
+  // useFetchState's own comment for why that's "stay loading", not an
+  // empty-list flash.
+  const {
+    data: rows,
+    setData: setRows,
+    loaded,
+    loadError,
+    refresh,
+  } = useFetchState<OwnedGoal[]>(
+    owners
+      ? () =>
+          Promise.all(
+            owners.map((owner) =>
+              goalsApi.list(owner.key, horizon).then((gs) => gs.map((goal): OwnedGoal => ({ goal, owner }))),
+            ),
+          ).then((lists) =>
+            lists.flat().sort((a, b) => {
+              // Soonest deadline first, so the zoomed-out cross-project
+              // view leads with what's actually due next — undated
+              // goals sort last rather than first (a missing deadline
+              // isn't "urgent").
+              const da = a.goal.deadline ?? '9999-12-31';
+              const db = b.goal.deadline ?? '9999-12-31';
+              if (da !== db) return da < db ? -1 : 1;
+              return a.goal.id - b.goal.id;
+            }),
+          )
+      : null,
+    [owners, horizon],
+    [],
+  );
 
-  useEffect(() => {
-    setLoaded(false);
-    refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ownerKey, horizon]);
-
-  const done = goals.filter((g) => g.done).length;
+  const done = rows.filter((r) => r.goal.done).length;
   const period = periodKind === 'week' ? weekRangeLabel() : periodKind === 'month' ? monthLabel() : yearLabel();
-  const deadlines = new Set(goals.map((g) => g.deadline).filter(Boolean));
+  const deadlines = new Set(rows.map((r) => r.goal.deadline).filter(Boolean));
 
   const toggleGoal = (id: number) =>
-    goalsApi.toggle(id).then((updated) => setGoals((gs) => gs.map((g) => (g.id === updated.id ? updated : g))));
+    goalsApi.toggle(id).then((updated) => setRows((rs) => rs.map((r) => (r.goal.id === updated.id ? { ...r, goal: updated } : r))));
 
   const selectDeadline = (iso: string) => {
     setFlashDeadline(iso);
     setTimeout(() => setFlashDeadline((cur) => (cur === iso ? null : cur)), 1500);
-    // Same-deadline collisions resolve to the first match, same
-    // limitation the flash itself already has — good enough for "which
-    // goal is that", not a guarantee of uniqueness.
-    const match = goals.find((g) => g.deadline === iso);
-    if (match) onOpenGoal(match.id);
+    // Same-deadline collisions resolve to the first match (now possibly
+    // from a different project than the next one with the same date) —
+    // same limitation the flash itself already has, good enough for
+    // "which goal is that", not a guarantee of uniqueness.
+    const match = rows.find((r) => r.goal.deadline === iso);
+    if (match) onOpenGoal(match.goal.id, match.owner.key);
   };
 
   return (
@@ -302,7 +410,7 @@ export default function GoalHorizonSection({
       label={label}
       period={period}
       done={done}
-      total={loaded ? goals.length : null}
+      total={loaded ? rows.length : null}
       accent={accent}
       expanded={expanded}
       onToggle={onToggle}
@@ -330,13 +438,14 @@ export default function GoalHorizonSection({
         <>
           {periodKind === 'week' && <WeekStrip deadlines={deadlines} accent={accent} onSelectDeadline={selectDeadline} />}
           {periodKind === 'month' && <MonthGrid deadlines={deadlines} accent={accent} onSelectDeadline={selectDeadline} />}
-          {goals.length === 0 ? (
+          {periodKind === 'year' && <YearStrip deadlines={deadlines} accent={accent} onSelectDeadline={selectDeadline} />}
+          {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
               Nothing here yet — add a {noun} in the Goals panel.
             </div>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {goals.map((g) => (
+              {rows.map(({ goal: g, owner }) => (
                 <li
                   key={g.id}
                   style={{
@@ -370,6 +479,7 @@ export default function GoalHorizonSection({
                   >
                     {g.done ? <Check size={15} /> : <Circle size={15} />}
                   </button>
+                  <OwnerTag owner={owner} />
                   <span
                     title={g.text}
                     style={{
