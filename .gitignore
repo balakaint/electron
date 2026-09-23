@@ -12,3 +12,4 @@ python/_audit.db
 ux-audit.json
 hierarchy-audit.json
 *.delete-me
+.worktrees/
