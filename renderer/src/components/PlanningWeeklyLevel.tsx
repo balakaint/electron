@@ -72,17 +72,29 @@ export default function PlanningWeeklyLevel({
 
   const [carryOpenFor, setCarryOpenFor] = useState<number | null>(null);
 
+  // Refetches both the task list AND the win itself — `win.progress` is
+  // resolved server-side (see engine.planning's win_progress), so a
+  // task-only refetch leaves the progress bar/achieved-badge/header
+  // count stale even though the checkbox and strikethrough update.
+  // Caught live during Checkpoint 1 verification: toggling the one task
+  // to done showed "1/1 supporting actions" but the bar stayed at 0%.
+  const refreshWinAndTasks = (row: OwnedWin) =>
+    Promise.all([planningApi.listWins(row.win.milestone_id), planningApi.listTasksForWin(row.win.id)]).then(
+      ([wins, tasks]) => {
+        const win = wins.find((w) => w.id === row.win.id) ?? row.win;
+        setRows((rs) => rs.map((r) => (r.win.id === row.win.id ? { ...r, win, tasks } : r)));
+      },
+    );
+
   const toggleTask = (row: OwnedWin, task: PlanTask) =>
     planningApi
       .editTask(task.id, { status: task.status === 'done' ? 'open' : 'done' })
-      .then(() => planningApi.listTasksForWin(row.win.id))
-      .then((tasks) => setRows((rs) => rs.map((r) => (r.win.id === row.win.id ? { ...r, tasks } : r))));
+      .then(() => refreshWinAndTasks(row));
 
   const carryForward = (row: OwnedWin, task: PlanTask, action: 'nextweek' | 'backlog' | 'drop') =>
     planningApi
       .carryForwardTask(task.id, action)
-      .then(() => planningApi.listTasksForWin(row.win.id))
-      .then((tasks) => setRows((rs) => rs.map((r) => (r.win.id === row.win.id ? { ...r, tasks } : r))))
+      .then(() => refreshWinAndTasks(row))
       .then(() => setCarryOpenFor(null));
 
   const totalWins = rows.length;
