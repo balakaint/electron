@@ -537,6 +537,129 @@ class GoalTaskOut(BaseModel):
     added_date: str
 
 
+class OutcomeCreate(BaseModel):
+    title: str
+    year: int
+
+
+class OutcomeEdit(BaseModel):
+    title: str | None = None
+    status: str | None = None
+
+
+class OutcomeOut(BaseModel):
+    id: int
+    owner_key: GoalOwnerKeyT
+    title: str
+    year: int
+    status: str
+    fixed: bool
+    progress: int
+    legacy_goal_id: int | None
+
+
+class MilestoneCreate(BaseModel):
+    outcome_id: int
+    title: str
+    month: int
+    year: int
+
+
+class MilestoneEdit(BaseModel):
+    title: str | None = None
+    status: str | None = None
+    outcome_id: int | None = None  # re-parent fix-up
+
+
+class MilestoneOut(BaseModel):
+    id: int
+    outcome_id: int
+    title: str
+    month: int
+    year: int
+    status: str
+    fixed: bool
+    progress: int
+    legacy_goal_id: int | None
+
+
+class WinCreate(BaseModel):
+    milestone_id: int
+    title: str
+    week_start_date: str
+    criteria: str = ""
+
+
+class WinEdit(BaseModel):
+    title: str | None = None
+    criteria: str | None = None
+    status: str | None = None
+    milestone_id: int | None = None  # re-parent fix-up
+
+
+class WinOut(BaseModel):
+    id: int
+    milestone_id: int
+    title: str
+    week_start_date: str
+    criteria: str
+    status: str
+    fixed: bool
+    progress: int
+    legacy_goal_id: int | None
+
+
+class PlanTaskCreate(BaseModel):
+    title: str
+    win_id: int | None = None
+    scheduled_date: str | None = None
+
+
+class PlanTaskEdit(BaseModel):
+    title: str | None = None
+    status: str | None = None
+
+
+class PlanTaskOut(BaseModel):
+    id: int
+    win_id: int | None
+    title: str
+    scheduled_date: str | None
+    status: str
+    owner_key: GoalOwnerKeyT
+
+
+class ScheduleSet(BaseModel):
+    scheduled_date: str | None
+    win_id: int | None
+
+
+CarryForwardActionT = Literal["nextweek", "date", "backlog", "drop"]
+
+
+class CarryForwardAction(BaseModel):
+    action: CarryForwardActionT
+
+
+class ChecklistItemCreate(BaseModel):
+    text: str
+    outcome_id: int | None = None
+    milestone_id: int | None = None
+    win_id: int | None = None
+
+
+class ChecklistItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    pid: str
+    outcome_id: int | None
+    milestone_id: int | None
+    win_id: int | None
+    text: str
+    done: bool
+    added_date: str
+
+
 # ── Individual Task Board (Goal -> Task -> that Task's own kanban) ───
 # Superseded design note: this used to be a flat per-project board with
 # an optional goal_id backlink on each card (see the dropped
