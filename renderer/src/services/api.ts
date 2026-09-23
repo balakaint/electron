@@ -480,6 +480,123 @@ export const goalTasksApi = {
   strike: (pid: string) => req('POST', `/api/projects/goals/tasks/${pid}/strike`) as Promise<Task>,
 };
 
+// ── Planning hierarchy (Outcome -> Milestone -> Win -> PlanTask) ─────
+// See the Phase A design spec: progress on every non-leaf node is
+// always resolved server-side (never computed here) — `progress` on
+// each of these types is already the derived-or-fixed value.
+export interface Outcome {
+  id: number;
+  owner_key: GoalOwnerKey;
+  title: string;
+  year: number;
+  status: string;
+  fixed: boolean;
+  progress: number;
+  legacy_goal_id: number | null;
+}
+
+export interface Milestone {
+  id: number;
+  outcome_id: number;
+  title: string;
+  month: number;
+  year: number;
+  status: string;
+  fixed: boolean;
+  progress: number;
+  legacy_goal_id: number | null;
+}
+
+export interface Win {
+  id: number;
+  milestone_id: number;
+  title: string;
+  week_start_date: string;
+  criteria: string;
+  status: string;
+  fixed: boolean;
+  progress: number;
+  legacy_goal_id: number | null;
+}
+
+export interface PlanTask {
+  id: number;
+  win_id: number | null;
+  title: string;
+  scheduled_date: string | null;
+  status: string;
+  owner_key: GoalOwnerKey;
+}
+
+export interface ChecklistItem {
+  pid: string;
+  outcome_id: number | null;
+  milestone_id: number | null;
+  win_id: number | null;
+  text: string;
+  done: boolean;
+  added_date: string;
+}
+
+export type CarryForwardActionKind = 'nextweek' | 'date' | 'backlog' | 'drop';
+
+export const planningApi = {
+  listOutcomes: (ownerKey: GoalOwnerKey) => req('GET', `/api/planning/${ownerKey}/outcomes`) as Promise<Outcome[]>,
+  createOutcome: (ownerKey: GoalOwnerKey, title: string, year: number) =>
+    req('POST', `/api/planning/${ownerKey}/outcomes`, { title, year }) as Promise<Outcome>,
+  editOutcome: (id: number, patch: Partial<Pick<Outcome, 'title' | 'status'>>) =>
+    req('PATCH', `/api/planning/outcomes/${id}`, patch) as Promise<Outcome>,
+  deleteOutcome: (id: number, force = false) =>
+    req('DELETE', `/api/planning/outcomes/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
+
+  listMilestones: (outcomeId: number) =>
+    req('GET', `/api/planning/outcomes/${outcomeId}/milestones`) as Promise<Milestone[]>,
+  createMilestone: (outcomeId: number, title: string, month: number, year: number) =>
+    req('POST', '/api/planning/milestones', { outcome_id: outcomeId, title, month, year }) as Promise<Milestone>,
+  editMilestone: (id: number, patch: Partial<Pick<Milestone, 'title' | 'status' | 'outcome_id'>>) =>
+    req('PATCH', `/api/planning/milestones/${id}`, patch) as Promise<Milestone>,
+  deleteMilestone: (id: number, force = false) =>
+    req('DELETE', `/api/planning/milestones/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
+
+  listWins: (milestoneId: number) => req('GET', `/api/planning/milestones/${milestoneId}/wins`) as Promise<Win[]>,
+  createWin: (milestoneId: number, title: string, weekStartDate: string, criteria = '') =>
+    req('POST', '/api/planning/wins', { milestone_id: milestoneId, title, week_start_date: weekStartDate, criteria }) as Promise<Win>,
+  editWin: (id: number, patch: Partial<Pick<Win, 'title' | 'criteria' | 'status' | 'milestone_id'>>) =>
+    req('PATCH', `/api/planning/wins/${id}`, patch) as Promise<Win>,
+  deleteWin: (id: number, force = false) =>
+    req('DELETE', `/api/planning/wins/${id}${force ? '?force=true' : ''}`) as Promise<{ ok: true }>,
+
+  listTasksForWin: (winId: number) => req('GET', `/api/planning/wins/${winId}/tasks`) as Promise<PlanTask[]>,
+  listTasksByDate: (ownerKey: GoalOwnerKey, date: string) =>
+    req('GET', `/api/planning/${ownerKey}/tasks/by-date?date=${date}`) as Promise<PlanTask[]>,
+  createTask: (ownerKey: GoalOwnerKey, title: string, winId?: number, scheduledDate?: string) =>
+    req('POST', `/api/planning/${ownerKey}/tasks`, { title, win_id: winId ?? null, scheduled_date: scheduledDate ?? null }) as Promise<PlanTask>,
+  editTask: (id: number, patch: Partial<Pick<PlanTask, 'title' | 'status'>>) =>
+    req('PATCH', `/api/planning/tasks/${id}`, patch) as Promise<PlanTask>,
+  scheduleTask: (id: number, scheduledDate: string | null, winId: number | null) =>
+    req('PATCH', `/api/planning/tasks/${id}/schedule`, { scheduled_date: scheduledDate, win_id: winId }) as Promise<PlanTask>,
+  carryForwardTask: (id: number, action: CarryForwardActionKind) =>
+    req('POST', `/api/planning/tasks/${id}/carry-forward`, { action }) as Promise<PlanTask>,
+  removeTask: (id: number) => req('DELETE', `/api/planning/tasks/${id}`) as Promise<{ ok: true }>,
+
+  listChecklistItems: (scope: { outcomeId?: number; milestoneId?: number; winId?: number }) => {
+    const q = new URLSearchParams();
+    if (scope.outcomeId) q.set('outcome_id', String(scope.outcomeId));
+    if (scope.milestoneId) q.set('milestone_id', String(scope.milestoneId));
+    if (scope.winId) q.set('win_id', String(scope.winId));
+    return req('GET', `/api/planning/checklist-items?${q}`) as Promise<ChecklistItem[]>;
+  },
+  addChecklistItem: (text: string, scope: { outcomeId?: number; milestoneId?: number; winId?: number }) =>
+    req('POST', '/api/planning/checklist-items', {
+      text,
+      outcome_id: scope.outcomeId ?? null,
+      milestone_id: scope.milestoneId ?? null,
+      win_id: scope.winId ?? null,
+    }) as Promise<ChecklistItem>,
+  toggleChecklistItem: (pid: string) => req('POST', `/api/planning/checklist-items/${pid}/toggle`) as Promise<ChecklistItem>,
+  removeChecklistItem: (pid: string) => req('DELETE', `/api/planning/checklist-items/${pid}`) as Promise<{ ok: true }>,
+};
+
 // ── Individual Task Board (Goal -> Task -> that Task's own kanban) ───
 // Superseded design note: this used to be a flat per-project board
 // (project_key-scoped BoardCard with an optional goal_id backlink).
