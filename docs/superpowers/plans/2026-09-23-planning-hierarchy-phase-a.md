@@ -23,6 +23,38 @@ React + TypeScript (renderer), matching this repo's existing
 
 **Spec:** `docs/superpowers/specs/2026-09-23-planning-hierarchy-phase-a-design.md`
 
+## Execution Order (Panel 3 first, per Zahid's 2026-09-23 instruction)
+
+Tasks are numbered in dependency order, but **Panel 3 (EXECUTE tab)
+ships as a complete, independently-verifiable checkpoint before Panel 2
+(GoalsPanel) work starts.** Run them in this order, not strict numeric
+order:
+
+**Checkpoint 1 — Panel 3 complete:** Tasks 1 → 9 (backend + API client,
+required by both panels), 10 → 13 (shared card + the three Panel 3
+level components), **15** (wire `Panel3.tsx` — do this before Task 14),
+**16** (delete the superseded `GoalHorizonSection.tsx`), then run Task
+17's Steps 1-2 in a **Panel-3-only** pass: since Panel 2 hasn't been
+migrated yet at this checkpoint, seed a test Outcome/Milestone/Win/
+checklist item via the `python -c "..."` pattern from Task 8's Step 2
+(direct `PlanningEngine` calls, not the Goals panel UI) rather than
+clicking through Panel 2, then verify EXECUTE's WEEKLY/MONTHLY/YEARLY
+tabs render it correctly. Clean up the same way Task 17 Step 3 does.
+
+**Known interim gap, expected and acceptable:** between this checkpoint
+and Task 14 landing, Panel 2 still writes to the old `goals` table, so
+nothing created through Panel 2's UI during this window appears in
+Panel 3's EXECUTE tab (which now reads only the new tables) — EXECUTE
+will show migrated legacy data (Task 3's forward-copy) plus whatever
+was seeded directly for verification, and nothing new from Panel 2
+until Checkpoint 2. This is a real, visible product gap for whoever
+uses the app during this window — acceptable for a short dev-only
+window, not something to ship to an end user paused mid-way.
+
+**Checkpoint 2 — Panel 2 complete:** Task 14 (`GoalsPanel.tsx` rewrite),
+then Task 17 in full (the create→schedule→complete→cascade walk through
+Panel 2's actual UI, confirming Panel 3 reflects it).
+
 ## Global Constraints
 
 - ms-timestamp integer primary keys (`int(time.time() * 1000)`), matching
