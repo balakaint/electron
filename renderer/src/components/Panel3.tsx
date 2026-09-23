@@ -158,6 +158,12 @@ function HoursAccordion({
   // sections just show their existing loading state until this
   // resolves instead of a fourth new loading affordance.
   const [owners, setOwners] = useState<GoalOwnerMeta[] | null>(null);
+  // null = DAILY shows today. Set by a WEEKLY/MONTHLY/YEARLY calendar dot
+  // click, cleared by the "Today" pill. Deliberately not "today's ISO
+  // string by default" — storing a literal date would go stale if the
+  // app sits open across midnight; null always means "whatever today
+  // actually is right now."
+  const [dailyDate, setDailyDate] = useState<string | null>(null);
 
   useEffect(() => {
     projectsApi.order().then((order) => {
@@ -172,11 +178,20 @@ function HoursAccordion({
   }, []);
 
   const dateStr = (() => {
-    const d = new Date();
+    const d = dailyDate ? new Date(`${dailyDate}T00:00:00`) : new Date();
     const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
     const month = d.toLocaleDateString(undefined, { month: 'short' });
     return `${weekday}, ${d.getDate()} ${month} ${d.getFullYear()}`;
   })();
+
+  // Shared by all three calendar levels' dot-click — jump DAILY to that
+  // date and switch the accordion to it. Local to this component (not
+  // threaded through Panel3's own props/App.tsx) since the click and its
+  // destination both live inside this one accordion.
+  const onSelectDate = (iso: string) => {
+    setDailyDate(iso);
+    setLevel('daily');
+  };
 
   return (
     <div>
@@ -229,8 +244,40 @@ function HoursAccordion({
           expanded={level === 'daily'}
           onToggle={() => setLevel('daily')}
         >
+          {/* Only while viewing a jumped-to date — not a permanent
+              fixture of DAILY's own chrome, so today's own normal view
+              stays exactly as it was. Lives inside `children`, not
+              AccordionSection's own header button: that header is
+              itself a `<button onClick={onToggle}>`, and nesting a
+              second interactive control inside it double-fires on click
+              (the exact bug this file's own HOURS_LEVELS/AccordionSection
+              pairing was already burned by once — see that component's
+              own history). */}
+          {dailyDate && (
+            <button
+              onClick={() => setDailyDate(null)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: SPACE.xs,
+                marginBottom: SPACE.sm,
+                padding: '4px 8px',
+                fontSize: 12,
+                fontWeight: 700,
+                borderRadius: RADIUS.pill,
+                border: '1px solid var(--accent)',
+                background: 'transparent',
+                color: 'var(--accent)',
+                cursor: 'pointer',
+              }}
+            >
+              <ChevronLeft size={12} />
+              {L('Today', 'আজ')}
+            </button>
+          )}
           <HourPlanTab
             hideHeader
+            date={dailyDate ?? undefined}
             refreshSignal={refreshSignal}
             onChanged={onChanged}
             onPlanLoaded={(d, t) => {
@@ -245,18 +292,21 @@ function HoursAccordion({
           accent="var(--goal-yearly)"
           expanded={level === 'weekly'}
           onToggle={() => setLevel('weekly')}
+          onSelectDate={onSelectDate}
         />
         <PlanningMonthlyLevel
           owners={owners}
           accent="var(--goal-monthly)"
           expanded={level === 'monthly'}
           onToggle={() => setLevel('monthly')}
+          onSelectDate={onSelectDate}
         />
         <PlanningYearlyLevel
           owners={owners}
           accent="var(--goal-weekly)"
           expanded={level === 'yearly'}
           onToggle={() => setLevel('yearly')}
+          onSelectDate={onSelectDate}
         />
       </div>
     </div>

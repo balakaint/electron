@@ -59,7 +59,7 @@ function DayCell({
   return (
     <button
       onClick={onSelect}
-      title="Jump to this deadline below"
+      title="Jump to DAILY for this month"
       style={{ ...sharedStyle, border: 'none', cursor: 'pointer', font: 'inherit' }}
     >
       {content}
@@ -67,10 +67,12 @@ function DayCell({
   );
 }
 
-// `onSelect` deliberately never wired — see PlanningMonthlyLevel.tsx's
-// MonthGrid for why (an interactive-looking dot that does nothing is
-// worse than a plain inert one; caught in code review).
-function YearStrip({ deadlines, accent }: { deadlines: Set<string>; accent: string }) {
+// A Milestone only carries year+month, no day — so "jump to this
+// month" lands DAILY on the 1st, the only day the underlying data
+// actually names. `deadlines` already stores that same `YYYY-MM-01`
+// shape (see findCurrentOutcomes' caller below), so the click target
+// is just the matching entry, not a separate lookup.
+function YearStrip({ deadlines, accent, onSelectDate }: { deadlines: Set<string>; accent: string; onSelectDate: (iso: string) => void }) {
   const today = new Date();
   const year = today.getFullYear();
   const currentMonth = today.getMonth();
@@ -80,15 +82,16 @@ function YearStrip({ deadlines, accent }: { deadlines: Set<string>; accent: stri
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: SPACE.xs, marginBottom: SPACE.md }}>
       {MONTH_ABBR.map((label, i) => {
         const prefix = `${year}-${String(i + 1).padStart(2, '0')}`;
-        const hasDeadline = sortedDeadlines.some((iso) => iso.startsWith(prefix));
+        const monthDeadline = sortedDeadlines.find((iso) => iso.startsWith(prefix));
         return (
           <DayCell
             key={label}
             label={label}
             isToday={i === currentMonth}
-            hasDeadline={hasDeadline}
+            hasDeadline={!!monthDeadline}
             dim={false}
             accent={accent}
+            onSelect={monthDeadline ? () => onSelectDate(monthDeadline) : undefined}
           />
         );
       })}
@@ -121,11 +124,13 @@ export default function PlanningYearlyLevel({
   accent,
   expanded,
   onToggle,
+  onSelectDate,
 }: {
   owners: GoalOwnerMeta[] | null;
   accent: string;
   expanded: boolean;
   onToggle: () => void;
+  onSelectDate: (iso: string) => void;
 }) {
   const L = useL();
   const year = new Date().getFullYear();
@@ -162,7 +167,7 @@ export default function PlanningYearlyLevel({
         </div>
       ) : (
         <>
-          <YearStrip deadlines={deadlines} accent={accent} />
+          <YearStrip deadlines={deadlines} accent={accent} onSelectDate={onSelectDate} />
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
               No Outcome set for this year yet — add one from the Goals panel.

@@ -66,7 +66,7 @@ function DayCell({
   return (
     <button
       onClick={onSelect}
-      title="Jump to this deadline below"
+      title="Jump to DAILY for this date"
       style={{ ...sharedStyle, border: 'none', cursor: 'pointer', font: 'inherit' }}
     >
       {content}
@@ -74,14 +74,7 @@ function DayCell({
   );
 }
 
-// `onSelect` is deliberately never wired here — a dot with no click
-// handler behind it (caught in code review: it was rendered as a
-// `<button>` with `cursor: pointer` and a "Jump to this deadline below"
-// title that did nothing) is worse than a plain, honestly inert `<div>`.
-// Wiring these to actually jump to Panel 2 is real follow-up work for
-// Checkpoint 2, once Panel 2 understands Wins/Milestones instead of
-// flat Goals.
-function MonthGrid({ deadlines, accent }: { deadlines: Set<string>; accent: string }) {
+function MonthGrid({ deadlines, accent, onSelectDate }: { deadlines: Set<string>; accent: string; onSelectDate: (iso: string) => void }) {
   const today = new Date();
   const todayIso = isoDate(today);
   const year = today.getFullYear();
@@ -125,6 +118,7 @@ function MonthGrid({ deadlines, accent }: { deadlines: Set<string>; accent: stri
               hasDeadline={hasDeadline}
               dim={!c.inMonth}
               accent={accent}
+              onSelect={hasDeadline ? () => onSelectDate(c.iso) : undefined}
             />
           );
         })}
@@ -159,11 +153,13 @@ export default function PlanningMonthlyLevel({
   accent,
   expanded,
   onToggle,
+  onSelectDate,
 }: {
   owners: GoalOwnerMeta[] | null;
   accent: string;
   expanded: boolean;
   onToggle: () => void;
+  onSelectDate: (iso: string) => void;
 }) {
   const L = useL();
   const today = new Date();
@@ -209,7 +205,7 @@ export default function PlanningMonthlyLevel({
         </div>
       ) : (
         <>
-          <MonthGrid deadlines={deadlines} accent={accent} />
+          <MonthGrid deadlines={deadlines} accent={accent} onSelectDate={onSelectDate} />
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
               No Milestone set for this month yet — add one from the Goals panel.

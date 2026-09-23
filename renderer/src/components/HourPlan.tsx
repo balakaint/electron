@@ -248,6 +248,7 @@ export default function HourPlanTab({
   onChanged,
   hideHeader = false,
   onPlanLoaded,
+  date,
 }: {
   refreshSignal?: number;
   onChanged?: () => void;
@@ -260,6 +261,11 @@ export default function HourPlanTab({
   // component already fetches for itself, without a second hoursApi.get
   // call for the same day.
   onPlanLoaded?: (done: number, total: number) => void;
+  // Defaults to today when absent — every existing caller (this file's
+  // own MIT/PLAN-review usage) is unaffected. Panel3's HoursAccordion is
+  // the one caller that passes a real value, when a WEEKLY/MONTHLY/
+  // YEARLY calendar dot jumps here to a non-today date.
+  date?: string;
 }) {
   const L = useL();
   // In memory, deliberately not persisted. Legacy's reason: "auto-collapse
@@ -269,7 +275,16 @@ export default function HourPlanTab({
   // toggle is "let me look at that now", not a preference.
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [nowHour, setNowHour] = useState(new Date().getHours());
-  const day = todayIso();
+  const day = date ?? todayIso();
+  // Gates every "this is happening right now" signal below (the phase
+  // block's own current-block dot/auto-open, and the per-hour live-clock
+  // row) — without it, a non-today `date` would still show whichever
+  // block/hour is current in REAL time, since `plan.current_block` is
+  // computed server-side from the clock, not from `day` (see
+  // engine/hour_plan.py's current_block — it takes `now_hour`, not the
+  // requested day at all). A future Tuesday showing "you are in Work
+  // right now" would be actively wrong, not just unpolished.
+  const viewingToday = day === todayIso();
 
   // loadError distinct from "still loading" — without it a failed fetch
   // left `plan` null forever, rendering nothing at all with no error, no
@@ -371,7 +386,7 @@ export default function HourPlanTab({
       )}
 
       {plan.blocks.map((b) => {
-        const isNow = b.key === plan.current_block;
+        const isNow = viewingToday && b.key === plan.current_block;
         // Only the block you are IN opens by itself, and the day resets
         // that on every launch — nothing here is persisted.
         //
@@ -474,7 +489,7 @@ export default function HourPlanTab({
                   <Row
                     key={slot.hour}
                     slot={slot}
-                    isNow={slot.hour === nowHour}
+                    isNow={viewingToday && slot.hour === nowHour}
                     color={color}
                     onSave={(text) => set(slot.hour, { text })}
                     onToggle={() => set(slot.hour, { done: !slot.done })}
