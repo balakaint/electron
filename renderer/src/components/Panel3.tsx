@@ -1,12 +1,24 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import { FocusTab, GoalOwnerKey, GoalOwnerMeta, HoursLevel, PlanTask, ProjectKey, STRIKE_MAX, hoursApi, planningApi, projectsApi, settingsApi, tasksApi } from '../services/api';
+import { FocusTab, GoalOwnerKey, Settings, GoalOwnerMeta, HoursLevel, PlanTask, ProjectKey, STRIKE_MAX, hoursApi, planningApi, projectsApi, settingsApi, tasksApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
 import NowCard from './NowCard';
 import DeepWorkTrend from './DeepWorkTrend';
 import PlanReview from './PlanReview';
 import PlanTodayCard from './PlanTodayCard';
+import {
+  CarriedCard,
+  DeepWorkToday,
+  Folded,
+  HowTodayWent,
+  ThisWeek,
+  TomorrowThree,
+  UpNext,
+  WorkThree,
+  planPhase,
+  type PlanPhase,
+} from './PlanByPhase';
 import TaskList from './TaskList';
 import MiniCalendarPicker from './MiniCalendarPicker';
 import PlanningWeeklyLevel from './PlanningWeeklyLevel';
@@ -252,7 +264,17 @@ function FocusTabs({
           >
             {L(en, bn)}
             {counts[key] && (
-              <span style={{ marginLeft: SPACE.xs, fontWeight: 400, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+              <span
+                style={{
+                  marginLeft: SPACE.xs,
+                  padding: `0 ${SPACE.xs}px`,
+                  borderRadius: RADIUS.pill,
+                  fontWeight: 700,
+                  background: on ? 'var(--accent-light)' : 'var(--surface-2)',
+                  color: on ? 'var(--accent)' : 'var(--text-muted)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
                 {counts[key]}
               </span>
             )}
@@ -548,10 +570,43 @@ export default function Panel3({
   const [tab, setTabState] = useState<FocusTab | null>(null);
   const [nowBump, setNowBump] = useState(0);
   const tabCounts = useTabCounts(nowBump + focusVersion);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  // Re-read once a minute so the PLAN order turns over at a phase
+  // boundary without a reload, and a Settings change is picked up.
+  const [minute, setMinute] = useState(0);
 
   useEffect(() => {
-    settingsApi.get().then((s) => setTabState(s.focus_tab));
+    settingsApi.get().then((s) => {
+      setTabState(s.focus_tab);
+      setSettings(s);
+    });
   }, []);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setMinute((m) => m + 1);
+      settingsApi.get().then(setSettings).catch(() => {});
+    }, 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const phase: PlanPhase | null = settings && settings.plan_adaptive ? planPhase(new Date(), settings) : null;
+  const goExecute = (t: FocusTab) => {
+    selectTab(t);
+    onSelectView('focus');
+  };
+  const review = (
+    <PlanReview onOpenMorningRitual={onOpenMorningRitual} onOpenNightClosure={onOpenNightClosure} onOpenHealth={onOpenHealth} />
+  );
+  const foldedReview = (
+    <Folded title={L('Review', 'রিভিউ')} summary={L('Mindset · Discipline · Consistency', 'মাইন্ডসেট · ডিসিপ্লিন · ধারাবাহিকতা')} openEvent="plan-open-review">
+      {review}
+    </Folded>
+  );
+  const foldedDeep = (
+    <Folded title={L('Deep Work', 'ডিপ ওয়ার্ক')} summary={L('month chart', 'মাসের চার্ট')}>
+      <DeepWorkTrend />
+    </Folded>
+  );
+  void minute;
 
   const selectTab = (next: FocusTab) => {
     setTabState(next);
@@ -654,19 +709,49 @@ export default function Panel3({
                 time inside the hour you are in — "the same number doing
                 more work". Two bold clocks made both read as less
                 trustworthy. */}
-            <ClockCard onOpenQuarterly={onOpenQuarterly} />
-            <DeepWorkTrend />
-            <PlanTodayCard
-              onGoExecute={(t) => {
-                selectTab(t);
-                onSelectView('focus');
-              }}
-            />
-            <PlanReview
-              onOpenMorningRitual={onOpenMorningRitual}
-              onOpenNightClosure={onOpenNightClosure}
-              onOpenHealth={onOpenHealth}
-            />
+            {phase === null ? (
+              // Settings › "PLAN follows the time of day" off: the fixed
+              // order it always had.
+              <>
+                <ClockCard onOpenQuarterly={onOpenQuarterly} />
+                <DeepWorkTrend />
+                <PlanTodayCard onGoExecute={goExecute} />
+                {review}
+              </>
+            ) : (
+              <>
+                <ClockCard onOpenQuarterly={onOpenQuarterly} compact />
+                {phase === 'morning' && (
+                  <>
+                    <PlanTodayCard onGoExecute={goExecute} />
+                    <CarriedCard />
+                    {foldedDeep}
+                    {foldedReview}
+                  </>
+                )}
+                {phase === 'work' && (
+                  <>
+                    <NowCard refreshSignal={nowBump} onChanged={() => setNowBump((b) => b + 1)} onGoToMit={() => goExecute('mit')} />
+                    <WorkThree refreshSignal={nowBump} onChanged={() => setNowBump((b) => b + 1)} />
+                    <DeepWorkToday refreshSignal={nowBump} />
+                    <UpNext />
+                    <Folded title={L('Set up the day', 'দিন সাজানো')} summary={L('Plan today checklist', 'আজকের প্ল্যানের তালিকা')}>
+                      <PlanTodayCard onGoExecute={goExecute} />
+                    </Folded>
+                    {foldedReview}
+                  </>
+                )}
+                {phase === 'evening' && (
+                  <>
+                    <HowTodayWent refreshSignal={nowBump} onOpenNightClosure={onOpenNightClosure} />
+                    <ThisWeek refreshSignal={nowBump} />
+                    <TomorrowThree />
+                    {foldedDeep}
+                    {foldedReview}
+                  </>
+                )}
+              </>
+            )}
           </div>
         ) : (
           <>

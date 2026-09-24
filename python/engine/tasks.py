@@ -89,11 +89,100 @@ def reset_strike_if_new_day(repo: TaskRepository) -> None:
     state = repo.get_app_state()
     if state.last_strike_reset_day == today:
         return
-    for task in repo.list_struck():
+    struck = repo.list_struck()
+    # Record how the day that is ending went, before its flags go. Keyed
+    # by the day the flags belonged to; the first ever rollover has no
+    # such day and records nothing.
+    if state.last_strike_reset_day and struck:
+        history = dict(state.three_history or {})
+        history[state.last_strike_reset_day] = [sum(1 for t in struck if t.done), len(struck)]
+        # Keep a few months; the week view reads seven days.
+        for k in sorted(history)[:-120]:
+            history.pop(k)
+        state.three_history = history
+    for task in struck:
         task.strike = False
         repo.save(task)
+    # Tomorrow's three, picked last night for today, become today's
+    # three. Only tasks that still exist, are Focus tasks and are not
+    # done; never more than STRIKE_MAX.
+    picks = state.tomorrow_three or {}
+    if picks.get("day") == today:
+        applied: list[int] = []
+        for tid in picks.get("ids", []):
+            task = repo.get(tid)
+            if task is None or task.list_key != "focus" or task.done or len(applied) >= STRIKE_MAX:
+                continue
+            task.strike = True
+            repo.save(task)
+            applied.append(tid)
+        # Remember which of today's three were picked last night, so
+        # EXECUTE can say so. Carries no "day" key, so it is never read
+        # as a pending pick.
+        state.tomorrow_three = {"applied": {"day": today, "ids": applied}}
+    elif picks.get("day") and picks["day"] < today:
+        # Picked for a day that has already passed (the app was closed
+        # through it): drop, rather than apply stale picks.
+        state.tomorrow_three = {}
     state.last_strike_reset_day = today
     repo.save_app_state(state)
+
+
+def tomorrow_str() -> str:
+    return str(date.today() + timedelta(days=1))
+
+
+def get_tomorrow_three(repo: TaskRepository) -> list[Task]:
+    picks = repo.get_app_state().tomorrow_three or {}
+    if picks.get("day") != tomorrow_str():
+        return []
+    out = []
+    for tid in picks.get("ids", []):
+        t = repo.get(tid)
+        if t is not None and not t.done:
+            out.append(t)
+    return out
+
+
+def set_tomorrow_three(repo: TaskRepository, ids: list[int]) -> list[Task]:
+    ids = list(dict.fromkeys(ids))
+    if len(ids) > STRIKE_MAX:
+        raise StrikeLimitReached()
+    for tid in ids:
+        t = repo.get(tid)
+        if t is None or t.list_key != "focus" or t.done:
+            raise ValueError("Only open Focus tasks can be picked for tomorrow")
+    state = repo.get_app_state()
+    state.tomorrow_three = {"day": tomorrow_str(), "ids": ids} if ids else {}
+    repo.save_app_state(state)
+    return get_tomorrow_three(repo)
+
+
+def picked_last_night(repo: TaskRepository) -> list[int]:
+    applied = (repo.get_app_state().tomorrow_three or {}).get("applied") or {}
+    return list(applied.get("ids", [])) if applied.get("day") == str(date.today()) else []
+
+
+def three_week(repo: TaskRepository) -> list[dict]:
+    """Monday..Sunday of this week: how many of each day's three got
+    done. Past days come from the rollover history; today is live;
+    future days are empty."""
+    reset_strike_if_new_day(repo)
+    today = date.today()
+    monday = today - timedelta(days=today.weekday())
+    history = repo.get_app_state().three_history or {}
+    struck = struck_tasks_in_view(repo)
+    out = []
+    for i in range(7):
+        d = str(monday + timedelta(days=i))
+        if d == str(today):
+            done, total = sum(1 for t in struck if t.done), len(struck)
+        elif d in history:
+            done, total = history[d]
+        else:
+            done, total = 0, 0
+        out.append({"day": d, "done": done, "total": total, "future": d > str(today)})
+    return out
 
 
 def struck_tasks_in_view(repo: TaskRepository) -> list[Task]:

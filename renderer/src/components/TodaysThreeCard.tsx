@@ -1,5 +1,6 @@
 import { Check, Pause, Play, Star, X } from 'lucide-react';
-import { STRIKE_MAX, Task } from '../services/api';
+import { useEffect, useState } from 'react';
+import { STRIKE_MAX, Task, tasksApi } from '../services/api';
 import { useL } from '../i18n';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 
@@ -47,6 +48,11 @@ export default function TodaysThreeCard({
   onUnstrike: (t: Task) => void;
 }) {
   const L = useL();
+  // Which of the three were picked last night (PLAN's Tomorrow's three).
+  const [lastNight, setLastNight] = useState<number[]>([]);
+  useEffect(() => {
+    tasksApi.pickedLastNight().then(setLastNight).catch(() => setLastNight([]));
+  }, []);
   // First of the three leads, then the order the list already has.
   const ordered = [...struck].sort((a, b) => Number(b.mit) - Number(a.mit));
   const done = ordered.filter((t) => t.done).length;
@@ -151,6 +157,7 @@ export default function TodaysThreeCard({
         else if (isNow) meta.push(L('In NOW', 'NOW-এ আছে'));
         if (t.secs > 0) meta.push(fmtSecs(t.secs));
         if (t.est > 0) meta.push(`~${fmtEst(t.est)}`);
+        if (lastNight.includes(t.id)) meta.push(L('☾ picked last night', '☾ গত রাতে বাছা'));
 
         return (
           <div

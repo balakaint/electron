@@ -19,6 +19,7 @@ function Tile({
   color,
   onClick,
   title,
+  compact,
 }: {
   label: string;
   value: string;
@@ -27,8 +28,17 @@ function Tile({
   color: string;
   onClick?: () => void;
   title?: string;
+  compact?: boolean;
 }) {
-  const body = (
+  const body = compact ? (
+    <>
+      <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
+      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</span>
+      <span style={{ height: 3, borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}>
+        <span style={{ display: 'block', height: '100%', width: `${Math.round(Math.max(0, Math.min(1, pct)) * 100)}%`, background: color }} />
+      </span>
+    </>
+  ) : (
     <>
       <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>{label}</span>
       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{value}</span>
@@ -59,7 +69,7 @@ function Tile({
   );
 }
 
-export default function ScopeStats({ now, onOpenQuarterly }: { now: Date; onOpenQuarterly: () => void }) {
+export default function ScopeStats({ now, onOpenQuarterly, compact = false }: { now: Date; onOpenQuarterly: () => void; compact?: boolean }) {
   const L = useL();
   const [panel, setPanel] = useState<Q90Panel | null>(null);
 
@@ -88,6 +98,7 @@ export default function ScopeStats({ now, onOpenQuarterly }: { now: Date; onOpen
         sub={L(`Day ${dayOfMonth} of ${monthDays}`, `${monthDays} দিনের ${dayOfMonth}তম দিন`)}
         pct={dayOfMonth / monthDays}
         color="var(--accent)"
+        compact={compact}
       />
       <Tile
         label={String(y)}
@@ -95,6 +106,7 @@ export default function ScopeStats({ now, onOpenQuarterly }: { now: Date; onOpen
         sub={L(`Day ${yearDay} of ${yearDays}`, `${yearDays} দিনের ${yearDay}তম দিন`)}
         pct={yearDay / yearDays}
         color="var(--accent)"
+        compact={compact}
       />
       {panel ? (
         <Tile
@@ -107,6 +119,7 @@ export default function ScopeStats({ now, onOpenQuarterly }: { now: Date; onOpen
           sub={L(`${panel.areas_done}/${panel.areas_total} areas planned ›`, `${panel.areas_done}/${panel.areas_total} এরিয়া ›`)}
           pct={panel.cycle_days > 0 ? panel.day / panel.cycle_days : 0}
           color="var(--accent)"
+          compact={compact}
           onClick={onOpenQuarterly}
           title="Open the quarterly plan"
         />
@@ -117,6 +130,7 @@ export default function ScopeStats({ now, onOpenQuarterly }: { now: Date; onOpen
           sub={L('Open ›', 'খুলুন ›')}
           pct={0}
           color="var(--accent)"
+          compact={compact}
           onClick={onOpenQuarterly}
           title="Open the quarterly plan"
         />

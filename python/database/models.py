@@ -543,6 +543,16 @@ class AppState(Base):
     now_task_id: Mapped[int | None] = mapped_column(ForeignKey("tasks.id"), nullable=True)
     lang: Mapped[str] = mapped_column(String, default="en")
     analog_clock: Mapped[bool] = mapped_column(Boolean, default=False)
+    # PLAN reorders itself by time of day (morning / work / evening)
+    # unless this is switched off in Settings.
+    plan_adaptive: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Tomorrow's three, picked in the evening: {"day": "YYYY-MM-DD",
+    # "ids": [task ids]}. Applied as that day's strike list at the day
+    # rollover (engine.tasks.reset_strike_if_new_day), then cleared.
+    tomorrow_three: Mapped[dict] = mapped_column(JSON, default=dict)
+    # How each past day's three went, recorded at the rollover before
+    # the strike flags are cleared: {"YYYY-MM-DD": [done, total]}.
+    three_history: Mapped[dict] = mapped_column(JSON, default=dict)
     auto_timer_on_open: Mapped[bool] = mapped_column(Boolean, default=True)
     idle_stop_min: Mapped[int] = mapped_column(Integer, default=15)
     phase_morning_start: Mapped[int] = mapped_column(Integer, default=5)

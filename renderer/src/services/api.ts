@@ -128,6 +128,11 @@ export const tasksApi = {
     req('POST', `/api/tasks/${id}/toggle-strike`, projectKey ? { project_key: projectKey } : undefined) as Promise<Task>,
   restore: (task: Task) => req('POST', '/api/tasks/restore', task) as Promise<Task>,
   listStrike: () => req('GET', '/api/tasks/strike') as Promise<Task[]>,
+  pickedLastNight: () => req('GET', '/api/tasks/picked-last-night') as Promise<number[]>,
+  getTomorrowThree: () => req('GET', '/api/tasks/tomorrow-three') as Promise<Task[]>,
+  setTomorrowThree: (ids: number[]) => req('PUT', '/api/tasks/tomorrow-three', { ids }) as Promise<Task[]>,
+  threeWeek: () =>
+    req('GET', '/api/tasks/three-week') as Promise<{ day: string; done: number; total: number; future: boolean }[]>,
   getDayView: () => req('GET', '/api/tasks/day-view') as Promise<{ view: DayView }>,
   setDayView: (view: DayView) => req('POST', '/api/tasks/day-view', { view }) as Promise<{ view: DayView }>,
   getTitle: (listKey: ListKey) => req('GET', `/api/tasks/title?list_key=${listKey}`) as Promise<{ title: string }>,
@@ -765,6 +770,7 @@ export interface Settings {
   onboarded: boolean;
   lang: Lang;
   analog_clock: boolean;
+  plan_adaptive: boolean;
   auto_timer_on_open: boolean;
   idle_stop_min: number;
   phase_morning_start: number;
@@ -783,6 +789,7 @@ export type SettingsPatch = Partial<
     Settings,
     | 'lang'
     | 'analog_clock'
+    | 'plan_adaptive'
     | 'auto_timer_on_open'
     | 'idle_stop_min'
     | 'phase_morning_start'

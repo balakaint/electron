@@ -20,7 +20,8 @@ from api.schemas import (
 )
 from database.connection import get_db
 from database.repository import ProjectRepository, TaskRepository
-from engine.tasks import STRIKE_MAX, StrikeLimitReached, TaskEngine
+from engine.tasks import STRIKE_MAX, StrikeLimitReached, TaskEngine, get_tomorrow_three, picked_last_night, set_tomorrow_three, three_week
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -32,6 +33,38 @@ def get_engine(db: Session = Depends(get_db)) -> TaskEngine:
 @router.get("", response_model=list[TaskOut])
 def list_tasks(list_key: ListKey | None = None, engine: TaskEngine = Depends(get_engine)):
     return engine.list_tasks(list_key)
+
+
+class TomorrowThreeSet(BaseModel):
+    ids: list[int]
+
+
+@router.get("/tomorrow-three", response_model=list[TaskOut])
+def read_tomorrow_three(engine: TaskEngine = Depends(get_engine)):
+    """Tasks picked this evening to become tomorrow's three."""
+    return get_tomorrow_three(engine.repo)
+
+
+@router.put("/tomorrow-three", response_model=list[TaskOut])
+def write_tomorrow_three(payload: TomorrowThreeSet, engine: TaskEngine = Depends(get_engine)):
+    try:
+        return set_tomorrow_three(engine.repo, payload.ids)
+    except StrikeLimitReached:
+        raise HTTPException(409, f"At most {STRIKE_MAX} tasks")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.get("/picked-last-night")
+def read_picked_last_night(engine: TaskEngine = Depends(get_engine)) -> list[int]:
+    """Ids of today's three that came from last night's pick."""
+    return picked_last_night(engine.repo)
+
+
+@router.get("/three-week")
+def read_three_week(engine: TaskEngine = Depends(get_engine)):
+    """This week's days: how many of each day's three got done."""
+    return three_week(engine.repo)
 
 
 @router.get("/strike", response_model=list[TaskOut])

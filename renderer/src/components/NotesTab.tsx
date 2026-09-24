@@ -427,8 +427,11 @@ export default function NotesTab() {
               : 'Nothing here yet — write your first note above.'}
         </div>
       ) : (
-        <div>
-          {visible.map((n) => (
+        // Pinned notes sit on top as a two-column board (the ones you
+        // keep coming back to), the rest as the list below. On the
+        // Pinned filter, or when nothing is pinned, it is one list.
+        (() => {
+          const card = (n: Note) => (
             <NoteCard
               key={n.id}
               note={n}
@@ -438,8 +441,28 @@ export default function NotesTab() {
               onTogglePin={() => togglePin(n)}
               onDelete={() => deleteNote(n)}
             />
-          ))}
-        </div>
+          );
+          const pinned = visible.filter((n) => n.pinned);
+          const rest = visible.filter((n) => !n.pinned);
+          if (filter === 'pinned' || pinned.length === 0) return <div>{visible.map(card)}</div>;
+          const heading: React.CSSProperties = {
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            color: 'var(--text-faint)',
+            margin: `${SPACE.sm}px 0 ${SPACE.xs}px`,
+          };
+          return (
+            <div>
+              <div style={heading}>PINNED</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SPACE.sm, alignItems: 'start' }}>
+                {pinned.map(card)}
+              </div>
+              {rest.length > 0 && <div style={heading}>RECENT</div>}
+              {rest.map(card)}
+            </div>
+          );
+        })()
       )}
     </div>
   );

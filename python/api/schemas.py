@@ -750,6 +750,7 @@ class SettingsOut(BaseModel):
     onboarded: bool
     lang: LangT
     analog_clock: bool
+    plan_adaptive: bool
     auto_timer_on_open: bool
     idle_stop_min: int
     phase_morning_start: int
@@ -773,6 +774,7 @@ class SettingsUpdate(BaseModel):
 
     lang: LangT | None = None
     analog_clock: bool | None = None
+    plan_adaptive: bool | None = None
     auto_timer_on_open: bool | None = None
     idle_stop_min: int | None = None
     phase_morning_start: int | None = None

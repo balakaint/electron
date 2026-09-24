@@ -44,6 +44,7 @@ def get_settings(repo: TaskRepository) -> dict:
         "onboarded": state.onboarded,
         "lang": state.lang,
         "analog_clock": state.analog_clock,
+        "plan_adaptive": state.plan_adaptive if state.plan_adaptive is not None else True,
         "auto_timer_on_open": state.auto_timer_on_open,
         "idle_stop_min": state.idle_stop_min,
         "phase_morning_start": state.phase_morning_start,
@@ -78,6 +79,7 @@ def update_settings(
     repo: TaskRepository,
     lang: str | None = None,
     analog_clock: bool | None = None,
+    plan_adaptive: bool | None = None,
     auto_timer_on_open: bool | None = None,
     idle_stop_min: int | None = None,
     phase_morning_start: int | None = None,
@@ -105,6 +107,8 @@ def update_settings(
         state.lang = lang
     if analog_clock is not None:
         state.analog_clock = analog_clock
+    if plan_adaptive is not None:
+        state.plan_adaptive = plan_adaptive
     if auto_timer_on_open is not None:
         state.auto_timer_on_open = auto_timer_on_open
     if idle_stop_min is not None:
