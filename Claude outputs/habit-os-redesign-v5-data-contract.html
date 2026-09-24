@@ -1,0 +1,983 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Habit OS — generic data contract prototype (v5)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap');
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #050506; font-family: 'Manrope', system-ui, sans-serif; color: #f0f0f2; }
+  a { text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+
+  .page-header { padding: 28px 24px 18px; border-bottom: 1px solid #1c1c21; }
+  .page-header h1 { margin: 0 0 6px; font-size: 18px; font-weight: 800; }
+  .page-header p { margin: 0; font-size: 13px; color: #8a8a93; max-width: 680px; line-height: 1.5; }
+
+  .stage { display: flex; justify-content: center; padding: 36px 24px 60px; }
+  .frame { width: 390px; height: 844px; border-radius: 18px; border: 1px solid #1c1c21; overflow: hidden; background: #0a0a0d; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
+  .screen { width: 100%; height: 100%; display: flex; flex-direction: column; color: #f0f0f2; }
+
+  .hdr { flex: none; padding: 18px 18px 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid #1c1c21; }
+  .breadcrumb { display: flex; align-items: center; gap: 3px; font-size: 11px; color: #55555e; flex-wrap: wrap; }
+  .breadcrumb button { background: none; border: none; color: #6a6a74; font-size: 11px; font-weight: 700; padding: 2px 5px; border-radius: 5px; }
+  .breadcrumb button:hover { color: #a9b8ff; background: #17171b; }
+  .breadcrumb button.current { color: #e2e2e6; }
+  .breadcrumb .sep { color: #2a2a30; }
+  .mode-row { display: flex; gap: 6px; }
+  .mode-btn { flex: 1; padding: 9px 0; border-radius: 10px; border: 1px solid #24242a; background: transparent; color: #8a8a93; font-size: 12px; font-weight: 700; letter-spacing: .03em; }
+  .mode-btn.active { border-color: #4C6FFF; background: #4C6FFF; color: #fff; }
+  .nav-row { display: flex; gap: 6px; }
+  .nav-tab { flex: 1; text-align: center; padding: 9px 0; border-radius: 10px; border: 1px solid #24242a; background: transparent; color: #7d7d86; font-size: 11px; font-weight: 800; letter-spacing: .05em; }
+  .nav-tab.active-blue { border-color: #4C6FFF; background: rgba(76,111,255,.16); color: #a9b8ff; }
+  .nav-tab.active-pink { border-color: #E34C7A; background: rgba(227,76,122,.16); color: #f4a3bd; }
+  .nav-tab.active-teal { border-color: #2FAE7A; background: rgba(47,174,122,.16); color: #8fe0bd; }
+  .nav-tab.active-gold { border-color: #D9B24C; background: rgba(217,178,76,.16); color: #f0dfa6; }
+
+  .body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px 24px; }
+  .panel { display: flex; flex-direction: column; gap: 16px; }
+
+  .planning-banner { display: none; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: rgba(76,111,255,.14); border: 1px solid #4C6FFF; color: #a9b8ff; font-size: 12px; font-weight: 700; }
+  .planning-banner a { margin-left: auto; color: #cdd8ff; font-size: 11px; font-weight: 800; }
+  .toast { display: none; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: rgba(47,174,122,.14); border: 1px solid #2FAE7A; color: #8fe0bd; font-size: 12px; font-weight: 700; }
+
+  .level-title { font-size: 18px; font-weight: 800; color: #f0f0f2; }
+  .level-sub { font-size: 12px; color: #6a6a74; font-weight: 600; margin-top: -8px; }
+
+  .week-strip-card { border: 1px solid #24242a; border-radius: 14px; padding: 12px; background: #111114; display: flex; flex-direction: column; gap: 10px; }
+  .week-strip-label { font-size: 12px; font-weight: 800; color: #e2e2e6; }
+  .week-strip-label .muted { font-weight: 600; color: #6a6a74; font-size: 11px; margin-left: 6px; }
+  .day-strip-v2 { display: grid; grid-template-columns: repeat(7,1fr); gap: 4px; }
+  .day-col { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 0; border-radius: 8px; cursor: pointer; }
+  .day-col:hover { background: #17171b; }
+  .day-col.today { background: rgba(76,111,255,.14); }
+  .dnum { font-size: 11px; font-weight: 700; color: #9c9ca6; }
+  .day-col.today .dnum { color: #a9b8ff; font-weight: 800; }
+  .dstat { font-size: 10px; color: #3f3f46; }
+  .dstat.done { color: #4CAF7D; }
+  .dstat.current { color: #4C6FFF; }
+  .week-strip-foot { font-size: 11px; color: #6a6a74; text-align: center; }
+
+  .win-card { border: 1px solid #24242a; border-radius: 14px; padding: 14px; background: #111114; display: flex; flex-direction: column; gap: 8px; }
+  .win-head { display: flex; align-items: center; }
+  .win-label { font-size: 10px; font-weight: 800; letter-spacing: .08em; color: var(--lvl, #4C6FFF); }
+  .win-edit { margin-left: auto; background: none; border: none; color: #55555e; font-size: 11px; font-weight: 700; }
+  .win-edit:hover { color: #9c9ca6; }
+  .win-title { font-size: 14px; font-weight: 700; color: #f0f0f2; line-height: 1.35; }
+  .win-bar { height: 7px; border-radius: 999px; background: #1c1c21; overflow: hidden; }
+  .win-bar > div { height: 100%; transition: width .2s; }
+  .win-pct { font-size: 11px; color: #9c9ca6; font-weight: 700; }
+  .win-details summary { font-size: 11px; color: #7d7d86; font-weight: 700; cursor: pointer; list-style: none; display: flex; align-items: center; gap: 6px; padding: 4px 0; }
+  .win-details summary::-webkit-details-marker { display: none; }
+  .win-details summary::before { content: '▸'; color: var(--lvl, #4C6FFF); display: inline-block; transition: transform .15s; }
+  .win-details[open] summary::before { transform: rotate(90deg); }
+  .sub-row { display: flex; align-items: center; gap: 8px; padding: 6px 0 6px 16px; }
+  .sub-row .txt { font-size: 12px; color: #c7c7cf; }
+  .sub-row .txt.done { color: #6a6a74; text-decoration: line-through; }
+  .mstone-row { display: flex; align-items: center; gap: 8px; padding: 5px 0 5px 16px; font-size: 12px; }
+  .mstone-row .mk { width: 14px; text-align: center; font-weight: 800; }
+  .mstone-row.done .mk { color: #4CAF7D; }
+  .mstone-row.current .mk { color: var(--lvl, #4C6FFF); }
+  .mstone-row.pending .mk { color: #3f3f46; }
+  .mstone-row .lbl { color: #c7c7cf; }
+  .mstone-row.pending .lbl { color: #55555e; }
+  .win-pace-row { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; padding-top: 10px; border-top: 1px solid #1c1c21; }
+  .win-pace-line { display: flex; justify-content: space-between; font-size: 11px; }
+  .win-pace-line .k { color: #6a6a74; }
+  .win-pace-line .v { font-weight: 700; }
+
+  .pace-chip { align-self: flex-start; margin-top: 2px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+  .pace-chip.behind { background: rgba(227,76,76,.14); color: #f08a8a; }
+  .pace-chip.onpace { background: rgba(76,111,255,.14); color: #a9b8ff; }
+  .pace-chip.ahead { background: rgba(47,174,122,.14); color: #8fe0bd; }
+
+  .goals-label { font-size: 10px; font-weight: 800; letter-spacing: .08em; color: #55555e; display: flex; align-items: center; }
+  .goals-label .review-link { margin-left: auto; color: #6a6a74; font-weight: 700; background: none; border: none; font-size: 10px; letter-spacing: 0; text-transform: none; }
+  .goals-label .review-link:hover { color: #a9b8ff; }
+  .list-card { border: 1px solid #24242a; border-radius: 14px; overflow: hidden; background: #111114; }
+  .goal-row { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid #1c1c21; flex-wrap: wrap; }
+  .goal-row:last-child { border-bottom: none; }
+  .goal-row:hover { background: #17171b; }
+  .goal-row .tick { width: 3px; align-self: stretch; border-radius: 3px; flex: none; }
+  .goal-row .tag { font-size: 10px; font-weight: 800; letter-spacing: .02em; flex: none; max-width: 62px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .goal-row .txt { font-size: 12px; color: #e2e2e6; }
+  .goal-row .txt.done { color: #6a6a74; text-decoration: line-through; }
+  .goal-row .sched-btn { margin-left: auto; background: none; border: 1px solid #24242a; border-radius: 999px; padding: 3px 9px; font-size: 10px; font-weight: 700; color: #6a6a74; }
+  .goal-row .sched-btn:hover { border-color: #4C6FFF; color: #a9b8ff; }
+  .goal-row .sched-btn.set { color: #a9b8ff; border-color: #4C6FFF; }
+  .day-picker-inline { display: flex; gap: 4px; width: 100%; padding-top: 8px; margin-top: 4px; border-top: 1px dashed #24242a; }
+  .day-picker-inline button { flex: 1; padding: 6px 0; border-radius: 6px; border: 1px solid #24242a; background: #17171b; color: #9c9ca6; font-size: 10px; font-weight: 700; }
+  .day-picker-inline button:hover { border-color: #4C6FFF; color: #a9b8ff; }
+  .goal-row.add-slot { width: 100%; background: none; border-bottom: none; text-align: left; }
+  .goal-row.add-slot .plus { color: #4C6FFF; font-weight: 800; }
+  .goal-row.add-slot .txt.muted { color: #7d7d86; }
+  .goal-row.add-slot:hover .txt.muted { color: #a9b8ff; }
+  .empty-note { font-size: 11px; color: #55555e; padding: 12px; text-align: center; }
+
+  input[type=checkbox] { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; flex: none; border-radius: 6px; border: 1.5px solid #33333b; background: #0d0d10; position: relative; cursor: pointer; margin: 0; }
+  input[type=checkbox]:hover { border-color: #4C6FFF; }
+  input[type=checkbox]:checked { background: var(--accent, #4C6FFF); border-color: var(--accent, #4C6FFF); }
+  input[type=checkbox]:checked::after { content: ''; position: absolute; left: 5.5px; top: 1.5px; width: 4px; height: 9px; border: solid #0a0a0d; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
+  .outcome-row { display: flex; gap: 10px; padding: 12px; border-bottom: 1px solid #1c1c21; align-items: center; }
+  .outcome-row:last-child { border-bottom: none; }
+  .outcome-row .n { font-size: 11px; font-weight: 800; color: #2FAE7A; flex: none; }
+  .outcome-body { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+  .outcome-row .tag { font-size: 10px; font-weight: 800; }
+  .outcome-row .txt { font-size: 13px; color: #e2e2e6; }
+  .mini-bar { height: 4px; border-radius: 999px; background: #1c1c21; overflow: hidden; }
+  .mini-bar > div { height: 100%; }
+  .mini-pct { font-size: 10px; color: #6a6a74; font-weight: 700; }
+
+  .cal-card { border: 1px solid #24242a; border-radius: 12px; padding: 10px; background: #111114; }
+  .cal-head, .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+  .cal-head span { text-align: center; font-size: 9px; color: #55555e; }
+  .cal-grid span { text-align: center; font-size: 11px; padding: 9px 0; min-height: 30px; display: flex; align-items: center; justify-content: center; color: #7d7d86; position: relative; border-radius: 6px; cursor: pointer; }
+  .cal-grid span:hover { outline: 1px solid #2FAE7A; }
+  .cal-grid span.muted { color: #3f3f46; }
+  .cal-grid span.today { border-radius: 6px; background: #2FAE7A; color: #0a0a0d; font-weight: 800; }
+  .cal-grid span .mk { position: absolute; bottom: 1px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; border-radius: 999px; }
+  .cal-note { font-size: 11px; color: #55555e; }
+
+  .quarter-row-v2 { display: grid; grid-template-columns: repeat(4,1fr); gap: 5px; }
+  .q-cell { text-align: center; padding: 8px 0; border-radius: 8px; background: #141417; color: #55555e; font-size: 11px; font-weight: 800; }
+  .q-cell.done { color: #4CAF7D; }
+  .q-cell.current { background: #D9B24C; color: #0a0a0d; }
+  .month-row-v2 { display: grid; grid-template-columns: repeat(6,1fr); gap: 4px; }
+  .m-cell { text-align: center; padding: 7px 0; border-radius: 7px; background: #141417; color: #55555e; font-size: 10px; font-weight: 700; cursor: pointer; }
+  .m-cell:hover { outline: 1px solid #D9B24C; }
+  .m-cell.done { color: #4CAF7D; }
+  .m-cell.current { background: #D9B24C; color: #0a0a0d; font-weight: 800; }
+
+  .view-label { font-size: 10px; font-weight: 800; letter-spacing: .08em; color: #55555e; }
+  .view-row { display: flex; gap: 5px; }
+  .view-pill { padding: 6px 12px; border-radius: 999px; border: 1px solid #24242a; background: transparent; color: #7d7d86; font-size: 11px; font-weight: 700; }
+  .view-pill.active { border-color: #4C6FFF; background: rgba(76,111,255,.14); color: #a9b8ff; }
+
+  .plan-card { border: 1px solid #24242a; border-radius: 14px; overflow: hidden; }
+  .plan-head { padding: 10px 14px; background: #111114; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1c1c21; }
+  .plan-head .t { font-size: 12px; font-weight: 800; color: #e2e2e6; letter-spacing: .02em; }
+  .plan-head .n { margin-left: auto; font-size: 11px; color: #6a6a74; }
+  .plan-section { padding: 10px 14px; color: #6a6a74; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; border-bottom: 1px solid #17171b; }
+  .plan-section .chev { color: #3f3f46; }
+  .plan-open .head { padding: 9px 14px; color: #e2e2e6; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; background: #141417; }
+  .plan-open .head .chev { color: #e2856b; }
+  .dot { width: 6px; height: 6px; border-radius: 999px; background: #e2856b; margin-left: 4px; }
+  .hour-row { padding: 8px 14px 8px 32px; font-size: 12px; color: #55555e; }
+  .hour-now { padding: 8px 14px 8px 32px; display: flex; align-items: baseline; gap: 8px; background: #17171b; }
+  .hour-now .time { font-size: 12px; color: #4C6FFF; font-weight: 700; }
+  .hour-now input { flex: 1; background: transparent; border: none; outline: none; color: #c7c7cf; font-size: 12px; font-family: inherit; }
+
+  .add-goal-trigger { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 10px; border: 1px dashed #33333b; background: transparent; color: #7d7d86; font-size: 12px; font-weight: 700; width: 100%; transition: border-color .1s, color .1s; }
+  .add-goal-trigger:hover { border-color: #4C6FFF; color: #a9b8ff; }
+  .add-goal-trigger.small { font-size: 11px; padding: 8px 12px; color: #55555e; }
+  .add-goal-trigger .plus { color: #4C6FFF; font-weight: 800; }
+  .add-goal-form { border: 1px dashed #33333b; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: #0d0d10; }
+  .owner-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .owner-chip { flex: none; padding: 7px 12px; border-radius: 999px; border: 1px solid #24242a; background: transparent; font-size: 11px; font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
+  .owner-chip.active { background: rgba(76,111,255,.14); }
+  .type-chip-row { display: flex; gap: 6px; }
+  .type-chip { flex: 1; padding: 8px 0; border-radius: 8px; border: 1px solid #24242a; background: transparent; color: #7d7d86; font-size: 11px; font-weight: 800; text-align: center; }
+  .type-chip.active { border-color: #4C6FFF; background: rgba(76,111,255,.14); color: #a9b8ff; }
+  .goal-input { background: #17171b; border: 1px solid #24242a; border-radius: 10px; padding: 10px 12px; color: #e2e2e6; font-size: 12px; font-family: inherit; outline: none; width: 100%; }
+  .when-label { font-size: 10px; font-weight: 800; letter-spacing: .08em; color: #55555e; margin-top: 2px; }
+  .when-row { display: flex; flex-direction: column; gap: 6px; }
+  .when-option { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #c7c7cf; cursor: pointer; }
+  .when-option input[type=radio] { appearance: none; -webkit-appearance: none; width: 15px; height: 15px; border-radius: 999px; border: 1.5px solid #33333b; background: #0d0d10; position: relative; }
+  .when-option input[type=radio]:checked { border-color: #4C6FFF; }
+  .when-option input[type=radio]:checked::after { content: ''; position: absolute; inset: 3px; border-radius: 999px; background: #4C6FFF; }
+  .add-goal-actions { display: flex; align-items: center; gap: 8px; }
+  .win-toggle { display: flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 999px; border: 1px solid #D9B24C; background: transparent; color: #D9B24C; font-size: 11px; font-weight: 700; }
+  .add-btn { margin-left: auto; padding: 8px 16px; border-radius: 10px; border: none; background: #4C6FFF; color: #fff; font-size: 12px; font-weight: 800; }
+
+  .review-panel { border: 1px solid #E34C7A; border-radius: 14px; padding: 12px; background: rgba(227,76,122,.06); display: flex; flex-direction: column; gap: 10px; }
+  .review-head { font-size: 12px; font-weight: 800; color: #f4a3bd; }
+  .review-item { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: 10px; background: #111114; border: 1px solid #24242a; }
+  .review-item .rt { font-size: 12px; color: #e2e2e6; }
+  .review-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+  .review-actions button { flex: 1; min-width: 74px; padding: 6px 4px; border-radius: 7px; border: 1px solid #24242a; background: #17171b; color: #9c9ca6; font-size: 9.5px; font-weight: 700; }
+  .review-actions button:hover { border-color: #E34C7A; color: #f4a3bd; }
+  .review-done { font-size: 11px; color: #4CAF7D; text-align: center; padding: 8px; }
+
+  .footnote { max-width: 760px; margin: 0 auto 40px; font-size: 12px; color: #6a6a74; line-height: 1.7; padding: 0 24px; }
+  .footnote b { color: #9c9ca6; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Habit OS — generic data contract prototype (v5)</h1>
+  <p>Phase 5A: v4-এর same vertical-slice scenario, কিন্তু এবার একটা generic entity-relationship model-এর উপরে — <code>OUTCOME → MILESTONE(parentOutcomeId) → WIN(parentMilestoneId) → TASK(parentWinId)</code>। কোথাও আর <code>winFor === 'week-3'</code> string-match নেই, কোথাও আর <code>100+100+weekPct+0</code>-এর মতো hardcoded formula নেই — <code>winProgress()</code>/<code>milestoneProgress()</code>/<code>outcomeProgress()</code> শুধু parent-child ID ধরে filter+average করে, তাই একটা নতুন Win/Milestone যোগ করলে এই formula-গুলো না ছুঁয়েই cascade কাজ করবে। Week navigation (‹ ›)-ও এখন একটা real <code>WEEKS</code> collection থেকে আসছে (bare number না, <code>weekId</code>)। Daily NOW checkbox টিক দিলে একই cascade আগের মতোই কাজ করে ("🏆 WIN ACHIEVED" badge, Month/Year bar recalculate) — শুধু এবার সেটা generic engine দিয়ে, same numbers (initial 60/65/83% → complete হলে 100/75/88%, v4-র সাথে verify করা হয়েছে)।</p>
+</div>
+
+<div class="stage">
+  <div class="frame"><div class="screen">
+
+    <div class="hdr">
+      <div class="breadcrumb" id="breadcrumb"></div>
+      <div class="mode-row">
+        <button class="mode-btn">PLAN</button>
+        <button class="mode-btn active">EXECUTE</button>
+      </div>
+      <div class="nav-row">
+        <button class="nav-tab active-blue" id="tab-daily" onclick="switchView('daily')">DAILY</button>
+        <button class="nav-tab" id="tab-weekly" onclick="switchView('weekly')">WEEKLY</button>
+        <button class="nav-tab" id="tab-monthly" onclick="switchView('monthly')">MONTHLY</button>
+        <button class="nav-tab" id="tab-yearly" onclick="switchView('yearly')">YEARLY</button>
+      </div>
+    </div>
+
+    <div class="body" id="scroll-body">
+
+      <!-- ============ DAILY ============ -->
+      <div class="panel" id="panel-daily" style="--lvl:#4C6FFF;">
+
+        <div class="planning-banner" id="planning-banner">
+          <span>📅</span><span id="planning-banner-text">Planning ahead</span>
+          <a href="#" onclick="backToToday();return false;">← Today</a>
+        </div>
+        <div class="toast" id="toast-daily"></div>
+
+        <div class="week-strip-card">
+          <div class="week-strip-label">THIS WEEK <span class="muted">21–27 Sep</span></div>
+          <div class="day-strip-v2">
+            <div class="day-col" onclick="goToDate(21,9,2026)"><span class="dnum">21</span><span class="dstat done">✓</span></div>
+            <div class="day-col" onclick="goToDate(22,9,2026)"><span class="dnum">22</span><span class="dstat done">✓</span></div>
+            <div class="day-col today" onclick="goToDate(23,9,2026)"><span class="dnum">23</span><span class="dstat current">●</span></div>
+            <div class="day-col" onclick="goToDate(24,9,2026)"><span class="dnum">24</span><span class="dstat">○</span></div>
+            <div class="day-col" onclick="goToDate(25,9,2026)"><span class="dnum">25</span><span class="dstat">○</span></div>
+            <div class="day-col" onclick="goToDate(26,9,2026)"><span class="dnum">26</span><span class="dstat">○</span></div>
+            <div class="day-col" onclick="goToDate(27,9,2026)"><span class="dnum">27</span><span class="dstat">○</span></div>
+          </div>
+          <div class="week-strip-foot">4 / 7 days passed · 3 days left</div>
+        </div>
+
+        <div class="win-card">
+          <div class="win-head"><span class="win-label">NOW</span><button class="win-edit">✎ Edit</button></div>
+          <label class="sub-row" style="padding-left:0;gap:10px;">
+            <input type="checkbox" id="now-task-checkbox" style="--accent:#4C6FFF;" onchange="toggleDone(15)">
+            <span class="win-title" id="now-task-title" style="font-size:13px;">Fix calendar interaction</span>
+          </label>
+          <div class="cal-note" style="margin-top:-2px;">এটাই Week 3 Win-এর একটা supporting action — এখানে টিক দিলে Week/Month/Year সবখানে propagate করবে।</div>
+        </div>
+        <div class="toast" id="toast-cascade" style="background:rgba(217,178,76,.12);border-color:#D9B24C;color:#f0dfa6;"></div>
+
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div class="goals-label">TOP 3 — MOST IMPORTANT TASKS</div>
+          <div class="list-card" id="top3-list"></div>
+          <div class="cal-note">সর্বোচ্চ ৩টা — ৩টা ভরে গেলে নতুন item যোগ করার option লুকিয়ে যায় (data থেকেই enforce হচ্ছে, শুধু visual না)।</div>
+        </div>
+
+        <button class="add-goal-trigger small" id="plan-day-trigger" onclick="togglePlanDay(true)"><span class="plus">+</span> Schedule / Deadline</button>
+        <div class="add-goal-form" id="plan-day-form" style="display:none;">
+          <div class="goals-label" style="color:#8a8a93;">+ MEETING / DEADLINE</div>
+          <input class="goal-input" placeholder="e.g. 3:00 PM client call, or Nov 5 — export shipment due">
+          <div class="add-goal-actions">
+            <button class="win-toggle" style="border-color:#4C6FFF;color:#a9b8ff;">📌 Mark as deadline</button>
+            <button class="add-btn">Save to this date</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="view-label" style="margin-bottom:6px;">VIEW</div>
+          <div class="view-row">
+            <button class="view-pill active" id="pill-hours" onclick="switchDayView('hours')">Hours</button>
+            <button class="view-pill" id="pill-tasks" onclick="switchDayView('tasks')">Tasks</button>
+            <button class="view-pill" id="pill-notes" onclick="switchDayView('notes')">Notes</button>
+          </div>
+        </div>
+
+        <div id="view-hours">
+          <div class="plan-card">
+            <div class="plan-head"><span class="t">TODAY'S PLAN</span><span class="n">3/12 logged</span></div>
+            <div class="plan-section"><span class="chev">›</span> Morning</div>
+            <div class="plan-open">
+              <div class="head"><span class="chev">⌄</span> Work<span class="dot"></span></div>
+              <div class="hour-row">09:00 AM</div>
+              <div class="hour-row">10:00 AM</div>
+              <div class="hour-now"><span class="time">11:50 AM</span><input placeholder="What are you doing this hour?"></div>
+            </div>
+            <div class="plan-section"><span class="chev">›</span> Evening</div>
+            <div class="plan-section" style="border-bottom:none;"><span class="chev">›</span> Sleep</div>
+          </div>
+        </div>
+        <div id="view-tasks" style="display:none;">
+          <div class="goals-label" style="margin-bottom:6px;">SCHEDULED FOR THIS DAY</div>
+          <div class="list-card" id="day-tasks-list"></div>
+          <div class="cal-note" style="margin-top:6px;">এই list Weekly/Monthly panel থেকে "→ Assign day" বা "This week" schedule করা item — নতুন duplicate তৈরি হয় না, একই item।</div>
+        </div>
+        <div id="view-notes" style="display:none;">
+          <div class="goals-label" style="margin-bottom:6px;">NOTES</div>
+          <textarea class="goal-input" style="min-height:120px;resize:vertical;" placeholder="আজকের জন্য free-form note..."></textarea>
+        </div>
+      </div>
+
+      <!-- ============ WEEKLY ============ -->
+      <div class="panel" id="panel-weekly" style="--lvl:#E34C7A;display:none;">
+
+        <div class="week-strip-card">
+          <div class="week-strip-label" style="display:flex;align-items:center;">
+            <button class="win-edit" onclick="shiftWeek(-1)" style="margin:0;">‹</button>
+            <span id="week-nav-label" style="margin:0 6px;">WEEK 3 <span class="muted">21–27 Sep 2026</span></span>
+            <button class="win-edit" onclick="shiftWeek(1)" style="margin:0 0 0 auto;">›</button>
+          </div>
+          <div class="day-strip-v2" id="weekly-day-strip"></div>
+          <div class="week-strip-foot" id="weekly-strip-foot">4 / 7 days passed · 3 days left</div>
+        </div>
+
+        <div id="week-win-wrap"></div>
+
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div class="goals-label">WEEKLY COMMITMENTS — ALL PROJECTS <button class="review-link" onclick="openReview()">Review week →</button></div>
+          <div class="level-sub" id="weekly-commit-count" style="margin:-2px 0 0;">0/0 complete</div>
+          <div class="list-card" id="weekly-list"></div>
+
+          <div class="add-goal-form">
+            <div class="goals-label" style="color:#8a8a93;">+ ADD A WEEKLY COMMITMENT</div>
+            <div class="type-chip-row">
+              <button class="type-chip active" id="w-type-task" onclick="setWType('task')">Task</button>
+              <button class="type-chip" id="w-type-outcome" onclick="setWType('outcome')">Outcome</button>
+              <button class="type-chip" id="w-type-milestone" onclick="setWType('milestone')">Milestone</button>
+            </div>
+            <div class="owner-row">
+              <button class="owner-chip" data-p="LIFE" data-c="#D9B24C" style="border-color:#D9B24C;color:#D9B24C;" onclick="setWOwner(this)">LIFE</button>
+              <button class="owner-chip" data-p="SHIP SPARES" data-c="#F2994A" style="border-color:#F2994A;color:#F2994A;" onclick="setWOwner(this)">SHIP SPARES</button>
+              <button class="owner-chip active" data-p="HABIT OS" data-c="#4C6FFF" style="border-color:#4C6FFF;color:#a9b8ff;" onclick="setWOwner(this)">HABIT OS</button>
+              <button class="owner-chip" data-p="AMAZON FBA" data-c="#4CAF7D" style="border-color:#4CAF7D;color:#4CAF7D;" onclick="setWOwner(this)">AMAZON FBA</button>
+              <button class="owner-chip" data-p="DAYNOTES" data-c="#9B6BFF" style="border-color:#9B6BFF;color:#9B6BFF;" onclick="setWOwner(this)">DAYNOTES</button>
+              <button class="owner-chip" data-p="CASH BRAIN" data-c="#C9D14C" style="border-color:#C9D14C;color:#C9D14C;" onclick="setWOwner(this)">CASH BRAIN</button>
+            </div>
+            <input class="goal-input" id="w-add-input" placeholder="What needs to happen this week?">
+            <div class="add-goal-actions">
+              <button class="add-btn" onclick="addWeeklyCommitment()">Add</button>
+            </div>
+          </div>
+          <div class="cal-note">এটা task/commitment যোগ করার ফর্ম — WIN আলাদা (উপরের card), task থেকে toggle করে WIN বানানো যায় না।</div>
+        </div>
+
+        <div class="review-panel" id="review-panel" style="display:none;">
+          <div class="review-head">সপ্তাহ শেষ হতে চলেছে — ৩ দিন বাকি, কিন্তু এখনই preview করতে পারো: এখনো অসম্পূর্ণ যা আছে —</div>
+          <div id="review-items"></div>
+          <button class="add-goal-trigger small" onclick="closeReview()">বন্ধ করো</button>
+        </div>
+      </div>
+
+      <!-- ============ MONTHLY ============ -->
+      <div class="panel" id="panel-monthly" style="--lvl:#2FAE7A;display:none;">
+
+        <div class="level-title">SEPTEMBER 2026</div>
+        <div class="level-sub">23 / 30 days · 7 days left</div>
+
+        <div class="cal-card">
+          <div class="cal-head"><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span><span>Su</span></div>
+          <div class="cal-grid">
+            <span class="muted" onclick="goToDate(31,8,2026)">31</span><span onclick="goToDate(1,9,2026)">1</span><span onclick="goToDate(2,9,2026)">2</span><span onclick="goToDate(3,9,2026)">3</span><span onclick="goToDate(4,9,2026)">4</span><span onclick="goToDate(5,9,2026)">5</span><span onclick="goToDate(6,9,2026)">6</span>
+            <span onclick="goToDate(7,9,2026)">7</span><span onclick="goToDate(8,9,2026)">8</span><span onclick="goToDate(9,9,2026)">9</span><span onclick="goToDate(10,9,2026)">10</span><span onclick="goToDate(11,9,2026)">11</span><span onclick="goToDate(12,9,2026)">12</span><span onclick="goToDate(13,9,2026)">13</span>
+            <span onclick="goToDate(14,9,2026)">14</span><span onclick="goToDate(15,9,2026)">15<span class="mk" style="background:#F2994A;"></span></span><span onclick="goToDate(16,9,2026)">16</span><span onclick="goToDate(17,9,2026)">17</span><span onclick="goToDate(18,9,2026)">18</span><span onclick="goToDate(19,9,2026)">19</span><span onclick="goToDate(20,9,2026)">20</span>
+            <span onclick="goToDate(21,9,2026)">21</span><span onclick="goToDate(22,9,2026)">22</span><span class="today" onclick="goToDate(23,9,2026)">23</span><span onclick="goToDate(24,9,2026)">24</span><span onclick="goToDate(25,9,2026)">25<span class="mk" style="background:#4C6FFF;"></span></span><span onclick="goToDate(26,9,2026)">26</span><span onclick="goToDate(27,9,2026)">27</span>
+            <span onclick="goToDate(28,9,2026)">28</span><span onclick="goToDate(29,9,2026)">29</span><span onclick="goToDate(30,9,2026)">30</span>
+          </div>
+        </div>
+        <div class="cal-note">তারিখে click করলে সেই দিনের Daily view খুলবে।</div>
+
+        <div class="win-card">
+          <div class="win-head"><span class="win-label">MONTH WIN</span><button class="win-edit">✎ Edit</button></div>
+          <div class="win-title">Complete Planner — ready for build</div>
+          <div class="win-bar"><div id="month-win-bar" style="width:0%;background:#2FAE7A;"></div></div>
+          <div class="cal-note" id="month-win-formula" style="margin:0;"></div>
+          <details class="win-details" open>
+            <summary>weekly milestones (Week 1–2 fixed for this test)</summary>
+            <div class="mstone-row done"><span class="mk">✓</span><span class="lbl">Week 1 — 100%</span></div>
+            <div class="mstone-row done"><span class="mk">✓</span><span class="lbl">Week 2 — 100%</span></div>
+            <div class="mstone-row" id="month-week3-row"><span class="mk" id="month-week3-mk">●</span><span class="lbl" id="month-week3-lbl">Week 3 — 0% (live, এখান থেকে আসছে)</span></div>
+            <div class="mstone-row pending"><span class="mk">○</span><span class="lbl">Week 4 — 0% (not started)</span></div>
+          </details>
+          <div class="win-pace-row">
+            <div class="win-pace-line"><span class="k">TIME</span><span class="v" style="color:#9c9ca6;">77% elapsed</span></div>
+            <div class="win-pace-line"><span class="k">PROGRESS</span><span class="v" style="color:#8fe0bd;" id="month-win-pct">75% complete</span></div>
+            <div class="pace-chip onpace" id="month-pace-chip">ON PACE</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div class="goals-label">MONTHLY OUTCOMES — ALL PROJECTS</div>
+          <div class="list-card" id="monthly-list"></div>
+
+          <div class="add-goal-form" id="monthly-add-form">
+            <div class="goals-label" style="color:#8a8a93;">+ ADD ACTION</div>
+            <div class="type-chip-row">
+              <button class="type-chip active" id="m-type-task" onclick="setMType('task')">Task</button>
+              <button class="type-chip" id="m-type-outcome" onclick="setMType('outcome')">Outcome</button>
+              <button class="type-chip" id="m-type-milestone" onclick="setMType('milestone')">Milestone</button>
+            </div>
+            <input class="goal-input" id="m-add-input" placeholder="What needs to happen?">
+            <div class="when-label">WHEN?</div>
+            <div class="when-row">
+              <label class="when-option"><input type="radio" name="mwhen" value="thisweek" checked> This week (Week 3)</label>
+              <label class="when-option"><input type="radio" name="mwhen" value="nextweek"> Next week (Week 4)</label>
+              <label class="when-option"><input type="radio" name="mwhen" value="monthonly"> Just this month (unscheduled)</label>
+            </div>
+            <div class="add-goal-actions">
+              <button class="add-btn" onclick="addMonthlyAction()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ YEARLY ============ -->
+      <div class="panel" id="panel-yearly" style="--lvl:#D9B24C;display:none;">
+
+        <div class="level-title">2026</div>
+
+        <div class="quarter-row-v2">
+          <div class="q-cell done">Q1 ✓</div><div class="q-cell done">Q2 ✓</div><div class="q-cell current">Q3 ●</div><div class="q-cell">Q4 ○</div>
+        </div>
+        <div class="month-row-v2">
+          <div class="m-cell done" onclick="goToDate(1,7,2026)">JUL ✓</div>
+          <div class="m-cell done" onclick="goToDate(1,8,2026)">AUG ✓</div>
+          <div class="m-cell current" onclick="goToDate(23,9,2026)">SEP ●</div>
+          <div class="m-cell" onclick="goToDate(1,10,2026)">OCT ○</div>
+          <div class="m-cell" onclick="goToDate(1,11,2026)">NOV ○</div>
+          <div class="m-cell" onclick="goToDate(1,12,2026)">DEC ○</div>
+        </div>
+
+        <div class="win-card">
+          <div class="win-head"><span class="win-label">YEAR WIN</span><button class="win-edit">✎ Edit</button></div>
+          <div class="win-title">Launch Habit OS commercially</div>
+          <div class="win-bar"><div id="year-win-bar" style="width:0%;background:#D9B24C;"></div></div>
+          <div class="cal-note" style="margin:0;">এই test-এ শুধু ২টা মাস real — বাকি ১০টা fake data দিয়ে দেখানো হয়নি, honest থাকতে।</div>
+          <details class="win-details" open>
+            <summary>monthly milestones (এই vertical-slice test-এ শুধু ২টা মাস)</summary>
+            <div class="mstone-row done"><span class="mk">✓</span><span class="lbl">Aug — 100% (carried over, fixed)</span></div>
+            <div class="mstone-row" id="year-sep-row"><span class="mk" id="year-sep-mk">●</span><span class="lbl" id="year-sep-lbl">Sep — 0% (live, Month Win থেকে আসছে)</span></div>
+          </details>
+          <div class="win-pct" id="year-win-pct">avg(Aug 100%, Sep 0%) = 50%</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <div class="goals-label">YEAR OUTCOMES</div>
+          <div class="list-card">
+            <div class="outcome-row"><span class="n">01</span><div class="outcome-body"><span class="tag" style="color:#4C6FFF;">HABIT OS</span><span class="txt">Launch commercially, first paying customers</span><div class="mini-bar"><div style="width:72%;background:#4C6FFF;"></div></div><span class="mini-pct">72%</span></div></div>
+            <div class="outcome-row"><span class="n">02</span><div class="outcome-body"><span class="tag" style="color:#F2994A;">SHIP SPARES</span><span class="txt">Establish a repeat export pipeline</span><div class="mini-bar"><div style="width:48%;background:#F2994A;"></div></div><span class="mini-pct">48%</span></div></div>
+            <div class="outcome-row"><span class="n">03</span><div class="outcome-body"><span class="tag" style="color:#4CAF7D;">AMAZON FBA</span><span class="txt">Validate the bird-nesting product</span><div class="mini-bar"><div style="width:31%;background:#4CAF7D;"></div></div><span class="mini-pct">31%</span></div></div>
+            <div class="outcome-row"><span class="n">04</span><div class="outcome-body"><span class="tag" style="color:#D9B24C;">LIFE</span><span class="txt">Build a sustainable daily execution system</span><div class="mini-bar"><div style="width:65%;background:#D9B24C;"></div></div><span class="mini-pct">65%</span></div></div>
+          </div>
+          <button class="add-goal-trigger"><span class="plus">+</span> Add a yearly outcome</button>
+        </div>
+      </div>
+
+    </div>
+  </div></div>
+</div>
+
+<div class="footnote">
+  <b>এই round-এ যা বদলালো (Phase 5A — generic data contract, একই vertical-slice test, নতুন কোনো UI/theme না):</b><br>
+  ① <b>Entity model</b> — flat <code>ITEMS</code> array-র বদলে এখন 4 layer: <code>OUTCOMES</code> (<code>out_2026</code>) → <code>MILESTONES</code> (<code>ms_aug</code> fixed, <code>ms_sep</code> live, প্রতিটার <code>outcomeId</code>) → <code>WINS</code> (<code>win_w1/w2</code> fixed, <code>win_w3</code> live, <code>win_w4</code> fixed-0%, প্রতিটার <code>milestoneId</code>) → <code>TASKS</code> (৫টা Sep task-এর <code>winId: 'win_w3'</code>)। কোথাও আর string-tag <code>winFor</code> নেই।<br>
+  ② <b>Generic engine</b> — <code>winProgress(win)</code> সরাসরি <code>tasksForWin(win.id)</code> filter করে % বের করে (fixed win হলে stored value), <code>milestoneProgress(ms)</code> সেই milestone-এর সব Win-এর average, <code>outcomeProgress(out)</code> সব Milestone-এর average — কোথাও <code>100+100+x+0</code>-এর মতো literal formula নেই, সবটাই <code>.filter()</code>/<code>.reduce()</code> দিয়ে real relationship হাঁটা। v4-র exact numbers দিয়ে verify করা হয়েছে (initial 60/65/83% → complete হলে 100/75/88% — অবিকল মিলেছে, একটা Node stub-DOM script দিয়ে)।<br>
+  ③ <b>WEEKS collection</b> — <code>currentWeek</code> bare number ছিল, এখন <code>currentWeekId</code> একটা real <code>WEEKS</code> array-কে point করে (প্রতিটা week-এর নিজের <code>days[]</code>, <code>winId</code>, <code>elapsedDays</code>) — <code>shiftWeek()</code>, day-strip, Week Win card সবই generic lookup দিয়ে render হয়, "week===3" if/else নেই।<br>
+  ④ <b>Carry-forward</b> — এখন target week-টাও <code>WEEKS</code> array থেকে generic ভাবে বের হয় (<code>WEEKS[idx+1]</code>), item-এর same <code>id</code>/object বজায় থাকে (আগের মতোই re-verify করা হয়েছে)।<br>
+  ⑤ <b>Cascade toast</b> — এখন কোনো win-এর জন্যই generic ভাবে কাজ করবে (win object + তার milestone/outcome দিয়ে message বানায়), শুধু "Week 3" hardcode করা নেই — যদিও এই স্লাইসে শুধু <code>win_w3</code>-ই live তাই এখনো এটাই দেখা যাবে।<br><br>
+  <b>Breadcrumb</b> আগের মতোই সঠিক (Yearly=বছর, Monthly=বছর›মাস, Weekly=+সপ্তাহ, Daily=+দিন) — অপরিবর্তিত।<br><br>
+  <b>এখনো simplified/honest flag (deliberately not this phase's scope):</b> "Schedule a specific date" এখনো <code>carryForward('date')</code>-এ "next week"-এর মতোই resolve হয় (real date→week derivation নেই) — এর জন্য future interaction contract কোড-এ comment হিসেবে লিখে রাখা আছে (<code>{ planned_period, scheduled_date, status, parent_win }</code>)। Week 4-এর নিজস্ব কোনো live Win নেই (placeholder card দেখায়, কারণ tasks নেই) — fake data দেওয়ার বদলে সততার সাথে "not started" রাখা হয়েছে। Production-এ TASK/WIN/MILESTONE/OUTCOME-কে আলাদা collection হওয়া উচিত, এখানে এখনো একই <code>TASKS</code> array-তে <code>type</code> দিয়ে আলাদা করা (Top-3 / task / monthly-outcome) — এটাও এখনো prototype-level simplification, backend rewrite না। Theme স্পর্শ করিনি।
+</div>
+
+<script>
+  var WD = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  var MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var MOFULL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var DAYSHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var currentView = 'daily';
+  var currentDate = { day: 23, month: 9, year: 2026 };
+  var currentWeekId = 'w3';
+  var nextId = 200;
+  var weekWinAchieved = false;
+
+  // ================== GENERIC DATA CONTRACT (Phase 5A) ==================
+  // OUTCOME (year) -> MILESTONE (month, parentOutcomeId) -> WIN (week, parentMilestoneId)
+  //   -> TASK (day, parentWinId). Every level is looked up by ID, never by
+  // string-matching a specific week/month name — so adding a new
+  // Outcome/Milestone/Win/Task needs no changes to the compute functions below.
+
+  var OUTCOMES = [
+    { id: 'out_2026', title: 'Launch Habit OS commercially', year: 2026 }
+  ];
+
+  var MILESTONES = [
+    // August is out of scope for this vertical slice — carried over as a fixed, already-closed period.
+    { id: 'ms_aug', title: 'August', shortLabel: 'Aug', outcomeId: 'out_2026', month: 8, year: 2026, fixed: true, progress: 100 },
+    { id: 'ms_sep', title: 'September — Complete Planner', shortLabel: 'Sep', outcomeId: 'out_2026', month: 9, year: 2026, fixed: false }
+  ];
+
+  var WINS = [
+    // Week 1 & Week 2 are out of scope for this slice — fixed/closed.
+    { id: 'win_w1', title: 'Week 1', weekLabel: 'Week 1', milestoneId: 'ms_sep', fixed: true, progress: 100 },
+    { id: 'win_w2', title: 'Week 2', weekLabel: 'Week 2', milestoneId: 'ms_sep', fixed: true, progress: 100 },
+    // Week 3 is the live Win under test — its progress is NOT stored, it is always derived from its TASKS.
+    { id: 'win_w3', title: 'Finish Habit OS planner navigation', weekLabel: 'Week 3', milestoneId: 'ms_sep', fixed: false, criteria: 'all supporting actions done' },
+    // Week 4 has no tasks yet — fixed at 0, a real (not fake) "not started" state.
+    { id: 'win_w4', title: 'Week 4', weekLabel: 'Week 4', milestoneId: 'ms_sep', fixed: true, progress: 0 }
+  ];
+
+  var WEEKS = [
+    {
+      id: 'w3', num: 3, winId: 'win_w3', label: 'WEEK 3', dateRange: '21–27 Sep 2026', month: 9, year: 2026,
+      days: [
+        { d: 21, lbl: 'M', stat: 'done' }, { d: 22, lbl: 'T', stat: 'done' }, { d: 23, lbl: 'W', stat: 'current' },
+        { d: 24, lbl: 'T', stat: 'pending' }, { d: 25, lbl: 'F', stat: 'pending' }, { d: 26, lbl: 'S', stat: 'pending' }, { d: 27, lbl: 'S', stat: 'pending' }
+      ],
+      elapsedDays: 4, totalDays: 7, footNote: '4 / 7 days passed · 3 days left'
+    },
+    {
+      id: 'w4', num: 4, winId: 'win_w4', label: 'WEEK 4', dateRange: '28 Sep – 4 Oct 2026', month: 9, year: 2026,
+      days: [
+        { d: 28, lbl: 'M', mo: 9, stat: 'pending' }, { d: 29, lbl: 'T', mo: 9, stat: 'pending' }, { d: 30, lbl: 'W', mo: 9, stat: 'pending' },
+        { d: 1, lbl: 'T', mo: 10, stat: 'pending' }, { d: 2, lbl: 'F', mo: 10, stat: 'pending' }, { d: 3, lbl: 'S', mo: 10, stat: 'pending' }, { d: 4, lbl: 'S', mo: 10, stat: 'pending' }
+      ],
+      elapsedDays: 0, totalDays: 7, footNote: 'এখনো শুরু হয়নি — future week'
+    }
+  ];
+
+  // ---- shared task model: ONE array, every panel renders a filtered view of it ----
+  var TASKS = [
+    // Top-3 for today (type:'top3') — not part of the win chain
+    { id: 1, title: "Finish reviewing the redesign mockup", type: 'top3', project: 'HABIT OS', color: '#4C6FFF', weekId: 'w3', day: 23, done: false },
+    { id: 2, title: "Reply to the buyer's email", type: 'top3', project: 'SHIP SPARES', color: '#F2994A', weekId: 'w3', day: 23, done: true },
+    { id: 3, title: "Check listing approval status", type: 'top3', project: 'AMAZON FBA', color: '#4CAF7D', weekId: 'w3', day: 23, done: false },
+
+    // Week 3 Win's supporting actions — the vertical-slice test chain:
+    // out_2026 -> ms_sep -> win_w3 -> these 5 day-scoped tasks (linked by winId, not by a 'week-3' string)
+    { id: 11, title: "Daily navigation", type: 'task', project: 'HABIT OS', color: '#4C6FFF', weekId: 'w3', day: 21, done: true, winId: 'win_w3' },
+    { id: 12, title: "Weekly navigation", type: 'task', project: 'HABIT OS', color: '#4C6FFF', weekId: 'w3', day: 22, done: true, winId: 'win_w3' },
+    { id: 13, title: "Monthly navigation", type: 'task', project: 'HABIT OS', color: '#4C6FFF', weekId: 'w3', day: 23, done: true, winId: 'win_w3' },
+    { id: 14, title: "Build Monthly UI", type: 'task', project: 'HABIT OS', color: '#4C6FFF', weekId: 'w3', day: 23, done: false, winId: 'win_w3' },
+    { id: 15, title: "Fix calendar interaction", type: 'task', project: 'HABIT OS', color: '#4C6FFF', weekId: 'w3', day: 23, done: false, winId: 'win_w3' },
+
+    // ordinary weekly commitments (weekId set, no winId — not part of any Win)
+    { id: 16, title: "Write this week's mindset notes", type: 'task', project: 'LIFE', color: '#D9B24C', weekId: 'w3', day: null, done: false },
+    { id: 17, title: "Contact 3 new buyers", type: 'task', project: 'SHIP SPARES', color: '#F2994A', weekId: 'w3', day: null, done: false },
+    { id: 18, title: "Product research", type: 'task', project: 'SHIP SPARES', color: '#F2994A', weekId: 'w3', day: null, done: true },
+    { id: 19, title: "Fix the sync bug", type: 'task', project: 'DAYNOTES', color: '#9B6BFF', weekId: 'w3', day: null, done: false },
+    { id: 20, title: "Add CSV export", type: 'task', project: 'CASH BRAIN', color: '#C9D14C', weekId: 'w3', day: null, done: false },
+
+    // monthly outcomes shown in the Monthly panel — decorative for other projects, not part of the win chain
+    { id: 31, title: "Ship the DAILY→YEARLY redesign", type: 'monthly-outcome', project: 'HABIT OS', color: '#4C6FFF', milestoneId: 'ms_sep', done: false },
+    { id: 32, title: "Close $5,000 in export orders", type: 'monthly-outcome', project: 'SHIP SPARES', color: '#F2994A', milestoneId: 'ms_sep', done: true },
+    { id: 33, title: "Launch bird-nesting listing", type: 'monthly-outcome', project: 'AMAZON FBA', color: '#4CAF7D', milestoneId: 'ms_sep', done: true },
+    { id: 34, title: "Hold a consistent 6am wake time", type: 'monthly-outcome', project: 'LIFE', color: '#D9B24C', milestoneId: 'ms_sep', done: true }
+  ];
+
+  var wOwner = { p: 'HABIT OS', c: '#4C6FFF' };
+  var wType = 'task';
+  var mType = 'task';
+
+  // ---------------- generic lookups ----------------
+  function getWeek(id) { return WEEKS.filter(function (w) { return w.id === id; })[0]; }
+  function getWin(id) { return WINS.filter(function (w) { return w.id === id; })[0]; }
+  function getMilestone(id) { return MILESTONES.filter(function (m) { return m.id === id; })[0]; }
+  function currentWeekObj() { return getWeek(currentWeekId); }
+  function currentWin() { var wk = currentWeekObj(); return wk && wk.winId ? getWin(wk.winId) : null; }
+
+  // ------------------------------------------------------------------
+  function switchView(view) {
+    currentView = view;
+    ['daily', 'weekly', 'monthly', 'yearly'].forEach(function (v) {
+      document.getElementById('panel-' + v).style.display = (v === view) ? 'flex' : 'none';
+    });
+    var accentClass = { daily: 'active-blue', weekly: 'active-pink', monthly: 'active-teal', yearly: 'active-gold' }[view];
+    ['daily', 'weekly', 'monthly', 'yearly'].forEach(function (v) {
+      document.getElementById('tab-' + v).className = 'nav-tab' + (v === view ? ' ' + accentClass : '');
+    });
+    document.getElementById('scroll-body').scrollTop = 0;
+    updateBreadcrumb();
+    renderAll();
+  }
+
+  function updateBreadcrumb() {
+    var d = currentDate;
+    var weekNum = Math.ceil(d.day / 7);
+    var crumbs = [];
+    crumbs.push({ label: d.year, view: 'yearly' });
+    crumbs.push({ label: MOFULL[d.month - 1], view: 'monthly' });
+    if (currentView === 'daily' || currentView === 'weekly') crumbs.push({ label: 'Week ' + weekNum, view: 'weekly' });
+    if (currentView === 'daily') crumbs.push({ label: WD[new Date(d.year, d.month - 1, d.day).getDay()].slice(0, 3) + ' ' + d.day, view: 'daily' });
+    var html = '';
+    crumbs.forEach(function (c, i) {
+      var isCurrent = (i === crumbs.length - 1);
+      html += '<button class="' + (isCurrent ? 'current' : '') + '" onclick="switchView(\'' + c.view + '\')">' + c.label + '</button>';
+      if (i < crumbs.length - 1) html += '<span class="sep">›</span>';
+    });
+    document.getElementById('breadcrumb').innerHTML = html;
+  }
+
+  function goToDate(day, month, year) {
+    currentDate = { day: day, month: month, year: year };
+    var isToday = (day === 23 && month === 9 && year === 2026);
+    document.getElementById('planning-banner').style.display = isToday ? 'none' : 'flex';
+    document.getElementById('planning-banner-text').textContent =
+      'Planning ahead — ' + WD[new Date(year, month - 1, day).getDay()] + ', ' + day + ' ' + MO[month - 1] + ' ' + year;
+    togglePlanDay(!isToday);
+    switchView('daily');
+  }
+  function backToToday() { goToDate(23, 9, 2026); }
+  function togglePlanDay(open) {
+    var trigger = document.getElementById('plan-day-trigger');
+    var form = document.getElementById('plan-day-form');
+    if (open === undefined) open = form.style.display === 'none';
+    form.style.display = open ? 'flex' : 'none';
+    trigger.style.display = open ? 'none' : 'flex';
+  }
+  function switchDayView(which) {
+    ['hours', 'tasks', 'notes'].forEach(function (w) {
+      document.getElementById('view-' + w).style.display = (w === which) ? 'block' : 'none';
+      document.getElementById('pill-' + w).className = 'view-pill' + (w === which ? ' active' : '');
+    });
+  }
+
+  // ---------------- generic upward-cascade engine ----------------
+  function tasksForWin(winId) { return TASKS.filter(function (t) { return t.winId === winId; }); }
+  function winProgress(win) {
+    if (!win) return 0;
+    if (win.fixed) return win.progress || 0;
+    var tasks = tasksForWin(win.id);
+    if (!tasks.length) return win.progress || 0;
+    var done = tasks.filter(function (t) { return t.done; }).length;
+    return Math.round(100 * done / tasks.length);
+  }
+  function winsForMilestone(msId) { return WINS.filter(function (w) { return w.milestoneId === msId; }); }
+  function milestoneProgress(ms) {
+    if (!ms) return 0;
+    if (ms.fixed) return ms.progress != null ? ms.progress : 100;
+    var wins = winsForMilestone(ms.id);
+    if (!wins.length) return ms.progress || 0;
+    var sum = wins.reduce(function (a, w) { return a + winProgress(w); }, 0);
+    return Math.round(sum / wins.length);
+  }
+  function milestonesForOutcome(outId) { return MILESTONES.filter(function (m) { return m.outcomeId === outId; }); }
+  function outcomeProgress(out) {
+    if (!out) return 0;
+    var ms = milestonesForOutcome(out.id);
+    if (!ms.length) return out.progress || 0;
+    var sum = ms.reduce(function (a, m) { return a + milestoneProgress(m); }, 0);
+    return Math.round(sum / ms.length);
+  }
+  // "the live (non-fixed) child" — the one row this prototype's UI has room to show per level.
+  function liveWinOf(ms) { return winsForMilestone(ms.id).filter(function (w) { return !w.fixed; })[0]; }
+  function liveMilestoneOf(out) { return milestonesForOutcome(out.id).filter(function (m) { return !m.fixed; })[0]; }
+
+  function rowTemplate(it) {
+    var tickHtml = '<span class="tick" style="background:' + it.color + ';"></span>';
+    var checked = it.done ? 'checked' : '';
+    var doneClass = it.done ? ' done' : '';
+    var schedLabel = it.day ? ('→ ' + DAYSHORT[weekdayIndex(it)] ) : '→ Assign day';
+    var schedClass = it.day ? 'sched-btn set' : 'sched-btn';
+    return '<label class="goal-row" style="--accent:' + it.color + ';">' +
+      tickHtml +
+      '<input type="checkbox" ' + checked + ' onchange="toggleDone(' + it.id + ')">' +
+      '<span class="tag" style="color:' + it.color + ';">' + it.project + '</span>' +
+      '<span class="txt' + doneClass + '">' + it.title + '</span>' +
+      '<button type="button" class="' + schedClass + '" onclick="event.preventDefault();toggleDayPicker(' + it.id + ')">' + schedLabel + '</button>' +
+      '<div class="day-picker-inline" id="picker-' + it.id + '" style="display:none;">' + dayPickerButtons(it.id) + '</div>' +
+      '</label>';
+  }
+  function weekdayIndex(it) {
+    // Week 3 runs Mon 21 .. Sun 27 for Sep 2026 in this mockup
+    if (!it.day) return 0;
+    return Math.max(0, Math.min(6, it.day - 21));
+  }
+  function dayPickerButtons(id) {
+    var days = [21, 22, 23, 24, 25, 26, 27];
+    var html = '';
+    days.forEach(function (d, i) {
+      html += '<button type="button" onclick="assignDay(' + id + ',' + d + ')">' + DAYSHORT[i] + '</button>';
+    });
+    return html;
+  }
+  function toggleDayPicker(id) {
+    var el = document.getElementById('picker-' + id);
+    var open = el.style.display === 'none';
+    // close all others first
+    document.querySelectorAll('.day-picker-inline').forEach(function (p) { p.style.display = 'none'; });
+    el.style.display = open ? 'flex' : 'none';
+  }
+  function assignDay(id, day) {
+    var it = TASKS.filter(function (x) { return x.id === id; })[0];
+    if (!it) return;
+    it.day = day;
+    showToast('toast-daily', '✓ Assigned to ' + DAYSHORT[weekdayIndex(it)] + ' — এখন Daily › Tasks view-তেও দেখা যাবে');
+    renderAll();
+  }
+  function toggleDone(id) {
+    var it = TASKS.filter(function (x) { return x.id === id; })[0];
+    if (!it) return;
+    var win = it.winId ? getWin(it.winId) : null;
+    var prevWinPct = win ? winProgress(win) : null;
+    it.done = !it.done;
+    renderAll();
+    if (win) cascadeCheck(win, prevWinPct);
+  }
+  function showToast(elId, msg) {
+    var el = document.getElementById(elId);
+    if (!el) return;
+    el.textContent = msg;
+    el.style.display = 'flex';
+    setTimeout(function () { el.style.display = 'none'; }, 3500);
+  }
+
+  // ---------------- cross-level cascade (generic — walks real ID relationships) ----------------
+  function cascadeCheck(win, prevWinPct) {
+    var pct = winProgress(win);
+    var ms = getMilestone(win.milestoneId);
+    var out = OUTCOMES.filter(function (o) { return o.id === ms.outcomeId; })[0];
+    if (pct === 100 && prevWinPct !== 100) {
+      weekWinAchieved = true;
+      var msg = '🏆 ' + win.weekLabel + ' Win achieved → ' + ms.shortLabel + ' milestone now ' + milestoneProgress(ms) + '% → ' + out.year + ' outcome now ' + outcomeProgress(out) + '%';
+      showToast('toast-cascade', msg);
+      showToast('toast-daily', msg);
+    } else if (pct < 100 && prevWinPct === 100) {
+      weekWinAchieved = false;
+    }
+  }
+
+  // ---------------- DAILY ----------------
+  function renderDaily() {
+    var top3 = TASKS.filter(function (it) { return it.type === 'top3'; }).slice(0, 3);
+    var html = top3.map(function (it, i) {
+      var mark = ['①', '②', '③'][i];
+      return '<label class="goal-row" style="--accent:' + it.color + ';">' +
+        '<span class="tick" style="background:' + it.color + ';"></span>' +
+        '<input type="checkbox" ' + (it.done ? 'checked' : '') + ' onchange="toggleDone(' + it.id + ')">' +
+        '<span class="tag" style="color:' + it.color + ';">' + it.project + '</span>' +
+        '<span class="txt' + (it.done ? ' done' : '') + '">' + mark + ' ' + it.title + '</span></label>';
+    }).join('');
+    if (top3.length < 3) {
+      html += '<button class="goal-row add-slot"><span class="plus">+</span><span class="txt muted">Add your ' + (top3.length === 2 ? '3rd' : (top3.length + 1) + 'th') + ' priority</span></button>';
+    }
+    document.getElementById('top3-list').innerHTML = html;
+
+    // "NOW" tracks id 15 ("Fix calendar interaction") — the current supporting action of the live Week Win.
+    var nowTask = TASKS.filter(function (it) { return it.id === 15; })[0];
+    if (nowTask) document.getElementById('now-task-checkbox').checked = nowTask.done;
+
+    var dayItems = TASKS.filter(function (it) {
+      return it.type !== 'top3' && it.type !== 'monthly-outcome' && it.day === currentDate.day;
+    });
+    var dt = document.getElementById('day-tasks-list');
+    if (dt) {
+      dt.innerHTML = dayItems.length ? dayItems.map(rowTemplate).join('') :
+        '<div class="empty-note">এই দিনে কিছু schedule করা নেই — Weekly panel থেকে "→ Assign day" দিয়ে item এখানে আনা যায়।</div>';
+    }
+  }
+
+  // ---------------- WEEKLY ----------------
+  function shiftWeek(delta) {
+    var idx = WEEKS.map(function (w) { return w.id; }).indexOf(currentWeekId);
+    var nextIdx = idx + delta;
+    if (nextIdx < 0 || nextIdx >= WEEKS.length) return;
+    currentWeekId = WEEKS[nextIdx].id;
+    renderWeekly();
+  }
+  function renderWeeklyStrip() {
+    var wk = currentWeekObj();
+    var label = document.getElementById('week-nav-label');
+    var strip = document.getElementById('weekly-day-strip');
+    var foot = document.getElementById('weekly-strip-foot');
+    label.innerHTML = wk.label + ' <span class="muted">' + wk.dateRange + '</span>';
+    strip.innerHTML = wk.days.map(function (x) {
+      var mark = x.stat === 'done' ? '✓' : (x.stat === 'current' ? '●' : '○');
+      var cls = 'day-col' + (x.stat === 'current' ? ' today' : '');
+      var mo = x.mo || wk.month;
+      return '<div class="' + cls + '" onclick="goToDate(' + x.d + ',' + mo + ',' + wk.year + ')"><span class="dnum">' + x.lbl + '<br>' + x.d + '</span><span class="dstat ' + x.stat + '">' + mark + '</span></div>';
+    }).join('');
+    foot.textContent = wk.footNote;
+  }
+  function renderWeekWinCard() {
+    var wrap = document.getElementById('week-win-wrap');
+    var wk = currentWeekObj();
+    var win = currentWin();
+    if (!win || win.fixed) {
+      wrap.innerHTML = '<div class="win-card"><div class="win-head"><span class="win-label">WEEK WIN</span></div>' +
+        '<div class="cal-note" style="margin:0;">এই সপ্তাহের জন্য এখনো কোনো live Win নেই (এই vertical-slice test শুধু ' + (win ? win.weekLabel : wk.label) + ' নিয়ে)।</div></div>';
+      return;
+    }
+    var supp = tasksForWin(win.id);
+    var done = supp.filter(function (it) { return it.done; }).length;
+    var pct = winProgress(win);
+    var achievedBanner = pct === 100 ? '<div class="pace-chip ahead" style="align-self:flex-start;">🏆 WIN ACHIEVED — criteria met (' + done + '/' + supp.length + ')</div>' : '';
+    var timePct = Math.round(100 * wk.elapsedDays / wk.totalDays);
+    wrap.innerHTML = '<div class="win-card">' +
+      '<div class="win-head"><span class="win-label">WEEK WIN</span><button class="win-edit">✎ Edit</button></div>' +
+      '<div class="win-title">' + win.title + '</div>' +
+      '<div class="win-bar"><div style="width:' + pct + '%;background:#E34C7A;"></div></div>' +
+      achievedBanner +
+      '<details class="win-details" open><summary>' + done + ' / ' + supp.length + ' supporting actions</summary>' +
+      supp.map(function (it) {
+        return '<label class="sub-row"><input type="checkbox" ' + (it.done ? 'checked' : '') + ' style="--accent:#E34C7A;" onchange="toggleDone(' + it.id + ')"><span class="txt' + (it.done ? ' done' : '') + '">' + it.title + ' <span style="color:#55555e;">· Sep ' + it.day + '</span></span></label>';
+      }).join('') + '</details>' +
+      '<div class="win-pace-row"><div class="win-pace-line"><span class="k">TIME</span><span class="v" style="color:#9c9ca6;">' + wk.elapsedDays + '/' + wk.totalDays + ' days · ' + timePct + '%</span></div>' +
+      '<div class="win-pace-line"><span class="k">PROGRESS</span><span class="v" style="color:#f4a3bd;">' + pct + '%</span></div>' +
+      '<div class="pace-chip ' + (pct >= timePct ? 'onpace' : 'behind') + '">' + (pct >= timePct ? 'ON PACE' : 'BEHIND PACE') + '</div></div>' +
+      '</div>';
+  }
+  function renderWeekly() {
+    renderWeeklyStrip();
+    renderWeekWinCard();
+    var weekItems = TASKS.filter(function (it) { return it.type === 'task' && it.weekId === currentWeekId && !it.winId; });
+    document.getElementById('weekly-list').innerHTML = weekItems.length ? weekItems.map(rowTemplate).join('') :
+      '<div class="empty-note">এই সপ্তাহে কোনো commitment নেই।</div>';
+    var doneCount = weekItems.filter(function (it) { return it.done; }).length;
+    document.getElementById('weekly-commit-count').textContent = doneCount + '/' + weekItems.length + ' complete';
+  }
+
+  function setWOwner(btn) {
+    document.querySelectorAll('.owner-row .owner-chip').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    wOwner = { p: btn.getAttribute('data-p'), c: btn.getAttribute('data-c') };
+  }
+  function setWType(t) {
+    wType = t;
+    ['task', 'outcome', 'milestone'].forEach(function (x) {
+      document.getElementById('w-type-' + x).className = 'type-chip' + (x === t ? ' active' : '');
+    });
+  }
+  function addWeeklyCommitment() {
+    var input = document.getElementById('w-add-input');
+    var title = input.value.trim();
+    if (!title) return;
+    TASKS.push({ id: nextId++, title: title, type: 'task', project: wOwner.p, color: wOwner.c, weekId: currentWeekId, day: null, done: false, kind: wType });
+    input.value = '';
+    renderAll();
+  }
+
+  function openReview() {
+    var unfinished = TASKS.filter(function (it) { return it.type === 'task' && it.weekId === currentWeekId && !it.winId && !it.done; });
+    var panel = document.getElementById('review-panel');
+    var body = document.getElementById('review-items');
+    if (!unfinished.length) {
+      body.innerHTML = '<div class="review-done">সব commitment complete — carry forward করার কিছু নেই এখনো।</div>';
+    } else {
+      body.innerHTML = unfinished.map(function (it) {
+        return '<div class="review-item"><div class="rt">' + it.title + ' <span style="color:' + it.color + ';font-size:10px;font-weight:800;">· ' + it.project + ' · id ' + it.id + '</span></div>' +
+          '<div class="review-actions">' +
+          '<button onclick="carryForward(' + it.id + ',\'nextweek\')">Move to next week</button>' +
+          '<button onclick="carryForward(' + it.id + ',\'date\')">Schedule date</button>' +
+          '<button onclick="carryForward(' + it.id + ',\'backlog\')">Backlog</button>' +
+          '<button onclick="carryForward(' + it.id + ',\'drop\')">Drop</button>' +
+          '</div></div>';
+      }).join('');
+    }
+    panel.style.display = 'flex';
+  }
+  function closeReview() { document.getElementById('review-panel').style.display = 'none'; }
+  function carryForward(id, action) {
+    var it = TASKS.filter(function (x) { return x.id === id; })[0];
+    if (!it) return;
+    var idx = WEEKS.map(function (w) { return w.id; }).indexOf(currentWeekId);
+    var nextWeek = WEEKS[idx + 1];
+    // 'date' (a specific date-scheduler) is still a documented placeholder in this phase — it aliases
+    // to "next week" exactly like 'nextweek' does. The real interaction contract for it is:
+    // { planned_period: <weekId>, scheduled_date: <ISO date>, status, parent_win: <winId> } — Phase 6 work.
+    if ((action === 'nextweek' || action === 'date') && nextWeek) { it.weekId = nextWeek.id; }
+    else if (action === 'backlog') { it.weekId = null; it.backlog = true; }
+    else if (action === 'drop') { it.dropped = true; TASKS = TASKS.filter(function (x) { return x.id !== id; }); }
+    renderAll();
+    openReview();
+  }
+
+  // ---------------- MONTHLY ----------------
+  function renderMonthly() {
+    var ms = getMilestone('ms_sep');
+    var outcomes = TASKS.filter(function (it) { return it.type === 'monthly-outcome' && it.milestoneId === ms.id; });
+    document.getElementById('monthly-list').innerHTML = outcomes.map(rowTemplateMonthly).join('');
+
+    var wins = winsForMilestone(ms.id);
+    var liveWin = liveWinOf(ms);
+    var livePct = liveWin ? winProgress(liveWin) : 0;
+    var monthPct = milestoneProgress(ms);
+    document.getElementById('month-win-bar').style.width = monthPct + '%';
+    document.getElementById('month-win-pct').textContent = monthPct + '% complete';
+    document.getElementById('month-win-formula').textContent = 'avg(' + wins.map(function (w) { return w.weekLabel + ' ' + winProgress(w) + '%' + (w.id === (liveWin && liveWin.id) ? ' live' : ''); }).join(', ') + ') = ' + monthPct + '%';
+    var w3row = document.getElementById('month-week3-row');
+    var w3mk = document.getElementById('month-week3-mk');
+    var w3lbl = document.getElementById('month-week3-lbl');
+    if (liveWin) {
+      w3row.className = 'mstone-row' + (livePct === 100 ? ' done' : ' current');
+      w3mk.textContent = livePct === 100 ? '✓' : '●';
+      w3lbl.textContent = livePct === 100 ? liveWin.weekLabel + ' — 100% (Win achieved)' : liveWin.weekLabel + ' — ' + livePct + '% (live, এখান থেকে আসছে)';
+    }
+    document.getElementById('month-pace-chip').className = 'pace-chip ' + (monthPct >= 77 ? 'onpace' : 'behind');
+    document.getElementById('month-pace-chip').textContent = monthPct >= 77 ? 'ON PACE' : 'BEHIND PACE';
+  }
+
+  // ---------------- YEARLY ----------------
+  function renderYearly() {
+    var out = OUTCOMES.filter(function (o) { return o.id === 'out_2026'; })[0];
+    var milestones = milestonesForOutcome(out.id);
+    var liveMs = liveMilestoneOf(out);
+    var livePct = liveMs ? milestoneProgress(liveMs) : 0;
+    var yearPct = outcomeProgress(out);
+    var bar = document.getElementById('year-win-bar');
+    if (bar) bar.style.width = yearPct + '%';
+    var row = document.getElementById('year-sep-row');
+    var mk = document.getElementById('year-sep-mk');
+    var lbl = document.getElementById('year-sep-lbl');
+    if (row && liveMs) {
+      row.className = 'mstone-row' + (livePct === 100 ? ' done' : ' current');
+      mk.textContent = livePct === 100 ? '✓' : '●';
+      lbl.textContent = liveMs.shortLabel + ' — ' + livePct + '% (live, Month Win থেকে আসছে)';
+      document.getElementById('year-win-pct').textContent = 'avg(' + milestones.map(function (m) { return m.shortLabel + ' ' + milestoneProgress(m) + '%'; }).join(', ') + ') = ' + yearPct + '%';
+    }
+  }
+  function rowTemplateMonthly(it) {
+    return '<label class="goal-row" style="--accent:' + it.color + ';">' +
+      '<span class="tick" style="background:' + it.color + ';"></span>' +
+      '<input type="checkbox" ' + (it.done ? 'checked' : '') + ' onchange="toggleDone(' + it.id + ')">' +
+      '<span class="tag" style="color:' + it.color + ';">' + it.project + '</span>' +
+      '<span class="txt' + (it.done ? ' done' : '') + '">' + it.title + '</span></label>';
+  }
+  function setMType(t) {
+    mType = t;
+    ['task', 'outcome', 'milestone'].forEach(function (x) {
+      document.getElementById('m-type-' + x).className = 'type-chip' + (x === t ? ' active' : '');
+    });
+  }
+  function addMonthlyAction() {
+    var input = document.getElementById('m-add-input');
+    var title = input.value.trim();
+    if (!title) return;
+    var when = document.querySelector('input[name=mwhen]:checked').value;
+    if (mType === 'outcome') {
+      TASKS.push({ id: nextId++, title: title, type: 'monthly-outcome', project: 'HABIT OS', color: '#4C6FFF', milestoneId: 'ms_sep', done: false });
+      showToast2('✓ Outcome added to September');
+    } else {
+      var weekId = when === 'thisweek' ? WEEKS[0].id : (when === 'nextweek' ? WEEKS[1].id : null);
+      TASKS.push({ id: nextId++, title: title, type: 'task', project: 'HABIT OS', color: '#4C6FFF', weekId: weekId, day: null, done: false, kind: mType });
+      var msg = weekId === WEEKS[0].id ? '✓ এই সপ্তাহে (' + WEEKS[0].label + ') যোগ হয়েছে — Weekly tab-এ গিয়ে দেখো'
+        : (weekId === WEEKS[1].id ? '✓ পরের সপ্তাহে (' + WEEKS[1].label + ') যোগ হয়েছে' : '✓ শুধু এই মাসে যোগ হয়েছে, এখনো কোনো সপ্তাহে না');
+      showToast2(msg);
+    }
+    input.value = '';
+    renderAll();
+  }
+  function showToast2(msg) {
+    var form = document.getElementById('monthly-add-form');
+    var note = document.createElement('div');
+    note.className = 'cal-note';
+    note.style.color = '#8fe0bd';
+    note.textContent = msg;
+    form.appendChild(note);
+    setTimeout(function () { note.remove(); }, 3500);
+  }
+
+  function renderAll() {
+    renderDaily();
+    renderWeekly();
+    renderMonthly();
+    renderYearly();
+  }
+
+  updateBreadcrumb();
+  renderAll();
+</script>
+
+</body>
+</html>

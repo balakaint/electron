@@ -12,6 +12,7 @@ import {
 } from '../services/api';
 import { RADIUS } from '../spacing';
 import RitualRing from './RitualRing';
+import breatheAudioUrl from '../assets/audio/breath.mp3';
 
 // Redesigned 2026-09-19 to match Zahid's morning-activation.html sample
 // 1:1 (structure, copy, section order, plain-pill/plain-button visual
@@ -222,6 +223,17 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
   const [breatheSecs, setBreatheSecs] = useState(60);
   const [breatheRunning, setBreatheRunning] = useState(false);
   const breatheRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const breatheAudio = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const a = new Audio(breatheAudioUrl);
+    a.loop = true;
+    a.addEventListener('error', () => console.error('breathe audio load failed:', a.error));
+    breatheAudio.current = a;
+    return () => {
+      a.pause();
+    };
+  }, []);
 
   const [sunSecs, setSunSecs] = useState(BREAK_TIMER_SECS);
   const [sunRunning, setSunRunning] = useState(false);
@@ -288,6 +300,8 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
       setBreatheSecs((v) => {
         if (v <= 1) {
           setBreatheRunning(false);
+          breatheAudio.current?.pause();
+          if (breatheAudio.current) breatheAudio.current.currentTime = 0;
           morningRitualApi.markBreatheDone().then(setRitual);
           return 0;
         }
@@ -644,10 +658,12 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
                 onClick={() => {
                   if (breatheRunning) {
                     setBreatheRunning(false);
+                    breatheAudio.current?.pause();
                     return;
                   }
                   setBreatheSecs(60);
                   setBreatheRunning(true);
+                  breatheAudio.current?.play().catch((e) => console.error('breathe audio play failed:', e));
                 }}
               />
             }
