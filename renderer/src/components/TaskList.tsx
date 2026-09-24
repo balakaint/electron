@@ -5,6 +5,7 @@ import { useUndo } from '../undo';
 import { accentText } from '../themes';
 import NowCard from './NowCard';
 import DeepWorkCard from './DeepWorkCard';
+import TodaysThreeCard from './TodaysThreeCard';
 import ProjectTaskList from './ProjectTaskList';
 import { formatSecs } from '../format';
 import { RADIUS } from '../spacing';
@@ -501,6 +502,19 @@ export default function TaskList({
           answers the question this screen is actually opened with. */}
       {listKey === 'focus' && dayView === 'today' && (
         <DeepWorkCard onChanged={onFocusChanged} selectedKey={projectKey} onSelect={setProjectKey} />
+      )}
+
+      {/* Hidden while DEEP WORK is narrowed to one project: that mode is
+          "the others off screen", and this card is about the whole day. */}
+      {listKey === 'focus' && dayView === 'today' && !selectedProject && (
+        <TodaysThreeCard
+          struck={struck}
+          nowId={nowId}
+          onStart={startHere}
+          onToggleDone={(t) => toggleDone(t.id)}
+          onSetFirst={setMit}
+          onUnstrike={(t) => toggleStrike(t.id)}
+        />
       )}
 
       {/* A project is selected: everything below belongs to it. Used to
