@@ -329,26 +329,42 @@ export default function NotesTab() {
         />
       )}
 
-      <div style={{ display: 'flex', gap: SPACE.xs, marginBottom: SPACE.md }}>
+      {/* The same segmented control the other EXECUTE views use, with
+          each option's count in it — "Pinned 2" says whether switching
+          is worth it before you switch. */}
+      <div
+        style={{
+          display: 'flex',
+          alignSelf: 'flex-start',
+          padding: SPACE.hair,
+          marginBottom: SPACE.md,
+          background: 'var(--surface-2, var(--surface))',
+          borderRadius: RADIUS.card,
+        }}
+      >
         {(['all', 'pinned'] as Filter[]).map((f) => {
           const on = filter === f;
+          const n = f === 'all' ? notes.length : notes.filter((x) => x.pinned).length;
           return (
             <button
               key={f}
               aria-pressed={on}
               onClick={() => setFilter(f)}
               style={{
-                padding: '4px 12px',
+                height: 32,
+                padding: `0 ${SPACE.md}px`,
                 fontSize: 12,
                 fontWeight: on ? 700 : 400,
-                borderRadius: RADIUS.pill,
-                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                background: on ? 'var(--accent)' : 'transparent',
-                color: on ? 'var(--on-accent)' : 'var(--text-muted)',
+                border: 'none',
+                borderRadius: RADIUS.control,
+                background: on ? 'var(--surface)' : 'transparent',
+                color: on ? 'var(--text)' : 'var(--text-muted)',
+                boxShadow: on ? 'var(--shadow-sm)' : 'none',
                 cursor: 'pointer',
               }}
             >
               {f === 'all' ? 'All' : 'Pinned'}
+              <span style={{ marginLeft: SPACE.xs, fontWeight: 400, color: 'var(--text-muted)' }}>{n}</span>
             </button>
           );
         })}

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { RADIUS, SPACE } from '../spacing';
 import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
+import { accentText } from '../themes';
 
 // The locked interaction contract's "WIN ≠ Task" card, generalized to
 // all three levels (Outcome/Milestone/Win each get one): a progress
@@ -23,6 +24,8 @@ export default function PlanningProgressCard({
   detailsSummary,
   children,
   onEdit,
+  ownerColor,
+  defaultOpen = false,
 }: {
   label: string; // "WEEK WIN" / "MONTH MILESTONE" / "YEAR OUTCOME"
   accent: string;
@@ -37,7 +40,17 @@ export default function PlanningProgressCard({
   detailsSummary: string;
   children?: ReactNode;
   onEdit?: () => void;
+  // The owning project's own colour (null for LIFE). Paints the card's
+  // left edge and its label, so on WEEK/MONTH/YEAR — which list every
+  // project at once — whose card this is reads before its title does.
+  // The level accent stays on the progress bar.
+  ownerColor?: string | null;
+  // WEEK's list is its actions, the thing you open the card to tick, so
+  // it starts open there; MONTH/YEAR's lists are summaries and stay shut.
+  defaultOpen?: boolean;
 }) {
+  const edge = ownerColor ? ownerColor : accent;
+  const labelColor = ownerColor ? accentText(ownerColor) : accent;
   const achieved = progress === 100;
   const paceState = pace ? (progress >= pace.elapsedPct ? 'onpace' : 'behind') : null;
   const paceColor = paceState === 'onpace' ? 'var(--success)' : paceState === 'behind' ? 'var(--danger)' : undefined;
@@ -46,7 +59,7 @@ export default function PlanningProgressCard({
     <div
       style={{
         border: '1px solid var(--border)',
-        borderLeft: `3px solid ${accent}`,
+        borderLeft: `4px solid ${edge}`,
         borderRadius: RADIUS.card,
         background: 'var(--surface)',
         padding: SPACE.md,
@@ -56,7 +69,7 @@ export default function PlanningProgressCard({
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
-        <span style={{ fontSize: TYPE_SIZE.xs, fontWeight: TYPE_WEIGHT.bold, letterSpacing: TRACKING.label, color: accent }}>{label}</span>
+        <span style={{ fontSize: TYPE_SIZE.xs, fontWeight: TYPE_WEIGHT.bold, letterSpacing: TRACKING.label, color: labelColor }}>{label}</span>
         <span style={{ flex: 1 }} />
         {fixed && (
           <span style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)' }}>not started</span>
@@ -101,7 +114,7 @@ export default function PlanningProgressCard({
         </span>
       )}
       {children && (
-        <details style={{ fontSize: TYPE_SIZE.xs }}>
+        <details open={defaultOpen} style={{ fontSize: TYPE_SIZE.xs }}>
           <summary style={{ cursor: 'pointer', color: 'var(--text-muted)', fontWeight: TYPE_WEIGHT.bold }}>{detailsSummary}</summary>
           <div style={{ marginTop: SPACE.xs }}>{children}</div>
         </details>

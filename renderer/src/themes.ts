@@ -414,7 +414,9 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--header-accent': '#FBBF24',
     '--running-bg': '#051015',
     '--phase-sleep': '#95ABED',
-    '--phase-morning': '#16BAE5',
+    // Morning moved off cyan (#16BAE5), next to this theme's #22D3EE
+    // accent. 9.00:1 on its own 9% tint.
+    '--phase-morning': '#4ADE80',
     '--phase-work': '#F68E8E',
     '--phase-evening': '#F59E0B',
     '--goal-yearly': '#22D3EE',
@@ -462,7 +464,11 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--running-bg': '#FEE2E2',
     '--phase-sleep': '#1E3A8A',
     '--phase-morning': '#0C5954',
-    '--phase-work': '#9A1A1A',
+    // Work moved off red (#9A1A1A): this theme's accent is #A30E0E and
+    // its yearly goal #AE1D1D, so the Work block, the buttons and the
+    // year bar were the same red. Plum keeps Work warm, and distinct.
+    // 7.90:1 on its own 9% tint.
+    '--phase-work': '#7E1D6B',
     '--phase-evening': '#8B3407',
     '--goal-yearly': '#AE1D1D',
     // Was '#864A03' — only 33° of hue from --goal-yearly's red (every
@@ -522,7 +528,10 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--phase-sleep': '#1E3A8A',
     '--phase-morning': '#085A53',
     '--phase-work': '#912B21',
-    '--phase-evening': '#7A410D',
+    // Evening moved off brown (#7A410D): accent (#863D07), yearly goal
+    // (#914207) and Evening were three browns on one screen. Olive keeps
+    // it warm and apart. 7.64:1 on its own 9% tint.
+    '--phase-evening': '#4A4E00',
     '--goal-yearly': '#914207',
     '--goal-monthly': '#1C4BD1',
     '--goal-weekly': '#0E672F',
@@ -567,7 +576,10 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     '--header-accent': '#4CE0A0',
     '--running-bg': '#17211D',
     '--phase-sleep': '#88B4F9',
-    '--phase-morning': '#2DD4BF',
+    // Morning moved off teal (#2DD4BF) — it sat beside this theme's mint
+    // accent (#4CE0A0), so the Morning block and every accent control
+    // read as one colour. 8.29:1 on its own 9% tint.
+    '--phase-morning': '#F0ABFC',
     '--phase-work': '#FA9696',
     '--phase-evening': '#FBBF24',
     '--goal-yearly': '#4CE0A0',

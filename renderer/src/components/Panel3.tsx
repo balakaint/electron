@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
-import { Calendar, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Target } from 'lucide-react';
-import { FocusTab, GoalOwnerKey, GoalOwnerMeta, HoursLevel, PlanTask, ProjectKey, planningApi, projectsApi, settingsApi } from '../services/api';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FocusTab, GoalOwnerKey, GoalOwnerMeta, HoursLevel, PlanTask, ProjectKey, STRIKE_MAX, hoursApi, planningApi, projectsApi, settingsApi, tasksApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
 import NowCard from './NowCard';
 import DeepWorkTrend from './DeepWorkTrend';
 import PlanReview from './PlanReview';
+import PlanTodayCard from './PlanTodayCard';
 import TaskList from './TaskList';
-import AccordionSection from './AccordionSection';
 import MiniCalendarPicker from './MiniCalendarPicker';
 import PlanningWeeklyLevel from './PlanningWeeklyLevel';
 import PlanningMonthlyLevel from './PlanningMonthlyLevel';
@@ -20,57 +20,6 @@ import { useL } from '../i18n';
 
 function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function mondayOf(d: Date): string {
-  const copy = new Date(d);
-  const offset = (d.getDay() + 6) % 7;
-  copy.setDate(d.getDate() - offset);
-  return isoDate(copy);
-}
-
-// Year › Month › Week › Day orientation trail — the spec's own "each
-// segment jumps straight to that level" contract. Monthly/Yearly have
-// no independent month/year navigation of their own (they always show
-// the real current period, no prev/next control exists anywhere in
-// this app) — so a Month/Year crumb click only switches `level`; the
-// label itself still truthfully reflects whichever date is being
-// viewed, it just can't jump Monthly to a DIFFERENT month than today's.
-function Breadcrumb({ level, dailyDate, onLevel }: { level: HoursLevel; dailyDate: string | null; onLevel: (l: HoursLevel) => void }) {
-  const d = dailyDate ? new Date(`${dailyDate}T00:00:00`) : new Date();
-  const monday = mondayOf(d);
-  const weekEnd = new Date(`${monday}T00:00:00`);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-  const weekLabel = `${new Date(`${monday}T00:00:00`).getDate()}–${weekEnd.getDate()} ${weekEnd.toLocaleDateString(undefined, { month: 'short' })}`;
-  const dayLabel = `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${d.getDate()}`;
-
-  const crumbs: { label: string; level: HoursLevel; current: boolean }[] = [
-    { label: String(d.getFullYear()), level: 'yearly', current: level === 'yearly' },
-  ];
-  if (level !== 'yearly') crumbs.push({ label: d.toLocaleDateString(undefined, { month: 'long' }), level: 'monthly', current: level === 'monthly' });
-  if (level === 'weekly' || level === 'daily') crumbs.push({ label: weekLabel, level: 'weekly', current: level === 'weekly' });
-  if (level === 'daily') crumbs.push({ label: dayLabel, level: 'daily', current: true });
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.hair, fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)', marginBottom: SPACE.sm, flexWrap: 'wrap' }}>
-      {crumbs.map((c, i) => (
-        <span key={c.level} style={{ display: 'flex', alignItems: 'center', gap: SPACE.hair }}>
-          {i > 0 && <span style={{ color: 'var(--border)' }}>›</span>}
-          {c.current ? (
-            <span style={{ color: 'var(--text)', fontWeight: 700 }}>{c.label}</span>
-          ) : (
-            <button
-              onClick={() => onLevel(c.level)}
-              className="hover-tint"
-              style={{ border: 'none', color: 'var(--text-faint)', fontWeight: 700, fontSize: TYPE_SIZE.xs, padding: `${SPACE.hair}px ${SPACE.xs}px`, cursor: 'pointer', borderRadius: RADIUS.control }}
-            >
-              {c.label}
-            </button>
-          )}
-        </span>
-      ))}
-    </div>
-  );
 }
 
 // DAILY's own "scheduled tasks" list — PlanTasks (win-scoped or not)
@@ -205,7 +154,38 @@ const FOCUS_TABS: [FocusTab, string, string][] = [
   ['notes', 'NOTES', 'নোট'],
 ];
 
-function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) => void }) {
+// A quiet count beside the two tabs whose progress is the day's own:
+// hours done of planned, and how many of today's three are chosen. The
+// list and notes tabs hold inventories, not progress, so they get none.
+function useTabCounts(refreshSignal: number): Partial<Record<FocusTab, string>> {
+  const [counts, setCounts] = useState<Partial<Record<FocusTab, string>>>({});
+  useEffect(() => {
+    let alive = true;
+    Promise.all([hoursApi.get(isoDate(new Date())), tasksApi.listStrike()])
+      .then(([plan, struck]) => {
+        if (!alive) return;
+        setCounts({
+          hours: plan.total_planned > 0 ? `${plan.total_done}/${plan.total_planned}` : undefined,
+          mit: `${struck.length}/${STRIKE_MAX}`,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [refreshSignal]);
+  return counts;
+}
+
+function FocusTabs({
+  tab,
+  onSelect,
+  counts,
+}: {
+  tab: FocusTab;
+  onSelect: (t: FocusTab) => void;
+  counts: Partial<Record<FocusTab, string>>;
+}) {
   const L = useL();
   const refs = useRef<Partial<Record<FocusTab, HTMLButtonElement | null>>>({});
 
@@ -259,6 +239,11 @@ function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) =
             }}
           >
             {L(en, bn)}
+            {counts[key] && (
+              <span style={{ marginLeft: SPACE.xs, fontWeight: 400, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                {counts[key]}
+              </span>
+            )}
           </button>
         );
       })}
@@ -266,29 +251,51 @@ function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) =
   );
 }
 
-// The HOURS tab's own nested zoom levels — DAILY (the hour-by-hour
-// planner, unchanged), WEEKLY/MONTHLY/YEARLY (compact views onto the
-// same Goal data Panel 2 already owns). Deliberately in-memory only, not
-// persisted like `tab` above — same convention HourPlanTab already uses
-// for its own phase-block open state (see that file's own comment).
-// Simplified down from an earlier version of this redesign that
-// replaced the whole HOURS/MIT/LIST tab strip; the user asked to keep
-// MIT/LIST exactly as they were and nest this here instead.
-// Icons instead of the old Unicode dingbats (◷◈❖◆) — those mixed a
-// separate "font glyph" icon system into a component that already
-// imports lucide-react for its chevron, which read as two different UI
-// kits assembled together (ui-ux-audit, 2026-09-22).
-const HOURS_LEVELS: [HoursLevel, string, string, JSX.Element][] = [
-  ['daily', 'DAILY', 'দৈনিক', <Calendar size={14} />],
-  ['weekly', 'WEEKLY', 'সাপ্তাহিক', <CalendarDays size={14} />],
-  ['monthly', 'MONTHLY', 'মাসিক', <CalendarRange size={14} />],
-  ['yearly', 'YEARLY', 'বার্ষিক', <Target size={14} />],
+// The HOURS tab's own nested zoom levels — DAY (the hour-by-hour
+// timeline), WEEK/MONTH/YEAR (compact views onto the same Goal data
+// Panel 2 already owns). Deliberately in-memory only, not persisted like
+// `tab` above.
+//
+// One segmented control, and only the chosen level on screen. The
+// previous shape drew the four levels twice — a row of pills AND four
+// accordion headers under it that did the same switching — so the
+// screen spent a quarter of its height saying which level you were on.
+// The other levels stay MOUNTED (hidden with CSS) so their own open
+// composers and pickers survive a switch away and back.
+const HOURS_LEVELS: [HoursLevel, string, string][] = [
+  ['daily', 'Day', 'দিন'],
+  ['weekly', 'Week', 'সপ্তাহ'],
+  ['monthly', 'Month', 'মাস'],
+  ['yearly', 'Year', 'বছর'],
 ];
+
+function shiftIso(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  return isoDate(d);
+}
+
+function navBtn(): CSSProperties {
+  return {
+    width: 32,
+    height: 32,
+    padding: 0,
+    flex: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '1px solid var(--border)',
+    borderRadius: RADIUS.control,
+    background: 'var(--surface)',
+    color: 'var(--text)',
+    cursor: 'pointer',
+  };
+}
 
 function HoursAccordion({
   refreshSignal,
   onChanged,
-  onOpenGoal,
+  onOpenGoal: _onOpenGoal,
 }: {
   refreshSignal: number;
   onChanged: () => void;
@@ -296,34 +303,18 @@ function HoursAccordion({
 }) {
   const L = useL();
   const [level, setLevel] = useState<HoursLevel>('daily');
-  // null = not loaded yet, so the DAILY row shows "…" rather than a
-  // flash of "0/0" before the hour plan's first fetch resolves.
-  const [dailyDone, setDailyDone] = useState<number | null>(null);
-  const [dailyTotal, setDailyTotal] = useState<number | null>(null);
-  // WEEKLY/MONTHLY/YEARLY now aggregate across every real project plus
+  // WEEKLY/MONTHLY/YEARLY aggregate across every real project plus
   // "life" (2026-09-23) rather than following whichever project happens
-  // to be active in Panel 1/2 — the whole point of a zoomed-out planning
-  // screen is seeing everything due across projects at once, not one
-  // project's slice of it. Fetched ONCE here (not per-section) so
-  // switching among WEEKLY/MONTHLY/YEARLY doesn't refetch the project
-  // list three times — `null` means "not resolved yet," same meaning
-  // GoalHorizonSection's own `loaded` already uses, so the three
-  // sections just show their existing loading state until this
-  // resolves instead of a fourth new loading affordance.
+  // to be active in Panel 1/2. Fetched ONCE here (not per-level) so
+  // switching among them doesn't refetch the project list three times —
+  // `null` means "not resolved yet".
   const [owners, setOwners] = useState<GoalOwnerMeta[] | null>(null);
-  // null = DAILY shows today. Set by a WEEKLY/MONTHLY/YEARLY calendar dot
-  // click, cleared by the "Today" pill. Deliberately not "today's ISO
-  // string by default" — storing a literal date would go stale if the
-  // app sits open across midnight; null always means "whatever today
-  // actually is right now."
+  // null = DAY shows today. Deliberately not "today's ISO string by
+  // default" — a stored literal date would go stale if the app sits open
+  // across midnight; null always means "whatever today actually is".
   const [dailyDate, setDailyDate] = useState<string | null>(null);
-  // "Jump to date" — DAILY's own reach for a date WEEKLY's 7-day strip,
-  // MONTHLY's current-month grid, and YEARLY's month-only jump (lands
-  // on the 1st, never a specific day) can't get to. Zahid hit this
-  // directly: wanted to write a plain hourly note for a day next month,
-  // which has nothing to do with the Win/PlanTask hierarchy those three
-  // calendars serve — this is DAILY navigating itself, no task
-  // involved, so it lives here rather than inside any Planning*Level.
+  // The date picker reaches any day — the week strip, month grid and
+  // year strip can each only reach their own period.
   const [dateJumpOpen, setDateJumpOpen] = useState(false);
   const [jumpMonth, setJumpMonth] = useState<{ year: number; month: number }>(() => {
     const d = new Date();
@@ -342,187 +333,153 @@ function HoursAccordion({
     });
   }, []);
 
-  const dateStr = (() => {
-    const d = dailyDate ? new Date(`${dailyDate}T00:00:00`) : new Date();
-    const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
-    const month = d.toLocaleDateString(undefined, { month: 'short' });
-    return `${weekday}, ${d.getDate()} ${month} ${d.getFullYear()}`;
+  const today = isoDate(new Date());
+  const shown = dailyDate ?? today;
+  const dayLabel = (() => {
+    if (!dailyDate || dailyDate === today) return L('Today', 'আজ');
+    const d = new Date(`${dailyDate}T00:00:00`);
+    return `${d.toLocaleDateString(undefined, { weekday: 'short' })} ${d.getDate()} ${d.toLocaleDateString(undefined, { month: 'short' })}`;
   })();
+  const goDay = (iso: string) => setDailyDate(iso === today ? null : iso);
 
-  // Shared by all three calendar levels' dot-click — jump DAILY to that
-  // date and switch the accordion to it. Local to this component (not
-  // threaded through Panel3's own props/App.tsx) since the click and its
-  // destination both live inside this one accordion.
+  // Shared by all three calendar levels' day click — jump DAY to that
+  // date and switch to it.
   const onSelectDate = (iso: string) => {
-    setDailyDate(iso);
+    goDay(iso);
     setLevel('daily');
   };
 
   return (
     <div>
-      {/* A compact left-aligned pill control, not a full-width underlined
-          tab strip — deliberately different in shape, fill, and
-          alignment from FocusTabs above it, so this reads as a view
-          switch NESTED inside HOURS rather than a sibling of HOURS/MIT/
-          TASK LIST at the same level (ui-ux-audit, 2026-09-22: the two
-          previously shared byte-identical styling). Plain buttons with
-          aria-pressed, not role="tab" — this control has no arrow-key
-          navigation, so it doesn't announce the ARIA tabs pattern it
-          wouldn't deliver. */}
-      <Breadcrumb level={level} dailyDate={dailyDate} onLevel={setLevel} />
-      <div style={{ display: 'flex', gap: SPACE.xs, marginBottom: SPACE.md, flexWrap: 'wrap' }}>
-        {HOURS_LEVELS.map(([key, en, bn, icon]) => {
-          const on = level === key;
-          return (
-            <button
-              key={key}
-              aria-pressed={on}
-              onClick={() => setLevel(key)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: SPACE.xs,
-                padding: '4px 12px',
-                fontSize: 12,
-                fontWeight: on ? 700 : 400,
-                borderRadius: RADIUS.pill,
-                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                background: on ? 'var(--accent)' : 'transparent',
-                color: on ? 'var(--on-accent)' : 'var(--text-muted)',
-                cursor: 'pointer',
-              }}
-            >
-              {icon}
-              {L(en, bn)}
-            </button>
-          );
-        })}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
-        <AccordionSection
-          glyph={<Calendar size={16} />}
-          label={L('DAILY', 'দৈনিক')}
-          period={dateStr}
-          done={dailyDone ?? 0}
-          total={dailyTotal}
-          accent="var(--accent)"
-          expanded={level === 'daily'}
-          onToggle={() => setLevel('daily')}
+      <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginBottom: SPACE.md, flexWrap: 'wrap' }}>
+        {/* Plain buttons with aria-pressed, not role="tab" — this control
+            has no arrow-key navigation, so it doesn't announce the ARIA
+            tabs pattern it wouldn't deliver. */}
+        <div
+          aria-label={L('Zoom level', 'স্তর')}
+          style={{ display: 'flex', padding: SPACE.hair, background: 'var(--surface-2, var(--surface))', borderRadius: RADIUS.card }}
         >
-          {/* Only while viewing a jumped-to date — not a permanent
-              fixture of DAILY's own chrome, so today's own normal view
-              stays exactly as it was. Lives inside `children`, not
-              AccordionSection's own header button: that header is
-              itself a `<button onClick={onToggle}>`, and nesting a
-              second interactive control inside it double-fires on click
-              (the exact bug this file's own HOURS_LEVELS/AccordionSection
-              pairing was already burned by once — see that component's
-              own history). */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.xs, marginBottom: SPACE.sm, flexWrap: 'wrap' }}>
-            {dailyDate && (
+          {HOURS_LEVELS.map(([key, en, bn]) => {
+            const on = level === key;
+            return (
               <button
-                onClick={() => setDailyDate(null)}
+                key={key}
+                aria-pressed={on}
+                onClick={() => setLevel(key)}
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: SPACE.xs,
-                  padding: '4px 8px',
+                  height: 32,
+                  padding: `0 ${SPACE.md}px`,
                   fontSize: 12,
-                  fontWeight: 700,
-                  borderRadius: RADIUS.pill,
-                  border: '1px solid var(--accent)',
-                  background: 'transparent',
-                  color: 'var(--accent)',
+                  fontWeight: on ? 700 : 400,
+                  border: 'none',
+                  borderRadius: RADIUS.control,
+                  background: on ? 'var(--surface)' : 'transparent',
+                  color: on ? 'var(--text)' : 'var(--text-muted)',
+                  boxShadow: on ? 'var(--shadow-sm)' : 'none',
                   cursor: 'pointer',
                 }}
               >
-                <ChevronLeft size={12} />
-                {L('Today', 'আজ')}
+                {L(en, bn)}
               </button>
-            )}
+            );
+          })}
+        </div>
+        <span style={{ flex: 1 }} />
+        {level === 'daily' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.xs }}>
+            <button aria-label={L('Previous day', 'আগের দিন')} onClick={() => goDay(shiftIso(shown, -1))} className="hover-tint" style={navBtn()}>
+              <ChevronLeft size={16} />
+            </button>
             <button
+              aria-label={L('Pick a date', 'তারিখ বাছুন')}
+              aria-expanded={dateJumpOpen}
               onClick={() => {
-                const base = dailyDate ? new Date(`${dailyDate}T00:00:00`) : new Date();
+                const base = new Date(`${shown}T00:00:00`);
                 setJumpMonth({ year: base.getFullYear(), month: base.getMonth() + 1 });
                 setDateJumpOpen((v) => !v);
               }}
-              className="hover-accent"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: SPACE.xs,
-                padding: '4px 8px',
-                fontSize: 12,
-                fontWeight: 700,
-                borderRadius: RADIUS.pill,
-                borderWidth: 1,
-                borderStyle: 'dashed',
-                background: 'transparent',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-              }}
+              className="hover-tint"
+              style={{ ...navBtn(), width: 'auto', padding: `0 ${SPACE.sm}px`, gap: SPACE.xs, fontSize: 12, fontWeight: 700 }}
             >
-              <Calendar size={12} />
-              {L('Jump to date', 'তারিখে যাও')}
+              <Calendar size={14} />
+              {dayLabel}
+            </button>
+            <button aria-label={L('Next day', 'পরের দিন')} onClick={() => goDay(shiftIso(shown, 1))} className="hover-tint" style={navBtn()}>
+              <ChevronRight size={16} />
             </button>
           </div>
-          {dateJumpOpen && (
-            <div style={{ marginBottom: SPACE.sm }}>
-              <MiniCalendarPicker
-                year={jumpMonth.year}
-                month={jumpMonth.month}
-                selected={dailyDate}
-                accent="var(--accent)"
-                onNavMonth={(dir) =>
-                  setJumpMonth((cur) => {
-                    const d = new Date(cur.year, cur.month - 1 + dir, 1);
-                    return { year: d.getFullYear(), month: d.getMonth() + 1 };
-                  })
-                }
-                onSelectDate={(iso) => {
-                  onSelectDate(iso);
-                  setDateJumpOpen(false);
-                }}
-              />
-            </div>
-          )}
-          <DailyTasksList owners={owners} date={dailyDate ?? isoDate(new Date())} refreshSignal={refreshSignal} onChanged={onChanged} />
-          <HourPlanTab
-            hideHeader
-            date={dailyDate ?? undefined}
-            refreshSignal={refreshSignal}
-            onChanged={onChanged}
-            onPlanLoaded={(d, t) => {
-              setDailyDone(d);
-              setDailyTotal(t);
-            }}
-          />
-        </AccordionSection>
+        )}
+      </div>
 
+      <div style={{ display: level === 'daily' ? undefined : 'none' }}>
+        {dailyDate && dailyDate !== today && (
+          <button
+            onClick={() => setDailyDate(null)}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: SPACE.xs,
+              marginBottom: SPACE.sm,
+              padding: `${SPACE.xs}px ${SPACE.sm}px`,
+              fontSize: 12,
+              fontWeight: 700,
+              borderRadius: RADIUS.pill,
+              border: '1px solid var(--accent)',
+              background: 'transparent',
+              color: 'var(--accent)',
+              cursor: 'pointer',
+            }}
+          >
+            <ChevronLeft size={12} />
+            {L('Back to today', 'আজে ফিরুন')}
+          </button>
+        )}
+        {dateJumpOpen && (
+          <div style={{ marginBottom: SPACE.sm }}>
+            <MiniCalendarPicker
+              year={jumpMonth.year}
+              month={jumpMonth.month}
+              selected={dailyDate}
+              accent="var(--accent)"
+              onNavMonth={(dir) =>
+                setJumpMonth((cur) => {
+                  const d = new Date(cur.year, cur.month - 1 + dir, 1);
+                  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+                })
+              }
+              onSelectDate={(iso) => {
+                onSelectDate(iso);
+                setDateJumpOpen(false);
+              }}
+            />
+          </div>
+        )}
+        <DailyTasksList owners={owners} date={shown} refreshSignal={refreshSignal} onChanged={onChanged} />
+        <HourPlanTab date={dailyDate ?? undefined} refreshSignal={refreshSignal} onChanged={onChanged} />
+      </div>
+
+      <div style={{ display: level === 'weekly' ? undefined : 'none' }}>
         <PlanningWeeklyLevel
           owners={owners}
           accent="var(--goal-yearly)"
-          expanded={level === 'weekly'}
-          onToggle={() => setLevel('weekly')}
           onSelectDate={onSelectDate}
           refreshSignal={refreshSignal}
           onChanged={onChanged}
         />
+      </div>
+      <div style={{ display: level === 'monthly' ? undefined : 'none' }}>
         <PlanningMonthlyLevel
           owners={owners}
           accent="var(--goal-monthly)"
-          expanded={level === 'monthly'}
-          onToggle={() => setLevel('monthly')}
           onSelectDate={onSelectDate}
           refreshSignal={refreshSignal}
           onChanged={onChanged}
         />
+      </div>
+      <div style={{ display: level === 'yearly' ? undefined : 'none' }}>
         <PlanningYearlyLevel
           owners={owners}
           accent="var(--goal-weekly)"
-          expanded={level === 'yearly'}
-          onToggle={() => setLevel('yearly')}
           onSelectDate={onSelectDate}
           refreshSignal={refreshSignal}
           onChanged={onChanged}
@@ -571,6 +528,7 @@ export default function Panel3({
   // then jump to the tab the user actually left it on.
   const [tab, setTabState] = useState<FocusTab | null>(null);
   const [nowBump, setNowBump] = useState(0);
+  const tabCounts = useTabCounts(nowBump + focusVersion);
 
   useEffect(() => {
     settingsApi.get().then((s) => setTabState(s.focus_tab));
@@ -677,10 +635,15 @@ export default function Panel3({
                 time inside the hour you are in — "the same number doing
                 more work". Two bold clocks made both read as less
                 trustworthy. */}
-            <ClockCard />
+            <ClockCard onOpenQuarterly={onOpenQuarterly} />
+            <PlanTodayCard
+              onGoExecute={(t) => {
+                selectTab(t);
+                onSelectView('focus');
+              }}
+            />
             <DeepWorkTrend />
             <PlanReview
-              onOpenQuarterly={onOpenQuarterly}
               onOpenMorningRitual={onOpenMorningRitual}
               onOpenNightClosure={onOpenNightClosure}
             />
@@ -721,7 +684,7 @@ export default function Panel3({
             />
 
             {tab && (
-              <FocusTabs tab={tab} onSelect={selectTab} />
+              <FocusTabs tab={tab} onSelect={selectTab} counts={tabCounts} />
             )}
 
             {/* Always mounted, hidden via CSS rather than conditionally

@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { CalendarDays } from 'lucide-react';
 import { GoalOwnerMeta, PlanTask, Win, planningApi } from '../services/api';
-import AccordionSection from './AccordionSection';
+import PlanningPeriodHeader from './PlanningPeriodHeader';
 import PlanningProgressCard from './PlanningProgressCard';
 import MiniCalendarPicker from './MiniCalendarPicker';
 import { useFetchState } from '../hooks/useFetchState';
@@ -23,6 +22,11 @@ function weekRangeLabel(monday: string): string {
   end.setDate(start.getDate() + 6);
   const day = (d: Date) => d.getDate();
   const month = (d: Date) => d.toLocaleDateString(undefined, { month: 'short' });
+  // A week that crosses a month names both months ("28 Sep – 4 Oct"):
+  // "28–4 Oct" reads as a range running backwards.
+  if (start.getMonth() !== end.getMonth()) {
+    return `${day(start)} ${month(start)} – ${day(end)} ${month(end)} ${end.getFullYear()}`;
+  }
   return `${day(start)}–${day(end)} ${month(end)} ${end.getFullYear()}`;
 }
 
@@ -36,7 +40,18 @@ const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 // only date facet is `week_start_date` (the whole week, not a single
 // day), so there's no per-day fact to mark here the way a Milestone's
 // month or an Outcome's year has. Every cell is just clickable, plain.
-function WeekStrip({ monday, accent, onSelectDate }: { monday: string; accent: string; onSelectDate: (iso: string) => void }) {
+function WeekStrip({
+  monday,
+  accent,
+  counts,
+  onSelectDate,
+}: {
+  monday: string;
+  accent: string;
+  // Tasks scheduled on each day (ISO date -> count), from the Wins below.
+  counts: Map<string, number>;
+  onSelectDate: (iso: string) => void;
+}) {
   const todayIso = isoDate(new Date());
   const start = new Date(`${monday}T00:00:00`);
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -79,7 +94,10 @@ function WeekStrip({ monday, accent, onSelectDate }: { monday: string; accent: s
             }}
           >
             <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1 }}>{WEEKDAY_LETTERS[i]}</span>
-            <span style={{ fontSize: 12, lineHeight: 1.4 }}>{d.getDate()}</span>
+            <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.4, color: isToday ? accent : 'var(--text)' }}>{d.getDate()}</span>
+            <span style={{ fontSize: 12, lineHeight: 1.4, color: 'var(--text-muted)' }}>
+              {counts.get(iso) ? `${counts.get(iso)} ${counts.get(iso) === 1 ? 'task' : 'tasks'}` : '—'}
+            </span>
           </button>
         );
       })}
@@ -142,22 +160,24 @@ const NEW_NODE_TYPES: { key: NewNodeType; label: string }[] = [
 export default function PlanningWeeklyLevel({
   owners,
   accent,
-  expanded,
-  onToggle,
   onSelectDate,
   refreshSignal,
   onChanged,
 }: {
   owners: GoalOwnerMeta[] | null;
   accent: string;
-  expanded: boolean;
-  onToggle: () => void;
   onSelectDate: (iso: string) => void;
   refreshSignal: number;
   onChanged: () => void;
 }) {
   const L = useL();
-  const monday = mondayOf(new Date());
+  // Weeks away from this one; 0 is the current week.
+  const [offset, setOffset] = useState(0);
+  const monday = (() => {
+    const d = new Date(`${mondayOf(new Date())}T00:00:00`);
+    d.setDate(d.getDate() + offset * 7);
+    return isoDate(d);
+  })();
   const {
     data: rows,
     setData: setRows,
@@ -272,7 +292,9 @@ export default function PlanningWeeklyLevel({
     const title = newTaskText.trim();
     if (!title) return;
     if (addingType === 'milestone' && row.outcomeId == null) return;
-    const today = new Date();
+    // The viewed week's month and year, not today's: adding a Milestone
+    // from next month's week belongs to next month.
+    const today = new Date(`${monday}T00:00:00`);
     const create =
       addingType === 'win'
         ? planningApi.createWin(row.win.milestone_id, title, monday)
@@ -297,19 +319,20 @@ export default function PlanningWeeklyLevel({
   // is 1-indexed and capped at 7 (today counts as a day in progress even
   // this early in it).
   const elapsedDays = Math.min(7, Math.max(1, Math.floor((Date.now() - new Date(`${monday}T00:00:00`).getTime()) / 86400000) + 1));
-  const pace = { elapsedPct: Math.round((elapsedDays / 7) * 100), elapsedLabel: `${elapsedDays}/7 days` };
+  const pace = offset === 0 ? { elapsedPct: Math.round((elapsedDays / 7) * 100), elapsedLabel: `${elapsedDays}/7 days` } : undefined;
+  const dayCounts = new Map<string, number>();
+  for (const r of rows) for (const t of r.tasks) if (t.scheduled_date) dayCounts.set(t.scheduled_date, (dayCounts.get(t.scheduled_date) ?? 0) + 1);
 
   return (
-    <AccordionSection
-      glyph={<CalendarDays size={16} />}
-      label={L('WEEKLY', 'সাপ্তাহিক')}
-      period={weekRangeLabel(monday)}
-      done={achievedWins}
-      total={loaded ? totalWins : null}
-      accent={accent}
-      expanded={expanded}
-      onToggle={onToggle}
-    >
+    <div>
+      <PlanningPeriodHeader
+        label={weekRangeLabel(monday)}
+        summary={loaded && totalWins > 0 ? L(`${achievedWins} of ${totalWins} wins achieved`, `${totalWins}টির ${achievedWins}টি জয় অর্জিত`) : null}
+        isCurrent={offset === 0}
+        resetLabel={L('This week', 'এই সপ্তাহ')}
+        onStep={(dir) => setOffset((o) => o + dir)}
+        onReset={() => setOffset(0)}
+      />
       {!loaded ? (
         <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>Loading…</div>
       ) : loadError ? (
@@ -319,7 +342,7 @@ export default function PlanningWeeklyLevel({
         </div>
       ) : (
         <>
-          <WeekStrip monday={monday} accent={accent} onSelectDate={onSelectDate} />
+          <WeekStrip monday={monday} accent={accent} counts={dayCounts} onSelectDate={onSelectDate} />
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
               No Win set for this week yet — add one from the Goals panel.
@@ -331,6 +354,8 @@ export default function PlanningWeeklyLevel({
                   key={row.win.id}
                   label={`WEEK WIN · ${row.owner.label}`}
                   accent={accent}
+                  ownerColor={row.owner.color}
+                  defaultOpen
                   title={row.win.title}
                   criteria={row.win.criteria}
                   progress={row.win.progress}
@@ -539,6 +564,6 @@ export default function PlanningWeeklyLevel({
           )}
         </>
       )}
-    </AccordionSection>
+    </div>
   );
 }

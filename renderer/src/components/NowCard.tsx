@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useL } from '../i18n';
 import { Check } from 'lucide-react';
 import { HourSlot, Project, STRIKE_MAX, Task, hoursApi, nowApi, projectsApi, tasksApi } from '../services/api';
-import { RADIUS } from '../spacing';
+import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 
 function todayIso(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -36,6 +36,13 @@ function StartButton({ label, title, onClick }: { label: string; title: string; 
       ▶ {label}
     </button>
   );
+}
+
+function fmtEst(mins: number): string {
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m ? `${h}h ${m}m` : `${h}h`;
 }
 
 function isRunning(task: Task): boolean {
@@ -107,6 +114,7 @@ export default function NowCard({
   }, []);
 
   const running = task ? isRunning(task) : false;
+  const over = !!task && task.est > 0 && displaySecs > task.est * 60;
 
   // Local 1-per-second tick while running, re-anchored to the server's
   // own `secs` whenever it changes (a fresh fetch after start/stop) —
@@ -198,22 +206,52 @@ export default function NowCard({
               </button>
             )}
           </div>
-          <div style={{ fontSize: 30, fontWeight: 700, fontFamily: 'monospace', margin: '8px 0' }}>
-            {formatHMS(displaySecs)}
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          {/* Timer and its two actions on ONE row, and the time-box
+              under them as a bar. Stacked (a 30px timer line, then a
+              full-width button row) the card took a third of the column
+              above the tabs; on one row it answers the same three
+              questions — how long, and stop or finish — in half. */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginTop: SPACE.sm }}>
+            <span style={{ fontSize: 24, fontWeight: 700, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+              {formatHMS(displaySecs)}
+            </span>
+            {task.est > 0 && (
+              <span style={{ fontSize: 12, color: over ? 'var(--danger)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                {L(`of ~${fmtEst(task.est)}`, `~${fmtEst(task.est)}-এর`)}
+              </span>
+            )}
+            <span style={{ flex: 1 }} />
             {/* One primary action per card, and this is it. COMPLETE
                 sits beside it as an ordinary button: on a timer reading
-                00:00:00 it is the rarer of the two, and drawing both as
-                equals asked you to choose between starting and
-                finishing something you have not started. */}
-            <button onClick={toggleRun} className="btn-primary" style={{ flex: 1, padding: '8px 0' }}>
+                00:00:00 it is the rarer of the two. */}
+            <button onClick={toggleRun} className="btn-primary" style={{ height: 32, padding: `0 ${SPACE.md}px`, flex: 'none' }}>
               {running ? `⏸ ${L('PAUSE', 'বিরতি')}` : `▶ ${L('START', 'শুরু')}`}
             </button>
-            <button onClick={complete} style={{ padding: '8px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-              <Check size={13} /> {L('COMPLETE', 'সম্পন্ন')}
+            <button
+              onClick={complete}
+              style={{ height: 32, padding: `0 ${SPACE.md}px`, display: 'flex', alignItems: 'center', gap: SPACE.xs, flex: 'none' }}
+            >
+              <Check size={14} /> {L('COMPLETE', 'সম্পন্ন')}
             </button>
           </div>
+          {task.est > 0 && (
+            <div
+              role="progressbar"
+              aria-label="Time used of the time-box"
+              aria-valuemin={0}
+              aria-valuemax={task.est * 60}
+              aria-valuenow={Math.min(displaySecs, task.est * 60)}
+              style={{ height: 4, marginTop: SPACE.sm, borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  width: `${Math.min(100, (displaySecs / (task.est * 60)) * 100)}%`,
+                  background: over ? 'var(--danger)' : 'var(--accent)',
+                }}
+              />
+            </div>
+          )}
         </>
       ) : (
         // The empty card used to be 61px of instruction with nothing to

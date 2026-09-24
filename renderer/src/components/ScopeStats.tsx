@@ -1,97 +1,139 @@
 import { useEffect, useState } from 'react';
-import { Settings, settingsApi } from '../services/api';
+import { Q90Panel, quarterlyApi } from '../services/api';
+import { useL } from '../i18n';
+import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 
-// Matches legacy's _update_scope_stats for MONTH/YEAR: just days
-// remaining, reference facts rather than something to act on today.
-// TODAY moved out to ClockCard's own ring (2026-09-18 redesign) —
-// generalized there to "time left in the CURRENT phase" rather than
-// always counting down to work's end, so it no longer belongs next to
-// MONTH/YEAR's own "just days" framing.
-// 28, 29, 30 or 31, asked of the calendar: day 0 of the next month is
-// the last day of this one.
 function daysInMonth(year: number, month0: number): number {
   return new Date(year, month0 + 1, 0).getDate();
 }
 
-export default function ScopeStats() {
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [now, setNow] = useState(new Date());
+function dayOfYear(d: Date): number {
+  return Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - new Date(d.getFullYear(), 0, 1).getTime()) / 86400000) + 1;
+}
+
+// The three horizons the day sits inside — this month, this year, and
+// the 90-day plan — as three equal tiles with one number each. They used
+// to be one centred line of text under the clock ("September · 6 days
+// left · 2026 · 3 months left") plus the quarter as a link tucked into
+// the review card's tab row: three answers to the same "how much is
+// left" question, spread over two cards and two type treatments. Side
+// by side, with the same bar under each, they compare at a glance.
+function Tile({
+  label,
+  value,
+  sub,
+  pct,
+  color,
+  onClick,
+  title,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  pct: number;
+  color: string;
+  onClick?: () => void;
+  title?: string;
+}) {
+  const body = (
+    <>
+      <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>{label}</span>
+      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{value}</span>
+      <span style={{ height: 4, borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}>
+        <span style={{ display: 'block', height: '100%', width: `${Math.round(Math.max(0, Math.min(1, pct)) * 100)}%`, background: color }} />
+      </span>
+      <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</span>
+    </>
+  );
+  const style = {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: SPACE.xs,
+    minWidth: 0,
+    padding: SPACE.sm,
+    borderRadius: RADIUS.card,
+    border: '1px solid var(--border)',
+    background: 'var(--surface-2, var(--surface))',
+    textAlign: 'left' as const,
+    color: 'var(--text)',
+  };
+  return onClick ? (
+    <button onClick={onClick} title={title} className="hover-tint" style={{ ...style, cursor: 'pointer', font: 'inherit' }}>
+      {body}
+    </button>
+  ) : (
+    <div style={style}>{body}</div>
+  );
+}
+
+export default function ScopeStats({ now, onOpenQuarterly }: { now: Date; onOpenQuarterly: () => void }) {
+  const L = useL();
+  const [panel, setPanel] = useState<Q90Panel | null>(null);
 
   useEffect(() => {
-    settingsApi.get().then(setSettings);
+    quarterlyApi.getPanel().then(setPanel).catch(() => setPanel(null));
   }, []);
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
-  if (!settings) return null;
 
   const y = now.getFullYear();
   const monthDays = daysInMonth(y, now.getMonth());
   const monthLeft = monthDays - now.getDate();
-  const yearEnd = new Date(y, 11, 31);
-  const yearLeft = Math.round((yearEnd.getTime() - new Date(y, now.getMonth(), now.getDate()).getTime()) / 86400000);
+  const yearDays = dayOfYear(new Date(y, 11, 31));
+  const yearDay = dayOfYear(now);
+  const yearLeft = yearDays - yearDay;
 
-  // ── The year, in months ──────────────────────────────────────────
-  // Three cards, three units — hours, days, months — and that is the
-  // point rather than an oversight: each card is one zoom level further
-  // out and speaks the unit you would actually use at that scale. Nobody
-  // says "a hundred and thirteen days left in the year"; they say "about
-  // four months".
-  //
-  // Rounded to the half month, never to a decimal. "3.2 months" claims a
-  // precision this number does not have — the answer depends on which
-  // months are ahead of you and how long they are — while carrying LESS
-  // information than the days it was computed from. A half is a unit
-  // people think in; a tenth of a month is not.
-  //
-  // Full months ahead plus the fraction left of this one, so the count
-  // follows the calendar rather than dividing by an average month.
+  // Whole and half months once there is more than a month and a half to
+  // go — "98 days" is a number to work out, "3 months" is a feeling —
+  // and plain days at the end of the year, where the count matters.
   const monthsLeft = 11 - now.getMonth() + monthLeft / monthDays;
   const halves = Math.round(monthsLeft * 2) / 2;
   const yearVal =
-    // Under about six weeks the month becomes the wrong unit: "1 month"
-    // and "½ month" are both vaguer than the days they stand for, and in
-    // late December it would round to zero while the year is still open.
     monthsLeft < 1.5
-      ? `${yearLeft} days`
-      : `${Math.floor(halves)}${halves % 1 ? '½' : ''} months`;
+      ? L(`${yearLeft} days left`, `${yearLeft} দিন বাকি`)
+      : L(`${Math.floor(halves)}${halves % 1 ? '½' : ''} months left`, `${Math.floor(halves)}${halves % 1 ? '½' : ''} মাস বাকি`);
 
-  // Two reference facts, one line (2026-09-18 redesign) — MONTH/YEAR
-  // never carried the accent (only TODAY, now ClockCard's ring, was
-  // ever something to act on today), so giving them equal card weight
-  // to that ring cost more space than two numbers you can't move
-  // needed. The month still carries days, the scale a month is
-  // actually planned at.
   const monthName = now.toLocaleDateString(undefined, { month: 'long' });
 
   return (
-    // Same font-size/color tier as ClockCard's "left in phase"/"…left"
-    // line right above it — same weight was reading as one continued
-    // paragraph rather than two separate tiers (today's countdown vs.
-    // this reference fact) (Zahid, 2026-09-24 hierarchy pass). A
-    // hairline + real gap above closes off the phase section before
-    // this one starts, without touching either line's own weight.
-    <div
-      style={{
-        marginTop: 16,
-        paddingTop: 8,
-        borderTop: '1px solid var(--border)',
-        fontSize: 12,
-        textAlign: 'center',
-      }}
-    >
-      {/* The anchor (which month/year) is the fact worth reading first;
-          "N days/months left" is the same countdown framing ClockCard's
-          own faint tier already uses — splitting the two into their own
-          weights (Zahid, 2026-09-24) instead of one flat line. */}
-      <span style={{ fontWeight: 700, color: 'var(--text)' }}>{monthName}</span>
-      <span style={{ color: 'var(--text-faint)' }}> · {monthLeft} days left</span>
-      <span style={{ color: 'var(--text-faint)' }}> &nbsp;·&nbsp; </span>
-      <span style={{ fontWeight: 700, color: 'var(--text)' }}>{y}</span>
-      <span style={{ color: 'var(--text-faint)' }}> · {yearVal} left</span>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: SPACE.sm }}>
+      <Tile
+        label={monthName}
+        value={L(`${monthLeft} days left`, `${monthLeft} দিন বাকি`)}
+        sub={L(`Day ${now.getDate()} of ${monthDays}`, `${monthDays} দিনের ${now.getDate()}তম দিন`)}
+        pct={now.getDate() / monthDays}
+        color="var(--accent)"
+      />
+      <Tile
+        label={String(y)}
+        value={yearVal}
+        sub={L(`Day ${yearDay} of ${yearDays}`, `${yearDays} দিনের ${yearDay}তম দিন`)}
+        pct={yearDay / yearDays}
+        color="var(--accent)"
+      />
+      {panel ? (
+        <Tile
+          label={L(`${panel.cycle_days}-day plan`, `${panel.cycle_days} দিনের প্ল্যান`)}
+          value={
+            panel.day === 0
+              ? L(`Starts in ${panel.days_left - panel.cycle_days}d`, `${panel.days_left - panel.cycle_days} দিন পরে শুরু`)
+              : L(`${panel.days_left} days left`, `${panel.days_left} দিন বাকি`)
+          }
+          sub={L(`${panel.areas_done}/${panel.areas_total} areas planned ›`, `${panel.areas_done}/${panel.areas_total} এরিয়া ›`)}
+          pct={panel.cycle_days > 0 ? panel.day / panel.cycle_days : 0}
+          color="var(--accent)"
+          onClick={onOpenQuarterly}
+          title="Open the quarterly plan"
+        />
+      ) : (
+        <Tile
+          label={L('90-day plan', '৯০ দিনের প্ল্যান')}
+          value={L('Not set', 'সেট করা নেই')}
+          sub={L('Open ›', 'খুলুন ›')}
+          pct={0}
+          color="var(--accent)"
+          onClick={onOpenQuarterly}
+          title="Open the quarterly plan"
+        />
+      )}
     </div>
   );
 }
