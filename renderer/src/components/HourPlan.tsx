@@ -654,14 +654,10 @@ function DayOverview({ plan, nowHour, nowMin }: { plan: HourPlanData; nowHour: n
 export default function HourPlanTab({
   refreshSignal = 0,
   onChanged,
-  onPlanLoaded,
   date,
 }: {
   refreshSignal?: number;
   onChanged?: () => void;
-  // Lets the caller show the same done/total this component already
-  // fetches for itself, without a second hoursApi.get for the same day.
-  onPlanLoaded?: (done: number, total: number) => void;
   // Defaults to today when absent. Panel3's HoursAccordion passes a
   // real value when the day picker or a WEEKLY/MONTHLY/YEARLY calendar
   // dot jumps here to another date.
@@ -683,6 +679,7 @@ export default function HourPlanTab({
   useEffect(() => {
     if (refreshSignal === 0) return;
     refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshSignal]);
 
   // The minute matters for "Xh YYm left"; the hour for which row is live.
@@ -692,11 +689,8 @@ export default function HourPlanTab({
   }, []);
   useEffect(() => {
     refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nowHourRaw]);
-
-  useEffect(() => {
-    if (plan) onPlanLoaded?.(plan.total_done, plan.total_planned);
-  }, [plan]);
 
   if (loadError) {
     return (
