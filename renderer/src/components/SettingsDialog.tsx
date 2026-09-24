@@ -286,6 +286,9 @@ export default function SettingsDialog({
           <Row label="Analog clock face">
             <Toggle on={settings.analog_clock} onClick={() => patch({ analog_clock: !settings.analog_clock })} />
           </Row>
+          <Row label="PLAN follows the time of day">
+            <Toggle on={settings.plan_adaptive} onClick={() => patch({ plan_adaptive: !settings.plan_adaptive })} />
+          </Row>
         </Section>
 
         <Section title="Time tracking">

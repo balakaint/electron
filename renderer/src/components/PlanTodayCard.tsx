@@ -65,9 +65,14 @@ export default function PlanTodayCard({ onGoExecute }: { onGoExecute: (tab: Focu
   if (!status) return null;
 
   const focusBox = (id: string) => {
-    const el = document.getElementById(id);
-    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    el?.focus();
+    // On the time-of-day PLAN the review sits folded; ask it to open
+    // first, then find the box once it has rendered.
+    window.dispatchEvent(new Event('plan-open-review'));
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el?.focus();
+    }, 50);
   };
 
   const steps: { key: string; title: string; done: boolean; sub: string; go: () => void }[] = [

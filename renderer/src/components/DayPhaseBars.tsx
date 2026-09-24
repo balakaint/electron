@@ -109,7 +109,7 @@ export function currentPhaseInfo(
 // 3-hour Morning and an 8-hour Work at the same length, so the one
 // thing a day-strip exists to show — how much of the day each part
 // takes and how much is left — was the one thing it could not show.
-export default function DayPhaseStrip({ settings, now }: { settings: Settings; now: Date }) {
+export default function DayPhaseStrip({ settings, now, compact = false }: { settings: Settings; now: Date; compact?: boolean }) {
   const lang = useLang();
   const bounds = phaseBounds(settings);
   const nowH = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
@@ -149,7 +149,7 @@ export default function DayPhaseStrip({ settings, now }: { settings: Settings; n
           }}
         />
       </div>
-      <div style={{ display: 'flex', gap: 2, marginTop: 4 }}>
+      {!compact && <div style={{ display: 'flex', gap: 2, marginTop: 4 }}>
         {PHASE_ORDER.map((key) => {
           const [startH, endH] = bounds[key];
           return (
@@ -166,7 +166,7 @@ export default function DayPhaseStrip({ settings, now }: { settings: Settings; n
             </div>
           );
         })}
-      </div>
+      </div>}
     </div>
   );
 }

@@ -72,7 +72,7 @@ function AnalogDial({ now, progress, color }: { now: Date; progress: number; col
   );
 }
 
-export default function ClockCard({ onOpenQuarterly }: { onOpenQuarterly: () => void }) {
+export default function ClockCard({ onOpenQuarterly, compact = false }: { onOpenQuarterly: () => void; compact?: boolean }) {
   const lang = useLang();
   const L = useL();
   const [now, setNow] = useState(new Date());
@@ -141,12 +141,12 @@ export default function ClockCard({ onOpenQuarterly }: { onOpenQuarterly: () => 
         background: 'var(--surface)',
         border: '1px solid var(--border)',
         borderRadius: RADIUS.card,
-        padding: SPACE.lg,
+        padding: compact ? SPACE.md : SPACE.lg,
         marginBottom: SPACE.md,
         boxShadow: 'var(--shadow-sm)',
         display: 'flex',
         flexDirection: 'column',
-        gap: SPACE.md,
+        gap: compact ? SPACE.sm : SPACE.md,
       }}
     >
       <div style={{ display: 'flex', alignItems: analog ? 'center' : 'flex-end', gap: SPACE.md }}>
@@ -168,9 +168,9 @@ export default function ClockCard({ onOpenQuarterly }: { onOpenQuarterly: () => 
         )}
       </div>
 
-      {settings && <DayPhaseStrip settings={settings} now={now} />}
+      {settings && <DayPhaseStrip settings={settings} now={now} compact={compact} />}
 
-      <ScopeStats now={now} onOpenQuarterly={onOpenQuarterly} />
+      <ScopeStats now={now} onOpenQuarterly={onOpenQuarterly} compact={compact} />
     </div>
   );
 }
