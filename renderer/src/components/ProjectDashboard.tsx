@@ -270,6 +270,12 @@ function ProjectCard({
             display: 'flex',
             flexDirection: 'column',
             gap: SPACE.hair,
+            // The app's global button style sets align-items: flex-start,
+            // which lets each line grow to its content; a pasted URL in a
+            // task name then ran over the time and dots. Stretch + hidden
+            // keep both lines inside the button so the ellipsis applies.
+            alignItems: 'stretch',
+            overflow: 'hidden',
           }}
         >
           <span style={{ display: 'flex', alignItems: 'baseline', gap: SPACE.sm, minWidth: 0 }}>
@@ -1002,7 +1008,15 @@ export default function ProjectDashboard({
         // answers, before any one project.
         <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginBottom: SPACE.sm, fontSize: 12 }}>
           <span style={{ color: 'var(--text-muted)' }}>{L('Today', 'আজ')}</span>
-          <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{projTimeText(totalSecs, totalTarget)}</span>
+          <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+            {/* The sum of targets is rarely a whole hour (375m), so it is
+                spelled as hours and minutes rather than projTimeText's
+                whole-hours-or-minutes rule. */}
+            {projTimeText(totalSecs, 0).split(' / ')[0]} /{' '}
+            {totalTarget >= 60
+              ? `${Math.floor(totalTarget / 60)}h${totalTarget % 60 ? ` ${String(totalTarget % 60).padStart(2, '0')}m` : ''}`
+              : `${totalTarget}m`}
+          </span>
           <span style={{ flex: 1, height: 4, borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}>
             <span style={{ display: 'block', height: '100%', width: `${totalPct}%`, background: 'var(--accent)' }} />
           </span>
