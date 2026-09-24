@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Q90Panel, quarterlyApi } from '../services/api';
 import { useL } from '../i18n';
+import { horizons } from '../horizons';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
-
-function daysInMonth(year: number, month0: number): number {
-  return new Date(year, month0 + 1, 0).getDate();
-}
-
-function dayOfYear(d: Date): number {
-  return Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - new Date(d.getFullYear(), 0, 1).getTime()) / 86400000) + 1;
-}
 
 // The three horizons the day sits inside — this month, this year, and
 // the 90-day plan — as three equal tiles with one number each. They used
@@ -75,19 +68,13 @@ export default function ScopeStats({ now, onOpenQuarterly }: { now: Date; onOpen
   }, []);
 
   const y = now.getFullYear();
-  const monthDays = daysInMonth(y, now.getMonth());
-  const monthLeft = monthDays - now.getDate();
-  const yearDays = dayOfYear(new Date(y, 11, 31));
-  const yearDay = dayOfYear(now);
-  const yearLeft = yearDays - yearDay;
+  const { monthDays, dayOfMonth, monthLeft, yearDays, yearDay, yearLeft, monthsLeftHalves: halves } = horizons(now);
 
   // Whole and half months once there is more than a month and a half to
   // go — "98 days" is a number to work out, "3 months" is a feeling —
   // and plain days at the end of the year, where the count matters.
-  const monthsLeft = 11 - now.getMonth() + monthLeft / monthDays;
-  const halves = Math.round(monthsLeft * 2) / 2;
   const yearVal =
-    monthsLeft < 1.5
+    halves === null
       ? L(`${yearLeft} days left`, `${yearLeft} দিন বাকি`)
       : L(`${Math.floor(halves)}${halves % 1 ? '½' : ''} months left`, `${Math.floor(halves)}${halves % 1 ? '½' : ''} মাস বাকি`);
 
@@ -98,8 +85,8 @@ export default function ScopeStats({ now, onOpenQuarterly }: { now: Date; onOpen
       <Tile
         label={monthName}
         value={L(`${monthLeft} days left`, `${monthLeft} দিন বাকি`)}
-        sub={L(`Day ${now.getDate()} of ${monthDays}`, `${monthDays} দিনের ${now.getDate()}তম দিন`)}
-        pct={now.getDate() / monthDays}
+        sub={L(`Day ${dayOfMonth} of ${monthDays}`, `${monthDays} দিনের ${dayOfMonth}তম দিন`)}
+        pct={dayOfMonth / monthDays}
         color="var(--accent)"
       />
       <Tile
