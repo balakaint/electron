@@ -175,7 +175,7 @@ def test_migration_copies_goal_hierarchy_and_leaves_goals_table_untouched():
         from alembic import command
         from alembic.config import Config
         cfg = Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
-        command.downgrade(cfg, "-1")
+        command.downgrade(cfg, "d4b6f83a1c9e")  # just before the planning migration; "-1" stops meaning that once a later one lands
         command.upgrade(cfg, "head")
 
         planning_repo = PlanningRepository(f.repo.db)
@@ -210,7 +210,7 @@ def test_migration_dedupes_two_yearly_goals_for_the_same_owner_and_year():
         from alembic import command
         from alembic.config import Config
         cfg = Config(os.path.join(os.path.dirname(__file__), "alembic.ini"))
-        command.downgrade(cfg, "-1")
+        command.downgrade(cfg, "d4b6f83a1c9e")  # just before the planning migration; "-1" stops meaning that once a later one lands
         command.upgrade(cfg, "head")
 
         planning_repo = PlanningRepository(f.repo.db)
