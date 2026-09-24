@@ -1,15 +1,14 @@
-import { useEffect, useState } from 'react';
 import { PHASE_LABELS_BN, useLang } from '../i18n';
-import { Settings, settingsApi } from '../services/api';
+import { Settings } from '../services/api';
 import { RADIUS } from '../spacing';
 
-type PhaseKey = 'morning' | 'work' | 'evening' | 'sleep';
+export type PhaseKey = 'morning' | 'work' | 'evening' | 'sleep';
 
 // Matches legacy's _SEG_COLORS: a categorical palette independent of the
 // theme's own accent (see themes.ts's per-theme --phase-* comment) — 4
 // mutually distinct colors that still vary per theme, just not by the
 // accent-derivation rule the rest of the app's tokens follow.
-const PHASE_COLOR: Record<PhaseKey, string> = {
+export const PHASE_COLOR: Record<PhaseKey, string> = {
   sleep: 'var(--phase-sleep)',
   morning: 'var(--phase-morning)',
   work: 'var(--phase-work)',
@@ -23,7 +22,7 @@ const PHASE_LABEL: Record<PhaseKey, string> = {
   evening: 'Evening',
 };
 
-function formatHour(h: number): string {
+export function formatHour(h: number): string {
   h = ((h % 24) + 24) % 24;
   let hh = Math.trunc(h);
   let mm = Math.round((h - hh) * 60);
@@ -75,7 +74,7 @@ function phaseProgress(key: PhaseKey, bounds: Record<PhaseKey, [number, number]>
   return (nowH - startH) / duration;
 }
 
-const PHASE_ORDER: PhaseKey[] = ['morning', 'work', 'evening', 'sleep'];
+export const PHASE_ORDER: PhaseKey[] = ['morning', 'work', 'evening', 'sleep'];
 
 // Which phase is "now", plus enough to draw a progress ring for it —
 // ClockCard's TODAY ring (2026-09-18 redesign) needs the same fact this
@@ -103,111 +102,71 @@ export function currentPhaseInfo(
   };
 }
 
-export default function DayPhaseBars() {
+// The day as ONE bar, not four. Each phase gets a segment as wide as
+// its share of the 24 hours, starting from Morning, so the bar reads
+// left to right the way the day does, and a single marker says where in
+// it you are. Four separate full-width bars (the previous shape) drew a
+// 3-hour Morning and an 8-hour Work at the same length, so the one
+// thing a day-strip exists to show — how much of the day each part
+// takes and how much is left — was the one thing it could not show.
+export default function DayPhaseStrip({ settings, now }: { settings: Settings; now: Date }) {
   const lang = useLang();
-  const [settings, setSettings] = useState<Settings | null>(null);
-  const [now, setNow] = useState(new Date());
-
-  useEffect(() => {
-    settingsApi.get().then(setSettings);
-  }, []);
-
-  useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(id);
-  }, []);
-
-  if (!settings) return null;
-
   const bounds = phaseBounds(settings);
   const nowH = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
-  const progresses = PHASE_ORDER.map((key) => phaseProgress(key, bounds, nowH));
-  const currentPhase = PHASE_ORDER.find((key, i) => progresses[i] > 0 && progresses[i] < 1) ?? null;
+  const dayStart = bounds.morning[0];
+  const markerPct = ((((nowH - dayStart) % 24) + 24) % 24) / 24 * 100;
 
   return (
-    <div style={{ marginTop: 8 }}>
-      {PHASE_ORDER.map((key, i) => {
-        const [startH, endH] = bounds[key];
-        const pct = Math.round(progresses[i] * 100);
-        // The active phase leads (thicker, glowing track, bold text);
-        // the other three recede (2026-09-18 redesign, Zahid: all 4
-        // bars read as equally weighted, so "where am I right now"
-        // took reading every row instead of one glance).
-        const isNow = key === currentPhase;
-        return (
-          <div
-            key={key}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 8,
-              padding: '4px 8px',
-              marginLeft: -8,
-              marginRight: -8,
-              borderRadius: RADIUS.control,
-              // Row opacity used to carry "this isn't the active phase"
-              // — it also multiplied contrast down on top of tokens
-              // that were already the dim tier (--text-muted/--text-
-              // faint), landing every inactive row at 2.5-3.6:1 on
-              // every theme, well under the 4.5:1 AA floor (UX audit,
-              // 2026-09-24). The recede effect now comes entirely from
-              // token choices (muted/faint text below, dimmed dot
-              // here) and the smaller dot/thinner bar, none of which
-              // touch contrast math invisibly.
-              // Tint dropped 12%→7% (visual redesign pass, 2026-09-20):
-              // the dot/left-border/bold-text already carry "this is the
-              // active phase" — the wash on top of them read as more
-              // saturated red/blue than the signal needed.
-              background: isNow ? `color-mix(in srgb, ${PHASE_COLOR[key]} 7%, transparent)` : 'transparent',
-              borderLeft: isNow ? `3px solid ${PHASE_COLOR[key]}` : '3px solid transparent',
-            }}
-          >
-            <span
-              style={{
-                width: isNow ? 12 : 10,
-                height: isNow ? 12 : 10,
-                borderRadius: RADIUS.control,
-                // Authored dim value, not opacity — mixes toward
-                // --border (the same neutral Card's own unfilled-accent
-                // rail already mixes toward) so the result is a fixed,
-                // reviewable color rather than a runtime-computed one.
-                background: isNow ? PHASE_COLOR[key] : `color-mix(in srgb, ${PHASE_COLOR[key]} 55%, var(--border))`,
-                flexShrink: 0,
-              }}
-            />
-            <span
-              style={{
-                width: 60,
-                textAlign: 'left',
-                fontSize: 12,
-                fontWeight: isNow ? 700 : 600,
-                color: isNow ? 'var(--text)' : 'var(--text-muted)',
-              }}
-            >
-              {lang === 'bn' ? PHASE_LABELS_BN[key] : PHASE_LABEL[key]}
-            </span>
+    <div>
+      <div style={{ position: 'relative', display: 'flex', gap: 2, height: 12 }}>
+        {PHASE_ORDER.map((key) => {
+          const [startH, endH] = bounds[key];
+          const pct = Math.round(phaseProgress(key, bounds, nowH) * 100);
+          return (
             <div
+              key={key}
               style={{
-                flex: 1,
-                height: isNow ? 10 : 6,
-                background: 'var(--border)',
-                borderRadius: RADIUS.pill,
+                flex: `${Math.max(endH - startH, 0.01)} 1 0`,
+                borderRadius: RADIUS.control,
+                background: `color-mix(in srgb, ${PHASE_COLOR[key]} 16%, var(--surface))`,
                 overflow: 'hidden',
-                boxShadow: isNow ? `0 0 0 3px color-mix(in srgb, ${PHASE_COLOR[key]} 12%, transparent)` : undefined,
               }}
             >
               <div style={{ width: `${pct}%`, height: '100%', background: PHASE_COLOR[key] }} />
             </div>
-            <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap' }}>
-              {formatHour(startH)}–{formatHour(endH)}
-            </span>
-            <span style={{ fontSize: 12, color: isNow ? 'var(--text)' : 'var(--text-faint)', fontWeight: isNow ? 700 : 400, width: 32, textAlign: 'right' }}>
-              {pct}%
-            </span>
-          </div>
-        );
-      })}
+          );
+        })}
+        <span
+          aria-hidden
+          style={{
+            position: 'absolute',
+            left: `calc(${markerPct}% - 1px)`,
+            top: -4,
+            width: 2,
+            height: 20,
+            borderRadius: RADIUS.pill,
+            background: 'var(--text)',
+          }}
+        />
+      </div>
+      <div style={{ display: 'flex', gap: 2, marginTop: 4 }}>
+        {PHASE_ORDER.map((key) => {
+          const [startH, endH] = bounds[key];
+          return (
+            <div key={key} style={{ flex: `${Math.max(endH - startH, 0.01)} 1 0`, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: PHASE_COLOR[key], overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {lang === 'bn' ? PHASE_LABELS_BN[key] : PHASE_LABEL[key]}
+              </span>
+              <span
+                title={`${formatHour(startH)}–${formatHour(endH)}`}
+                style={{ fontSize: 12, color: 'var(--text-faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              >
+                {formatHour(startH)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

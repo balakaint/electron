@@ -3,15 +3,13 @@ import {
   MindsetEntry,
   Project,
   ProjectOrderEntry,
-  Q90Panel,
   designTodayApi,
   mindsetApi,
   projectsApi,
-  quarterlyApi,
 } from '../services/api';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { accentText } from '../themes';
-import { RADIUS } from '../spacing';
+import { RADIUS, SPACE } from '../spacing';
 import DisciplineModuleCards from './DisciplineModuleCards';
 
 // Legacy's PLAN review card (task_tracker_v3_THEMES.py 3585-3955): a
@@ -97,6 +95,7 @@ function MindsetTab() {
         </span>
       </div>
       <textarea
+        id="plan-mindset"
         value={note.value}
         onChange={(e) => note.setValue(e.target.value)}
         onBlur={note.flush}
@@ -152,6 +151,7 @@ function DesignTodayBox() {
     <div style={{ marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
       <div style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: 4 }}>DESIGN TODAY</div>
       <textarea
+        id="plan-design-today"
         value={note.value}
         onChange={(e) => note.setValue(e.target.value)}
         onBlur={note.flush}
@@ -274,49 +274,10 @@ function ConsistencyTab() {
 // outcome is a habit without a destination, and calling that 'planned'
 // is the kind of flattering number this app keeps having to remove."
 // areas_done from the engine already uses that rule.
-function QuarterLink({ onOpen }: { onOpen: () => void }) {
-  const [panel, setPanel] = useState<Q90Panel | null>(null);
-  useEffect(() => {
-    quarterlyApi.getPanel().then(setPanel);
-  }, []);
-  if (!panel) return null;
-
-  // Before the cycle starts, legacy counts DOWN to it rather than
-  // reporting a negative "days left".
-  const tail =
-    panel.day === 0
-      ? `starts in ${panel.days_left - panel.cycle_days}d`
-      : `${panel.days_left}d left`;
-
-  return (
-    <button
-      onClick={onOpen}
-      title="Open the quarterly plan"
-      style={{
-        marginLeft: 'auto',
-        fontSize: 12,
-        border: 'none',
-        background: 'transparent',
-        // Muted once something is planned; the accent is a nudge for an
-        // empty plan, not a permanent highlight.
-        color: panel.areas_done ? 'var(--text-muted)' : 'var(--accent)',
-        cursor: 'pointer',
-        whiteSpace: 'nowrap',
-        height: 24,
-        padding: '0 4px',
-      }}
-    >
-      {panel.cycle_days}-day plan {panel.areas_done}/{panel.areas_total} · {tail} ›
-    </button>
-  );
-}
-
 export default function PlanReview({
-  onOpenQuarterly,
   onOpenMorningRitual,
   onOpenNightClosure,
 }: {
-  onOpenQuarterly: () => void;
   onOpenMorningRitual: (view: 'flow' | 'trend') => void;
   onOpenNightClosure: () => void;
 }) {
@@ -344,33 +305,41 @@ export default function PlanReview({
         flexDirection: 'column',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 12, flex: 'none' }}>
-        {/* role="tablist" requires its own children to all be role="tab"
-            — axe-core's aria-required-children, caught at "critical".
-            QuarterLink used to sit inside this div as a fourth child
-            with neither role, which is why it moved out to a sibling
-            here instead of just losing an aria attribute. */}
-        <div role="tablist" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {TABS.map(([key, label]) => (
+      {/* One segmented control across the card's full width, not three
+          loose outlined buttons plus a link. The quarter link that used
+          to share this row moved up to the TODAY card's horizon tiles,
+          next to the month and year it is a horizon alongside. */}
+      <div
+        role="tablist"
+        aria-label="Review"
+        style={{ display: 'flex', padding: SPACE.hair, marginBottom: SPACE.md, flex: 'none', background: 'var(--surface-2, var(--surface))', borderRadius: RADIUS.card }}
+      >
+        {TABS.map(([key, label]) => {
+          const on = tab === key;
+          return (
             <button
               key={key}
               role="tab"
-              aria-selected={tab === key}
+              aria-selected={on}
               onClick={() => setTab(key)}
               style={{
+                flex: 1,
                 fontSize: 12,
-                height: 24,
-                padding: '0 12px',
-                fontWeight: tab === key ? 700 : 400,
-                background: tab === key ? 'var(--accent-light)' : undefined,
-                borderColor: tab === key ? 'var(--accent)' : undefined,
+                height: 32,
+                padding: 0,
+                border: 'none',
+                borderRadius: RADIUS.control,
+                fontWeight: on ? 700 : 400,
+                color: on ? 'var(--text)' : 'var(--text-muted)',
+                background: on ? 'var(--surface)' : 'transparent',
+                boxShadow: on ? 'var(--shadow-sm)' : 'none',
+                cursor: 'pointer',
               }}
             >
               {label}
             </button>
-          ))}
-        </div>
-        <QuarterLink onOpen={onOpenQuarterly} />
+          );
+        })}
       </div>
       {/* The tab strip is fixed; only the answers scroll. Legacy's
           _plan_scroll_host makes the same split, for the same reason:

@@ -304,7 +304,7 @@ export default function DeepWorkTrend() {
               EXECUTE — and naming this after the calendar would make the
               calendar the subject when it is the context. */}
           Deep Work
-          {streak > 0 && (
+          {!isMonth && streak > 0 && (
             <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: 'var(--accent)' }}>
               · {streak}d streak
             </span>
@@ -362,6 +362,30 @@ export default function DeepWorkTrend() {
         //
         // Hovering a day replaces the line rather than adding one, so
         // the readout costs no height at all.
+        <>
+        {/* The month's three numbers get a row of their own, one tile
+            each, instead of sharing a sentence: the total, how many of
+            the days so far met the goal, and the streak. Read side by
+            side they answer "how is this month going" before the chart
+            has to. The sentence below keeps the day count and the hover
+            readout. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '8px 0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{fmtHM(monthTotal)}</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>this month</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>
+              {monthOnTarget}
+              <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text-muted)' }}>/{todayIdx + 1}</span>
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>days on {fmtHM(goal)} goal</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{streak}d</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>current streak</span>
+          </div>
+        </div>
         <div style={{ fontSize: 12, marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {hoverI !== null && hoverI <= todayIdx ? (
             <>
@@ -370,13 +394,13 @@ export default function DeepWorkTrend() {
             </>
           ) : (
             <>
-              <span style={{ color: 'var(--text)', fontWeight: 600 }}>{fmtHM(monthTotal)}</span>
               <span style={{ color: 'var(--text-muted)' }}>
-                {' '}this month · day {dayOfMonth} of {mDays} · {daysLeft} left · {monthOnTarget} on target
+                Day {dayOfMonth} of {mDays} · {daysLeft} left · hover a day for its hours
               </span>
             </>
           )}
         </div>
+        </>
       ) : (
         week && (
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
@@ -449,6 +473,23 @@ export default function DeepWorkTrend() {
               <>
                 <path d={area} fill="url(#dwt-fill)" stroke="none" />
                 <polyline points={linePts} fill="none" stroke="var(--accent)" strokeWidth={2} />
+                {/* One point per day lived: filled where the day met the
+                    goal, hollow where it did not, so the count in the
+                    tile above can be read straight off the line. Today
+                    keeps its own marker below. */}
+                {past.map((v, i) =>
+                  i === todayIdx ? null : (
+                    <circle
+                      key={days[i]}
+                      cx={px(i)}
+                      cy={py(v)}
+                      r={fs(3)}
+                      fill={v >= goal ? 'var(--accent)' : 'var(--surface)'}
+                      stroke="var(--accent)"
+                      strokeWidth={fs(1.5)}
+                    />
+                  ),
+                )}
               </>
             ) : (
               <>
@@ -478,7 +519,14 @@ export default function DeepWorkTrend() {
               </>
             )}
 
-            <circle cx={px(todayIdx)} cy={py(secs[todayIdx])} r={2.5} fill="var(--accent)" stroke="var(--surface)" />
+            <circle
+              cx={px(todayIdx)}
+              cy={py(secs[todayIdx])}
+              r={isMonth ? fs(4.5) : 2.5}
+              fill={isMonth ? 'var(--surface)' : 'var(--accent)'}
+              stroke={isMonth ? 'var(--text)' : 'var(--surface)'}
+              strokeWidth={isMonth ? fs(2) : 1}
+            />
 
             {/* ── The month as a strip of days ────────────────────────
                 Fixed height, every slot identical: this is the calendar,

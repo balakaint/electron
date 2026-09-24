@@ -6,6 +6,7 @@ import HourPlanTab from './HourPlan';
 import NowCard from './NowCard';
 import DeepWorkTrend from './DeepWorkTrend';
 import PlanReview from './PlanReview';
+import PlanTodayCard from './PlanTodayCard';
 import TaskList from './TaskList';
 import AccordionSection from './AccordionSection';
 import MiniCalendarPicker from './MiniCalendarPicker';
@@ -677,10 +678,15 @@ export default function Panel3({
                 time inside the hour you are in — "the same number doing
                 more work". Two bold clocks made both read as less
                 trustworthy. */}
-            <ClockCard />
+            <ClockCard onOpenQuarterly={onOpenQuarterly} />
+            <PlanTodayCard
+              onGoExecute={(t) => {
+                selectTab(t);
+                onSelectView('focus');
+              }}
+            />
             <DeepWorkTrend />
             <PlanReview
-              onOpenQuarterly={onOpenQuarterly}
               onOpenMorningRitual={onOpenMorningRitual}
               onOpenNightClosure={onOpenNightClosure}
             />
