@@ -125,8 +125,8 @@ function NoteCard({
                 // GoalRow already uses for a card's primary clickable
                 // name, same role here.
                 fontSize: 14,
-                fontWeight: 600,
-                color: 'var(--text)',
+                fontWeight: 700,
+                color: 'var(--header-accent)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
