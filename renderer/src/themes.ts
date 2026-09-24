@@ -82,6 +82,36 @@ const BA_SECTION_COLORS = {
   '--ba-do': '#2F9E44',
 };
 
+// --ba-*-text (2026-09-24 audit fix) — BusinessAnalysisCanvas's Card
+// title paints the raw BA_SECTION_COLORS value as TEXT on --surface
+// when a section is filled. Same failure family --bdp-*-ink and
+// --ba-*-ink already exist to prevent: BA_SECTION_COLORS was picked to
+// look right as a FILL/rail (which it still is, unchanged, for
+// border-left etc.), and four of the five measured under 4.5:1 as text
+// on a light --surface (--ba-money the worst, 2.48:1). Computed via
+// readableInk() at THIS FILE'S OWN 7:1 AAA standard (not the 4.5 AA
+// floor — see the file-header comment on why), the same way
+// CHART_SERIES_LIGHT/DARK and BA_STATUS_LIGHT/DARK already split this
+// file's other per-surface pairs: one shared light-bucket value
+// (focus/energy/corporate/rize all share #FFFFFF --surface) and one
+// shared dark-bucket value (warroom/journey), each verified >=7:1
+// against every theme in its bucket — see palette.test.ts's own
+// `ba-*-text on surface` rows.
+const BA_SECTION_TEXT_LIGHT = {
+  '--ba-idea-text': '#0d38e3',
+  '--ba-upside-text': '#065a41',
+  '--ba-money-text': '#764500',
+  '--ba-decide-text': '#5424e3',
+  '--ba-do-text': '#1c5f29',
+};
+const BA_SECTION_TEXT_DARK = {
+  '--ba-idea-text': '#99adf9',
+  '--ba-upside-text': '#0ecc94',
+  '--ba-money-text': '#F08C00',
+  '--ba-decide-text': '#b7a3f3',
+  '--ba-do-text': '#38bd52',
+};
+
 // --ba-validate/nogo/neutral back BusinessAnalysisCanvas's PRIORITY_COLOR
 // (HIGH/MED/LOW), used BOTH as the pressed button's background (fine at
 // full strength) and as TEXT on a 10% tint of itself for the unpressed
@@ -306,6 +336,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     ...SHADOW_LIGHT,
     ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
+    ...BA_SECTION_TEXT_LIGHT,
     ...BA_SECTION_INK,
     ...BDP_LIGHT,
     '--habit-money': '#175A9D',
@@ -352,6 +383,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     ...SHADOW_DARK,
     ...INPUT_SCHEME_DARK,
     ...BA_SECTION_COLORS,
+    ...BA_SECTION_TEXT_DARK,
     ...BA_SECTION_INK,
     ...BDP_DARK,
     '--habit-money': '#58A6FF',
@@ -398,6 +430,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     ...SHADOW_LIGHT,
     ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
+    ...BA_SECTION_TEXT_LIGHT,
     ...BA_SECTION_INK,
     ...BDP_LIGHT,
     '--habit-money': '#175A9D',
@@ -456,6 +489,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     ...SHADOW_LIGHT,
     ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
+    ...BA_SECTION_TEXT_LIGHT,
     ...BA_SECTION_INK,
     ...BDP_LIGHT,
     '--habit-money': '#0C4A6E',
@@ -502,6 +536,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     ...SHADOW_DARK,
     ...INPUT_SCHEME_DARK,
     ...BA_SECTION_COLORS,
+    ...BA_SECTION_TEXT_DARK,
     ...BA_SECTION_INK,
     ...BDP_DARK,
     '--habit-money': '#4CE0A0',
@@ -557,6 +592,7 @@ export const PALETTES: Record<Theme, Record<string, string>> = {
     ...SHADOW_LIGHT,
     ...INPUT_SCHEME_LIGHT,
     ...BA_SECTION_COLORS,
+    ...BA_SECTION_TEXT_LIGHT,
     ...BA_SECTION_INK,
     ...BDP_LIGHT,
     '--habit-money': '#0C4A6E',

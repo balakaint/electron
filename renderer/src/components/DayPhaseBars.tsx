@@ -146,7 +146,15 @@ export default function DayPhaseBars() {
               marginLeft: -8,
               marginRight: -8,
               borderRadius: RADIUS.control,
-              opacity: isNow ? 1 : 0.55,
+              // Row opacity used to carry "this isn't the active phase"
+              // — it also multiplied contrast down on top of tokens
+              // that were already the dim tier (--text-muted/--text-
+              // faint), landing every inactive row at 2.5-3.6:1 on
+              // every theme, well under the 4.5:1 AA floor (UX audit,
+              // 2026-09-24). The recede effect now comes entirely from
+              // token choices (muted/faint text below, dimmed dot
+              // here) and the smaller dot/thinner bar, none of which
+              // touch contrast math invisibly.
               // Tint dropped 12%→7% (visual redesign pass, 2026-09-20):
               // the dot/left-border/bold-text already carry "this is the
               // active phase" — the wash on top of them read as more
@@ -160,7 +168,11 @@ export default function DayPhaseBars() {
                 width: isNow ? 12 : 10,
                 height: isNow ? 12 : 10,
                 borderRadius: RADIUS.control,
-                background: PHASE_COLOR[key],
+                // Authored dim value, not opacity — mixes toward
+                // --border (the same neutral Card's own unfilled-accent
+                // rail already mixes toward) so the result is a fixed,
+                // reviewable color rather than a runtime-computed one.
+                background: isNow ? PHASE_COLOR[key] : `color-mix(in srgb, ${PHASE_COLOR[key]} 55%, var(--border))`,
                 flexShrink: 0,
               }}
             />

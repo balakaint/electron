@@ -94,6 +94,17 @@ for (const theme of THEME_ORDER) {
   // HourPlan draws each block's name, chevron and count in the phase
   // colour, on a 9% tint of that same colour over the surface. That
   // tint is why the pair is not simply "phase on surface".
+  // DayPhaseBars' inactive-row dot: color-mix(phase 55%, border) — a
+  // fixed, reviewable dim value that replaced a blanket opacity:0.55 on
+  // the whole row (which multiplied contrast down on already-dim text
+  // tokens to 2.5-3.6:1 on every theme; UX audit, 2026-09-24). This is
+  // the durable-fix check that would have caught it: verify the actual
+  // composited color, not the pre-mix token, clears the 3:1 UI floor.
+  for (const phase of ['sleep', 'morning', 'work', 'evening']) {
+    const c = p[`--phase-${phase}`];
+    check(theme, `phase-${phase} inactive dot (55% mix with border) on surface`, mix(c, p['--border'], 0.55), surface, 3);
+  }
+
   for (const phase of ['sleep', 'morning', 'work', 'evening']) {
     const c = p[`--phase-${phase}`];
     check(theme, `phase-${phase} on its own 9% tint`, c, mix(c, surface, 0.09));
@@ -113,6 +124,14 @@ for (const theme of THEME_ORDER) {
   check(theme, 'success as text on surface', p['--success'], surface);
   check(theme, 'warning as text on surface', p['--warning'], surface);
   check(theme, 'danger as text on surface', p['--danger'], surface);
+
+  // BusinessAnalysisCanvas's Card title draws the readable `-text`
+  // variant of each BA_SECTION_COLORS accent, not the raw fill colour
+  // (2026-09-24 audit fix — 4 of 5 raw accents failed as text on a
+  // light surface, --ba-money as low as 2.48:1).
+  for (const k of ['idea', 'upside', 'money', 'decide', 'do']) {
+    check(theme, `ba-${k}-text on surface`, p[`--ba-${k}-text`], surface);
+  }
 
   // HabitDashboard's own 7-colour mini-palette, each drawn as text on
   // its card's surface — distinct from the app-wide success/warning/

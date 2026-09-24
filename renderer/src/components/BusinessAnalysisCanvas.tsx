@@ -138,6 +138,7 @@ function Field({
   rows = 2,
   placeholder,
   big = false,
+  underline = false,
   onSave,
   onSaved,
 }: {
@@ -150,6 +151,12 @@ function Field({
       should read like an answer worth acting on (NEXT ACTION's own
       text), not a note. */
   big?: boolean;
+  /** CURRENT BLOCKERS keeps the original bottom-underline style
+      (Zahid, 2026-09-24) instead of the full-box style every other
+      field on this page uses — one section reading differently marks
+      it as the "problem" half against REQUIRED STATE's boxed "target"
+      half right below it. */
+  underline?: boolean;
   onSave: (next: string) => void;
   onSaved: () => void;
 }) {
@@ -188,18 +195,34 @@ function Field({
           width: '100%',
           minHeight: 0,
           fontSize: big ? 16 : 14,
-          fontWeight: 600,
-          padding: '2px 0',
-          border: 'none',
-          borderBottom: `1px solid ${focused ? accent : 'var(--border)'}`,
+          // Filled text reads bolder than an empty field's placeholder
+          // weight — a written answer should look more "written" than
+          // the blank it started as (Zahid, 2026-09-24).
+          fontWeight: text.trim() ? 700 : 600,
+          padding: underline ? '2px 0' : '4px',
+          // A full soft box, not a bottom-only hairline — a page with
+          // ~20 of these stacked in grids read as a form ruled with
+          // lines rather than a set of input areas (Zahid, 2026-09-24).
+          // Unfocused+empty border is barely-there, a click target cue.
+          // Unfocused+FILLED hides the border entirely — the bolder text
+          // itself is the signal once there's something to read, so the
+          // box outline is one more line the eye has to filter out.
+          // Focus always shows the accent border regardless of content,
+          // so the field never loses its "you're editing this" cue.
+          // CURRENT BLOCKERS opts back into the underline-only style
+          // (see `underline` prop) instead of this box — bottom border
+          // only, no full outline.
+          ...(underline
+            ? { border: 'none', borderBottom: `1px solid ${focused ? accent : text.trim() ? 'transparent' : 'var(--border)'}` }
+            : { border: `1px solid ${focused ? accent : text.trim() ? 'transparent' : 'color-mix(in srgb, var(--border) 45%, transparent)'}` }),
           background: 'transparent',
           color: 'var(--text)',
           resize: 'none',
           outline: 'none',
-          // A 1px border-bottom color swap alone was the only focus
-          // signal here — too faint to count as WCAG 2.4.7's "visible"
-          // indicator on a low-vision pass (UX audit, 2026-09-20). This
-          // ring is on top of it, not instead — same accent, more of it.
+          // A 1px border color swap alone was the only focus signal here
+          // — too faint to count as WCAG 2.4.7's "visible" indicator on
+          // a low-vision pass (UX audit, 2026-09-20). This ring is on
+          // top of it, not instead — same accent, more of it.
           boxShadow: focused ? `0 0 0 2px ${accent}55` : 'none',
           borderRadius: RADIUS.control,
           boxSizing: 'border-box',
@@ -276,7 +299,12 @@ function MoneyStat({
     stepper can scroll a section into view when the page is squeezed
     shorter than its content. */
 const Card = forwardRef<HTMLDivElement, {
-  title: string;
+  /** Omit to skip the title bar entirely — the left DECISION card
+      drops it (Zahid, 2026-09-24: the right DECISION card already
+      carries the "DECISION" label, so a second identical header a few
+      hundred px away was a duplicate, not a second piece of
+      information — removing it saves a full line of height too). */
+  title?: string;
   accent: string;
   filled?: boolean;
   children: React.ReactNode;
@@ -297,19 +325,26 @@ const Card = forwardRef<HTMLDivElement, {
         ...style,
       }}
     >
-      <div
-        style={{
-          fontSize: 13,
-          fontWeight: 700,
-          letterSpacing: 0.5,
-          padding: '8px 12px',
-          color: filled ? accent : 'var(--text-muted)',
-          borderBottom: '1px solid var(--border)',
-          flex: 'none',
-        }}
-      >
-        {title}
-      </div>
+      {title && (
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 700,
+            letterSpacing: 0.5,
+            padding: '8px 12px',
+            // The raw --ba-* accent (also used below for border-left) is
+            // a FILL colour, not verified as text-on-surface — 4 of the 5
+            // measured under 4.5:1, --ba-money as low as 2.48:1 (UX audit,
+            // 2026-09-24). The `-text` token is the readable variant of
+            // the same colour, computed against this theme's own surface.
+            color: filled ? accent.replace(/\)$/, '-text)') : 'var(--text-muted)',
+            borderBottom: '1px solid var(--border)',
+            flex: 'none',
+          }}
+        >
+          {title}
+        </div>
+      )}
       {/* overflow-y:auto is the safety valve for the whole page's "fit
           the screen" rule: the grid row a card sits in is a hard fr
           share of the available height (minmax(0, Nfr) below), so if a
@@ -334,20 +369,62 @@ function firstAmount(s: string): number | null {
 export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: ProjectKey }) {
   const [ba, setBa] = useState<BusinessAnalysis | null>(null);
   const [project, setProject] = useState<Project | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [savedAt, setSavedAt] = useState(0);
   const [peopleCount, setPeopleCount] = useState(0);
+  const savedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sectionRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
   const jumpTo = (i: number) => sectionRefs[i].current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-  useEffect(() => {
-    businessAnalysisApi.get(projectKey).then(setBa);
-    projectsApi.get(projectKey).then(setProject);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectKey]);
+  // No .catch() here used to leave `ba` null forever on any failure —
+  // the page was stuck on bare "Loading…" with no way out short of
+  // restarting the app (UX audit, 2026-09-24). Mirrors NotesTab.tsx's
+  // own load/loadError/retry shape.
+  const load = () => {
+    setLoadError(false);
+    Promise.all([businessAnalysisApi.get(projectKey), projectsApi.get(projectKey)])
+      .then(([b, p]) => {
+        setBa(b);
+        setProject(p);
+      })
+      .catch(() => setLoadError(true));
+  };
+  useEffect(load, [projectKey]);
 
+  if (loadError) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+          fontSize: 12,
+          color: 'var(--danger)',
+          border: '1px solid var(--danger)',
+          borderRadius: RADIUS.control,
+          padding: '8px 12px',
+        }}
+      >
+        <span>Couldn't load — check the app is connected.</span>
+        <button className="btn-ghost" style={{ fontSize: 12, flex: 'none' }} onClick={load}>
+          Retry
+        </button>
+      </div>
+    );
+  }
   if (!ba) return <div>Loading…</div>;
 
-  const markSaved = () => setSavedAt(Date.now());
+  // "Saved" used to persist forever after the first edit, reading as
+  // stale status rather than a fresh confirmation (UX audit,
+  // 2026-09-24). Clears itself ~2s after the most recent save; the
+  // ref cancels any earlier pending clear so rapid edits don't flicker
+  // it off mid-typing.
+  const markSaved = () => {
+    setSavedAt(Date.now());
+    if (savedTimeoutRef.current) clearTimeout(savedTimeoutRef.current);
+    savedTimeoutRef.current = setTimeout(() => setSavedAt(0), 2000);
+  };
   const save = (field: keyof BusinessAnalysis, value: string) =>
     businessAnalysisApi.update(projectKey, { [field]: value }).then((v) => {
       setBa(v);
@@ -395,6 +472,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
   const firstUndone = stepsDone.findIndex((d) => !d);
   const current = firstUndone === -1 ? 3 : firstUndone;
 
+  const attachName = ba.attach_path.split(/[\\/]/).pop() ?? '';
   const targetMatch = ba.idea_goal.match(TARGET_RE);
   const investment = firstAmount(ba.fin_investment);
   const profit = firstAmount(ba.fin_profit);
@@ -402,7 +480,11 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, gap: 8, position: 'relative' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 'none' }}>
+      {/* One header row, not two — the attach/Saved row used to be its
+          own full-width flex row for two small controls, costing a
+          whole row of height the grid below could use instead (Zahid,
+          2026-09-24: "use top page blank space more efficiently"). */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 'none', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
           <div style={{ fontSize: 24, fontWeight: 700 }}>
             {(project?.name || projectKey).toUpperCase()}
@@ -412,19 +494,17 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
           </div>
         </div>
         <span style={{ flex: 1 }} />
-        <Stepper done={stepsDone} current={current} onJump={jumpTo} />
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
-        <span style={{ flex: 1 }} />
         {ba.attach_path ? (
           <button
             onClick={() => businessAnalysisApi.openAttachFile(ba.attach_path)}
             onDoubleClick={() => save('attach_path', '')}
-            title="Click to open · double-click to detach"
+            // Full filename on hover, not the instruction text — a
+            // truncated name below has no other way to be recovered
+            // without opening the file (UX audit, 2026-09-24).
+            title={`${attachName} · Click to open · double-click to detach`}
             style={{ fontSize: 12, height: 24 }}
           >
-            + {ba.attach_path.split(/[\\/]/).pop()?.slice(0, 24)}
+            + {attachName.length > 24 ? `${attachName.slice(0, 24)}…` : attachName}
           </button>
         ) : (
           <button
@@ -440,6 +520,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
             <Check size={12} /> Saved
           </span>
         )}
+        <Stepper done={stepsDone} current={current} onJump={jumpTo} />
       </div>
 
       <div
@@ -456,7 +537,22 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
           // though that was taller than 1.4fr's actual share of the
           // container. minmax(0, …) lets the track shrink and pushes
           // any excess into the Card's own overflow-y:auto instead.
-          gridTemplateRows: 'auto minmax(0, 1.6fr) minmax(0, 1.6fr) minmax(0, 1.8fr)',
+          // DECISION (3rd row) needs more than an even 1.6fr share now
+          // that every field is a 2-row textarea (was 1) — at 1.6fr it
+          // scrolled internally even fully empty, just from the fields'
+          // own reserved height (Zahid, 2026-09-24). A first pass took
+          // this from ANALYSIS+FINANCIAL, which turned out to need the
+          // room just as much — its own 4 stacked 2-row fields
+          // overflowed and visibly overlapped the next field's label
+          // (Zahid's screenshot, 2026-09-24). NEXT ACTION+PEOPLE had
+          // real slack (same screenshot showed blank space there), so
+          // the borrow comes from there instead.
+          // DECISION's own content now fits comfortably without
+          // scrolling (after the earlier gap-tightening), so its 1.9fr
+          // share left ~40px of dead space below both cards while
+          // NEXT ACTION sat cramped right below it (Zahid's screenshot,
+          // 2026-09-24, red-marked). Giving that back to row4.
+          gridTemplateRows: 'auto minmax(0, 1.8fr) minmax(0, 1.5fr) minmax(0, 1.7fr)',
           gap: 8,
         }}
       >
@@ -465,7 +561,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
             <Field
               label="BUSINESS IDEA"
               accent="var(--ba-idea)"
-              rows={1}
+              rows={2}
               placeholder="What am I building?"
               value={ba.idea_business}
               onSave={(v) => save('idea_business', v)}
@@ -474,7 +570,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
             <Field
               label="PROBLEM"
               accent="var(--ba-idea)"
-              rows={1}
+              rows={2}
               placeholder="What problem does it solve?"
               value={ba.idea_problem}
               onSave={(v) => save('idea_problem', v)}
@@ -483,7 +579,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
             <Field
               label="TARGET CUSTOMER"
               accent="var(--ba-idea)"
-              rows={1}
+              rows={2}
               placeholder="Who pays?"
               value={ba.idea_customer}
               onSave={(v) => save('idea_customer', v)}
@@ -492,7 +588,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
             <Field
               label="DESIRED OUTCOME"
               accent="var(--ba-idea)"
-              rows={1}
+              rows={2}
               placeholder="What measurable result do I want?"
               value={ba.idea_goal}
               onSave={(v) => save('idea_goal', v)}
@@ -502,11 +598,11 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
         </Card>
 
         <Card ref={sectionRefs[1]} title="ANALYSIS" accent="var(--ba-upside)" filled={analysisFilled}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0 }}>
-            <Field label="MARKET OPPORTUNITY" accent="var(--ba-upside)" rows={1} value={ba.an_market} onSave={(v) => save('an_market', v)} onSaved={markSaved} />
-            <Field label="COMPETITION" accent="var(--ba-upside)" rows={1} value={ba.an_competition} onSave={(v) => save('an_competition', v)} onSaved={markSaved} />
-            <Field label="STRENGTH" accent="var(--ba-upside)" rows={1} value={ba.an_strength} onSave={(v) => save('an_strength', v)} onSaved={markSaved} />
-            <Field label="WEAKNESS / RISK" accent="var(--ba-upside)" rows={1} value={ba.an_risk} onSave={(v) => save('an_risk', v)} onSaved={markSaved} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minHeight: 0 }}>
+            <Field label="MARKET OPPORTUNITY" accent="var(--ba-upside)" rows={2} value={ba.an_market} onSave={(v) => save('an_market', v)} onSaved={markSaved} />
+            <Field label="COMPETITION" accent="var(--ba-upside)" rows={2} value={ba.an_competition} onSave={(v) => save('an_competition', v)} onSaved={markSaved} />
+            <Field label="STRENGTH" accent="var(--ba-upside)" rows={2} value={ba.an_strength} onSave={(v) => save('an_strength', v)} onSaved={markSaved} />
+            <Field label="WEAKNESS / RISK" accent="var(--ba-upside)" rows={2} value={ba.an_risk} onSave={(v) => save('an_risk', v)} onSaved={markSaved} />
           </div>
         </Card>
 
@@ -541,12 +637,12 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
         </Card>
 
         <div ref={sectionRefs[2]} style={{ display: 'flex', gap: 8, gridColumn: '1 / -1', minHeight: 0 }}>
-          <Card title="DECISION" accent="var(--ba-decide)" filled={decisionFilled} style={{ flex: 2, minWidth: 0 }}>
+          <Card accent="var(--ba-decide)" filled={decisionFilled} style={{ flex: 2, minWidth: 0 }}>
             {/* Both rows are flex-shrink:0 and the wrapper scrolls instead
                 of shrinking below their content height — a squeezed row
                 here used to bleed its border past the box edge and cross
                 straight through the "REQUIRED STATE" label under it. */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flex: 1, minHeight: 0, overflowY: 'auto' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--danger)' }}>
                   CURRENT BLOCKERS
@@ -556,7 +652,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
                     display: 'grid',
                     gridTemplateColumns: 'repeat(4, 1fr)',
                     gap: 16,
-                    padding: 8,
+                    padding: 4,
                     borderRadius: RADIUS.card,
                     background: 'color-mix(in srgb, var(--danger) 8%, transparent)',
                   }}
@@ -566,7 +662,8 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
                       key={f.field}
                       label={f.label}
                       accent="var(--danger)"
-                      rows={1}
+                      rows={2}
+                      underline
                       value={ba[f.field]}
                       onSave={(v) => save(f.field, v)}
                       onSaved={markSaved}
@@ -583,7 +680,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
                     display: 'grid',
                     gridTemplateColumns: 'repeat(4, 1fr)',
                     gap: 16,
-                    padding: 8,
+                    padding: 4,
                     borderRadius: RADIUS.card,
                     background: 'color-mix(in srgb, var(--success) 8%, transparent)',
                   }}
@@ -593,7 +690,7 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
                       key={f.field}
                       label={f.label}
                       accent="var(--success)"
-                      rows={1}
+                      rows={2}
                       value={ba[f.field]}
                       onSave={(v) => save(f.field, v)}
                       onSaved={markSaved}
@@ -663,10 +760,10 @@ export default function BusinessAnalysisCanvas({ projectKey }: { projectKey: Pro
               onSaved={markSaved}
             />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, flex: 'none' }}>
-              <Field label="WHO" accent="var(--ba-do)" rows={1} value={ba.next_who} onSave={(v) => save('next_who', v)} onSaved={markSaved} />
-              <Field label="WHEN" accent="var(--ba-do)" rows={1} value={ba.next_when} onSave={(v) => save('next_when', v)} onSaved={markSaved} />
-              <Field label="TIME" accent="var(--ba-do)" rows={1} value={ba.next_time} onSave={(v) => save('next_time', v)} onSaved={markSaved} />
-              <Field label="DONE WHEN" accent="var(--ba-do)" rows={1} value={ba.next_done_when} onSave={(v) => save('next_done_when', v)} onSaved={markSaved} />
+              <Field label="WHO" accent="var(--ba-do)" rows={2} value={ba.next_who} onSave={(v) => save('next_who', v)} onSaved={markSaved} />
+              <Field label="WHEN" accent="var(--ba-do)" rows={2} value={ba.next_when} onSave={(v) => save('next_when', v)} onSaved={markSaved} />
+              <Field label="TIME" accent="var(--ba-do)" rows={2} value={ba.next_time} onSave={(v) => save('next_time', v)} onSaved={markSaved} />
+              <Field label="DONE WHEN" accent="var(--ba-do)" rows={2} value={ba.next_done_when} onSave={(v) => save('next_done_when', v)} onSaved={markSaved} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 'none' }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginRight: 4 }}>

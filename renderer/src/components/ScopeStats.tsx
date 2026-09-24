@@ -68,8 +68,30 @@ export default function ScopeStats() {
   const monthName = now.toLocaleDateString(undefined, { month: 'long' });
 
   return (
-    <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-faint)', textAlign: 'center' }}>
-      {monthName} · {monthLeft} days left &nbsp;·&nbsp; {y} · {yearVal} left
+    // Same font-size/color tier as ClockCard's "left in phase"/"…left"
+    // line right above it — same weight was reading as one continued
+    // paragraph rather than two separate tiers (today's countdown vs.
+    // this reference fact) (Zahid, 2026-09-24 hierarchy pass). A
+    // hairline + real gap above closes off the phase section before
+    // this one starts, without touching either line's own weight.
+    <div
+      style={{
+        marginTop: 16,
+        paddingTop: 8,
+        borderTop: '1px solid var(--border)',
+        fontSize: 12,
+        textAlign: 'center',
+      }}
+    >
+      {/* The anchor (which month/year) is the fact worth reading first;
+          "N days/months left" is the same countdown framing ClockCard's
+          own faint tier already uses — splitting the two into their own
+          weights (Zahid, 2026-09-24) instead of one flat line. */}
+      <span style={{ fontWeight: 700, color: 'var(--text)' }}>{monthName}</span>
+      <span style={{ color: 'var(--text-faint)' }}> · {monthLeft} days left</span>
+      <span style={{ color: 'var(--text-faint)' }}> &nbsp;·&nbsp; </span>
+      <span style={{ fontWeight: 700, color: 'var(--text)' }}>{y}</span>
+      <span style={{ color: 'var(--text-faint)' }}> · {yearVal} left</span>
     </div>
   );
 }
