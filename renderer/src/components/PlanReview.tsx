@@ -181,9 +181,11 @@ function DesignTodayBox() {
 function DisciplineTab({
   onOpenMorningRitual,
   onOpenNightClosure,
+  onOpenHealth,
 }: {
   onOpenMorningRitual: (view: 'flow' | 'trend') => void;
   onOpenNightClosure: () => void;
+  onOpenHealth: () => void;
 }) {
   return (
     <div>
@@ -192,6 +194,7 @@ function DisciplineTab({
         onStart={() => onOpenMorningRitual('flow')}
         onHistory={() => onOpenMorningRitual('trend')}
         onOpenNightClosure={onOpenNightClosure}
+        onOpenHealth={onOpenHealth}
       />
     </div>
   );
@@ -279,9 +282,11 @@ function ConsistencyTab() {
 export default function PlanReview({
   onOpenMorningRitual,
   onOpenNightClosure,
+  onOpenHealth,
 }: {
   onOpenMorningRitual: (view: 'flow' | 'trend') => void;
   onOpenNightClosure: () => void;
+  onOpenHealth: () => void;
 }) {
   const L = useL();
   const [tab, setTab] = useState<Tab>('mindset');
@@ -353,7 +358,11 @@ export default function PlanReview({
       <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
         {tab === 'mindset' && <MindsetTab />}
         {tab === 'discipline' && (
-          <DisciplineTab onOpenMorningRitual={onOpenMorningRitual} onOpenNightClosure={onOpenNightClosure} />
+          <DisciplineTab
+            onOpenMorningRitual={onOpenMorningRitual}
+            onOpenNightClosure={onOpenNightClosure}
+            onOpenHealth={onOpenHealth}
+          />
         )}
         {tab === 'consistency' && <ConsistencyTab />}
       </div>

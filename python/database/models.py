@@ -1298,3 +1298,36 @@ class Note(Base):
     created_at: Mapped[float] = mapped_column(Float)
     updated_at: Mapped[float] = mapped_column(Float)
     deleted_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class HealthProfile(Base):
+    """The Health plan's owner profile — one row (id=1). Created by the
+    set-up screen; until it exists the Health page shows set-up instead
+    of a plan. Targets (kcal/protein/water) are derived from it on every
+    read (engine/health.py), never stored, so editing weight re-targets."""
+
+    __tablename__ = "health_profile"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    age: Mapped[int] = mapped_column(Integer)
+    sex: Mapped[str] = mapped_column(String)  # "male" | "female"
+    height_cm: Mapped[float] = mapped_column(Float)
+    weight_kg: Mapped[float] = mapped_column(Float)
+    goal: Mapped[str] = mapped_column(String)  # "lose" | "maintain" | "gain"
+    activity: Mapped[str] = mapped_column(String)  # "low" | "moderate" | "high"
+    place: Mapped[str] = mapped_column(String, default="home")  # "home" | "gym"
+    start_date: Mapped[str] = mapped_column(String)  # YYYY-MM-DD, plan day 1
+    weeks: Mapped[int] = mapped_column(Integer, default=4)
+
+
+class HealthDayLog(Base):
+    """What actually happened on one day of the Health plan: which meal
+    slots were eaten (0-3), which workout moves were done ("block-move"
+    keys like "1-2"), and glasses of water. Created on first touch."""
+
+    __tablename__ = "health_day_log"
+
+    day: Mapped[str] = mapped_column(String, primary_key=True)
+    meals: Mapped[list] = mapped_column(JSON, default=list)
+    moves: Mapped[list] = mapped_column(JSON, default=list)
+    water: Mapped[int] = mapped_column(Integer, default=0)

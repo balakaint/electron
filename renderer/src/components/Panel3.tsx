@@ -517,6 +517,7 @@ export default function Panel3({
   onOpenQuarterly,
   onOpenMorningRitual,
   onOpenNightClosure,
+  onOpenHealth,
   activeProjectKey,
   onOpenGoalInPanel2,
 }: {
@@ -530,6 +531,7 @@ export default function Panel3({
   onOpenQuarterly: () => void;
   onOpenMorningRitual: (view: 'flow' | 'trend') => void;
   onOpenNightClosure: () => void;
+  onOpenHealth: () => void;
   // Still feeds the MIT tab's TaskList below — unrelated to WEEKLY/
   // MONTHLY/YEARLY, which stopped following a single active project
   // 2026-09-23 (they now aggregate across every project, see
@@ -663,6 +665,7 @@ export default function Panel3({
             <PlanReview
               onOpenMorningRitual={onOpenMorningRitual}
               onOpenNightClosure={onOpenNightClosure}
+              onOpenHealth={onOpenHealth}
             />
           </div>
         ) : (

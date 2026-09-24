@@ -5,6 +5,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from database.models import (
+    HealthDayLog,
+    HealthProfile,
     AppState,
     BdpAction,
     BdpPlan,
@@ -1134,3 +1136,39 @@ class PlanningRepository:
     def delete_checklist_item(self, item: ChecklistItem) -> None:
         self.db.delete(item)
         self.db.commit()
+
+
+class HealthRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_profile(self) -> HealthProfile | None:
+        return self.db.get(HealthProfile, 1)
+
+    def save_profile(self, profile: HealthProfile) -> HealthProfile:
+        if profile.id is None:
+            profile.id = 1
+        self.db.merge(profile)
+        self.db.commit()
+        return self.get_profile()
+
+    def get_log(self, day: str) -> HealthDayLog | None:
+        return self.db.get(HealthDayLog, day)
+
+    def get_or_create_log(self, day: str) -> HealthDayLog:
+        row = self.db.get(HealthDayLog, day)
+        if row is None:
+            row = HealthDayLog(day=day, meals=[], moves=[], water=0)
+            self.db.add(row)
+            self.db.commit()
+            self.db.refresh(row)
+        return row
+
+    def save_log(self, row: HealthDayLog) -> HealthDayLog:
+        self.db.commit()
+        self.db.refresh(row)
+        return row
+
+    def logs_for(self, days: list[str]) -> dict[str, HealthDayLog]:
+        rows = self.db.scalars(select(HealthDayLog).where(HealthDayLog.day.in_(days)))
+        return {r.day: r for r in rows}
