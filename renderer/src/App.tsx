@@ -13,6 +13,7 @@ import BdpPanel from './components/BdpPanel';
 import QuarterlyPlanPanel from './components/QuarterlyPlanPanel';
 import MorningRitualPanel from './components/MorningRitualPanel';
 import NightClosurePanel from './components/NightClosurePanel';
+import HealthPanel from './components/HealthPanel';
 import OnboardingModal from './components/OnboardingModal';
 import SettingsDialog from './components/SettingsDialog';
 import ShortcutsHelp from './components/ShortcutsHelp';
@@ -93,6 +94,7 @@ function AppShell() {
   // Night Closure — same slot, same reasoning, mutually exclusive with
   // morningRitualView above (see the Panel 2 render below).
   const [nightClosureOpen, setNightClosureOpen] = useState(false);
+  const [healthOpen, setHealthOpen] = useState(false);
   // Which project panel 2 is showing. Persisted server-side already
   // (goalsApi.getPanel), so it survives a restart the way legacy's does.
   const [goalsProject, setGoalsProject] = useState<ProjectKey | null>(null);
@@ -473,6 +475,8 @@ function AppShell() {
               <MorningRitualPanel initialView={morningRitualView} onBack={() => setMorningRitualView(null)} />
             ) : nightClosureOpen ? (
               <NightClosurePanel onBack={() => setNightClosureOpen(false)} />
+            ) : healthOpen ? (
+              <HealthPanel onBack={() => setHealthOpen(false)} />
             ) : (
               <>
                 {/* Panel 2's chevron hides panel 1 only — legacy's
@@ -630,6 +634,7 @@ function AppShell() {
               // gives Panel 2 the extra room.
               if (layout !== 'partial') setLayout('partial');
               setNightClosureOpen(false);
+              setHealthOpen(false);
               setMorningRitualView(view);
             }}
             onOpenNightClosure={() => {
@@ -642,7 +647,15 @@ function AppShell() {
               // Panel 2 gets the room.
               if (layout !== 'partial') setLayout('partial');
               setMorningRitualView(null);
+              setHealthOpen(false);
               setNightClosureOpen(true);
+            }}
+            onOpenHealth={() => {
+              // Same docking as the two rituals above.
+              if (layout !== 'partial') setLayout('partial');
+              setMorningRitualView(null);
+              setNightClosureOpen(false);
+              setHealthOpen(true);
             }}
           />
         </section>

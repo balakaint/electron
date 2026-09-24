@@ -17,6 +17,7 @@ from api.routes.journey import (
 from api.routes.mindset import design_today_router, mindset_router
 from api.routes.morning_ritual import router as morning_ritual_router
 from api.routes.night_closure import router as night_closure_router
+from api.routes.health import router as health_router
 from api.routes.notes import router as notes_router
 from api.routes.now import router as now_router, strike_router as now_strike_router
 from api.routes.planning import router as planning_router
@@ -79,6 +80,7 @@ app.include_router(business_analysis_router)
 app.include_router(goals_router)
 app.include_router(goals_panel_router)
 app.include_router(habits_router)
+app.include_router(health_router)
 app.include_router(board_router)
 app.include_router(export_router)
 app.include_router(now_router)

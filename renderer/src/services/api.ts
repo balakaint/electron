@@ -1219,3 +1219,73 @@ export const notesApi = {
   remove: (id: number) => req('DELETE', `/api/notes/${id}`) as Promise<{ ok: true }>,
   restore: (id: number) => req('POST', `/api/notes/${id}/restore`) as Promise<Note>,
 };
+
+// ── Health (engine/health.py) ────────────────────────────────────────
+export type HealthGoal = 'lose' | 'maintain' | 'gain';
+export type HealthActivity = 'low' | 'moderate' | 'high';
+export interface HealthProfile {
+  age: number;
+  sex: 'male' | 'female';
+  height_cm: number;
+  weight_kg: number;
+  goal: HealthGoal;
+  activity: HealthActivity;
+  place: 'home' | 'gym';
+  start_date: string;
+  weeks: number;
+}
+export interface HealthMeal {
+  slot: number;
+  name: string;
+  time: string;
+  items: string;
+  kcal: number;
+  protein_g: number;
+}
+export interface HealthBlock {
+  name: string;
+  minutes: number;
+  moves: [string, string, string][]; // name, dose, equipment
+}
+export interface HealthDayPlan {
+  day: string;
+  plan_day: number;
+  week: number;
+  week_name: string;
+  in_plan: boolean;
+  workout: { kind: string; name: string; minutes: number; blocks: HealthBlock[] };
+  meals: HealthMeal[];
+}
+export interface HealthCell {
+  day: string;
+  meals: number;
+  workout_done: boolean;
+  rest: boolean;
+  moves_done: number;
+  moves_total: number;
+  on_plan: boolean;
+  water: number;
+  future: boolean;
+}
+export interface HealthState {
+  profile: HealthProfile | null;
+  targets?: { kcal: number; protein_g: number; water_glasses: number };
+  today?: string;
+  day?: HealthDayPlan;
+  log?: { meals: number[]; moves: string[]; water: number };
+  week?: HealthCell[];
+  month?: HealthCell[];
+  month_on_plan?: number;
+  month_elapsed?: number;
+  streak?: number;
+}
+export type HealthProfileInput = Omit<HealthProfile, 'start_date' | 'weeks'> & { start_date?: string };
+
+export const healthApi = {
+  state: (day?: string) => req('GET', `/api/health/state${day ? `?day=${day}` : ''}`) as Promise<HealthState>,
+  setProfile: (p: HealthProfileInput) => req('PUT', '/api/health/profile', p) as Promise<HealthState>,
+  restart: (start_date?: string) => req('POST', '/api/health/restart', { start_date }) as Promise<HealthState>,
+  setMeal: (day: string, slot: number, done: boolean) => req('POST', '/api/health/meal', { day, slot, done }) as Promise<HealthState>,
+  setMove: (day: string, key: string, done: boolean) => req('POST', '/api/health/move', { day, key, done }) as Promise<HealthState>,
+  addWater: (day: string, delta: number) => req('POST', '/api/health/water', { day, delta }) as Promise<HealthState>,
+};

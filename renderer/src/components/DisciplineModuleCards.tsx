@@ -13,6 +13,7 @@ import { useL } from '../i18n';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 import { Step, isEvening, minutesUntil, morningSteps, nightSteps, nightWritten } from '../ritualSteps';
 import RitualRing from './RitualRing';
+import HealthCard from './HealthCard';
 
 // The card row for the 3 guided Discipline modules (Zahid's 2026-09-14
 // brainstorm), embedded in the Discipline tab (PlanReview.tsx ->
@@ -454,10 +455,12 @@ export default function DisciplineModuleCards({
   onStart,
   onHistory,
   onOpenNightClosure,
+  onOpenHealth,
 }: {
   onStart: () => void;
   onHistory: () => void;
   onOpenNightClosure: () => void;
+  onOpenHealth: () => void;
 }) {
   const [today, setToday] = useState<MorningRitual | null>(null);
   const [streak, setStreak] = useState(0);
@@ -504,40 +507,7 @@ export default function DisciplineModuleCards({
       {evening ? night : morning}
       {evening ? morning : night}
 
-      {[{ label: 'Exercise', icon: '◆', desc: "Today's set, logged and tracked." }].map((m) => (
-        <div
-          key={m.label}
-          className="card-elevated"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            border: '1px solid var(--border)',
-            borderRadius: RADIUS.card,
-            padding: 8,
-            marginBottom: 8,
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        >
-          <span style={{ fontSize: 16, color: 'var(--text-faint)', flex: 'none' }}>{m.icon}</span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{m.label}</div>
-          </div>
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: 'var(--text-faint)',
-              border: '1px solid var(--border)',
-              borderRadius: RADIUS.pill,
-              padding: '0 8px',
-              flex: 'none',
-            }}
-          >
-            Soon
-          </span>
-        </div>
-      ))}
+      <HealthCard onOpen={onOpenHealth} />
     </div>
   );
 }
