@@ -40,12 +40,14 @@ const NEW_NODE_TYPES: { key: NewNodeType; label: string }[] = [
 ];
 
 const WEEKDAY_ABBR = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const WEEKDAY_ABBR_BN = ['সো', 'ম', 'বু', 'বৃ', 'শু', 'শ', 'র'];
 
 function DayCell({
   label,
   date,
   isToday,
   hasDeadline,
+  taskCount = 0,
   dim,
   accent,
   onSelect,
@@ -54,6 +56,8 @@ function DayCell({
   date?: number;
   isToday: boolean;
   hasDeadline: boolean;
+  // Plan tasks scheduled on this day, from this month's Wins.
+  taskCount?: number;
   dim: boolean;
   accent: string;
   onSelect?: () => void;
@@ -64,14 +68,19 @@ function DayCell({
         <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1 }}>{label}</span>
       )}
       {date !== undefined && <span style={{ fontSize: 12, lineHeight: 1.4 }}>{date}</span>}
-      <span
-        style={{
-          width: 4,
-          height: 4,
-          borderRadius: RADIUS.pill,
-          background: hasDeadline ? accent : 'transparent',
-        }}
-      />
+      <span style={{ display: 'flex', gap: 2 }}>
+        <span
+          style={{
+            width: 4,
+            height: 4,
+            borderRadius: RADIUS.pill,
+            background: hasDeadline ? accent : 'transparent',
+          }}
+        />
+        {taskCount > 0 && (
+          <span title={`${taskCount} scheduled`} style={{ width: 4, height: 4, borderRadius: RADIUS.pill, background: 'var(--text-muted)' }} />
+        )}
+      </span>
     </>
   );
   // Today used to be a solid accent fill with on-accent text — heavier
@@ -118,15 +127,18 @@ function MonthGrid({
   year,
   month,
   deadlines,
+  taskCounts,
   accent,
   onSelectDate,
 }: {
   year: number;
   month: number; // 0-indexed
   deadlines: Set<string>;
+  taskCounts: Map<string, number>;
   accent: string;
   onSelectDate: (iso: string) => void;
 }) {
+  const L = useL();
   const todayIso = isoDate(new Date());
   const firstOfMonth = new Date(year, month, 1);
   const startOffset = (firstOfMonth.getDay() + 6) % 7; // Monday-start
@@ -149,9 +161,9 @@ function MonthGrid({
   return (
     <div style={{ marginBottom: SPACE.md }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
-        {WEEKDAY_ABBR.map((w) => (
+        {WEEKDAY_ABBR.map((w, wi) => (
           <div key={w} style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-faint)' }}>
-            {w}
+            {L(w, WEEKDAY_ABBR_BN[wi])}
           </div>
         ))}
       </div>
@@ -165,6 +177,7 @@ function MonthGrid({
               date={c.date}
               isToday={c.inMonth && c.iso === todayIso}
               hasDeadline={hasDeadline}
+              taskCount={c.inMonth ? taskCounts.get(c.iso) ?? 0 : 0}
               dim={!c.inMonth}
               accent={accent}
               // Every in-month day jumps to DAILY, not just ones that
@@ -187,6 +200,9 @@ function MonthGrid({
 interface OwnedMilestone {
   milestone: Milestone;
   wins: Win[];
+  // Scheduled dates of the plan tasks under those wins, for the grid's
+  // per-day marks. One call per Win, not one per day of the month.
+  taskDates: string[];
   owner: GoalOwnerMeta;
 }
 
@@ -201,7 +217,12 @@ async function findCurrentMilestones(owner: GoalOwnerMeta, year: number, month: 
   const milestoneLists = await Promise.all(yearOutcomes.map((o) => planningApi.listMilestones(o.id)));
   const monthMilestones = milestoneLists.flat().filter((m) => m.month === month && m.year === year);
   return Promise.all(
-    monthMilestones.map(async (milestone) => ({ milestone, wins: await planningApi.listWins(milestone.id), owner })),
+    monthMilestones.map(async (milestone) => {
+      const wins = await planningApi.listWins(milestone.id);
+      const taskLists = await Promise.all(wins.map((w) => planningApi.listTasksForWin(w.id)));
+      const taskDates = taskLists.flat().flatMap((t) => (t.scheduled_date ? [t.scheduled_date] : []));
+      return { milestone, wins, taskDates, owner };
+    }),
   );
 }
 
@@ -257,6 +278,8 @@ export default function PlanningMonthlyLevel({
   };
 
   const deadlines = new Set(rows.flatMap((r) => r.wins.map((w) => w.week_start_date)));
+  const taskCounts = new Map<string, number>();
+  for (const iso of rows.flatMap((r) => r.taskDates)) taskCounts.set(iso, (taskCounts.get(iso) ?? 0) + 1);
   const monthLabel = today.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
   // Time-vs-Progress-vs-Pace — locked at Week/Month level per the
@@ -266,7 +289,7 @@ export default function PlanningMonthlyLevel({
   const daysInMonth = new Date(year, today.getMonth() + 1, 0).getDate();
   const dayOfMonth = now.getDate();
   // Pace only means something for the month you are living in.
-  const pace = offset === 0 ? { elapsedPct: Math.round((dayOfMonth / daysInMonth) * 100), elapsedLabel: `day ${dayOfMonth} of ${daysInMonth}` } : undefined;
+  const pace = offset === 0 ? { elapsedPct: Math.round((dayOfMonth / daysInMonth) * 100), elapsedLabel: L(`day ${dayOfMonth} of ${daysInMonth}`, `${daysInMonth} দিনের ${dayOfMonth}তম দিন`) } : undefined;
   const achieved = rows.filter((r) => r.milestone.progress === 100).length;
 
   return (
@@ -280,32 +303,42 @@ export default function PlanningMonthlyLevel({
         onReset={() => setOffset(0)}
       />
       {!loaded ? (
-        <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>Loading…</div>
+        <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>{L('Loading…', 'লোড হচ্ছে…')}</div>
       ) : loadError ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: 'var(--danger)' }}>
-          <span>Couldn't load — check the app is connected.</span>
-          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={refresh}>Retry</button>
+          <span>{L("Couldn't load — check the app is connected.", 'লোড হয়নি — অ্যাপ সংযুক্ত আছে কিনা দেখুন।')}</span>
+          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={refresh}>{L('Retry', 'আবার চেষ্টা')}</button>
         </div>
       ) : (
         <>
-          <MonthGrid year={year} month={month - 1} deadlines={deadlines} accent={accent} onSelectDate={onSelectDate} />
+          <MonthGrid year={year} month={month - 1} deadlines={deadlines} taskCounts={taskCounts} accent={accent} onSelectDate={onSelectDate} />
+          <div style={{ display: 'flex', gap: SPACE.md, fontSize: 12, color: 'var(--text-muted)', marginTop: -SPACE.sm, marginBottom: SPACE.md }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: SPACE.xs }}>
+              <span style={{ width: 6, height: 6, borderRadius: RADIUS.pill, background: accent }} />
+              {L("A week's Win starts", 'সপ্তাহের জয় শুরু')}
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: SPACE.xs }}>
+              <span style={{ width: 6, height: 6, borderRadius: RADIUS.pill, background: 'var(--text-muted)' }} />
+              {L('Tasks scheduled', 'নির্ধারিত কাজ')}
+            </span>
+          </div>
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
-              No Milestone set for this month yet — add one from the Goals panel.
+              {L('No Milestone set for this month yet — add one from the Goals panel.', 'এই মাসের কোনো মাইলস্টোন নেই — Goals প্যানেল থেকে যোগ করুন।')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
               {rows.map((row) => (
                 <PlanningProgressCard
                   key={row.milestone.id}
-                  label={`MONTH MILESTONE · ${row.owner.label}`}
+                  label={`${L('MONTH MILESTONE', 'মাসিক মাইলস্টোন')} · ${row.owner.label}`}
                   accent={accent}
                   ownerColor={row.owner.color}
                   title={row.milestone.title}
                   progress={row.milestone.progress}
                   fixed={row.milestone.fixed}
                   pace={pace}
-                  detailsSummary={`${row.wins.length} weekly win(s)`}
+                  detailsSummary={L(`${row.wins.length} weekly win(s)`, `${row.wins.length}টি সাপ্তাহিক জয়`)}
                 >
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                     {row.wins.map((w) => (
@@ -372,7 +405,7 @@ export default function PlanningMonthlyLevel({
                         marginTop: SPACE.xs,
                       }}
                     >
-                      + add
+                      {L('+ add', '+ যোগ')}
                     </button>
                   )}
                 </PlanningProgressCard>

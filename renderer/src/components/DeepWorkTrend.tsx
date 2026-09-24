@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Trend, TrendDays, WeekSummary, projectsApi, tasksApi } from '../services/api';
 import { RADIUS } from '../spacing';
+import { useL } from '../i18n';
 
 // Deep Work — three ranges, and the default is the one you are living in.
 //
@@ -89,6 +90,7 @@ function directionLabel(n: number, showAvg: boolean, secs: number[]): string {
 }
 
 export default function DeepWorkTrend() {
+  const L = useL();
   const [range, setRange] = useState<Range>('month');
   const [trend, setTrend] = useState<Trend | null>(null);
   // The month is cut out of a 90-day fetch rather than given its own
@@ -96,7 +98,7 @@ export default function DeepWorkTrend() {
   // whatever the rolling setting happens to be, so the strip can never
   // lose its first day on the 31st of a 31-day month.
   const [long, setLong] = useState<Trend | null>(null);
-  const [trendDays, setTrendDaysState] = useState<TrendDays>(30);
+  const [, setTrendDaysState] = useState<TrendDays>(30);
   const [week, setWeek] = useState<WeekSummary | null>(null);
   const [insight, setInsight] = useState<string | null>(null);
   const [streak, setStreak] = useState(0);
@@ -154,9 +156,9 @@ export default function DeepWorkTrend() {
         style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 12, marginBottom: 12, boxShadow: 'var(--shadow-sm)' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>Deep Work</div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>{L('Deep Work', 'ডিপ ওয়ার্ক')}</div>
           <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
-            {([['month', 'Month'], [30, '30d'], [90, '90d']] as [Range, string][]).map(([r, label]) => (
+            {([['month', L('Month', 'মাস')], [30, L('30d', '৩০দি')], [90, L('90d', '৯০দি')]] as [Range, string][]).map(([, label]) => (
               <button
                 key={label}
                 disabled
@@ -303,7 +305,7 @@ export default function DeepWorkTrend() {
               deep work — the trend, the streak, the targets, the card on
               EXECUTE — and naming this after the calendar would make the
               calendar the subject when it is the context. */}
-          Deep Work
+          {L('Deep Work', 'ডিপ ওয়ার্ক')}
           {!isMonth && streak > 0 && (
             <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: 'var(--accent)' }}>
               · {streak}d streak
@@ -311,7 +313,7 @@ export default function DeepWorkTrend() {
           )}
         </div>
         <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
-          {([['month', 'Month'], [30, '30d'], [90, '90d']] as [Range, string][]).map(([r, label]) => {
+          {([['month', L('Month', 'মাস')], [30, L('30d', '৩০দি')], [90, L('90d', '৯০দি')]] as [Range, string][]).map(([r, label]) => {
             const on = range === r;
             return (
               // A range picker is a control, not content. Drawn as three
@@ -372,18 +374,18 @@ export default function DeepWorkTrend() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '8px 0' }}>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{fmtHM(monthTotal)}</span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>this month</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L('this month', 'এই মাসে')}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>
               {monthOnTarget}
               <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text-muted)' }}>/{todayIdx + 1}</span>
             </span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>days on {fmtHM(goal)} goal</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L(`days on ${fmtHM(goal)} goal`, `দিন ${fmtHM(goal)} লক্ষ্য পূরণ`)}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{streak}d</span>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>current streak</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L('current streak', 'চলতি ধারা')}</span>
           </div>
         </div>
         <div style={{ fontSize: 12, marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -395,7 +397,15 @@ export default function DeepWorkTrend() {
           ) : (
             <>
               <span style={{ color: 'var(--text-muted)' }}>
-                Day {dayOfMonth} of {mDays} · {daysLeft} left · hover a day for its hours
+                {/* An empty month says what fills it, rather than showing
+                    three zeros and a flat line with no way forward. */}
+                {monthTotal === 0 ? L(
+                  'Nothing logged this month yet — press ▶ on a project in EXECUTE › MIT to start.',
+                  'এই মাসে এখনো কিছু নেই — শুরু করতে EXECUTE › MIT-এ কোনো প্রজেক্টের ▶ চাপুন।',
+                ) : L(
+                  `Day ${dayOfMonth} of ${mDays} · ${daysLeft} left · hover a day for its hours`,
+                  `${mDays} দিনের ${dayOfMonth}তম দিন · ${daysLeft} দিন বাকি · কোনো দিনের ওপর মাউস রাখলে ঘণ্টা দেখাবে`,
+                )}
               </span>
             </>
           )}

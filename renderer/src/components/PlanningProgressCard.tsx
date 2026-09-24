@@ -3,6 +3,7 @@ import { Check } from 'lucide-react';
 import { RADIUS, SPACE } from '../spacing';
 import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
 import { accentText } from '../themes';
+import { useL } from '../i18n';
 
 // The locked interaction contract's "WIN ≠ Task" card, generalized to
 // all three levels (Outcome/Milestone/Win each get one): a progress
@@ -49,6 +50,7 @@ export default function PlanningProgressCard({
   // it starts open there; MONTH/YEAR's lists are summaries and stay shut.
   defaultOpen?: boolean;
 }) {
+  const L = useL();
   const edge = ownerColor ? ownerColor : accent;
   const labelColor = ownerColor ? accentText(ownerColor) : accent;
   const achieved = progress === 100;
@@ -72,11 +74,11 @@ export default function PlanningProgressCard({
         <span style={{ fontSize: TYPE_SIZE.xs, fontWeight: TYPE_WEIGHT.bold, letterSpacing: TRACKING.label, color: labelColor }}>{label}</span>
         <span style={{ flex: 1 }} />
         {fixed && (
-          <span style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)' }}>not started</span>
+          <span style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)' }}>{L('not started', 'শুরু হয়নি')}</span>
         )}
         {onEdit && (
           <button onClick={onEdit} style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-muted)', background: 'transparent', border: 'none', cursor: 'pointer' }}>
-            ✎ Edit
+            ✎ {L('Edit', 'সম্পাদনা')}
           </button>
         )}
       </div>
@@ -110,7 +112,7 @@ export default function PlanningProgressCard({
           }}
         >
           <Check size={12} />
-          COMPLETE{criteria ? ` — ${criteria}` : ''}
+          {L('COMPLETE', 'সম্পন্ন')}{criteria ? ` — ${criteria}` : ''}
         </span>
       )}
       {children && (
@@ -122,11 +124,11 @@ export default function PlanningProgressCard({
       {pace && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs, paddingTop: SPACE.xs, borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: TYPE_SIZE.xs }}>
-            <span style={{ color: 'var(--text-faint)' }}>TIME</span>
+            <span style={{ color: 'var(--text-faint)' }}>{L('TIME', 'সময়')}</span>
             <span>{pace.elapsedLabel}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: TYPE_SIZE.xs }}>
-            <span style={{ color: 'var(--text-faint)' }}>PROGRESS</span>
+            <span style={{ color: 'var(--text-faint)' }}>{L('PROGRESS', 'অগ্রগতি')}</span>
             <span>{progress}%</span>
           </div>
           <span
@@ -140,7 +142,7 @@ export default function PlanningProgressCard({
               color: paceColor,
             }}
           >
-            {paceState === 'onpace' ? 'ON PACE' : 'BEHIND PACE'}
+            {paceState === 'onpace' ? L('ON PACE', 'ঠিক গতিতে') : L('BEHIND PACE', 'পিছিয়ে')}
           </span>
         </div>
       )}

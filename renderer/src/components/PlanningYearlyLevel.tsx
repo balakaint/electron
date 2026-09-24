@@ -13,6 +13,7 @@ import { useL } from '../i18n';
 // Planning*Level components) — a generic Jan-Dec strip keyed by a
 // `deadlines: Set<string>`, no Goal-specific logic.
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_ABBR_BN = ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রি', 'মে', 'জুন', 'জুলা', 'আগ', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'];
 
 // The type-picker composer's Yearly step — see PlanningWeeklyLevel.tsx's
 // NEW_NODE_TYPES comment for the full contract. An Outcome card's own
@@ -111,6 +112,7 @@ function YearStrip({
   accent: string;
   onSelectDate: (iso: string) => void;
 }) {
+  const L = useL();
   const today = new Date();
   // -1 outside the current year: no month is "now" in another year.
   const currentMonth = today.getFullYear() === year ? today.getMonth() : -1;
@@ -124,7 +126,7 @@ function YearStrip({
         return (
           <DayCell
             key={label}
-            label={label}
+            label={L(label, MONTH_ABBR_BN[i])}
             isToday={i === currentMonth}
             hasDeadline={!!monthDeadline}
             dim={false}
@@ -223,31 +225,31 @@ export default function PlanningYearlyLevel({
         onReset={() => setOffset(0)}
       />
       {!loaded ? (
-        <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>Loading…</div>
+        <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>{L('Loading…', 'লোড হচ্ছে…')}</div>
       ) : loadError ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: 'var(--danger)' }}>
-          <span>Couldn't load — check the app is connected.</span>
-          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={refresh}>Retry</button>
+          <span>{L("Couldn't load — check the app is connected.", 'লোড হয়নি — অ্যাপ সংযুক্ত আছে কিনা দেখুন।')}</span>
+          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={refresh}>{L('Retry', 'আবার চেষ্টা')}</button>
         </div>
       ) : (
         <>
           <YearStrip year={year} deadlines={deadlines} accent={accent} onSelectDate={onSelectDate} />
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
-              No Outcome set for this year yet — add one from the Goals panel.
+              {L('No Outcome set for this year yet — add one from the Goals panel.', 'এই বছরের কোনো আউটকাম নেই — Goals প্যানেল থেকে যোগ করুন।')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
               {rows.map((row) => (
                 <PlanningProgressCard
                   key={row.outcome.id}
-                  label={`YEAR OUTCOME · ${row.owner.label}`}
+                  label={`${L('YEAR OUTCOME', 'বার্ষিক আউটকাম')} · ${row.owner.label}`}
                   accent={accent}
                   ownerColor={row.owner.color}
                   title={row.outcome.title}
                   progress={row.outcome.progress}
                   fixed={row.outcome.fixed}
-                  detailsSummary={`${row.milestones.length} monthly milestone(s)`}
+                  detailsSummary={L(`${row.milestones.length} monthly milestone(s)`, `${row.milestones.length}টি মাসিক মাইলস্টোন`)}
                 >
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                     {row.milestones.map((m) => (
@@ -314,7 +316,7 @@ export default function PlanningYearlyLevel({
                         marginTop: SPACE.xs,
                       }}
                     >
-                      + add
+                      {L('+ add', '+ যোগ')}
                     </button>
                   )}
                 </PlanningProgressCard>

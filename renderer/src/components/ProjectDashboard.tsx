@@ -2,20 +2,15 @@ import { useEffect, useState } from 'react';
 import { Check, Pause, Pencil, Play, Square, X } from 'lucide-react';
 import {
   ActivityEntry,
-  Project,
   ProjectKey,
   ProjectOrderEntry,
   STRIKE_MAX,
   Subtask,
   Task,
-  TodayProgress,
   projectsApi,
   tasksApi,
 } from '../services/api';
 import { useAutoTimer } from '../useAutoTimer';
-import BusinessAnalysisCanvas from './BusinessAnalysisCanvas';
-import DeepWorkTrend from './DeepWorkTrend';
-import TodayProgressBar from './TodayProgressBar';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { useAutofocus } from '../hooks/useAutofocus';
 import { dayNumber, elapsedText, projTimeText } from '../format';
@@ -57,7 +52,7 @@ function ProjectCard({
   const { number, project } = entry;
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [newSubtask, setNewSubtask] = useState('');
-  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [, setActivity] = useState<ActivityEntry[]>([]);
   const [name, setName] = useState(project.name);
   const [strikeFlash, setStrikeFlash] = useState<string | null>(null);
   // Legacy defaults the heading to "QUICK NOTES" and lets it be renamed
@@ -772,7 +767,6 @@ export default function ProjectDashboard({
   useEffect(() => {
     if (focusVersion === 0) return;
     tasksApi.list('focus').then(setFocusTasks);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusVersion]);
 
   // Tells panel 2 whenever every project's collapsed state changes, so it

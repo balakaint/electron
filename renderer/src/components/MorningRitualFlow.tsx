@@ -100,7 +100,7 @@ function MicroLabel({ children, style }: { children: React.ReactNode; style?: Re
   );
 }
 
-function Pill<T extends string>({ value, label, active, onClick }: { value: T; label: string; active: boolean; onClick: () => void }) {
+function Pill<T extends string>({ label, active, onClick }: { value: T; label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
