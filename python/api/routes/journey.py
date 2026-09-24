@@ -42,7 +42,12 @@ def get_journey(key: ProjectKeyT, engine: JourneyEngine = Depends(get_engine)):
 
 @router.put("", response_model=JourneyOut)
 def update_meta(key: ProjectKeyT, payload: JourneyMetaUpdate, engine: JourneyEngine = Depends(get_engine)):
-    return _wrap(engine.update_meta, key, **payload.model_dump())
+    try:
+        return engine.update_meta(key, **payload.model_dump())
+    except ValueError as e:
+        # A missing journey is 404; anything else (a bad target date) is
+        # the caller's input.
+        raise HTTPException(404 if "not found" in str(e) else 400, str(e))
 
 
 @router.put("/stages/{stage_index}", response_model=JourneyOut)

@@ -708,12 +708,23 @@ export interface JourneyStage {
   logs: JourneyLogEntry[];
 }
 
+export interface JourneyPin {
+  kind: 'word' | 'image';
+  value: string;
+}
+
 export interface Journey {
   project_key: ProjectKey;
   proj_name: string;
   tagline: string;
   cover_image: string;
   attach_file: string;
+  why: string;
+  vision: string;
+  vision_note: string;
+  target_date: string; // YYYY-MM-DD or ''
+  pins: JourneyPin[];
+  last_move: string; // YYYY-MM-DD or ''
   current_stage: number;
   launched: boolean;
   event: JourneyEvent;
@@ -722,7 +733,9 @@ export interface Journey {
 
 export const journeyApi = {
   get: (key: ProjectKey) => req('GET', `/api/projects/${key}/journey`) as Promise<Journey>,
-  updateMeta: (key: ProjectKey, patch: Partial<Pick<Journey, 'proj_name' | 'tagline' | 'cover_image' | 'attach_file'>>) =>
+  updateMeta: (key: ProjectKey, patch: Partial<
+      Pick<Journey, 'proj_name' | 'tagline' | 'cover_image' | 'attach_file' | 'why' | 'vision' | 'vision_note' | 'target_date' | 'pins'>
+    >) =>
     req('PUT', `/api/projects/${key}/journey`, patch) as Promise<Journey>,
   updateStageMeta: (key: ProjectKey, stageIndex: number, patch: Partial<Pick<JourneyStage, 'name' | 'description'>>) =>
     req('PUT', `/api/projects/${key}/journey/stages/${stageIndex}`, patch) as Promise<Journey>,

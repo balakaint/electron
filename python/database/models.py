@@ -626,6 +626,19 @@ class ProjectJourney(Base):
     # already made.
     cover_image: Mapped[str] = mapped_column(String, default="")
     attach_file: Mapped[str] = mapped_column(String, default="")
+    # The vision half of the page (2026-09-24): why this project matters,
+    # what "done" looks like (a headline number plus a line under it),
+    # the date it is aimed at, and a few pinned words or pictures. All
+    # free text the owner writes; nothing is derived from them.
+    why: Mapped[str] = mapped_column(String, default="")
+    vision: Mapped[str] = mapped_column(String, default="")
+    vision_note: Mapped[str] = mapped_column(String, default="")
+    target_date: Mapped[str] = mapped_column(String, default="")  # YYYY-MM-DD or ""
+    # [{"kind": "word"|"image", "value": text or absolute image path}]
+    pins: Mapped[list] = mapped_column(JSON, default=list)
+    # Day of the last real step (a task or gate ticked, a task or log
+    # added) — "last move · 2 days ago" on the page. "" = none yet.
+    last_move: Mapped[str] = mapped_column(String, default="")
 
 
 class JourneyStage(Base):

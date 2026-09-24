@@ -347,11 +347,21 @@ LogStatusT = Literal["", "ok", "no"]
 JourneyEventT = Literal["launched", "advanced"] | None
 
 
+class JourneyPin(BaseModel):
+    kind: Literal["word", "image"]
+    value: str
+
+
 class JourneyMetaUpdate(BaseModel):
     proj_name: str | None = None
     tagline: str | None = None
     cover_image: str | None = None
     attach_file: str | None = None
+    why: str | None = None
+    vision: str | None = None
+    vision_note: str | None = None
+    target_date: str | None = None
+    pins: list[JourneyPin] | None = None
 
 
 class StageMetaUpdate(BaseModel):
@@ -411,6 +421,12 @@ class JourneyOut(BaseModel):
     tagline: str
     cover_image: str
     attach_file: str
+    why: str
+    vision: str
+    vision_note: str
+    target_date: str
+    pins: list[JourneyPin]
+    last_move: str
     current_stage: int
     launched: bool
     # Only non-null immediately after the one action that just triggered

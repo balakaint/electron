@@ -5,6 +5,7 @@ from database.models import JourneyLogEntry, JourneyStage, JourneyTask
 from database.repository import JourneyRepository
 
 STAGE_COUNT = 6
+MAX_PINS = 6
 LOG_STATUS_ORDER = ("", "ok", "no")
 
 
@@ -75,6 +76,12 @@ class JourneyEngine:
             "tagline": journey.tagline,
             "cover_image": journey.cover_image,
             "attach_file": journey.attach_file,
+            "why": journey.why or "",
+            "vision": journey.vision or "",
+            "vision_note": journey.vision_note or "",
+            "target_date": journey.target_date or "",
+            "pins": list(journey.pins or []),
+            "last_move": journey.last_move or "",
             "current_stage": current,
             "launched": launched,
             "event": event,
@@ -92,6 +99,15 @@ class JourneyEngine:
                 for s in stages
             ],
         }
+
+    def _touch(self, project_key: str) -> None:
+        """Stamp today as the journey's last real step. Called by the
+        mutations that are progress (ticks and additions), not by edits
+        or deletions."""
+        journey = self.repo.get_journey(project_key)
+        if journey is not None and journey.last_move != _today():
+            journey.last_move = _today()
+            self.repo.save_journey(journey)
 
     def _respond_with_event(self, project_key: str, prev_current: int) -> dict:
         """Matches legacy's launched/advanced toast logic exactly —
@@ -119,10 +135,35 @@ class JourneyEngine:
         tagline: str | None = None,
         cover_image: str | None = None,
         attach_file: str | None = None,
+        why: str | None = None,
+        vision: str | None = None,
+        vision_note: str | None = None,
+        target_date: str | None = None,
+        pins: list[dict] | None = None,
     ) -> dict:
         journey = self.repo.get_journey(project_key)
         if journey is None:
             raise ValueError("Journey not found")
+        if why is not None:
+            journey.why = why.strip()
+        if vision is not None:
+            journey.vision = vision.strip()
+        if vision_note is not None:
+            journey.vision_note = vision_note.strip()
+        if target_date is not None:
+            target_date = target_date.strip()
+            if target_date:
+                date.fromisoformat(target_date)  # ValueError on a bad date
+            journey.target_date = target_date
+        if pins is not None:
+            clean = []
+            for p in pins:
+                value = str(p.get("value", "")).strip()
+                if p.get("kind") in ("word", "image") and value:
+                    clean.append({"kind": p["kind"], "value": value})
+            # A new list, not an in-place edit, so the JSON column is
+            # seen as changed.
+            journey.pins = clean[:MAX_PINS]
         if proj_name is not None:
             journey.proj_name = proj_name.strip()
         if tagline is not None:
@@ -166,6 +207,7 @@ class JourneyEngine:
         prev_current = self._current_stage(self.repo.list_stages(project_key), self._tasks_by_stage(project_key))
         stage.gate_done = not stage.gate_done
         self.repo.save_stage(stage)
+        self._touch(project_key)
         return self._respond_with_event(project_key, prev_current)
 
     # ── Tasks ─────────────────────────────────────────────────────────
@@ -178,6 +220,7 @@ class JourneyEngine:
             id=int(time.time() * 1000), project_key=project_key, stage_index=stage_index, text=text, done=False
         )
         self.repo.add_task(task)
+        self._touch(project_key)
         return self.get(project_key)
 
     def edit_task(self, task_id: int, text: str) -> dict:
@@ -198,6 +241,7 @@ class JourneyEngine:
         prev_current = self._current_stage(self.repo.list_stages(project_key), self._tasks_by_stage(project_key))
         task.done = not task.done
         self.repo.save_task(task)
+        self._touch(project_key)
         return self._respond_with_event(project_key, prev_current)
 
     def delete_task(self, task_id: int) -> dict:
@@ -223,6 +267,7 @@ class JourneyEngine:
             status="",
         )
         self.repo.add_log(entry)
+        self._touch(project_key)
         return self.get(project_key)
 
     def cycle_log_status(self, entry_id: int) -> dict:

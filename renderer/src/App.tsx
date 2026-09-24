@@ -687,7 +687,7 @@ function AppShell() {
             {overlay.kind === 'analysis' && (
               <BusinessAnalysisCanvas projectKey={overlay.project} />
             )}
-            {overlay.kind === 'journey' && <JourneyPanel />}
+            {overlay.kind === 'journey' && <JourneyPanel key={overlay.project} initialProject={overlay.project} />}
             {overlay.kind === 'bdp' && <BdpPanel />}
             {overlay.kind === 'quarterly' && <QuarterlyPlanPanel />}
             {overlay.kind === 'goalBoard' && (
