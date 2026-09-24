@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
-import { NightClosure, nightClosureApi } from '../services/api';
+import { NightClosure, nightClosureApi, Settings, settingsApi } from '../services/api';
+import { useL } from '../i18n';
+import { minutesUntil, nightSteps, nightWritten, Step } from '../ritualSteps';
 import { RADIUS, SPACE } from '../spacing';
 import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
 import breatheAudioUrl from '../assets/audio/breath.mp3';
@@ -82,15 +84,17 @@ function Field({
   onChange,
   onCommit,
   placeholder,
+  last,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   onCommit: () => void;
   placeholder: string;
+  last?: boolean;
 }) {
   return (
-    <div style={{ marginBottom: SPACE.md }}>
+    <div style={{ marginBottom: last ? 0 : SPACE.md }}>
       <label
         style={{
           display: 'block',
@@ -122,30 +126,6 @@ function Field({
   );
 }
 
-function ToolItem({ title, children }: { title: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ borderTop: `1px solid ${NC.border}`, padding: `${SPACE.md}px 0` }}>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          fontSize: TYPE_SIZE.sm,
-          color: open ? NC.ink : NC.inkMuted,
-          background: 'none',
-          border: 'none',
-          padding: 0,
-          cursor: 'pointer',
-          textAlign: 'left',
-          width: '100%',
-        }}
-      >
-        {title}
-      </button>
-      {open && <div style={{ marginTop: SPACE.md, textAlign: 'center', padding: `${SPACE.sm}px 0` }}>{children}</div>}
-    </div>
-  );
-}
-
 export default function NightClosureFlow() {
   const [nc, setNc] = useState<NightClosure | null>(null);
   const [whereStoppedDraft, setWhereStoppedDraft] = useState('');
@@ -157,6 +137,15 @@ export default function NightClosureFlow() {
   const [showMore, setShowMore] = useState(false);
   const [closeTimeDraft, setCloseTimeDraft] = useState(nowHHMM());
   const [savedNote, setSavedNote] = useState('');
+  const L = useL();
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    settingsApi.get().then(setSettings).catch(() => setSettings(null));
+    const id = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     nightClosureApi.today().then((row) => {
@@ -316,93 +305,137 @@ export default function NightClosureFlow() {
     []
   );
 
-  if (!nc) return <div style={{ color: NC.inkMuted }}>Loading…</div>;
+  if (!nc) return <div style={{ color: NC.inkMuted }}>{L('Loading…', 'লোড হচ্ছে…')}</div>;
 
   const closed = nc.closed_at !== null;
+  const steps = nightSteps(nc);
+  const left = 4 - nightWritten(nc);
+  const sleepHour = settings?.phase_sleep_start ?? null;
+  const sleepIn = sleepHour === null ? null : minutesUntil(now, sleepHour);
+  const sleepLabel =
+    sleepHour === null
+      ? ''
+      : new Date(2000, 0, 1, sleepHour).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
   return (
     <div style={{ maxWidth: 560, margin: '0 auto', paddingBottom: SPACE.xxl, color: NC.ink }}>
       <div style={{ fontSize: TYPE_SIZE.sm, color: NC.inkMuted, marginBottom: SPACE.xs }}>
-        {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+        {now.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
       </div>
-      <h2 style={{ fontSize: TYPE_SIZE.lg, fontWeight: TYPE_WEIGHT.medium, margin: `0 0 ${SPACE.md}px` }}>
-        Close the Day
-      </h2>
+      <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, flexWrap: 'wrap', marginBottom: SPACE.md }}>
+        <h2 style={{ fontSize: TYPE_SIZE.lg, fontWeight: TYPE_WEIGHT.medium, margin: 0, flex: 1 }}>
+          {L('Close the day', 'দিন বন্ধ করুন')}
+        </h2>
+        {/* The one number this screen is racing: how long until the
+            sleep phase the user set in Settings. Shown only inside six
+            hours, where it is a deadline rather than trivia. */}
+        {sleepIn !== null && (
+          <span
+            style={{
+              fontSize: TYPE_SIZE.xs,
+              fontWeight: TYPE_WEIGHT.bold,
+              letterSpacing: TRACKING.label,
+              color: NC.ember,
+              background: NC.emberSoft,
+              border: `1px solid ${NC.border}`,
+              borderRadius: RADIUS.pill,
+              padding: `${SPACE.hair}px ${SPACE.sm}px`,
+              fontVariantNumeric: 'tabular-nums',
+            }}
+          >
+            {L(`SLEEP ${sleepLabel} · ${fmtMins(sleepIn)} left`, `ঘুম ${sleepLabel} · ${fmtMins(sleepIn)} বাকি`)}
+          </span>
+        )}
+      </div>
+
+      <NcStepBar steps={steps} />
+
+      <Section title={L('TODAY', 'আজ')} hint={L('Put it down so it stops following you.', 'লিখে রাখুন, যাতে মাথায় না ঘোরে।')}>
+        <Field
+          label={L('Where I stopped', 'কোথায় থামলাম')}
+          value={whereStoppedDraft}
+          onChange={setWhereStoppedDraft}
+          onCommit={() => nightClosureApi.setWhereStopped(whereStoppedDraft).then(setNc)}
+          placeholder={L('e.g. Buyer outreach — 3 contacts completed', 'যেমন: বায়ার আউটরিচ — ৩টা যোগাযোগ শেষ')}
+        />
+        <Field
+          label={L('Unfinished', 'অসমাপ্ত')}
+          value={unfinishedDraft}
+          onChange={setUnfinishedDraft}
+          onCommit={() => nightClosureApi.setUnfinished(unfinishedDraft).then(setNc)}
+          placeholder={L("What's left hanging", 'যা ঝুলে রইল')}
+          last
+        />
+      </Section>
+
+      <Section
+        title={L('TOMORROW', 'আগামীকাল')}
+        badge={L('Shows in Morning Ritual', 'মর্নিং রিচুয়ালে দেখাবে')}
+        hint={L('Decide now, so the morning starts with no decisions.', 'এখনই ঠিক করুন, যাতে সকালে ভাবতে না হয়।')}
+      >
+        <Field
+          label={L("Tomorrow's outcome", 'কালকের ফলাফল')}
+          value={tomorrowOutcomeDraft}
+          onChange={setTomorrowOutcomeDraft}
+          onCommit={() => nightClosureApi.setTomorrowOutcome(tomorrowOutcomeDraft).then(setNc)}
+          placeholder={L('One thing that would make tomorrow a win', 'একটা জিনিস যা কালকে সফল করবে')}
+        />
+        <Field
+          label={L("Tomorrow's first move", 'কালকের প্রথম পদক্ষেপ')}
+          value={tomorrowActionDraft}
+          onChange={setTomorrowActionDraft}
+          onCommit={() => nightClosureApi.setTomorrowFirstAction(tomorrowActionDraft).then(setNc)}
+          placeholder={L('The concrete first step', 'নির্দিষ্ট প্রথম ধাপ')}
+          last
+        />
+      </Section>
+
+      <button
+        onClick={() => setShowMore((v) => !v)}
+        style={{
+          fontSize: TYPE_SIZE.xs,
+          color: NC.inkMuted,
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          margin: `0 0 ${SPACE.md}px`,
+          display: 'block',
+          cursor: 'pointer',
+        }}
+      >
+        {showMore ? L('– Blocker or note', '– বাধা বা নোট') : L('+ Blocker or note (optional)', '+ বাধা বা নোট (ঐচ্ছিক)')}
+      </button>
+      {showMore && (
+        <Section title={L('EXTRA', 'অতিরিক্ত')}>
+          <Field
+            label={L('Blocker', 'বাধা')}
+            value={blockerDraft}
+            onChange={setBlockerDraft}
+            onCommit={() => nightClosureApi.setBlocker(blockerDraft).then(setNc)}
+            placeholder={L('Optional', 'ঐচ্ছিক')}
+          />
+          <Field
+            label={L('Note', 'নোট')}
+            value={noteDraft}
+            onChange={setNoteDraft}
+            onCommit={() => nightClosureApi.setNote(noteDraft).then(setNc)}
+            placeholder={L('Optional', 'ঐচ্ছিক')}
+            last
+          />
+        </Section>
+      )}
 
       <div
         style={{
           background: NC.surface,
-          border: `1px solid ${NC.border}`,
+          border: `1px solid ${closed ? NC.border : NC.ember}`,
           borderRadius: RADIUS.card,
           padding: SPACE.lg,
-          marginBottom: SPACE.lg,
+          marginBottom: SPACE.xl,
         }}
       >
-        <Field
-          label="Where I stopped"
-          value={whereStoppedDraft}
-          onChange={setWhereStoppedDraft}
-          onCommit={() => nightClosureApi.setWhereStopped(whereStoppedDraft).then(setNc)}
-          placeholder="e.g. Buyer outreach — 3 contacts completed"
-        />
-        <Field
-          label="Unfinished"
-          value={unfinishedDraft}
-          onChange={setUnfinishedDraft}
-          onCommit={() => nightClosureApi.setUnfinished(unfinishedDraft).then(setNc)}
-          placeholder="What's left hanging"
-        />
-        <Field
-          label="Tomorrow's Outcome"
-          value={tomorrowOutcomeDraft}
-          onChange={setTomorrowOutcomeDraft}
-          onCommit={() => nightClosureApi.setTomorrowOutcome(tomorrowOutcomeDraft).then(setNc)}
-          placeholder="One thing that would make tomorrow a win"
-        />
-        <Field
-          label="Tomorrow's First Move"
-          value={tomorrowActionDraft}
-          onChange={setTomorrowActionDraft}
-          onCommit={() => nightClosureApi.setTomorrowFirstAction(tomorrowActionDraft).then(setNc)}
-          placeholder="The concrete first step"
-        />
-
-        <button
-          onClick={() => setShowMore((v) => !v)}
-          style={{
-            fontSize: TYPE_SIZE.xs,
-            color: NC.inkFaint,
-            background: 'none',
-            border: 'none',
-            padding: 0,
-            marginBottom: SPACE.md,
-            display: 'block',
-            cursor: 'pointer',
-          }}
-        >
-          {showMore ? '– Blocker / note' : '+ Blocker / note'}
-        </button>
-        {showMore && (
-          <>
-            <Field
-              label="Blocker"
-              value={blockerDraft}
-              onChange={setBlockerDraft}
-              onCommit={() => nightClosureApi.setBlocker(blockerDraft).then(setNc)}
-              placeholder="Optional"
-            />
-            <Field
-              label="Note"
-              value={noteDraft}
-              onChange={setNoteDraft}
-              onCommit={() => nightClosureApi.setNote(noteDraft).then(setNc)}
-              placeholder="Optional"
-            />
-          </>
-        )}
-
         <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginBottom: SPACE.md, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: TYPE_SIZE.xs, color: NC.inkMuted }}>Close time</span>
+          <span style={{ fontSize: TYPE_SIZE.xs, color: NC.inkMuted }}>{L('Close time', 'বন্ধের সময়')}</span>
           <div style={{ position: 'relative', display: 'inline-flex' }}>
             <input
               type="time"
@@ -435,7 +468,7 @@ export default function NightClosureFlow() {
                 cursor: 'pointer',
               }}
             >
-              Now
+              {L('Now', 'এখন')}
             </button>
           </div>
           <button
@@ -451,32 +484,49 @@ export default function NightClosureFlow() {
               cursor: closeTimeDraft ? 'pointer' : 'default',
             }}
           >
-            Set
+            {L('Set', 'সেট')}
           </button>
+          <span style={{ flex: 1 }} />
+          {/* Closing is never blocked on empty fields — a half-written
+              night still beats an unclosed one — but say what is left. */}
+          {!closed && left > 0 && (
+            <span style={{ fontSize: TYPE_SIZE.xs, color: NC.inkFaint }}>
+              {L(
+                `${left} field${left === 1 ? '' : 's'} left — you can close anyway`,
+                `${left}টা ঘর বাকি — তবুও বন্ধ করা যায়`
+              )}
+            </span>
+          )}
         </div>
 
         <button
           onClick={() => {
             nightClosureApi.closeDay().then(setNc);
-            setSavedNote('Saved — Morning Activation will carry this forward.');
+            setSavedNote(L('Saved — Morning Ritual will carry this forward.', 'সেভ হয়েছে — মর্নিং রিচুয়াল এটা সকালে দেখাবে।'));
           }}
           style={{
             width: '100%',
-            padding: `${SPACE.md + 1}px 0`,
-            background: NC.ember,
+            padding: `${SPACE.md}px 0`,
+            background: closed ? 'transparent' : NC.ember,
             border: `1px solid ${NC.ember}`,
             borderRadius: RADIUS.control,
-            color: '#20130a',
+            color: closed ? NC.ember : '#20130a',
             fontSize: TYPE_SIZE.sm,
             fontWeight: TYPE_WEIGHT.bold,
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 4,
+            gap: SPACE.xs,
           }}
         >
-          {closed ? <><Check size={14} /> Closed</> : 'Close the day →'}
+          {closed ? (
+            <>
+              <Check size={14} /> {L('Closed — close again to update', 'বন্ধ হয়েছে — আপডেট করতে আবার বন্ধ করুন')}
+            </>
+          ) : (
+            L('Close the day →', 'দিন বন্ধ করুন →')
+          )}
         </button>
         {savedNote && (
           <div style={{ fontSize: TYPE_SIZE.xs, color: NC.ember, marginTop: SPACE.sm, textAlign: 'center' }}>
@@ -485,94 +535,224 @@ export default function NightClosureFlow() {
         )}
       </div>
 
-      <details style={{ borderTop: `1px solid ${NC.border}`, borderBottom: `1px solid ${NC.border}` }}>
-        <summary
-          style={{
-            padding: `${SPACE.md}px ${SPACE.hair}px`,
-            cursor: 'pointer',
-            listStyle: 'none',
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: SPACE.sm,
-            flexWrap: 'wrap',
-          }}
+      {/* Wind down: three short tools side by side instead of three
+          collapsed rows inside a collapsed section — each one is a single
+          Start button away, which is the point at this hour. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: SPACE.sm, marginBottom: SPACE.sm, flexWrap: 'wrap' }}>
+        <b style={{ fontSize: TYPE_SIZE.sm, letterSpacing: TRACKING.wide }}>{L('WIND DOWN', 'শান্ত হওয়া')}</b>
+        <span style={{ fontSize: TYPE_SIZE.xs, color: NC.inkFaint }}>{L('Optional · pick one', 'ঐচ্ছিক · যেকোনো একটা')}</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: SPACE.sm }}>
+        <ToolCard
+          title={L('4-7-8 Breathe', '৪-৭-৮ শ্বাস')}
+          sub={L('4 rounds · ~1 min', '৪ রাউন্ড · ~১ মিনিট')}
+          running={breatheRunning}
+          onToggle={toggleBreathe}
+          startLabel={L('Start', 'শুরু')}
+          stopLabel={L('Stop', 'থামুন')}
         >
-          <span style={{ color: NC.ember, fontSize: TYPE_SIZE.base }}>+</span>
-          <b style={{ fontSize: TYPE_SIZE.sm }}>WIND DOWN</b>
-          <span style={{ fontSize: TYPE_SIZE.xs, color: NC.inkFaint }}>
-            4-7-8 Breathe · Cognitive Shuffle · Muscle Release
-          </span>
-        </summary>
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: RADIUS.pill,
+              border: `2px solid ${NC.ember}`,
+              background: NC.emberSoft,
+              margin: `0 auto ${SPACE.sm}px`,
+              transform: `scale(${breatheScale})`,
+              transition: breatheRunning ? `transform ${breatheDur}s ease-in-out` : 'none',
+            }}
+          />
+          <div style={{ fontSize: TYPE_SIZE.sm, fontWeight: TYPE_WEIGHT.medium }}>{breathePhase}</div>
+        </ToolCard>
 
-        <div style={{ padding: `${SPACE.xs}px ${SPACE.hair}px ${SPACE.lg}px` }}>
-          <ToolItem title="4-7-8 Breathe">
-            <div style={{ fontSize: TYPE_SIZE.md, fontWeight: TYPE_WEIGHT.medium, marginBottom: SPACE.md }}>
-              {breathePhase}
-            </div>
-            <div
-              style={{
-                width: 70,
-                height: 70,
-                borderRadius: RADIUS.pill,
-                border: `2px solid ${NC.ember}`,
-                background: NC.emberSoft,
-                margin: `0 auto ${SPACE.lg}px`,
-                transform: `scale(${breatheScale})`,
-                transition: breatheRunning ? `transform ${breatheDur}s ease-in-out` : 'none',
-              }}
-            />
-            <button onClick={toggleBreathe} style={toolBtnStyle}>
-              {breatheRunning ? 'Stop' : 'Start'}
-            </button>
-          </ToolItem>
+        <ToolCard
+          title={L('Cognitive Shuffle', 'কগনিটিভ শাফল')}
+          sub={L('10 words · 1 min', '১০টা শব্দ · ১ মিনিট')}
+          running={shuffleRunning}
+          onToggle={toggleShuffle}
+          startLabel={L('Start', 'শুরু')}
+          stopLabel={L('Stop', 'থামুন')}
+        >
+          <div
+            style={{
+              fontFamily: 'Georgia, "Noto Serif Bengali", serif',
+              fontStyle: 'italic',
+              fontSize: TYPE_SIZE.md,
+              minHeight: 56,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {shuffleWord}
+          </div>
+          <div style={{ fontSize: TYPE_SIZE.xs, color: NC.inkFaint }}>{L('Picture each word, let it drift.', 'প্রতিটা শব্দ কল্পনা করুন, ভেসে যেতে দিন।')}</div>
+        </ToolCard>
 
-          <ToolItem title="Cognitive Shuffle">
-            <p style={{ fontSize: TYPE_SIZE.xs, color: NC.inkFaint, margin: `0 0 ${SPACE.md}px` }}>
-              Picture each word for a few seconds, then let it drift to the next.
-            </p>
-            <div
-              style={{
-                fontFamily: 'Georgia, "Noto Serif Bengali", serif',
-                fontStyle: 'italic',
-                fontSize: TYPE_SIZE.md,
-                marginBottom: SPACE.lg,
-                minHeight: '1.3em',
-              }}
-            >
-              {shuffleWord}
-            </div>
-            <button onClick={toggleShuffle} style={toolBtnStyle}>
-              {shuffleRunning ? 'Stop' : 'Start'}
-            </button>
-          </ToolItem>
+        <ToolCard
+          title={L('Muscle Release', 'পেশি শিথিল')}
+          sub={L('7 groups · ~1 min', '৭টা অংশ · ~১ মিনিট')}
+          running={pmrRunning}
+          onToggle={togglePmr}
+          startLabel={L('Start', 'শুরু')}
+          stopLabel={L('Stop', 'থামুন')}
+        >
+          <div style={{ minHeight: 56, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: SPACE.xs }}>
+            {pmrGroup && <span style={{ fontSize: TYPE_SIZE.base, fontWeight: TYPE_WEIGHT.medium }}>{pmrGroup}</span>}
+            <span style={{ fontSize: TYPE_SIZE.sm, color: NC.inkMuted }}>{pmrSub}</span>
+          </div>
+        </ToolCard>
+      </div>
 
-          <ToolItem title="Muscle Release">
-            <div style={{ fontSize: TYPE_SIZE.base, marginBottom: SPACE.md, minHeight: '2.6em' }}>
-              {pmrGroup && <span style={{ fontWeight: TYPE_WEIGHT.medium, display: 'block', marginBottom: SPACE.xs }}>{pmrGroup}</span>}
-              {pmrSub}
-            </div>
-            <button onClick={togglePmr} style={toolBtnStyle}>
-              {pmrRunning ? 'Stop' : 'Start'}
-            </button>
-          </ToolItem>
-
-          <p style={{ fontSize: TYPE_SIZE.xs, color: NC.inkFaint, marginTop: SPACE.lg, lineHeight: 1.6 }}>
-            Still awake after a while? Don't check the time or push for it — calm, quiet wakefulness usually gets
-            you there faster than trying hard to sleep. If this is a regular struggle, it's worth mentioning to a
-            doctor.
-          </p>
-        </div>
-      </details>
+      <p style={{ fontSize: TYPE_SIZE.xs, color: NC.inkFaint, marginTop: SPACE.lg, lineHeight: 1.6 }}>
+        {L(
+          "Still awake after a while? Don't check the time or push for it — calm, quiet wakefulness usually gets you there faster than trying hard to sleep. If this is a regular struggle, it's worth mentioning to a doctor.",
+          'অনেকক্ষণ পরেও ঘুম আসছে না? সময় দেখবেন না, জোর করবেন না — শান্তভাবে জেগে থাকলে সাধারণত জোর করে ঘুমানোর চেয়ে তাড়াতাড়ি ঘুম আসে। এটা নিয়মিত সমস্যা হলে ডাক্তারকে জানানো ভালো।'
+        )}
+      </p>
     </div>
   );
 }
 
-const toolBtnStyle: React.CSSProperties = {
-  padding: `${SPACE.sm}px ${SPACE.lg}px`,
-  borderRadius: RADIUS.control,
-  fontSize: TYPE_SIZE.sm,
-  border: `1px solid ${NC.border}`,
-  background: 'transparent',
-  color: NC.inkMuted,
-  cursor: 'pointer',
-};
+function fmtMins(m: number): string {
+  return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
+}
+
+// The three night steps in the ember palette (the Discipline card draws
+// the same steps in theme colours).
+function NcStepBar({ steps }: { steps: Step[] }) {
+  const L = useL();
+  return (
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`,
+        gap: SPACE.sm,
+        marginBottom: SPACE.lg,
+      }}
+    >
+      {steps.map((s, i) => (
+        <div key={s.key} style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs, minWidth: 0 }}>
+          <span
+            style={{
+              height: 4,
+              borderRadius: RADIUS.pill,
+              background: s.state === 'done' ? NC.ember : s.state === 'now' ? NC.inkMuted : NC.border,
+              opacity: s.state === 'next' ? 0.5 : 1,
+            }}
+          />
+          <span
+            style={{
+              fontSize: TYPE_SIZE.xs,
+              fontWeight: s.state === 'now' ? TYPE_WEIGHT.bold : TYPE_WEIGHT.normal,
+              color: s.state === 'done' ? NC.ember : s.state === 'now' ? NC.ink : NC.inkFaint,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {s.state === 'done' ? '✓ ' : `${i + 1}. `}
+            {L(s.en, s.bn)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  badge,
+  hint,
+  children,
+}: {
+  title: string;
+  badge?: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        background: NC.surface,
+        border: `1px solid ${NC.border}`,
+        borderRadius: RADIUS.card,
+        padding: SPACE.lg,
+        marginBottom: SPACE.md,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginBottom: hint ? SPACE.xs : SPACE.md, flexWrap: 'wrap' }}>
+        <b style={{ fontSize: TYPE_SIZE.xs, letterSpacing: TRACKING.wide, color: NC.ember }}>{title}</b>
+        {badge && (
+          <span
+            style={{
+              fontSize: TYPE_SIZE.xs,
+              color: NC.inkMuted,
+              border: `1px solid ${NC.border}`,
+              borderRadius: RADIUS.pill,
+              padding: `0 ${SPACE.sm}px`,
+            }}
+          >
+            ☀ {badge}
+          </span>
+        )}
+      </div>
+      {hint && <div style={{ fontSize: TYPE_SIZE.xs, color: NC.inkFaint, marginBottom: SPACE.md }}>{hint}</div>}
+      {children}
+    </div>
+  );
+}
+
+function ToolCard({
+  title,
+  sub,
+  running,
+  onToggle,
+  startLabel,
+  stopLabel,
+  children,
+}: {
+  title: string;
+  sub: string;
+  running: boolean;
+  onToggle: () => void;
+  startLabel: string;
+  stopLabel: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        background: NC.surface,
+        border: `1px solid ${running ? NC.ember : NC.border}`,
+        borderRadius: RADIUS.card,
+        padding: SPACE.md,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: SPACE.sm,
+        textAlign: 'center',
+      }}
+    >
+      <div>
+        <div style={{ fontSize: TYPE_SIZE.sm, fontWeight: TYPE_WEIGHT.bold }}>{title}</div>
+        <div style={{ fontSize: TYPE_SIZE.xs, color: NC.inkFaint }}>{sub}</div>
+      </div>
+      <div style={{ flex: 1 }}>{children}</div>
+      <button
+        onClick={onToggle}
+        style={{
+          padding: `${SPACE.xs}px ${SPACE.md}px`,
+          borderRadius: RADIUS.control,
+          fontSize: TYPE_SIZE.sm,
+          border: `1px solid ${running ? NC.ember : NC.border}`,
+          background: running ? NC.emberSoft : 'transparent',
+          color: running ? NC.ember : NC.inkMuted,
+          cursor: 'pointer',
+        }}
+      >
+        {running ? stopLabel : startLabel}
+      </button>
+    </div>
+  );
+}

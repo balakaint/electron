@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from api.schemas import NightClosureOut, NightClosureTextSet, NightClosureTimeSet
+from api.schemas import NightClosureNight, NightClosureOut, NightClosureTextSet, NightClosureTimeSet
 from database.connection import get_db
 from database.repository import NightClosureRepository
 from engine.night_closure import NightClosureEngine
@@ -16,6 +16,13 @@ def get_engine(db: Session = Depends(get_db)) -> NightClosureEngine:
 @router.get("/today", response_model=NightClosureOut)
 def read_today(engine: NightClosureEngine = Depends(get_engine)):
     return engine.get_today()
+
+
+@router.get("/recent", response_model=list[NightClosureNight])
+def read_recent(days: int = 7, engine: NightClosureEngine = Depends(get_engine)):
+    """The last `days` nights (1-31), oldest first — for the Discipline
+    card's week of closure marks."""
+    return engine.recent(max(1, min(days, 31)))
 
 
 @router.post("/where-stopped", response_model=NightClosureOut)

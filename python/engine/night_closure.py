@@ -18,7 +18,7 @@ populate `today_outcome`/`first_move` and set `carried_from_date` — the
 whole reason this table exists.
 """
 
-from datetime import date
+from datetime import date, timedelta
 import time
 
 from database.models import NightClosure
@@ -86,6 +86,28 @@ class NightClosureEngine:
         if row.closed_at is None:
             row.closed_at = _now()
         return self._out(self.repo.save(row))
+
+    def recent(self, days: int = 7, today: str | None = None) -> list[dict]:
+        """The last `days` nights ending tonight, oldest first, each as
+        {day, closed, written}: whether the day was closed, and how many of
+        the four top fields hold text. Read-only — a night with no row is
+        reported as not closed, never created, so looking at the week does
+        not fill the table with empty days."""
+        end = date.fromisoformat(today or _today())
+        span = [str(end - timedelta(days=i)) for i in range(days - 1, -1, -1)]
+        rows = self.repo.get_range(span)  # one query, not one per night
+        out = []
+        for day in span:
+            row = rows.get(day)
+            written = 0
+            if row is not None:
+                written = sum(
+                    1
+                    for v in (row.where_stopped, row.unfinished, row.tomorrow_outcome, row.tomorrow_first_action)
+                    if (v or "").strip()
+                )
+            out.append({"day": day, "closed": row is not None and row.closed_at is not None, "written": written})
+        return out
 
     @staticmethod
     def _out(row: NightClosure) -> dict:

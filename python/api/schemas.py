@@ -1162,6 +1162,12 @@ class NightClosureOut(BaseModel):
     closed_at: float | None
 
 
+class NightClosureNight(BaseModel):
+    day: str
+    closed: bool
+    written: int
+
+
 class NightClosureTextSet(BaseModel):
     text: str
 

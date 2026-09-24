@@ -16,6 +16,8 @@ import RitualRing from './RitualRing';
 import { useAutofocus } from '../hooks/useAutofocus';
 import DoDontList from './DoDontList';
 import breatheAudioUrl from '../assets/audio/breath.mp3';
+import { useL } from '../i18n';
+import { morningSteps } from '../ritualSteps';
 
 // Redesigned 2026-09-19 to match Zahid's morning-activation.html sample
 // 1:1 (structure, copy, section order, plain-pill/plain-button visual
@@ -267,6 +269,23 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
   const startSectionRef = useRef<HTMLDivElement>(null);
   const resetSectionRef = useRef<HTMLDivElement>(null);
 
+  const checkinSectionRef = useRef<HTMLDivElement>(null);
+  const primeSectionRef = useRef<HTMLDetailsElement>(null);
+  const L = useL();
+  // A finished Reset collapses to one row of ticks; this reopens it.
+  const [resetOpen, setResetOpen] = useState(false);
+  // Whether the Ready card is on screen — the sticky Start bar only
+  // shows while it is not, so the button never appears twice.
+  const [startVisible, setStartVisible] = useState(false);
+  const hasRitual = ritual !== null;
+  useEffect(() => {
+    const el = startSectionRef.current;
+    if (!hasRitual || !el || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver(([e]) => setStartVisible(e.isIntersecting), { threshold: 0.1 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasRitual]);
+
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
   useEffect(() => {
     tasksApi.list('focus').then((all) => {
@@ -403,6 +422,9 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
     if (nudgeTimerRef.current) clearTimeout(nudgeTimerRef.current);
   };
 
+  const steps = morningSteps(ritual);
+  const resetDone = ritual.reset_water && ritual.reset_breathe && ritual.reset_move && (gentle || ritual.reset_daylight);
+  const resetCompact = resetDone && !resetOpen;
   const outcomeText = outcomeDraft.trim() || "Set today's outcome";
   const firstMoveText = firstMoveDraft.trim() || 'Set your first move';
   const visualizeText = `See yourself completing "${outcomeDraft.trim() || "today's outcome"}." Then see yourself taking the first physical step: ${firstMoveDraft.trim() || 'the first action'}.`;
@@ -437,6 +459,67 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           </span>
         </div>
 
+        {/* Where the morning stands, as the five steps the Discipline card
+            counts — each one jumps to its section. */}
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`, gap: 4, marginTop: 16 }}>
+          {steps.map((st, i) => (
+            <button
+              key={st.key}
+              onClick={() => {
+                const target = {
+                  checkin: checkinSectionRef,
+                  reset: resetSectionRef,
+                  mind: clearSectionRef,
+                  prime: primeSectionRef,
+                  ready: startSectionRef,
+                }[st.key];
+                target?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              className="hover-tint"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                minWidth: 0,
+                padding: '4px 0',
+                border: 'none',
+                background: 'transparent',
+                font: 'inherit',
+                textAlign: 'left',
+                cursor: 'pointer',
+                color: 'var(--text)',
+              }}
+            >
+              <span
+                style={{
+                  height: 4,
+                  alignSelf: 'stretch',
+                  borderRadius: RADIUS.pill,
+                  background:
+                    st.state === 'done'
+                      ? ACCENT
+                      : st.state === 'now'
+                        ? `color-mix(in srgb, ${ACCENT} 45%, var(--surface))`
+                        : 'color-mix(in srgb, var(--progress-track) 40%, var(--surface))',
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: st.state === 'now' ? 700 : 400,
+                  color: st.state === 'next' ? 'var(--text-muted)' : 'var(--text)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {st.state === 'done' ? '✓ ' : `${i + 1}. `}
+                {L(st.en, st.bn)}
+              </span>
+            </button>
+          ))}
+        </div>
+
         <div
           className="card-elevated"
           style={{
@@ -449,16 +532,36 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
             boxShadow: 'var(--shadow-sm)',
           }}
         >
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
-            {ritual.carried_from_date ? `Carried from ${ritual.carried_from_date}` : 'Carried from yesterday'}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
+              {ritual.carried_from_date ? L('☾ You wrote last night', '☾ গত রাতে লিখেছিলেন') : L('Carried from yesterday', 'গতকাল থেকে')}
+            </span>
+            {ritual.carried_from_date && (
+              <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+                {L('Night Closure', 'নাইট ক্লোজার')} · {ritual.carried_from_date}
+              </span>
+            )}
           </div>
           {ritual.carried_from_date ? (
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
-              "{ritual.today_outcome || 'Outcome'}" — first move: {ritual.first_move || 'not set'}
+            <div style={{ display: 'grid', gap: 4, marginTop: 8 }}>
+              <div style={{ fontSize: 14, color: 'var(--text)' }}>
+                <span style={{ color: 'var(--text-faint)' }}>{L('Outcome', 'ফলাফল')} · </span>
+                {ritual.today_outcome || L('not set', 'সেট করা নেই')}
+              </div>
+              <div style={{ fontSize: 14, color: 'var(--text)' }}>
+                <span style={{ color: 'var(--text-faint)' }}>{L('First move', 'প্রথম পদক্ষেপ')} · </span>
+                {ritual.first_move || L('not set', 'সেট করা নেই')}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+                {L('Edit below if the morning sees it differently.', 'সকালে অন্যরকম মনে হলে নিচে বদলে নিন।')}
+              </div>
             </div>
           ) : (
             <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 8 }}>
-              Nothing carried over yet. Close tonight out on Night Closure and it will be waiting here.
+              {L(
+                'Nothing carried over yet. Close tonight out on Night Closure and it will be waiting here.',
+                'এখনো কিছু আসেনি। আজ রাতে নাইট ক্লোজার করলে কাল সকালে এখানে থাকবে।'
+              )}
             </div>
           )}
         </div>
@@ -571,7 +674,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
       </div>
 
       {/* ── CHECK-IN + RESET ────────────────────────────────────── */}
-      <div style={{ marginBottom: 32 }}>
+      <div ref={checkinSectionRef} style={{ marginBottom: 32 }}>
         <MicroLabel>CHECK-IN</MicroLabel>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
           <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 52, flex: 'none' }}>Energy</span>
@@ -677,8 +780,49 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           )}
         </div>
 
-        <MicroLabel style={{ marginTop: 16 }}>RESET</MicroLabel>
-        <div ref={resetSectionRef} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          <MicroLabel style={{ marginTop: 16 }}>RESET</MicroLabel>
+          {resetDone && (
+            <button onClick={() => setResetOpen((v) => !v)} className="link" style={{ fontSize: 12, marginLeft: 'auto' }}>
+              {resetOpen ? L('Collapse', 'গুটিয়ে নিন') : L('Show', 'দেখুন')}
+            </button>
+          )}
+        </div>
+        {resetCompact && (
+          <div
+            ref={resetSectionRef}
+            style={{ display: 'grid', gridTemplateColumns: `repeat(${gentle ? 3 : 4}, minmax(0, 1fr))`, gap: 8 }}
+          >
+            {[
+              L('Water', 'পানি'),
+              L('Breathe', 'শ্বাস'),
+              L('Stretch', 'স্ট্রেচ'),
+              ...(gentle ? [] : [L('Day Light', 'দিনের আলো')]),
+            ].map((name) => (
+              <div
+                key={name}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: 8,
+                  borderRadius: RADIUS.control,
+                  border: '1px solid var(--border)',
+                  background: 'color-mix(in srgb, var(--success) 12%, var(--surface))',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  minWidth: 0,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                }}
+              >
+                <Check size={12} color="var(--success)" style={{ flex: 'none' }} />
+                {name}
+              </div>
+            ))}
+          </div>
+        )}
+        <div ref={resetCompact ? undefined : resetSectionRef} style={{ display: resetCompact ? 'none' : 'flex', flexDirection: 'column', gap: 8 }}>
           <ResetRow
             border="var(--ba-upside)"
             name="Water"
@@ -897,6 +1041,7 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
 
       {/* ── MORNING PRIME ───────────────────────────────────────── */}
       <details
+        ref={primeSectionRef}
         className="card-elevated"
         style={{ border: '1px solid var(--border)', borderRadius: RADIUS.card, marginBottom: 32, padding: 0, boxShadow: 'var(--shadow-sm)' }}
         onToggle={(e) => {
@@ -1076,6 +1221,43 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
         <div style={{ textAlign: 'center', marginTop: 12 }}>
           <button onClick={onViewTrend} className="btn-ghost" style={{ fontSize: 12 }}>
             View trends
+          </button>
+        </div>
+      )}
+
+      {/* Start is the one action this page exists for, and it sits at the
+          very bottom — keep it reachable from anywhere while it is owed. */}
+      {ritual.started_first_action_at === null && !startVisible && !nudgeShown && (
+        <div
+          style={{
+            position: 'sticky',
+            bottom: 8,
+            marginTop: 16,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '8px 12px',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: RADIUS.card,
+            boxShadow: 'var(--shadow-sm)',
+            zIndex: 5,
+          }}
+        >
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{L("Today's outcome", 'আজকের ফলাফল')}</div>
+            <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {outcomeText}
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              dismissNudge();
+              morningRitualApi.startNow().then(setRitual);
+            }}
+            style={{ background: ACCENT, borderColor: ACCENT, color: 'var(--on-accent)', fontSize: 14, fontWeight: 600, padding: '8px 16px', flex: 'none' }}
+          >
+            {L('Start now →', 'এখন শুরু →')}
           </button>
         </div>
       )}

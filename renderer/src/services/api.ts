@@ -1162,8 +1162,18 @@ export interface NightClosure {
   closed_at: number | null;
 }
 
+// One night of Night Closure's week view — see engine/night_closure.py
+// recent(). `written` counts the four top fields holding text.
+export interface NightClosureNight {
+  day: string;
+  closed: boolean;
+  written: number;
+}
+
 export const nightClosureApi = {
   today: () => req('GET', '/api/night-closure/today') as Promise<NightClosure>,
+  // Oldest first, ending tonight. Read-only on the server.
+  recent: (days = 7) => req('GET', `/api/night-closure/recent?days=${days}`) as Promise<NightClosureNight[]>,
   setWhereStopped: (text: string) => req('POST', '/api/night-closure/where-stopped', { text }) as Promise<NightClosure>,
   setUnfinished: (text: string) => req('POST', '/api/night-closure/unfinished', { text }) as Promise<NightClosure>,
   setTomorrowOutcome: (text: string) =>
