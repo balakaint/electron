@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import { FocusTab, GoalOwnerKey, GoalOwnerMeta, HoursLevel, PlanTask, ProjectKey, planningApi, projectsApi, settingsApi } from '../services/api';
+import { FocusTab, GoalOwnerKey, GoalOwnerMeta, HoursLevel, PlanTask, ProjectKey, STRIKE_MAX, hoursApi, planningApi, projectsApi, settingsApi, tasksApi } from '../services/api';
 import ClockCard from './ClockCard';
 import HourPlanTab from './HourPlan';
 import NowCard from './NowCard';
@@ -154,7 +154,38 @@ const FOCUS_TABS: [FocusTab, string, string][] = [
   ['notes', 'NOTES', 'নোট'],
 ];
 
-function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) => void }) {
+// A quiet count beside the two tabs whose progress is the day's own:
+// hours done of planned, and how many of today's three are chosen. The
+// list and notes tabs hold inventories, not progress, so they get none.
+function useTabCounts(refreshSignal: number): Partial<Record<FocusTab, string>> {
+  const [counts, setCounts] = useState<Partial<Record<FocusTab, string>>>({});
+  useEffect(() => {
+    let alive = true;
+    Promise.all([hoursApi.get(isoDate(new Date())), tasksApi.listStrike()])
+      .then(([plan, struck]) => {
+        if (!alive) return;
+        setCounts({
+          hours: plan.total_planned > 0 ? `${plan.total_done}/${plan.total_planned}` : undefined,
+          mit: `${struck.length}/${STRIKE_MAX}`,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [refreshSignal]);
+  return counts;
+}
+
+function FocusTabs({
+  tab,
+  onSelect,
+  counts,
+}: {
+  tab: FocusTab;
+  onSelect: (t: FocusTab) => void;
+  counts: Partial<Record<FocusTab, string>>;
+}) {
   const L = useL();
   const refs = useRef<Partial<Record<FocusTab, HTMLButtonElement | null>>>({});
 
@@ -208,6 +239,11 @@ function FocusTabs({ tab, onSelect }: { tab: FocusTab; onSelect: (t: FocusTab) =
             }}
           >
             {L(en, bn)}
+            {counts[key] && (
+              <span style={{ marginLeft: SPACE.xs, fontWeight: 400, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+                {counts[key]}
+              </span>
+            )}
           </button>
         );
       })}
@@ -498,6 +534,7 @@ export default function Panel3({
   // then jump to the tab the user actually left it on.
   const [tab, setTabState] = useState<FocusTab | null>(null);
   const [nowBump, setNowBump] = useState(0);
+  const tabCounts = useTabCounts(nowBump + focusVersion);
 
   useEffect(() => {
     settingsApi.get().then((s) => setTabState(s.focus_tab));
@@ -653,7 +690,7 @@ export default function Panel3({
             />
 
             {tab && (
-              <FocusTabs tab={tab} onSelect={selectTab} />
+              <FocusTabs tab={tab} onSelect={selectTab} counts={tabCounts} />
             )}
 
             {/* Always mounted, hidden via CSS rather than conditionally

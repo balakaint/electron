@@ -441,6 +441,7 @@ export default function TaskList({
   const q = query.trim().toLowerCase();
   const visible = q ? sorted.filter((t) => t.text.toLowerCase().includes(q)) : sorted;
   const doneCount = pool.filter((t) => t.done).length;
+  const boxedMins = pool.filter((t) => !t.done).reduce((a, t) => a + (t.est > 0 ? t.est : 0), 0);
 
   // Matches legacy's _empty_state: an empty list doubles as onboarding
   // via a few one-click task suggestions, rather than just sitting
@@ -576,6 +577,19 @@ export default function TaskList({
         {pool.length > 0 && (
           <span className="tabular" style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap', flex: 'none' }}>
             {doneCount}/{pool.length} done
+          </span>
+        )}
+        {/* Tomorrow's list is planned, not worked: the useful number is
+            how much time it already asks for, summed from the "~30"
+            time-boxes, so an over-full tomorrow shows tonight. */}
+        {dayView === 'tomorrow' && boxedMins > 0 && (
+          <span
+            className="tabular"
+            title="Sum of the time-boxes on the open tasks"
+            style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', whiteSpace: 'nowrap', flex: 'none' }}
+          >
+            ~{Math.floor(boxedMins / 60) > 0 ? `${Math.floor(boxedMins / 60)}h ` : ''}
+            {boxedMins % 60 > 0 || boxedMins < 60 ? `${boxedMins % 60}m` : ''} time-boxed
           </span>
         )}
       </div>
