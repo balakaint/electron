@@ -7,8 +7,8 @@ import { useFocusTrap } from '../hooks/useFocusTrap';
 const STEPS = [
   {
     Icon: ClipboardList,
-    title: 'Tasks, Habits, Projects',
-    body: 'Three tabs across the top. Plan/Focus splits your task list; Habits tracks daily checklists; Projects holds your six fixed slots with timers and business analysis.',
+    title: 'Three columns, one flow',
+    body: 'Projects on the left hold quick notes, tasks, and per-project Goals/Analysis/Journey tabs. The middle column is Goals — weekly, monthly, yearly — for whichever project is selected.',
   },
   {
     Icon: Timer,
@@ -17,8 +17,8 @@ const STEPS = [
   },
   {
     Icon: Keyboard,
-    title: 'Shortcuts and autosave',
-    body: 'Ctrl+Z undoes your last action, Ctrl+T cycles the theme, and F1 or ? opens this shortcut list again. Everything saves itself the moment you change it.',
+    title: 'Execute your day',
+    body: 'The right column\'s PLAN/EXECUTE toggle plans hours, picks your top 3, tracks tasks, and holds quick notes. Ctrl+Z undoes, Ctrl+T cycles the theme, F1 or ? reopens shortcuts. Everything autosaves.',
   },
 ];
 

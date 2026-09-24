@@ -78,17 +78,17 @@ def upgrade() -> None:
         sa.column('target_minutes', sa.Integer),
     )
     op.bulk_insert(projects_table, [
-        {"key": "proj1", "name": "", "accent_color": "#0550AE",
+        {"key": "proj1", "name": "Grow My Business", "accent_color": "#0550AE",
          "note": "", "detail_note": "", "target_minutes": 60},
-        {"key": "proj2", "name": "", "accent_color": "#BC4C00",
+        {"key": "proj2", "name": "Health & Fitness", "accent_color": "#BC4C00",
          "note": "", "detail_note": "", "target_minutes": 60},
-        {"key": "proj3", "name": "", "accent_color": "#1A7F37",
+        {"key": "proj3", "name": "Financial Freedom", "accent_color": "#1A7F37",
          "note": "", "detail_note": "", "target_minutes": 60},
-        {"key": "proj4", "name": "", "accent_color": "#0969DA",
+        {"key": "proj4", "name": "Learn & Grow", "accent_color": "#0969DA",
          "note": "", "detail_note": "", "target_minutes": 60},
-        {"key": "proj5", "name": "", "accent_color": "#0E7490",
+        {"key": "proj5", "name": "Home & Family", "accent_color": "#0E7490",
          "note": "", "detail_note": "", "target_minutes": 60},
-        {"key": "proj6", "name": "", "accent_color": "#6639BA",
+        {"key": "proj6", "name": "Side Project", "accent_color": "#6639BA",
          "note": "", "detail_note": "", "target_minutes": 60},
     ])
 
