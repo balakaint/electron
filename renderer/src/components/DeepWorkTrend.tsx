@@ -171,7 +171,7 @@ export default function DeepWorkTrend() {
           </div>
         </div>
         <div style={{ height: 16, marginBottom: 8 }} />
-        <div style={{ height: isMonth ? 84 : 108, borderRadius: RADIUS.control, background: 'var(--surface-2)', opacity: 0.5 }} />
+        <div style={{ height: isMonth ? 78 : 88, borderRadius: RADIUS.control, background: 'var(--surface-2)', opacity: 0.5 }} />
       </div>
     );
   }
@@ -223,7 +223,7 @@ export default function DeepWorkTrend() {
   // 20% shorter than the first cut (2026-09-24): the card sits above
   // Plan today on PLAN now, and at full height it pushed the checklist
   // below the fold.
-  const H = isMonth ? 84 : 108;
+  const H = isMonth ? 96 : 108;
   const fs = (real: number) => +(real * (W / Math.max(1, paintedW))).toFixed(2);
   // The gutter holds ONE character. The goal label sits INSIDE the plot,
   // above its own line, where no gutter can clip it.
@@ -444,7 +444,12 @@ export default function DeepWorkTrend() {
             }
             viewBox={`0 0 ${W} ${H}`}
             width="100%"
-            height={H}
+            // The drawing is W wide and scales to the card's width, so its
+            // painted height is H * paintedW / W. A fixed height={H} left
+            // the difference as blank bands above and below the chart
+            // (about 16px each at this panel's ~490px), which read as
+            // dead space at the bottom of the card.
+            height={Math.round((H * paintedW) / W)}
             onMouseMove={onMove}
             onMouseLeave={() => setHoverI(null)}
           >
