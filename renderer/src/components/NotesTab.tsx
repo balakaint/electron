@@ -5,6 +5,7 @@ import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { useAutofocus } from '../hooks/useAutofocus';
 import { useUndo } from '../undo';
 import { RADIUS, SPACE } from '../spacing';
+import { segmentedKeyDown } from '../segmentedKeys';
 import { useL } from '../i18n';
 
 // Global quick-capture notes, EXECUTE's own NOTES tab. Scoped down hard
@@ -352,6 +353,7 @@ export default function NotesTab() {
               key={f}
               aria-pressed={on}
               onClick={() => setFilter(f)}
+              onKeyDown={(e) => segmentedKeyDown(e, ['all', 'pinned'] as Filter[], filter, setFilter)}
               style={{
                 height: 32,
                 padding: `0 ${SPACE.md}px`,

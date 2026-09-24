@@ -15,6 +15,7 @@ import PlanningYearlyLevel from './PlanningYearlyLevel';
 import NotesTab from './NotesTab';
 import { useFetchState } from '../hooks/useFetchState';
 import { RADIUS, SPACE } from '../spacing';
+import { segmentedKeyDown } from '../segmentedKeys';
 import { TYPE_SIZE } from '../typography';
 import { useL } from '../i18n';
 
@@ -88,8 +89,18 @@ function DailyTasksList({
   if (rows.length === 0) return null;
 
   return (
-    <div style={{ marginBottom: SPACE.md }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: SPACE.xs }}>
+    // A card like the overview above and the blocks below it, not bare
+    // text between them: it is one more part of the same day.
+    <div
+      style={{
+        border: '1px solid var(--border)',
+        borderRadius: RADIUS.card,
+        background: 'var(--surface)',
+        padding: SPACE.md,
+        marginBottom: SPACE.sm,
+      }}
+    >
+      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-muted)', marginBottom: SPACE.sm }}>
         {L('SCHEDULED TASKS', 'নির্ধারিত কাজ')}
       </div>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -367,6 +378,7 @@ function HoursAccordion({
                 key={key}
                 aria-pressed={on}
                 onClick={() => setLevel(key)}
+                onKeyDown={(e) => segmentedKeyDown(e, HOURS_LEVELS.map(([k]) => k), level, setLevel)}
                 style={{
                   height: 32,
                   padding: `0 ${SPACE.md}px`,
@@ -455,8 +467,12 @@ function HoursAccordion({
             />
           </div>
         )}
-        <DailyTasksList owners={owners} date={shown} refreshSignal={refreshSignal} onChanged={onChanged} />
-        <HourPlanTab date={dailyDate ?? undefined} refreshSignal={refreshSignal} onChanged={onChanged} />
+        <HourPlanTab
+          date={dailyDate ?? undefined}
+          refreshSignal={refreshSignal}
+          onChanged={onChanged}
+          belowOverview={<DailyTasksList owners={owners} date={shown} refreshSignal={refreshSignal} onChanged={onChanged} />}
+        />
       </div>
 
       <div style={{ display: level === 'weekly' ? undefined : 'none' }}>

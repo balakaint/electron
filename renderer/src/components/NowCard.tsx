@@ -16,28 +16,6 @@ function formatHMS(secs: number): string {
   return [h, m, s].map((n) => String(n).padStart(2, '0')).join(':');
 }
 
-function StartButton({ label, title, onClick }: { label: string; title: string; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      className="btn-primary"
-      style={{
-        flex: 1,
-        minWidth: 0,
-        height: 30,
-        padding: '0 12px',
-        textAlign: 'left',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      ▶ {label}
-    </button>
-  );
-}
-
 function fmtEst(mins: number): string {
   if (mins < 60) return `${mins}m`;
   const h = Math.floor(mins / 60);
@@ -159,8 +137,8 @@ export default function NowCard({
         border: '1px solid var(--border)',
         borderLeft: '4px solid var(--accent)',
         borderRadius: RADIUS.card,
-        padding: task ? 12 : 10,
-        marginBottom: task ? 16 : 10,
+        padding: SPACE.md,
+        marginBottom: SPACE.lg,
         boxShadow: 'var(--shadow-sm)',
         // This card is the one place the app names as its own strongest
         // execution element (see comments below) — every other card on
@@ -270,25 +248,52 @@ export default function NowCard({
         // The label shares the row with its control: an empty card holds
         // one thing, and giving that one thing a heading costs a whole
         // line to caption a single button.
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', letterSpacing: 1, flex: 'none' }}>
-            {L('NOW', 'এখন')}
-          </span>
-          {thisHour ? (
-            <StartButton
-              label={thisHour.text}
-              title="Start what you planned for this hour"
-              onClick={() => startHour(thisHour.hour)}
-            />
-          ) : (
-            <button
-              onClick={onGoToMit}
-              title="Commit to up to three tasks for today"
-              style={{ flex: 1, height: 30, padding: '0 12px', textAlign: 'left', cursor: 'pointer' }}
+        // Idle: the same two tiers as the running card (a caption, then
+        // the one thing to do) instead of a single cramped row, so the
+        // card keeps its shape whether or not a timer is running. The
+        // offer is the hour you planned if there is one, else the step
+        // that fills NOW: choosing today's three.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', letterSpacing: 1 }}>{L('NOW', 'এখন')}</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {thisHour ? L("Nothing running · this hour's plan", 'কিছু চলছে না · এই ঘণ্টার প্ল্যান') : L('Nothing running', 'কিছু চলছে না')}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm }}>
+            <span
+              style={{
+                flex: 1,
+                minWidth: 0,
+                fontSize: 16,
+                fontWeight: 700,
+                color: thisHour ? 'var(--text)' : 'var(--text-muted)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
             >
-              {L("Choose today's 3 →", 'আজকের ৩টি বাছুন →')}
-            </button>
-          )}
+              {thisHour ? thisHour.text : L("Choose today's three to start", 'শুরু করতে আজকের তিনটি বাছুন')}
+            </span>
+            {thisHour ? (
+              <button
+                onClick={() => startHour(thisHour.hour)}
+                title="Start what you planned for this hour"
+                className="btn-primary"
+                style={{ height: 32, padding: `0 ${SPACE.md}px`, flex: 'none' }}
+              >
+                ▶ {L('START', 'শুরু')}
+              </button>
+            ) : (
+              <button
+                onClick={onGoToMit}
+                title="Commit to up to three tasks for today"
+                style={{ height: 32, padding: `0 ${SPACE.md}px`, flex: 'none', cursor: 'pointer' }}
+              >
+                MIT →
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

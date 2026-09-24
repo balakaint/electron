@@ -47,6 +47,7 @@ function DayCell({
   date,
   isToday,
   hasDeadline,
+  taskCount = 0,
   dim,
   accent,
   onSelect,
@@ -55,6 +56,8 @@ function DayCell({
   date?: number;
   isToday: boolean;
   hasDeadline: boolean;
+  // Plan tasks scheduled on this day, from this month's Wins.
+  taskCount?: number;
   dim: boolean;
   accent: string;
   onSelect?: () => void;
@@ -65,14 +68,19 @@ function DayCell({
         <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1 }}>{label}</span>
       )}
       {date !== undefined && <span style={{ fontSize: 12, lineHeight: 1.4 }}>{date}</span>}
-      <span
-        style={{
-          width: 4,
-          height: 4,
-          borderRadius: RADIUS.pill,
-          background: hasDeadline ? accent : 'transparent',
-        }}
-      />
+      <span style={{ display: 'flex', gap: 2 }}>
+        <span
+          style={{
+            width: 4,
+            height: 4,
+            borderRadius: RADIUS.pill,
+            background: hasDeadline ? accent : 'transparent',
+          }}
+        />
+        {taskCount > 0 && (
+          <span title={`${taskCount} scheduled`} style={{ width: 4, height: 4, borderRadius: RADIUS.pill, background: 'var(--text-muted)' }} />
+        )}
+      </span>
     </>
   );
   // Today used to be a solid accent fill with on-accent text — heavier
@@ -119,12 +127,14 @@ function MonthGrid({
   year,
   month,
   deadlines,
+  taskCounts,
   accent,
   onSelectDate,
 }: {
   year: number;
   month: number; // 0-indexed
   deadlines: Set<string>;
+  taskCounts: Map<string, number>;
   accent: string;
   onSelectDate: (iso: string) => void;
 }) {
@@ -167,6 +177,7 @@ function MonthGrid({
               date={c.date}
               isToday={c.inMonth && c.iso === todayIso}
               hasDeadline={hasDeadline}
+              taskCount={c.inMonth ? taskCounts.get(c.iso) ?? 0 : 0}
               dim={!c.inMonth}
               accent={accent}
               // Every in-month day jumps to DAILY, not just ones that
@@ -189,6 +200,9 @@ function MonthGrid({
 interface OwnedMilestone {
   milestone: Milestone;
   wins: Win[];
+  // Scheduled dates of the plan tasks under those wins, for the grid's
+  // per-day marks. One call per Win, not one per day of the month.
+  taskDates: string[];
   owner: GoalOwnerMeta;
 }
 
@@ -203,7 +217,12 @@ async function findCurrentMilestones(owner: GoalOwnerMeta, year: number, month: 
   const milestoneLists = await Promise.all(yearOutcomes.map((o) => planningApi.listMilestones(o.id)));
   const monthMilestones = milestoneLists.flat().filter((m) => m.month === month && m.year === year);
   return Promise.all(
-    monthMilestones.map(async (milestone) => ({ milestone, wins: await planningApi.listWins(milestone.id), owner })),
+    monthMilestones.map(async (milestone) => {
+      const wins = await planningApi.listWins(milestone.id);
+      const taskLists = await Promise.all(wins.map((w) => planningApi.listTasksForWin(w.id)));
+      const taskDates = taskLists.flat().flatMap((t) => (t.scheduled_date ? [t.scheduled_date] : []));
+      return { milestone, wins, taskDates, owner };
+    }),
   );
 }
 
@@ -259,6 +278,8 @@ export default function PlanningMonthlyLevel({
   };
 
   const deadlines = new Set(rows.flatMap((r) => r.wins.map((w) => w.week_start_date)));
+  const taskCounts = new Map<string, number>();
+  for (const iso of rows.flatMap((r) => r.taskDates)) taskCounts.set(iso, (taskCounts.get(iso) ?? 0) + 1);
   const monthLabel = today.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 
   // Time-vs-Progress-vs-Pace — locked at Week/Month level per the
@@ -290,7 +311,17 @@ export default function PlanningMonthlyLevel({
         </div>
       ) : (
         <>
-          <MonthGrid year={year} month={month - 1} deadlines={deadlines} accent={accent} onSelectDate={onSelectDate} />
+          <MonthGrid year={year} month={month - 1} deadlines={deadlines} taskCounts={taskCounts} accent={accent} onSelectDate={onSelectDate} />
+          <div style={{ display: 'flex', gap: SPACE.md, fontSize: 12, color: 'var(--text-muted)', marginTop: -SPACE.sm, marginBottom: SPACE.md }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: SPACE.xs }}>
+              <span style={{ width: 6, height: 6, borderRadius: RADIUS.pill, background: accent }} />
+              {L("A week's Win starts", 'সপ্তাহের জয় শুরু')}
+            </span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: SPACE.xs }}>
+              <span style={{ width: 6, height: 6, borderRadius: RADIUS.pill, background: 'var(--text-muted)' }} />
+              {L('Tasks scheduled', 'নির্ধারিত কাজ')}
+            </span>
+          </div>
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
               {L('No Milestone set for this month yet — add one from the Goals panel.', 'এই মাসের কোনো মাইলস্টোন নেই — Goals প্যানেল থেকে যোগ করুন।')}

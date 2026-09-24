@@ -10,6 +10,7 @@ import {
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { accentText } from '../themes';
 import { RADIUS, SPACE } from '../spacing';
+import { segmentedKeyDown } from '../segmentedKeys';
 import { useL } from '../i18n';
 import DisciplineModuleCards from './DisciplineModuleCards';
 
@@ -323,7 +324,9 @@ export default function PlanReview({
               key={key}
               role="tab"
               aria-selected={on}
+              tabIndex={on ? 0 : -1}
               onClick={() => setTab(key)}
+              onKeyDown={(e) => segmentedKeyDown(e, TABS.map(([k]) => k), tab, setTab)}
               style={{
                 flex: 1,
                 fontSize: 12,

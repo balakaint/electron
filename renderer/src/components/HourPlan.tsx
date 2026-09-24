@@ -677,9 +677,14 @@ export default function HourPlanTab({
   refreshSignal = 0,
   onChanged,
   date,
+  belowOverview,
 }: {
   refreshSignal?: number;
   onChanged?: () => void;
+  // Drawn between the day overview and the blocks — Panel3 puts the
+  // day's scheduled plan tasks here, so they sit with the day they
+  // belong to instead of above its summary.
+  belowOverview?: ReactNode;
   // Defaults to today when absent. Panel3's HoursAccordion passes a
   // real value when the day picker or a WEEKLY/MONTHLY/YEARLY calendar
   // dot jumps here to another date.
@@ -746,6 +751,7 @@ export default function HourPlanTab({
   return (
     <div>
       <DayOverview plan={plan} nowHour={nowHour} nowMin={now.getMinutes()} />
+      {belowOverview}
       <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.sm }}>
         {plan.blocks.map((b) => {
           const isNowBlock = viewingToday && b.key === plan.current_block;

@@ -397,7 +397,12 @@ export default function DeepWorkTrend() {
           ) : (
             <>
               <span style={{ color: 'var(--text-muted)' }}>
-                {L(
+                {/* An empty month says what fills it, rather than showing
+                    three zeros and a flat line with no way forward. */}
+                {monthTotal === 0 ? L(
+                  'Nothing logged this month yet — press ▶ on a project in EXECUTE › MIT to start.',
+                  'এই মাসে এখনো কিছু নেই — শুরু করতে EXECUTE › MIT-এ কোনো প্রজেক্টের ▶ চাপুন।',
+                ) : L(
                   `Day ${dayOfMonth} of ${mDays} · ${daysLeft} left · hover a day for its hours`,
                   `${mDays} দিনের ${dayOfMonth}তম দিন · ${daysLeft} দিন বাকি · কোনো দিনের ওপর মাউস রাখলে ঘণ্টা দেখাবে`,
                 )}
