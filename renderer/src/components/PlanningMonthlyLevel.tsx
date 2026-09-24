@@ -40,6 +40,7 @@ const NEW_NODE_TYPES: { key: NewNodeType; label: string }[] = [
 ];
 
 const WEEKDAY_ABBR = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const WEEKDAY_ABBR_BN = ['সো', 'ম', 'বু', 'বৃ', 'শু', 'শ', 'র'];
 
 function DayCell({
   label,
@@ -127,6 +128,7 @@ function MonthGrid({
   accent: string;
   onSelectDate: (iso: string) => void;
 }) {
+  const L = useL();
   const todayIso = isoDate(new Date());
   const firstOfMonth = new Date(year, month, 1);
   const startOffset = (firstOfMonth.getDay() + 6) % 7; // Monday-start
@@ -149,9 +151,9 @@ function MonthGrid({
   return (
     <div style={{ marginBottom: SPACE.md }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, marginBottom: 4 }}>
-        {WEEKDAY_ABBR.map((w) => (
+        {WEEKDAY_ABBR.map((w, wi) => (
           <div key={w} style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-faint)' }}>
-            {w}
+            {L(w, WEEKDAY_ABBR_BN[wi])}
           </div>
         ))}
       </div>
@@ -266,7 +268,7 @@ export default function PlanningMonthlyLevel({
   const daysInMonth = new Date(year, today.getMonth() + 1, 0).getDate();
   const dayOfMonth = now.getDate();
   // Pace only means something for the month you are living in.
-  const pace = offset === 0 ? { elapsedPct: Math.round((dayOfMonth / daysInMonth) * 100), elapsedLabel: `day ${dayOfMonth} of ${daysInMonth}` } : undefined;
+  const pace = offset === 0 ? { elapsedPct: Math.round((dayOfMonth / daysInMonth) * 100), elapsedLabel: L(`day ${dayOfMonth} of ${daysInMonth}`, `${daysInMonth} দিনের ${dayOfMonth}তম দিন`) } : undefined;
   const achieved = rows.filter((r) => r.milestone.progress === 100).length;
 
   return (
@@ -280,32 +282,32 @@ export default function PlanningMonthlyLevel({
         onReset={() => setOffset(0)}
       />
       {!loaded ? (
-        <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>Loading…</div>
+        <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>{L('Loading…', 'লোড হচ্ছে…')}</div>
       ) : loadError ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: 'var(--danger)' }}>
-          <span>Couldn't load — check the app is connected.</span>
-          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={refresh}>Retry</button>
+          <span>{L("Couldn't load — check the app is connected.", 'লোড হয়নি — অ্যাপ সংযুক্ত আছে কিনা দেখুন।')}</span>
+          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={refresh}>{L('Retry', 'আবার চেষ্টা')}</button>
         </div>
       ) : (
         <>
           <MonthGrid year={year} month={month - 1} deadlines={deadlines} accent={accent} onSelectDate={onSelectDate} />
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
-              No Milestone set for this month yet — add one from the Goals panel.
+              {L('No Milestone set for this month yet — add one from the Goals panel.', 'এই মাসের কোনো মাইলস্টোন নেই — Goals প্যানেল থেকে যোগ করুন।')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
               {rows.map((row) => (
                 <PlanningProgressCard
                   key={row.milestone.id}
-                  label={`MONTH MILESTONE · ${row.owner.label}`}
+                  label={`${L('MONTH MILESTONE', 'মাসিক মাইলস্টোন')} · ${row.owner.label}`}
                   accent={accent}
                   ownerColor={row.owner.color}
                   title={row.milestone.title}
                   progress={row.milestone.progress}
                   fixed={row.milestone.fixed}
                   pace={pace}
-                  detailsSummary={`${row.wins.length} weekly win(s)`}
+                  detailsSummary={L(`${row.wins.length} weekly win(s)`, `${row.wins.length}টি সাপ্তাহিক জয়`)}
                 >
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                     {row.wins.map((w) => (
@@ -372,7 +374,7 @@ export default function PlanningMonthlyLevel({
                         marginTop: SPACE.xs,
                       }}
                     >
-                      + add
+                      {L('+ add', '+ যোগ')}
                     </button>
                   )}
                 </PlanningProgressCard>

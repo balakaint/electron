@@ -10,6 +10,7 @@ import {
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { accentText } from '../themes';
 import { RADIUS, SPACE } from '../spacing';
+import { useL } from '../i18n';
 import DisciplineModuleCards from './DisciplineModuleCards';
 
 // Legacy's PLAN review card (task_tracker_v3_THEMES.py 3585-3955): a
@@ -45,10 +46,10 @@ type Tab = 'mindset' | 'discipline' | 'consistency';
 // having it on both tabs meant two places to look for the same four
 // items, and PLAN is where you step back and look at the week, not
 // where you tick things off."
-const TABS: [Tab, string][] = [
-  ['mindset', 'Mindset'],
-  ['discipline', 'Discipline'],
-  ['consistency', 'Consistency'],
+const TABS: [Tab, string, string][] = [
+  ['mindset', 'Mindset', 'মাইন্ডসেট'],
+  ['discipline', 'Discipline', 'ডিসিপ্লিন'],
+  ['consistency', 'Consistency', 'ধারাবাহিকতা'],
 ];
 
 function todayIso(): string {
@@ -281,6 +282,7 @@ export default function PlanReview({
   onOpenMorningRitual: (view: 'flow' | 'trend') => void;
   onOpenNightClosure: () => void;
 }) {
+  const L = useL();
   const [tab, setTab] = useState<Tab>('mindset');
 
   return (
@@ -314,7 +316,7 @@ export default function PlanReview({
         aria-label="Review"
         style={{ display: 'flex', padding: SPACE.hair, marginBottom: SPACE.md, flex: 'none', background: 'var(--surface-2, var(--surface))', borderRadius: RADIUS.card }}
       >
-        {TABS.map(([key, label]) => {
+        {TABS.map(([key, en, bn]) => {
           const on = tab === key;
           return (
             <button
@@ -336,7 +338,7 @@ export default function PlanReview({
                 cursor: 'pointer',
               }}
             >
-              {label}
+              {L(en, bn)}
             </button>
           );
         })}

@@ -9,6 +9,7 @@ import TodaysThreeCard from './TodaysThreeCard';
 import ProjectTaskList from './ProjectTaskList';
 import { formatSecs } from '../format';
 import { RADIUS } from '../spacing';
+import { useL } from '../i18n';
 
 // Session.start/end are unix seconds (python's time.time()), not ms.
 function formatClock(unixSecs: number): string {
@@ -83,6 +84,7 @@ export default function TaskList({
   // the TASK LIST tab call site that doesn't render DEEP WORK at all.
   activeProjectKey?: ProjectKey | null;
 }) {
+  const L = useL();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
@@ -603,7 +605,7 @@ export default function TaskList({
             style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', whiteSpace: 'nowrap', flex: 'none' }}
           >
             ~{Math.floor(boxedMins / 60) > 0 ? `${Math.floor(boxedMins / 60)}h ` : ''}
-            {boxedMins % 60 > 0 || boxedMins < 60 ? `${boxedMins % 60}m` : ''} time-boxed
+            {boxedMins % 60 > 0 || boxedMins < 60 ? `${boxedMins % 60}m` : ''} {L('time-boxed', 'সময় বরাদ্দ')}
           </span>
         )}
       </div>

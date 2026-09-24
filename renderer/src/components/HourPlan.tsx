@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronDown, Plus, Repeat, X } from 'lucide-react';
+import { Check, ChevronDown, Plus, Repeat, Scissors, X } from 'lucide-react';
 import { HourBlock, HourPlan as HourPlanData, HourSlot, hoursApi } from '../services/api';
 import { useFetchState } from '../hooks/useFetchState';
 import { PHASE_LABELS_BN, useL, useLang } from '../i18n';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
+import { segmentHours } from '../hourSegments';
 
 // The day as 24 hour-slots, grouped into the four day-phase blocks.
 // Ported from legacy's TODAY EXECUTION panel (task_tracker_v3_THEMES.py
@@ -50,25 +51,6 @@ function todayIso(): string {
 
 function fmtMins(m: number): string {
   return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
-}
-
-// Hours of one block cut into runs: consecutive hours with the same
-// trimmed text form one run, and so do consecutive empty hours — except
-// the current hour, which is always a run of its own.
-function segment(hours: HourSlot[], nowHour: number | null): number[][] {
-  const out: number[][] = [];
-  for (const slot of hours) {
-    const last = out[out.length - 1];
-    const prev = last ? hours.find((h) => h.hour === last[last.length - 1]) : undefined;
-    const text = slot.text.trim();
-    const joins =
-      prev !== undefined &&
-      prev.text.trim() === text &&
-      (text !== '' || (slot.hour !== nowHour && prev.hour !== nowHour));
-    if (joins) last.push(slot.hour);
-    else out.push([slot.hour]);
-  }
-  return out;
 }
 
 type SetMany = (hours: number[], patch: { text?: string; done?: boolean; repeat?: boolean }) => Promise<void>;
@@ -157,11 +139,15 @@ function SpanCard({
   color,
   setMany,
   focusOnMount,
+  onSplit,
 }: {
   slots: HourSlot[];
   isNow: boolean;
   color: string;
   setMany: SetMany;
+  // Present on a span of two or more hours: breaks it into one row per
+  // hour, so one of them can be rewritten without rewriting the rest.
+  onSplit?: () => void;
   // Set on an hour the user just opened from an open run: they pressed
   // "Plan", so the next keystroke belongs in this hour's input.
   focusOnMount?: boolean;
@@ -294,6 +280,27 @@ function SpanCard({
         </span>
       )}
 
+      {onSplit && span > 1 && filled && (
+        <button
+          onClick={onSplit}
+          aria-label={`Split ${hourLabel(hours[0])} to ${hourLabel(endHour)} into separate hours`}
+          title="Split into separate hours, to change one of them"
+          className="btn-ghost"
+          style={{
+            width: 24,
+            height: 24,
+            flex: 'none',
+            padding: 0,
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Scissors size={14} />
+        </button>
+      )}
+
       {/* Repeat until finished. Not a habit and not a schedule: the day
           starts fresh, and this one entry keeps coming back at its hour
           until the morning after you tick it. The control states which
@@ -400,12 +407,19 @@ function BlockCard({
   const [editing, setEditing] = useState(false);
   const frozen = useRef<number[][] | null>(null);
   const [justOpened, setJustOpened] = useState<number | null>(null);
+  // Hours the user split out of a span. Like `opened`, in memory only and
+  // cleared when the block closes: a span of identical text is still the
+  // natural reading of the plan, and a split is for the edit at hand.
+  const [apart, setApart] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    if (!shown) setOpened(new Set());
+    if (!shown) {
+      setOpened(new Set());
+      setApart(new Set());
+    }
   }, [shown]);
 
-  const live = segment(block.hours, nowHour);
+  const live = segmentHours(block.hours, nowHour, apart);
   if (!editing || !frozen.current) frozen.current = live;
   const runs = frozen.current;
   const bySlot = new Map(block.hours.map((h) => [h.hour, h]));
@@ -520,9 +534,12 @@ function BlockCard({
       {shown && (
         <div
           style={{ padding: `${SPACE.xs}px ${SPACE.md}px ${SPACE.md}px` }}
-          onFocus={() => setEditing(true)}
+          // Only a focused TEXT INPUT freezes the rows. A button (split,
+          // tick, repeat) must not: pressing split has to regroup at once.
+          onFocus={(e) => setEditing(e.target instanceof HTMLInputElement)}
           onBlur={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEditing(false);
+            const next = e.relatedTarget;
+            if (!(next instanceof HTMLInputElement && e.currentTarget.contains(next))) setEditing(false);
           }}
         >
           {items.map((it, i) => {
@@ -555,6 +572,16 @@ function BlockCard({
                     color={color}
                     setMany={setMany}
                     focusOnMount={justOpened === it.hours[0]}
+                    onSplit={
+                      it.hours.length > 1
+                        ? () =>
+                            setApart((a) => {
+                              const n = new Set(a);
+                              it.hours.forEach((h) => n.add(h));
+                              return n;
+                            })
+                        : undefined
+                    }
                   />
                 )}
               </TimelineRow>
@@ -600,7 +627,7 @@ function DayOverview({ plan, nowHour, nowMin }: { plan: HourPlanData; nowHour: n
         <span style={{ flex: 1 }} />
         {nowBlock && leftInBlock !== null && (
           <span style={{ fontSize: 12, fontWeight: 700, color: `var(--phase-${nowBlock.key})`, whiteSpace: 'nowrap' }}>
-            {nowBlock.name} · {fmtMins(Math.max(0, leftInBlock))} {L('left', 'বাকি')}
+            {L(nowBlock.name, PHASE_LABELS_BN[nowBlock.key] ?? nowBlock.name)} · {fmtMins(Math.max(0, leftInBlock))} {L('left', 'বাকি')}
           </span>
         )}
       </div>
@@ -662,6 +689,7 @@ export default function HourPlanTab({
   // when its time zone isn't running" only stays true if the automatic
   // answer is what you get by default — saved to disk, one afternoon of
   // opening Morning to plan tomorrow would pin it open forever.
+  const L = useL();
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [now, setNow] = useState(() => new Date());
   const nowHourRaw = now.getHours();
@@ -700,14 +728,14 @@ export default function HourPlanTab({
           padding: '8px 0',
         }}
       >
-        <span>Couldn't load — check the app is connected.</span>
+        <span>{L("Couldn't load — check the app is connected.", 'লোড হয়নি — অ্যাপ সংযুক্ত আছে কিনা দেখুন।')}</span>
         <button className="btn-ghost" style={{ fontSize: 12, flex: 'none' }} onClick={refresh}>
-          Retry
+          {L('Retry', 'আবার চেষ্টা')}
         </button>
       </div>
     );
   }
-  if (!plan) return <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Loading…</div>;
+  if (!plan) return <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{L('Loading…', 'লোড হচ্ছে…')}</div>;
 
   const setMany: SetMany = (hours, patch) =>
     Promise.all(hours.map((h) => hoursApi.set(day, h, patch))).then(() => {

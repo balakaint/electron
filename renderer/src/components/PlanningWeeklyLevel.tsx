@@ -35,6 +35,7 @@ function isoDate(d: Date): string {
 }
 
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const WEEKDAY_LETTERS_BN = ['সো', 'ম', 'বু', 'বৃ', 'শু', 'শ', 'র'];
 
 // Unlike Monthly/Yearly's grid, this carries no deadline dot — a Win's
 // only date facet is `week_start_date` (the whole week, not a single
@@ -52,6 +53,7 @@ function WeekStrip({
   counts: Map<string, number>;
   onSelectDate: (iso: string) => void;
 }) {
+  const L = useL();
   const todayIso = isoDate(new Date());
   const start = new Date(`${monday}T00:00:00`);
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -93,10 +95,10 @@ function WeekStrip({
               color: isToday ? accent : 'var(--text-muted)',
             }}
           >
-            <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1 }}>{WEEKDAY_LETTERS[i]}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1 }}>{L(WEEKDAY_LETTERS[i], WEEKDAY_LETTERS_BN[i])}</span>
             <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.4, color: isToday ? accent : 'var(--text)' }}>{d.getDate()}</span>
             <span style={{ fontSize: 12, lineHeight: 1.4, color: 'var(--text-muted)' }}>
-              {counts.get(iso) ? `${counts.get(iso)} ${counts.get(iso) === 1 ? 'task' : 'tasks'}` : '—'}
+              {counts.get(iso) ? L(`${counts.get(iso)} ${counts.get(iso) === 1 ? 'task' : 'tasks'}`, `${counts.get(iso)}টি কাজ`) : '—'}
             </span>
           </button>
         );
@@ -319,7 +321,7 @@ export default function PlanningWeeklyLevel({
   // is 1-indexed and capped at 7 (today counts as a day in progress even
   // this early in it).
   const elapsedDays = Math.min(7, Math.max(1, Math.floor((Date.now() - new Date(`${monday}T00:00:00`).getTime()) / 86400000) + 1));
-  const pace = offset === 0 ? { elapsedPct: Math.round((elapsedDays / 7) * 100), elapsedLabel: `${elapsedDays}/7 days` } : undefined;
+  const pace = offset === 0 ? { elapsedPct: Math.round((elapsedDays / 7) * 100), elapsedLabel: L(`${elapsedDays}/7 days`, `৭ দিনের ${elapsedDays} দিন`) } : undefined;
   const dayCounts = new Map<string, number>();
   for (const r of rows) for (const t of r.tasks) if (t.scheduled_date) dayCounts.set(t.scheduled_date, (dayCounts.get(t.scheduled_date) ?? 0) + 1);
 
@@ -334,25 +336,25 @@ export default function PlanningWeeklyLevel({
         onReset={() => setOffset(0)}
       />
       {!loaded ? (
-        <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>Loading…</div>
+        <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>{L('Loading…', 'লোড হচ্ছে…')}</div>
       ) : loadError ? (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: 'var(--danger)' }}>
-          <span>Couldn't load — check the app is connected.</span>
-          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={refresh}>Retry</button>
+          <span>{L("Couldn't load — check the app is connected.", 'লোড হয়নি — অ্যাপ সংযুক্ত আছে কিনা দেখুন।')}</span>
+          <button className="btn-ghost" style={{ fontSize: 12 }} onClick={refresh}>{L('Retry', 'আবার চেষ্টা')}</button>
         </div>
       ) : (
         <>
           <WeekStrip monday={monday} accent={accent} counts={dayCounts} onSelectDate={onSelectDate} />
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
-              No Win set for this week yet — add one from the Goals panel.
+              {L('No Win set for this week yet — add one from the Goals panel.', 'এই সপ্তাহের কোনো জয় (Win) নেই — Goals প্যানেল থেকে যোগ করুন।')}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
               {rows.map((row) => (
                 <PlanningProgressCard
                   key={row.win.id}
-                  label={`WEEK WIN · ${row.owner.label}`}
+                  label={`${L('WEEK WIN', 'সাপ্তাহিক জয়')} · ${row.owner.label}`}
                   accent={accent}
                   ownerColor={row.owner.color}
                   defaultOpen
@@ -361,7 +363,10 @@ export default function PlanningWeeklyLevel({
                   progress={row.win.progress}
                   fixed={row.win.fixed}
                   pace={pace}
-                  detailsSummary={`${row.tasks.filter((t) => t.status === 'done').length} / ${row.tasks.length} supporting actions`}
+                  detailsSummary={L(
+                    `${row.tasks.filter((t) => t.status === 'done').length} / ${row.tasks.length} supporting actions`,
+                    `${row.tasks.length}টির ${row.tasks.filter((t) => t.status === 'done').length}টি সহায়ক কাজ শেষ`,
+                  )}
                 >
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                     {row.tasks.map((t) => (
@@ -408,14 +413,14 @@ export default function PlanningWeeklyLevel({
                           >
                             {t.scheduled_date
                               ? new Date(`${t.scheduled_date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })
-                              : '+ day'}
+                              : L('+ day', '+ দিন')}
                           </button>
                           {t.status !== 'done' && (
                             <button
                               onClick={() => setCarryOpenFor((cur) => (cur === t.id ? null : t.id))}
                               style={{ fontSize: TYPE_SIZE.xs, borderRadius: RADIUS.pill, padding: `${SPACE.hair}px ${SPACE.sm}px` }}
                             >
-                              Carry forward
+                              {L('Carry forward', 'পরে সরাও')}
                             </button>
                           )}
                         </label>
@@ -450,11 +455,11 @@ export default function PlanningWeeklyLevel({
                                 borderRadius: RADIUS.control,
                               }}
                             >
-                              Any date…
+                              {L('Any date…', 'যেকোনো তারিখ…')}
                             </button>
                             {t.scheduled_date && (
                               <button onClick={() => scheduleTaskDay(row, t, null)} style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-faint)' }}>
-                                Clear
+                                {L('Clear', 'মুছুন')}
                               </button>
                             )}
                           </div>
@@ -481,10 +486,10 @@ export default function PlanningWeeklyLevel({
                         )}
                         {carryOpenFor === t.id && (
                           <div style={{ display: 'flex', gap: SPACE.xs, paddingLeft: SPACE.xl, flexWrap: 'wrap' }}>
-                            <button onClick={() => carryForward(row, t, 'nextweek')} style={{ fontSize: TYPE_SIZE.xs }}>Next week</button>
-                            <button onClick={() => { setCarryOpenFor(null); openAnyDatePicker(t); }} style={{ fontSize: TYPE_SIZE.xs }}>Pick a date</button>
-                            <button onClick={() => carryForward(row, t, 'backlog')} style={{ fontSize: TYPE_SIZE.xs }}>Backlog</button>
-                            <button onClick={() => carryForward(row, t, 'drop')} style={{ fontSize: TYPE_SIZE.xs }}>Drop</button>
+                            <button onClick={() => carryForward(row, t, 'nextweek')} style={{ fontSize: TYPE_SIZE.xs }}>{L('Next week', 'পরের সপ্তাহ')}</button>
+                            <button onClick={() => { setCarryOpenFor(null); openAnyDatePicker(t); }} style={{ fontSize: TYPE_SIZE.xs }}>{L('Pick a date', 'তারিখ বাছুন')}</button>
+                            <button onClick={() => carryForward(row, t, 'backlog')} style={{ fontSize: TYPE_SIZE.xs }}>{L('Backlog', 'ব্যাকলগ')}</button>
+                            <button onClick={() => carryForward(row, t, 'drop')} style={{ fontSize: TYPE_SIZE.xs }}>{L('Drop', 'বাদ দিন')}</button>
                           </div>
                         )}
                       </li>
@@ -555,7 +560,7 @@ export default function PlanningWeeklyLevel({
                         marginTop: SPACE.xs,
                       }}
                     >
-                      + add
+                      {L('+ add', '+ যোগ')}
                     </button>
                   )}
                 </PlanningProgressCard>

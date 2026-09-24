@@ -5,6 +5,7 @@ import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { useAutofocus } from '../hooks/useAutofocus';
 import { useUndo } from '../undo';
 import { RADIUS, SPACE } from '../spacing';
+import { useL } from '../i18n';
 
 // Global quick-capture notes, EXECUTE's own NOTES tab. Scoped down hard
 // from the brief this was designed against (docs discussion, 2026-09-22):
@@ -213,6 +214,7 @@ function NoteCard({
 type Filter = 'all' | 'pinned';
 
 export default function NotesTab() {
+  const L = useL();
   const [notes, setNotes] = useState<Note[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
@@ -363,7 +365,7 @@ export default function NotesTab() {
                 cursor: 'pointer',
               }}
             >
-              {f === 'all' ? 'All' : 'Pinned'}
+              {f === 'all' ? L('All', 'সব') : L('Pinned', 'পিন করা')}
               <span style={{ marginLeft: SPACE.xs, fontWeight: 400, color: 'var(--text-muted)' }}>{n}</span>
             </button>
           );

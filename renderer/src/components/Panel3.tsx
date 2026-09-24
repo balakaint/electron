@@ -51,6 +51,7 @@ function DailyTasksList({
   refreshSignal: number;
   onChanged: () => void;
 }) {
+  const L = useL();
   const {
     data: rows,
     setData: setRows,
@@ -79,8 +80,8 @@ function DailyTasksList({
   if (loadError) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12, color: 'var(--danger)', marginBottom: SPACE.sm }}>
-        <span>Couldn't load scheduled tasks.</span>
-        <button className="btn-ghost" style={{ fontSize: 12 }} onClick={refresh}>Retry</button>
+        <span>{L("Couldn't load scheduled tasks.", 'নির্ধারিত কাজ লোড হয়নি।')}</span>
+        <button className="btn-ghost" style={{ fontSize: 12 }} onClick={refresh}>{L('Retry', 'আবার চেষ্টা')}</button>
       </div>
     );
   }
@@ -89,7 +90,7 @@ function DailyTasksList({
   return (
     <div style={{ marginBottom: SPACE.md }}>
       <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: SPACE.xs }}>
-        SCHEDULED TASKS
+        {L('SCHEDULED TASKS', 'নির্ধারিত কাজ')}
       </div>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
         {rows.map((row) => (

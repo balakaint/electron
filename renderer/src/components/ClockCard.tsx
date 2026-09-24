@@ -3,7 +3,7 @@ import { Settings, settingsApi } from '../services/api';
 import DayPhaseStrip, { currentPhaseInfo } from './DayPhaseBars';
 import ScopeStats from './ScopeStats';
 import RitualRing from './RitualRing';
-import { PHASE_LABELS_BN, useLang } from '../i18n';
+import { PHASE_LABELS_BN, useL, useLang } from '../i18n';
 import { RADIUS, SPACE } from '../spacing';
 
 // PLAN's TODAY card: what time it is, which part of the day you are in
@@ -74,6 +74,7 @@ function AnalogDial({ now, progress, color }: { now: Date; progress: number; col
 
 export default function ClockCard({ onOpenQuarterly }: { onOpenQuarterly: () => void }) {
   const lang = useLang();
+  const L = useL();
   const [now, setNow] = useState(new Date());
   const [analog, setAnalog] = useState(false);
   const [settings, setSettings] = useState<Settings | null>(null);
@@ -128,7 +129,7 @@ export default function ClockCard({ onOpenQuarterly }: { onOpenQuarterly: () => 
         <span style={{ fontWeight: 700, color: 'var(--text)' }}>
           {Math.floor(totalMin / 60)}h {String(totalMin % 60).padStart(2, '0')}m
         </span>
-        <span style={{ color: 'var(--text-faint)' }}> left</span>
+        <span style={{ color: 'var(--text-faint)' }}> {L('left', 'বাকি')}</span>
       </span>
     </div>
   );
