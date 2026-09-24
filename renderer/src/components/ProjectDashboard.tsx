@@ -2,20 +2,25 @@ import { useEffect, useState } from 'react';
 import { Check, Pause, Pencil, Play, Square, X } from 'lucide-react';
 import {
   ActivityEntry,
+  Journey,
   ProjectKey,
   ProjectOrderEntry,
   STRIKE_MAX,
   Subtask,
   Task,
+  Win,
+  journeyApi,
+  planningApi,
   projectsApi,
   tasksApi,
 } from '../services/api';
+import { useL } from '../i18n';
 import { useAutoTimer } from '../useAutoTimer';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { useAutofocus } from '../hooks/useAutofocus';
-import { dayNumber, elapsedText, projTimeText } from '../format';
+import { dayNumber, projTimeText } from '../format';
 import { accentText, inkOn } from '../themes';
-import { RADIUS } from '../spacing';
+import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 
 
 // Legacy's _PROJ_TARGETS (task_tracker_v3_THEMES.py 2760). Its own note
@@ -30,6 +35,48 @@ const PROJ_TARGETS = [15, 30, 45, 60, 90, 120];
 // snapping back to the first preset.
 function nextProjectTarget(current: number): number {
   return PROJ_TARGETS.find((o) => o > current) ?? PROJ_TARGETS[0];
+}
+
+function isoDay(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// This week's Win (the weekly goal) for a project, walking the planning
+// ladder: this year's outcomes -> their milestones -> wins starting this
+// Monday. Only fetched for the one open card, so the chattiness of three
+// levels costs a handful of requests, not dozens.
+async function thisWeeksWin(key: ProjectKey): Promise<Win | null> {
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+  const mondayIso = isoDay(monday);
+  const outcomes = (await planningApi.listOutcomes(key)).filter((o) => o.year === now.getFullYear());
+  const milestones = (await Promise.all(outcomes.map((o) => planningApi.listMilestones(o.id)))).flat();
+  const wins = (await Promise.all(milestones.map((m) => planningApi.listWins(m.id)))).flat();
+  return wins.find((w) => w.week_start_date === mondayIso) ?? null;
+}
+
+// Last seven days, oldest first: filled = met the project's daily target
+// (or was marked by hand) — the same "worked" the activity strip uses.
+function WeekDots({ days, color }: { days: ActivityEntry[]; color: string }) {
+  const last = days.slice(-7);
+  return (
+    <span style={{ display: 'flex', gap: SPACE.hair }} aria-label={`${last.filter((d) => d.worked).length} of the last 7 days on target`}>
+      {last.map((d) => (
+        <span
+          key={d.day}
+          title={d.day}
+          style={{ width: 6, height: 6, borderRadius: RADIUS.pill, background: d.worked ? color : 'var(--progress-track)' }}
+        />
+      ))}
+    </span>
+  );
+}
+
+function stageLabel(j: Journey | null): string {
+  if (!j) return '';
+  if (j.launched) return 'Launched';
+  return `Stage ${j.current_stage + 1}/6`;
 }
 
 function ProjectCard({
@@ -52,7 +99,10 @@ function ProjectCard({
   const { number, project } = entry;
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [newSubtask, setNewSubtask] = useState('');
-  const [, setActivity] = useState<ActivityEntry[]>([]);
+  const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [journey, setJourney] = useState<Journey | null>(null);
+  const [win, setWin] = useState<Win | null>(null);
+  const L = useL();
   const [name, setName] = useState(project.name);
   const [strikeFlash, setStrikeFlash] = useState<string | null>(null);
   // Legacy defaults the heading to "QUICK NOTES" and lets it be renamed
@@ -74,7 +124,14 @@ function ProjectCard({
     setNoteTitle(project.note_title);
     refreshSubtasks();
     refreshActivity();
+    journeyApi.get(key).then(setJourney).catch(() => setJourney(null));
   }, [project.name, project.note, key]);
+
+  // The weekly goal tile only exists on the open card.
+  useEffect(() => {
+    if (project.collapsed) return;
+    thisWeeksWin(key).then(setWin).catch(() => setWin(null));
+  }, [project.collapsed, key]);
 
   const saveName = () => {
     if (name !== project.name) projectsApi.update(key, { name }).then(onChanged);
@@ -150,47 +207,42 @@ function ProjectCard({
   // unless a card happened to be open, so you could not compare two
   // projects without expanding both — at which point neither fitted.
   if (project.collapsed) {
+    const open = () => {
+      soloThis();
+      onSelectGoals(key);
+    };
     return (
       <div
         className="proj-row"
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 8,
-          padding: '4px 8px',
+          gap: SPACE.sm,
+          padding: `${SPACE.sm}px ${SPACE.md}px`,
           borderRadius: RADIUS.card,
-          marginBottom: 2,
-          border: '1px solid transparent',
-          // A running project must not look like an idle one. It used to.
-          background: running ? 'var(--running-bg)' : 'transparent',
-          // NOT opacity. Dimming a container multiplies EVERY colour
-          // inside it, including the ones the palette was tuned to clear
-          // 4.5:1 — axe caught a project's own accent at 0.7 over white
-          // measuring 3.81:1, and this project's own auditor could not
-          // see it because it reads declared colours, not composited
-          // ones. "Done today" is the ✓ on the number chip instead; the
-          // text stays readable, which is the point of still showing it.
+          marginBottom: SPACE.xs,
+          border: `1px solid ${running ? project.accent_color : 'var(--border)'}`,
+          // A running project must not look like an idle one.
+          background: running ? 'var(--running-bg)' : 'var(--surface)',
+          position: 'relative',
+          overflow: 'hidden',
+          // NOT opacity: dimming a container multiplies every colour
+          // inside it, including the ones tuned to clear 4.5:1.
         }}
       >
         <button
-          onClick={() => {
-            soloThis();
-            onSelectGoals(key);
-          }}
+          onClick={open}
           title="Open — collapses every other project"
           aria-label={`Open project ${number} — collapses every other project`}
           style={{
-            width: 20,
-            height: 20,
+            width: 22,
+            height: 22,
             flex: 'none',
             border: 'none',
             padding: 0,
             borderRadius: RADIUS.control,
             background: project.accent_color,
-            // Ink chosen against THIS project's colour, not the theme's
-            // accent: --on-accent is right for the theme accent and
-            // wrong for six user-set ones. The purple chip measured
-            // 2.57:1 before this.
+            // Ink chosen against THIS project's colour, not the theme's.
             color: inkOn(project.accent_color),
             display: 'grid',
             placeItems: 'center',
@@ -203,14 +255,7 @@ function ProjectCard({
           {project.done_today ? <Check size={13} /> : number}
         </button>
         <button
-          onClick={() => {
-            soloThis();
-            onSelectGoals(key);
-          }}
-          // The name is what ellipsis clips here, so the name is what
-          // the hover has to restore — previewText alone (used to be
-          // the whole title) tells you the status of a project whose
-          // own name you can no longer read.
+          onClick={open}
           title={project.name ? `${project.name}  ·  ${previewText}` : previewText}
           style={{
             flex: 1,
@@ -219,39 +264,54 @@ function ProjectCard({
             border: 'none',
             background: 'transparent',
             font: 'inherit',
-            fontSize: 13,
             padding: 0,
-            height: 24,
             cursor: 'pointer',
             color: 'var(--text)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: SPACE.hair,
           }}
         >
-          {project.name || `PROJECT ${number}`}
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: SPACE.sm, minWidth: 0 }}>
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: accentText(project.accent_color),
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {project.name || `PROJECT ${number}`}
+            </span>
+            {journey && (
+              <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', flex: 'none' }}>
+                {stageLabel(journey)}
+              </span>
+            )}
+          </span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {subtasks.length === 0
+              ? L('No tasks yet', 'এখনো কোনো কাজ নেই')
+              : pending.length === 0
+                ? L('All tasks done', 'সব কাজ শেষ')
+                : `${L('Next', 'পরের')}: ${pending[0].text}`}
+          </span>
         </button>
-        <span
-          title={`${projTimeText(project.secs_today, project.target_minutes)} today`}
-          style={{ width: 44, height: 5, background: 'var(--progress-track)', borderRadius: RADIUS.pill, flex: 'none', overflow: 'hidden' }}
-        >
-          <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: project.accent_color }} />
-        </span>
-        <span
-          style={{
-            width: 44,
-            textAlign: 'right',
-            flex: 'none',
-            fontSize: 12,
-            fontFamily: 'monospace',
-            color: running ? accentText(project.accent_color) : 'var(--text-faint)',
-            fontWeight: running ? 700 : 400,
-          }}
-        >
-          {elapsedText(project.secs_today)}
-        </span>
-        <span style={{ width: 30, textAlign: 'right', flex: 'none', fontSize: 12, color: 'var(--text-faint)' }}>
-          {subtasks.length > 0 ? `${subtasksDone}/${subtasks.length}` : '—'}
+        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: SPACE.xs, flex: 'none' }}>
+          <span
+            title={`${projTimeText(project.secs_today, project.target_minutes)} today`}
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
+              color: running ? accentText(project.accent_color) : project.secs_today > 0 ? 'var(--text)' : 'var(--text-muted)',
+            }}
+          >
+            {projTimeText(project.secs_today, project.target_minutes)}
+          </span>
+          <WeekDots days={activity} color={project.accent_color} />
         </span>
         <button
           onClick={() => projectsApi.toggleTimer(key).then(onChanged)}
@@ -262,18 +322,23 @@ function ProjectCard({
             minWidth: 28,
             height: 28,
             flex: 'none',
-            borderRadius: RADIUS.control,
-            border: 'none',
+            borderRadius: RADIUS.pill,
+            border: `1.5px solid ${project.accent_color}`,
             cursor: 'pointer',
             background: running ? project.accent_color : 'transparent',
-            color: running ? inkOn(project.accent_color) : 'var(--text-muted)',
+            color: running ? inkOn(project.accent_color) : accentText(project.accent_color),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            padding: 0,
           }}
         >
-          {running ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
+          {running ? <Pause size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
         </button>
+        {/* Today against the target, as a hairline along the bottom. */}
+        <span style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, background: PROGRESS_TRACK_SOFT }}>
+          <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: project.accent_color }} />
+        </span>
       </div>
     );
   }
@@ -348,6 +413,77 @@ function ProjectCard({
               row with a fixed-width cluster "clipped longer project
               names". It did here too — "SHIP SPARE EXPORT CAN GENER…".
               The title owns its row; the buttons moved down. */}
+        </div>
+
+        {/* Where this project stands, before any detail: this week's
+            goal (from the planning ladder) and the Journey stage. Each
+            tile opens the place it summarises. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SPACE.sm, marginBottom: SPACE.md }}>
+          <button
+            onClick={() => onSelectGoals(key)}
+            title="Open this project's goals in panel 2"
+            style={{
+              textAlign: 'left',
+              padding: SPACE.sm,
+              borderRadius: RADIUS.control,
+              border: 'none',
+              background: 'var(--bg)',
+              color: 'var(--text)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: SPACE.xs,
+              minWidth: 0,
+              cursor: 'pointer',
+            }}
+          >
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L("This week's goal", 'এই সপ্তাহের লক্ষ্য')}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {win ? win.title : L('None set — add one', 'নেই — যোগ করুন')}
+            </span>
+            <span style={{ alignSelf: 'stretch', height: 4, borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}>
+              <span style={{ display: 'block', height: '100%', width: `${win ? win.progress : 0}%`, background: project.accent_color }} />
+            </span>
+          </button>
+          <button
+            onClick={() => onOpenJourney(key)}
+            title="Open this project's Journey"
+            style={{
+              textAlign: 'left',
+              padding: SPACE.sm,
+              borderRadius: RADIUS.control,
+              border: 'none',
+              background: 'var(--bg)',
+              color: 'var(--text)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: SPACE.xs,
+              minWidth: 0,
+              cursor: 'pointer',
+            }}
+          >
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {L('Journey', 'যাত্রা')} {journey ? `· ${stageLabel(journey)}` : ''}
+            </span>
+            <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {journey ? (journey.launched ? L('Launched', 'লঞ্চ হয়েছে') : journey.stages[journey.current_stage]?.name) : '—'}
+            </span>
+            <span style={{ alignSelf: 'stretch', display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: SPACE.hair }}>
+              {(journey?.stages ?? []).map((st) => (
+                <span
+                  key={st.stage_index}
+                  style={{
+                    height: 4,
+                    borderRadius: RADIUS.pill,
+                    background: st.done
+                      ? 'var(--success)'
+                      : st.stage_index === journey?.current_stage
+                        ? project.accent_color
+                        : PROGRESS_TRACK_SOFT,
+                  }}
+                />
+              ))}
+            </span>
+          </button>
         </div>
 
         {/* Notes first. Legacy puts them directly under the header
@@ -709,6 +845,66 @@ function ProjectCard({
   );
 }
 
+// The one project whose timer is running, pinned above the list so it
+// can be stopped without finding its row. Ticks locally once a second;
+// the server's secs_today excludes the current run until it is stopped
+// (engine.timer_reconciliation credits on stop), so the live figure is
+// secs_today + (now - running_since).
+function RunningStrip({ entry, onStop }: { entry: ProjectOrderEntry; onStop: () => void }) {
+  const L = useL();
+  const [now, setNow] = useState(() => Date.now() / 1000);
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now() / 1000), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const p = entry.project;
+  const live = p.secs_today + Math.max(0, now - (p.running_since ?? now));
+  const h = Math.floor(live / 3600);
+  const m = Math.floor((live % 3600) / 60);
+  const sec = Math.floor(live % 60);
+  return (
+    <div
+      role="status"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: SPACE.sm,
+        padding: `${SPACE.sm}px ${SPACE.md}px`,
+        borderRadius: RADIUS.card,
+        background: p.accent_color,
+        color: inkOn(p.accent_color),
+        marginBottom: SPACE.sm,
+      }}
+    >
+      <span style={{ width: 8, height: 8, borderRadius: RADIUS.pill, background: 'currentColor', flex: 'none' }} />
+      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        {p.name || `PROJECT ${entry.number}`}
+      </span>
+      <span style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+        {String(h).padStart(2, '0')}:{String(m).padStart(2, '0')}:{String(sec).padStart(2, '0')}
+      </span>
+      <button
+        onClick={onStop}
+        style={{
+          height: 24,
+          padding: `0 ${SPACE.sm}px`,
+          fontSize: 12,
+          fontWeight: 700,
+          borderRadius: RADIUS.control,
+          border: '1px solid currentColor',
+          background: 'transparent',
+          color: 'inherit',
+          whiteSpace: 'nowrap',
+          flex: 'none',
+          cursor: 'pointer',
+        }}
+      >
+        ■ {L('Stop', 'থামুন')}
+      </button>
+    </div>
+  );
+}
+
 // Panel 1 — the project cards, and nothing else. TODAY PROGRESS and the
 // Deep Work Trend used to live here; both belong to panel 3 in legacy
 // (the trend under the clock, the progress bar on EXECUTE), and having
@@ -762,6 +958,19 @@ export default function ProjectDashboard({
 
   useEffect(refresh, []);
 
+  // One open project at a time. The accordion used to be optional, so a
+  // saved layout can have several open; the first time this panel sees
+  // that, it keeps the first open one and folds the rest (solo is the
+  // same call a collapsed row's click makes).
+  const [soloed, setSoloed] = useState(false);
+  useEffect(() => {
+    if (soloed || order.length === 0) return;
+    setSoloed(true);
+    const open = order.filter((e) => !e.project.collapsed);
+    if (open.length > 1) projectsApi.solo(open[0].project.key as ProjectKey).then(refresh);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order, soloed]);
+
   // Panel 3 struck, completed or deleted something; the "+ STRIKE" chips
   // are computed from this list, so they are now wrong until we re-read.
   useEffect(() => {
@@ -779,8 +988,33 @@ export default function ProjectDashboard({
 
   useAutoTimer(openProject, order, refresh);
 
+  const L = useL();
+  const running = order.find((e) => e.project.running_since !== null);
+  const named = order.filter((e) => e.project.name.trim());
+  const totalSecs = named.reduce((n, e) => n + e.project.secs_today, 0);
+  const totalTarget = named.reduce((n, e) => n + e.project.target_minutes, 0);
+  const totalPct = totalTarget ? Math.min(100, Math.round((totalSecs / (totalTarget * 60)) * 100)) : 0;
+
   return (
     <div>
+      {order.length > 0 && (
+        // Today across every named project — the first thing the column
+        // answers, before any one project.
+        <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginBottom: SPACE.sm, fontSize: 12 }}>
+          <span style={{ color: 'var(--text-muted)' }}>{L('Today', 'আজ')}</span>
+          <span style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{projTimeText(totalSecs, totalTarget)}</span>
+          <span style={{ flex: 1, height: 4, borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}>
+            <span style={{ display: 'block', height: '100%', width: `${totalPct}%`, background: 'var(--accent)' }} />
+          </span>
+          <span style={{ color: 'var(--text-muted)' }}>
+            {L(
+              `${order.filter((e) => e.project.done_today).length}/${named.length} on target`,
+              `${named.length}টার ${order.filter((e) => e.project.done_today).length}টা লক্ষ্যে`
+            )}
+          </span>
+        </div>
+      )}
+      {running && <RunningStrip entry={running} onStop={() => projectsApi.toggleTimer(running.project.key as ProjectKey).then(refresh)} />}
       {loadError && (
         <div
           style={{
