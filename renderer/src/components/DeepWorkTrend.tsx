@@ -98,7 +98,7 @@ export default function DeepWorkTrend() {
   // whatever the rolling setting happens to be, so the strip can never
   // lose its first day on the 31st of a 31-day month.
   const [long, setLong] = useState<Trend | null>(null);
-  const [trendDays, setTrendDaysState] = useState<TrendDays>(30);
+  const [, setTrendDaysState] = useState<TrendDays>(30);
   const [week, setWeek] = useState<WeekSummary | null>(null);
   const [insight, setInsight] = useState<string | null>(null);
   const [streak, setStreak] = useState(0);
@@ -158,7 +158,7 @@ export default function DeepWorkTrend() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <div style={{ fontSize: 13, fontWeight: 700 }}>{L('Deep Work', 'ডিপ ওয়ার্ক')}</div>
           <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
-            {([['month', L('Month', 'মাস')], [30, L('30d', '৩০দি')], [90, L('90d', '৯০দি')]] as [Range, string][]).map(([r, label]) => (
+            {([['month', L('Month', 'মাস')], [30, L('30d', '৩০দি')], [90, L('90d', '৯০দি')]] as [Range, string][]).map(([, label]) => (
               <button
                 key={label}
                 disabled

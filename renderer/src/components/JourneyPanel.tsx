@@ -500,7 +500,7 @@ export default function JourneyPanel() {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
   const [projectKey, setProjectKey] = useState<ProjectKey | null>(null);
   const [journey, setJourney] = useState<Journey | null>(null);
-  const [activeStage, setActiveStage] = useState(0);
+  const [, setActiveStage] = useState(0);
   const [expandedStage, setExpandedStage] = useState<number | null>(null);
   const [toast, setToast] = useState<React.ReactNode | null>(null);
   // Without these, a failed fetch left `order`/`journey` at their empty

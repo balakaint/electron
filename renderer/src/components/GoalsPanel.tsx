@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { CalendarDays, CalendarRange, Check, ChevronUp, Circle, Square, Target, X } from 'lucide-react';
-import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { useAutoTimer } from '../useAutoTimer';
 import { accentText } from '../themes';
 import {
@@ -758,8 +757,8 @@ function PlanningLevelSection({
 export default function GoalsPanel({
   projectKey,
   onOpenBoard,
-  focusVersion,
-  onFocusChanged,
+  focusVersion: _focusVersion,
+  onFocusChanged: _onFocusChanged,
   jumpToGoal,
 }: {
   // The reserved "life" key (App.tsx passes it whenever every real
@@ -849,7 +848,6 @@ export default function GoalsPanel({
         refreshTree(projectKey ?? p.project_key);
       })
       .catch(() => setLoadError(true));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectKey]);
 
   // Zahid's own framing: "goal click means i am working and giving

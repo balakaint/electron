@@ -3,7 +3,6 @@ import { Check, Pause, Play, RotateCcw, Star, X } from 'lucide-react';
 import { DayView, ListKey, Project, ProjectKey, STRIKE_MAX, Task, hoursApi, nowApi, projectsApi, tasksApi } from '../services/api';
 import { useUndo } from '../undo';
 import { accentText } from '../themes';
-import NowCard from './NowCard';
 import DeepWorkCard from './DeepWorkCard';
 import TodaysThreeCard from './TodaysThreeCard';
 import ProjectTaskList from './ProjectTaskList';
@@ -116,7 +115,6 @@ export default function TaskList({
   // this effect would see its own prior write and re-run.
   useEffect(() => {
     if (activeProjectKey !== undefined) setProjectKey(activeProjectKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjectKey]);
   const [projects, setProjects] = useState<Record<string, Project>>({});
   const selectedProject = projectKey ? projects[projectKey] ?? null : null;
@@ -128,7 +126,6 @@ export default function TaskList({
       o.forEach((e) => (map[e.project.key] = e.project));
       setProjects(map);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listKey, dayView]);
   const inputRef = useRef<HTMLInputElement>(null);
   const { push: pushUndo } = useUndo();
@@ -163,8 +160,6 @@ export default function TaskList({
     if (listKey !== 'focus') return;
     nowApi.get().then((t) => setNowId(t?.id ?? null));
   }, [listKey, nowBump]);
-
-  const setNow = (id: number) => nowApi.setNow(id).then(() => bumpNow());
 
   // Play on a Focus row = make this NOW and run it. setNow stops
   // whatever clock was running first (that is its own contract), so this
@@ -228,8 +223,6 @@ export default function TaskList({
       bumpNow();
     });
   };
-
-  const pointNow = (id: number) => nowApi.setNow(id).then(bumpNow);
 
   const setMit = (task: Task) => {
     const previousMit = tasks.find((t) => t.mit && t.id !== task.id);

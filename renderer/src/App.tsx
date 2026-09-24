@@ -150,7 +150,7 @@ function AppShell() {
   const settingsOpen = settingsOpenedAt !== null;
   const setShortcutsOpen = (v: boolean) => setShortcutsOpenedAt(v ? Date.now() : null);
   const setSettingsOpen = (v: boolean) => setSettingsOpenedAt(v ? Date.now() : null);
-  const [exporting, setExporting] = useState(false);
+  const [, setExporting] = useState(false);
   const [exportStatus, setExportStatus] = useState<string | null>(null);
   const { undo, redo } = useUndo();
 

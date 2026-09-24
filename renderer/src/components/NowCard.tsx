@@ -102,7 +102,6 @@ export default function NowCard({
 
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshSignal]);
 
   useEffect(() => {
@@ -142,7 +141,6 @@ export default function NowCard({
   }, []);
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hour]);
 
   const toggleRun = () => nowApi.toggleRun().then(() => { refresh(); onChanged(); });
