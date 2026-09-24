@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { CalendarDays, CalendarRange, Check, ChevronUp, Circle, Square, Target, X } from 'lucide-react';
+import { CalendarDays, CalendarRange, Check, ChevronDown, ChevronUp, Circle, Square, Target, X } from 'lucide-react';
 import { useAutoTimer } from '../useAutoTimer';
 import { accentText } from '../themes';
 import {
@@ -17,7 +17,8 @@ import {
   projectsApi,
 } from '../services/api';
 import { dayNumber } from '../format';
-import { RADIUS } from '../spacing';
+import { RADIUS, SPACE } from '../spacing';
+import { useL } from '../i18n';
 import { useAutofocus } from '../hooks/useAutofocus';
 
 // ⚠ READ THE KEYS CAREFULLY BEFORE CHANGING ANYTHING HERE.
@@ -754,6 +755,127 @@ function PlanningLevelSection({
   );
 }
 
+// Inline "+ add" line used under each rung of the ladder: a dashed
+// button that turns into a one-line input, Enter adds, Escape closes.
+function LadderAdd({ label, onAdd }: { label: string; onAdd: (text: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+  const ref = useAutofocus<HTMLInputElement>(open);
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          width: '100%',
+          textAlign: 'left',
+          height: 28,
+          padding: `0 ${SPACE.md}px`,
+          border: '1px dashed var(--border)',
+          borderRadius: RADIUS.card,
+          background: 'transparent',
+          color: 'var(--text-muted)',
+          fontSize: 12,
+          cursor: 'pointer',
+        }}
+      >
+        {label}
+      </button>
+    );
+  }
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const t = text.trim();
+        if (!t) return;
+        onAdd(t);
+        setText('');
+      }}
+    >
+      <input
+        ref={ref}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={() => !text.trim() && setOpen(false)}
+        onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
+        placeholder="What are you aiming at? Enter to add"
+        aria-label={label}
+        style={{ width: '100%', boxSizing: 'border-box', fontSize: 12, padding: `${SPACE.xs}px ${SPACE.sm}px` }}
+      />
+    </form>
+  );
+}
+
+// One rung: a coloured level tag, then the node row itself (the same
+// editable row the Levels view uses), in a card, with its children
+// hanging off a rail on the left.
+function Rung({
+  tag,
+  tagColor,
+  badge,
+  highlight,
+  children,
+}: {
+  tag: string;
+  tagColor: string;
+  badge?: string;
+  highlight?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        background: 'var(--surface)',
+        border: `${highlight ? 1.5 : 1}px solid ${highlight ? tagColor : 'var(--border)'}`,
+        borderRadius: RADIUS.card,
+        padding: `${SPACE.sm}px ${SPACE.sm}px ${SPACE.xs}px`,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, padding: `0 ${SPACE.xs}px` }}>
+        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: tagColor }}>{tag}</span>
+        {badge && (
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: 'var(--on-accent)',
+              background: tagColor,
+              padding: `0 ${SPACE.sm}px`,
+              borderRadius: RADIUS.pill,
+            }}
+          >
+            {badge}
+          </span>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Rail({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ display: 'flex' }}>
+      <div style={{ width: 24, flex: 'none', display: 'flex', justifyContent: 'center' }}>
+        <span style={{ width: 2, background: 'var(--border)' }} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0, paddingTop: SPACE.sm, display: 'flex', flexDirection: 'column', gap: SPACE.sm }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const MONTHS = ['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'];
+
+function weekLabel(mondayIso: string): string {
+  const d = new Date(`${mondayIso}T00:00:00`);
+  const end = new Date(d);
+  end.setDate(d.getDate() + 6);
+  const f = (x: Date) => x.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return `${f(d)} – ${f(end)}`;
+}
+
 export default function GoalsPanel({
   projectKey,
   onOpenBoard,
@@ -795,6 +917,28 @@ export default function GoalsPanel({
   // editors would be two places to look for the thing you are editing,
   // and the panel is 545px wide — there is room for exactly one.
   const [openNodeId, setOpenNodeId] = useState<number | null>(null);
+  // Ladder (year → months → weeks, default) or Levels (the three
+  // sections side of the same data). Remembered per machine; a failed
+  // storage read just means the default.
+  const [view, setViewRaw] = useState<'ladder' | 'levels'>(() => {
+    try {
+      return localStorage.getItem('goals-view') === 'levels' ? 'levels' : 'ladder';
+    } catch {
+      return 'ladder';
+    }
+  });
+  const setView = (v: 'ladder' | 'levels') => {
+    setViewRaw(v);
+    try {
+      localStorage.setItem('goals-view', v);
+    } catch {
+      /* private window etc. — the choice just won't persist */
+    }
+  };
+  // Months opened or closed by hand on the ladder; unset months follow
+  // the default (this month open, the rest closed).
+  const [monthOpen, setMonthOpen] = useState<Record<number, boolean>>({});
+  const L = useL();
   // Without this, a failed fetch left state at its empty defaults with
   // nothing catching the rejection — the panel rendered with no visible
   // signal anything had gone wrong (ui-ux-audit verify pass, 2026-09-22).
@@ -911,6 +1055,47 @@ export default function GoalsPanel({
   const thisYear = today.getFullYear();
   const thisMonday = mondayOf(today);
 
+  // The same writes the Levels view makes, shared with the Ladder.
+  const refetch = () => refreshTree(shownKey);
+  const add = (level: PlanningLevel, text: string, parentId: number | null) => {
+    if (level === 'outcome') planningApi.createOutcome(shownKey, text, thisYear).then(refetch);
+    else if (level === 'milestone' && parentId !== null) planningApi.createMilestone(parentId, text, thisMonth, thisYear).then(refetch);
+    else if (level === 'win' && parentId !== null) planningApi.createWin(parentId, text, thisMonday).then(refetch);
+  };
+  const nodeRow = (level: PlanningLevel, n: PlanningNode) => {
+    const lv = LEVELS.find((l) => l.key === level)!;
+    const edit = (patch: { title?: string; status?: string }) =>
+      (level === 'outcome'
+        ? planningApi.editOutcome(n.id, patch)
+        : level === 'milestone'
+          ? planningApi.editMilestone(n.id, patch)
+          : planningApi.editWin(n.id, patch)
+      ).then(refetch);
+    return (
+      <PlanningNodeRow
+        node={n}
+        level={level}
+        accent={lv.accent}
+        open={openNodeId === n.id}
+        onOpen={() => setOpenNodeId(n.id)}
+        onClose={() => setOpenNodeId(null)}
+        onToggle={() => edit({ status: n.status === 'achieved' ? 'active' : 'achieved' })}
+        onDelete={() => {
+          const after = () => {
+            setOpenNodeId((cur) => (cur === n.id ? null : cur));
+            refetch();
+          };
+          if (level === 'outcome') planningApi.deleteOutcome(n.id).then(after);
+          else if (level === 'milestone') planningApi.deleteMilestone(n.id).then(after);
+          else planningApi.deleteWin(n.id).then(after);
+        }}
+        onEditText={(title) => edit({ title })}
+        onEditCriteria={level === 'win' ? (criteria) => planningApi.editWin(n.id, { criteria }).then(refetch) : undefined}
+        onOpenBoard={onOpenBoard}
+      />
+    );
+  };
+
   return (
     // Fills the column and lets the three sections divide its height,
     // rather than sitting at a fixed max-width inside it.
@@ -941,8 +1126,128 @@ export default function GoalsPanel({
           {headerLabel}
         </span>
         <span style={{ color: 'var(--text-faint)', letterSpacing: 0.5 }}>GOALS</span>
+        <div role="tablist" aria-label={L('Goals view', 'লক্ষ্যের ভিউ')} style={{ display: 'flex', padding: SPACE.hair, background: 'var(--surface-2)', borderRadius: RADIUS.card, alignSelf: 'center' }}>
+          {(
+            [
+              ['ladder', L('Ladder', 'সিঁড়ি')],
+              ['levels', L('Levels', 'স্তর')],
+            ] as const
+          ).map(([v, t]) => (
+            <button
+              key={v}
+              role="tab"
+              aria-selected={view === v}
+              onClick={() => setView(v)}
+              style={{
+                height: 24,
+                padding: `0 ${SPACE.md}px`,
+                fontSize: 12,
+                fontWeight: view === v ? 700 : 400,
+                border: 'none',
+                borderRadius: RADIUS.control,
+                background: view === v ? 'var(--surface)' : 'transparent',
+                color: view === v ? 'var(--text)' : 'var(--text-muted)',
+                boxShadow: view === v ? 'var(--shadow-sm)' : 'none',
+                cursor: 'pointer',
+              }}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {view === 'ladder' ? (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', paddingRight: SPACE.xs, paddingBottom: SPACE.lg }}>
+          {outcomes.length === 0 && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: `${SPACE.sm}px ${SPACE.xs}px` }}>
+              {L('Start at the top: what is this year for?', 'উপর থেকে শুরু করুন: এই বছরের লক্ষ্য কী?')}
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
+            {outcomes.map((o) => {
+              const ms = milestones.filter((m) => m.outcome_id === o.id).sort((a, b) => a.year - b.year || a.month - b.month);
+              const outcomeLevel = LEVELS.find((l) => l.key === 'outcome')!;
+              return (
+                <div key={o.id}>
+                  <Rung tag={`◎ ${o.year}`} tagColor={outcomeLevel.accent}>
+                    {nodeRow('outcome', o)}
+                  </Rung>
+                  <Rail>
+                    {ms.map((m) => {
+                      const current = m.year === thisYear && m.month === thisMonth;
+                      const isOpen = monthOpen[m.id] ?? current;
+                      const ws = wins.filter((w) => w.milestone_id === m.id).sort((a, b) => a.week_start_date.localeCompare(b.week_start_date));
+                      const milestoneLevel = LEVELS.find((l) => l.key === 'milestone')!;
+                      const winLevel = LEVELS.find((l) => l.key === 'win')!;
+                      return (
+                        <div key={m.id}>
+                          <Rung
+                            tag={`▦ ${MONTHS[m.month - 1] ?? ''}`}
+                            tagColor={milestoneLevel.accent}
+                            highlight={current}
+                            badge={current ? L('THIS MONTH', 'এই মাস') : undefined}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>{nodeRow('milestone', m)}</div>
+                              <button
+                                onClick={() => setMonthOpen((s) => ({ ...s, [m.id]: !isOpen }))}
+                                aria-expanded={isOpen}
+                                aria-label={isOpen ? L('Hide weeks', 'সপ্তাহ লুকান') : L('Show weeks', 'সপ্তাহ দেখান')}
+                                title={`${ws.length} ${L('weekly goals', 'সাপ্তাহিক লক্ষ্য')}`}
+                                style={{
+                                  height: 24,
+                                  padding: `0 ${SPACE.xs}px`,
+                                  border: 'none',
+                                  background: 'transparent',
+                                  color: 'var(--text-muted)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: SPACE.hair,
+                                  fontSize: 12,
+                                  cursor: 'pointer',
+                                  flex: 'none',
+                                }}
+                              >
+                                {ws.length}
+                                {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              </button>
+                            </div>
+                          </Rung>
+                          {isOpen && (
+                            <Rail>
+                              {ws.map((w) => {
+                                const now = w.week_start_date === thisMonday;
+                                return (
+                                  <Rung
+                                    key={w.id}
+                                    tag={`▣ ${weekLabel(w.week_start_date)}`}
+                                    tagColor={winLevel.accent}
+                                    highlight={now}
+                                    badge={now ? L('THIS WEEK', 'এই সপ্তাহ') : undefined}
+                                  >
+                                    {nodeRow('win', w)}
+                                  </Rung>
+                                );
+                              })}
+                              <LadderAdd
+                                label={L(`+ Weekly goal for ${MONTHS[m.month - 1]?.toLowerCase() ?? ''}`, '+ এই মাসের সাপ্তাহিক লক্ষ্য')}
+                                onAdd={(t) => add('win', t, m.id)}
+                              />
+                            </Rail>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <LadderAdd label={L(`+ Monthly goal under ${o.title}`, `+ ${o.title}-এর মাসিক লক্ষ্য`)} onAdd={(t) => add('milestone', t, o.id)} />
+                  </Rail>
+                </div>
+              );
+            })}
+            <LadderAdd label={L(`+ Goal for ${thisYear}`, `+ ${thisYear}-এর লক্ষ্য`)} onAdd={(t) => add('outcome', t, null)} />
+          </div>
+        </div>
+      ) : (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1, minHeight: 0 }}>
         {LEVELS.map(({ key, legacyHorizon, label, glyph, accent, weight }) => {
           const nodes: PlanningNode[] =
@@ -1009,6 +1314,7 @@ export default function GoalsPanel({
           );
         })}
       </div>
+      )}
     </div>
   );
 }
