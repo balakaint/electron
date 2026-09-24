@@ -171,7 +171,7 @@ export default function DeepWorkTrend() {
           </div>
         </div>
         <div style={{ height: 16, marginBottom: 8 }} />
-        <div style={{ height: isMonth ? 176 : 160, borderRadius: RADIUS.control, background: 'var(--surface-2)', opacity: 0.5 }} />
+        <div style={{ height: isMonth ? 120 : 108, borderRadius: RADIUS.control, background: 'var(--surface-2)', opacity: 0.5 }} />
       </div>
     );
   }
@@ -220,7 +220,10 @@ export default function DeepWorkTrend() {
   const topSecs = Math.max(goal, ...past, 1) * 1.12;
 
   const W = 600;
-  const H = isMonth ? 176 : 160;
+  // 20% shorter than the first cut (2026-09-24): the card sits above
+  // Plan today on PLAN now, and at full height it pushed the checklist
+  // below the fold.
+  const H = isMonth ? 120 : 108;
   const fs = (real: number) => +(real * (W / Math.max(1, paintedW))).toFixed(2);
   // The gutter holds ONE character. The goal label sits INSIDE the plot,
   // above its own line, where no gutter can clip it.
@@ -371,7 +374,7 @@ export default function DeepWorkTrend() {
             side they answer "how is this month going" before the chart
             has to. The sentence below keeps the day count and the hover
             readout. */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '8px 0' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '4px 0' }}>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{fmtHM(monthTotal)}</span>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L('this month', 'এই মাসে')}</span>
@@ -448,8 +451,17 @@ export default function DeepWorkTrend() {
             {!isMonth && n > 7 && (
               <>
                 <rect x={x0} y={y0} width={weekBandX - x0} height={y1 - y0} fill="var(--accent)" opacity={0.06} />
-                <text x={weekBandX - 3} y={y0 + fs(11)} fontSize={fs(12)} fill="var(--text-faint)" textAnchor="end">
-                  this week
+                {/* Inside the band when it is wide enough to hold the
+                    words; beside it when it is not (on 90d the band is
+                    a sliver and the label ran off the card's edge). */}
+                <text
+                  x={weekBandX - x0 > fs(64) ? weekBandX - 3 : weekBandX + 3}
+                  y={y0 + fs(11)}
+                  fontSize={fs(12)}
+                  fill="var(--text-faint)"
+                  textAnchor={weekBandX - x0 > fs(64) ? 'end' : 'start'}
+                >
+                  {L('this week', 'এই সপ্তাহ')}
                 </text>
               </>
             )}
