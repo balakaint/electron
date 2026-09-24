@@ -1318,6 +1318,10 @@ class HealthProfile(Base):
     place: Mapped[str] = mapped_column(String, default="home")  # "home" | "gym"
     start_date: Mapped[str] = mapped_column(String)  # YYYY-MM-DD, plan day 1
     weeks: Mapped[int] = mapped_column(Integer, default=4)
+    # Diet filters ("vegetarian", "no_beef") and foods marked "don't
+    # like" — both steer the edit screen's suggestions and library.
+    diet: Mapped[list] = mapped_column(JSON, default=list)
+    dislikes: Mapped[list] = mapped_column(JSON, default=list)
 
 
 class HealthDayLog(Base):
@@ -1331,3 +1335,21 @@ class HealthDayLog(Base):
     meals: Mapped[list] = mapped_column(JSON, default=list)
     moves: Mapped[list] = mapped_column(JSON, default=list)
     water: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class HealthOverride(Base):
+    """One edit to the default Health plan. `kind` is "meal" (idx = meal
+    slot 0-3, data = [{"food", "qty"}]) or "block" (idx = workout block,
+    data = [{"name", "dose"}]). `scope` says how far it reaches:
+    "day:YYYY-MM-DD" (that date only), "wd:N" (every weekday N, Mon=0),
+    or "all" (every day). The most specific one wins; deleting overrides
+    is how "reset to default" works."""
+
+    __tablename__ = "health_override"
+    __table_args__ = (UniqueConstraint("kind", "scope", "idx", name="uq_health_override"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    kind: Mapped[str] = mapped_column(String)
+    scope: Mapped[str] = mapped_column(String)
+    idx: Mapped[int] = mapped_column(Integer)
+    data: Mapped[list] = mapped_column(JSON, default=list)

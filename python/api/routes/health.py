@@ -82,3 +82,76 @@ def set_move(payload: MoveIn, engine: HealthEngine = Depends(get_engine)):
 @router.post("/water")
 def add_water(payload: WaterIn, engine: HealthEngine = Depends(get_engine)):
     return _wrap(engine.add_water, payload.day, payload.delta)
+
+
+class MealItem(BaseModel):
+    food: str
+    qty: float = 1
+
+
+class MealItemsIn(BaseModel):
+    day: str
+    slot: int
+    items: list[MealItem]
+    scope: Literal["day", "weekday", "all"] = "day"
+
+
+class Move(BaseModel):
+    name: str
+    dose: str = ""
+
+
+class BlockMovesIn(BaseModel):
+    day: str
+    block: int
+    moves: list[Move]
+    scope: Literal["day", "weekday", "all"] = "day"
+
+
+class ResetIn(BaseModel):
+    day: str
+    scope: Literal["day", "weekday", "all"]
+
+
+class DietIn(BaseModel):
+    diet: list[str]
+
+
+class DislikeIn(BaseModel):
+    food: str
+    dislike: bool
+
+
+@router.put("/meal-items")
+def set_meal_items(payload: MealItemsIn, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.set_meal_items, payload.day, payload.slot, [i.model_dump() for i in payload.items], payload.scope)
+
+
+@router.put("/block-moves")
+def set_block_moves(payload: BlockMovesIn, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.set_block_moves, payload.day, payload.block, [m.model_dump() for m in payload.moves], payload.scope)
+
+
+@router.post("/reset")
+def reset(payload: ResetIn, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.reset, payload.day, payload.scope)
+
+
+@router.put("/diet")
+def set_diet(payload: DietIn, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.set_diet, payload.diet)
+
+
+@router.post("/dislike")
+def set_dislike(payload: DislikeIn, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.set_dislike, payload.food, payload.dislike)
+
+
+@router.get("/library")
+def library(engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.library)
+
+
+@router.get("/swaps")
+def swaps(food: str, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.swaps, food)

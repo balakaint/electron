@@ -1233,6 +1233,17 @@ export interface HealthProfile {
   place: 'home' | 'gym';
   start_date: string;
   weeks: number;
+  diet?: string[];
+  dislikes?: string[];
+}
+export type HealthScope = 'day' | 'weekday' | 'all';
+export interface HealthMealPart {
+  food: string;
+  qty: number;
+  portion: string;
+  kcal: number;
+  protein_g: number;
+  known: boolean;
 }
 export interface HealthMeal {
   slot: number;
@@ -1241,11 +1252,30 @@ export interface HealthMeal {
   items: string;
   kcal: number;
   protein_g: number;
+  parts: HealthMealPart[];
+  edited: HealthScope | null;
 }
 export interface HealthBlock {
   name: string;
   minutes: number;
   moves: [string, string, string][]; // name, dose, equipment
+  edited: HealthScope | null;
+}
+export interface HealthFood {
+  name: string;
+  portion: string;
+  kcal: number;
+  protein_g: number;
+  group: string;
+  allowed: boolean;
+  disliked: boolean;
+}
+export interface HealthExercise {
+  name: string;
+  category: string;
+  equipment: string;
+  level: number;
+  dose: string;
 }
 export interface HealthDayPlan {
   day: string;
@@ -1288,4 +1318,14 @@ export const healthApi = {
   setMeal: (day: string, slot: number, done: boolean) => req('POST', '/api/health/meal', { day, slot, done }) as Promise<HealthState>,
   setMove: (day: string, key: string, done: boolean) => req('POST', '/api/health/move', { day, key, done }) as Promise<HealthState>,
   addWater: (day: string, delta: number) => req('POST', '/api/health/water', { day, delta }) as Promise<HealthState>,
+  setMealItems: (day: string, slot: number, items: { food: string; qty: number }[], scope: HealthScope) =>
+    req('PUT', '/api/health/meal-items', { day, slot, items, scope }) as Promise<HealthState>,
+  setBlockMoves: (day: string, block: number, moves: { name: string; dose: string }[], scope: HealthScope) =>
+    req('PUT', '/api/health/block-moves', { day, block, moves, scope }) as Promise<HealthState>,
+  reset: (day: string, scope: HealthScope) => req('POST', '/api/health/reset', { day, scope }) as Promise<HealthState>,
+  setDiet: (diet: string[]) => req('PUT', '/api/health/diet', { diet }) as Promise<HealthState>,
+  setDislike: (food: string, dislike: boolean) => req('POST', '/api/health/dislike', { food, dislike }) as Promise<HealthState>,
+  library: () => req('GET', '/api/health/library') as Promise<{ foods: HealthFood[]; exercises: HealthExercise[] }>,
+  swaps: (food: string) =>
+    req('GET', `/api/health/swaps?food=${encodeURIComponent(food)}`) as Promise<{ name: string; portion: string; kcal: number; protein_g: number }[]>,
 };
