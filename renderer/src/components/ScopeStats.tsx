@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Q90Panel, quarterlyApi } from '../services/api';
 import { useL } from '../i18n';
-import { RADIUS, SPACE } from '../spacing';
+import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 
 function daysInMonth(year: number, month0: number): number {
   return new Date(year, month0 + 1, 0).getDate();
@@ -39,7 +39,7 @@ function Tile({
     <>
       <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>{label}</span>
       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{value}</span>
-      <span style={{ height: 4, borderRadius: RADIUS.pill, background: 'var(--border)', overflow: 'hidden' }}>
+      <span style={{ height: 4, borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}>
         <span style={{ display: 'block', height: '100%', width: `${Math.round(Math.max(0, Math.min(1, pct)) * 100)}%`, background: color }} />
       </span>
       <span style={{ fontSize: 12, color: 'var(--text-faint)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub}</span>
@@ -100,14 +100,14 @@ export default function ScopeStats({ now, onOpenQuarterly }: { now: Date; onOpen
         value={L(`${monthLeft} days left`, `${monthLeft} দিন বাকি`)}
         sub={L(`Day ${now.getDate()} of ${monthDays}`, `${monthDays} দিনের ${now.getDate()}তম দিন`)}
         pct={now.getDate() / monthDays}
-        color="var(--goal-monthly)"
+        color="var(--accent)"
       />
       <Tile
         label={String(y)}
         value={yearVal}
         sub={L(`Day ${yearDay} of ${yearDays}`, `${yearDays} দিনের ${yearDay}তম দিন`)}
         pct={yearDay / yearDays}
-        color="var(--goal-yearly)"
+        color="var(--accent)"
       />
       {panel ? (
         <Tile
@@ -119,7 +119,7 @@ export default function ScopeStats({ now, onOpenQuarterly }: { now: Date; onOpen
           }
           sub={L(`${panel.areas_done}/${panel.areas_total} areas planned ›`, `${panel.areas_done}/${panel.areas_total} এরিয়া ›`)}
           pct={panel.cycle_days > 0 ? panel.day / panel.cycle_days : 0}
-          color="var(--goal-weekly)"
+          color="var(--accent)"
           onClick={onOpenQuarterly}
           title="Open the quarterly plan"
         />
@@ -129,7 +129,7 @@ export default function ScopeStats({ now, onOpenQuarterly }: { now: Date; onOpen
           value={L('Not set', 'সেট করা নেই')}
           sub={L('Open ›', 'খুলুন ›')}
           pct={0}
-          color="var(--goal-weekly)"
+          color="var(--accent)"
           onClick={onOpenQuarterly}
           title="Open the quarterly plan"
         />

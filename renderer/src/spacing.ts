@@ -93,6 +93,16 @@ export const CARD_ELEVATED: CSSProperties = {
   boxShadow: 'var(--shadow-sm)',
 };
 
+/**
+ * The unfilled part of a thin progress bar. The theme's own
+ * --progress-track (the same value as --border in every theme) drawn at
+ * full strength made an EMPTY bar read as a full grey one; at 40% over
+ * the card surface the track recedes and the filled part is the only
+ * solid shape. Derived, not a new theme token, so every theme keeps its
+ * palette exactly as it is.
+ */
+export const PROGRESS_TRACK_SOFT = 'color-mix(in srgb, var(--progress-track) 40%, var(--surface))';
+
 // Font size, weight and letter-spacing moved to renderer/src/typography.ts
 // (TYPE_SIZE / TYPE_WEIGHT / TRACKING) — this file is layout (gaps,
 // corners), that one is type. tests/typography-check.mjs enforces it.

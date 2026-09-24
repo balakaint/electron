@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
 import { FocusTab, STRIKE_MAX, designTodayApi, hoursApi, mindsetApi, tasksApi } from '../services/api';
 import { useL } from '../i18n';
-import { RADIUS, SPACE } from '../spacing';
+import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 
 function todayIso(): string {
   const d = new Date();
@@ -132,7 +132,7 @@ export default function PlanTodayCard({ onGoExecute }: { onGoExecute: (tab: Focu
           aria-valuemax={steps.length}
           aria-valuenow={doneCount}
           aria-label="Planning steps done"
-          style={{ width: 96, height: 6, borderRadius: RADIUS.pill, background: 'var(--border)', overflow: 'hidden' }}
+          style={{ width: 96, height: 6, borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}
         >
           <span style={{ display: 'block', height: '100%', width: `${(doneCount / steps.length) * 100}%`, background: 'var(--success)' }} />
         </span>
@@ -150,7 +150,12 @@ export default function PlanTodayCard({ onGoExecute }: { onGoExecute: (tab: Focu
               minWidth: 0,
               padding: SPACE.sm,
               borderRadius: RADIUS.card,
-              border: `1px solid ${s.done ? 'var(--border)' : 'var(--accent)'}`,
+              // Unfinished steps get a dashed neutral edge, not the accent:
+              // on warroom and journey --accent and --success are the same
+              // colour, so an accent border beside a success tick made "to
+              // do" and "done" look alike (and on energy a red border read
+              // as an error). The tick is now the only coloured mark.
+              border: `1px ${s.done ? 'solid' : 'dashed'} var(--border)`,
               background: s.done ? 'var(--surface-2, var(--surface))' : 'var(--surface)',
               textAlign: 'left',
               font: 'inherit',
@@ -182,7 +187,7 @@ export default function PlanTodayCard({ onGoExecute }: { onGoExecute: (tab: Focu
                 style={{
                   fontSize: 12,
                   fontWeight: 600,
-                  color: s.done ? 'var(--success)' : 'var(--accent)',
+                  color: s.done ? 'var(--success)' : 'var(--text-muted)',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',

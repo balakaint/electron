@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useL } from '../i18n';
 import { Check } from 'lucide-react';
 import { HourSlot, Project, STRIKE_MAX, Task, hoursApi, nowApi, projectsApi, tasksApi } from '../services/api';
-import { RADIUS, SPACE } from '../spacing';
+import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 
 function todayIso(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -241,7 +241,7 @@ export default function NowCard({
               aria-valuemin={0}
               aria-valuemax={task.est * 60}
               aria-valuenow={Math.min(displaySecs, task.est * 60)}
-              style={{ height: 4, marginTop: SPACE.sm, borderRadius: RADIUS.pill, background: 'var(--border)', overflow: 'hidden' }}
+              style={{ height: 4, marginTop: SPACE.sm, borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}
             >
               <div
                 style={{

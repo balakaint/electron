@@ -3,7 +3,7 @@ import { Check, ChevronDown, Plus, Repeat, X } from 'lucide-react';
 import { HourBlock, HourPlan as HourPlanData, HourSlot, hoursApi } from '../services/api';
 import { useFetchState } from '../hooks/useFetchState';
 import { PHASE_LABELS_BN, useL, useLang } from '../i18n';
-import { RADIUS, SPACE } from '../spacing';
+import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 
 // The day as 24 hour-slots, grouped into the four day-phase blocks.
 // Ported from legacy's TODAY EXECUTION panel (task_tracker_v3_THEMES.py
@@ -493,7 +493,7 @@ function BlockCard({
         <span style={{ fontSize: 12, fontWeight: 700, color: allDone ? 'var(--success)' : 'var(--text-muted)', flex: 'none' }}>
           {block.planned > 0 ? `${block.done}/${block.planned}` : '—'}
         </span>
-        <span aria-hidden style={{ width: 48, height: 4, flex: 'none', borderRadius: RADIUS.pill, background: 'var(--border)', overflow: 'hidden' }}>
+        <span aria-hidden style={{ width: 48, height: 4, flex: 'none', borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}>
           <span
             style={{
               display: 'block',
@@ -635,18 +635,13 @@ function DayOverview({ plan, nowHour, nowMin }: { plan: HourPlanData; nowHour: n
           </span>
         ))}
       </div>
-      <div style={{ display: 'flex', gap: SPACE.md, fontSize: 12, color: 'var(--text-muted)' }}>
-        {[
-          [L('Done', 'শেষ'), 'var(--text-muted)'],
-          [L('Planned', 'প্ল্যান'), 'color-mix(in srgb, var(--text-muted) 45%, var(--surface))'],
-          [L('Open', 'খালি'), 'color-mix(in srgb, var(--text-muted) 12%, var(--surface))'],
-        ].map(([label, bg]) => (
-          <span key={label} style={{ display: 'inline-flex', alignItems: 'center', gap: SPACE.xs }}>
-            <span aria-hidden style={{ width: 12, height: 12, borderRadius: RADIUS.control, background: bg }} />
-            {label}
-          </span>
-        ))}
-      </div>
+      {/* Words, not swatches: the cells take their block's colour, so a
+          grey sample square matched none of them. What carries the
+          meaning is the strength of the colour, and that is what this
+          line says. */}
+      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+        {L('Darker = done · lighter = planned · faint = open', 'গাঢ় = শেষ · মাঝারি = প্ল্যান · হালকা = খালি')}
+      </span>
     </div>
   );
 }
