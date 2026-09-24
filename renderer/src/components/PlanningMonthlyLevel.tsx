@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { CalendarRange, Check, Circle } from 'lucide-react';
+import { Check, Circle } from 'lucide-react';
 import { GoalOwnerMeta, Milestone, Win, planningApi } from '../services/api';
-import AccordionSection from './AccordionSection';
+import PlanningPeriodHeader from './PlanningPeriodHeader';
 import PlanningProgressCard from './PlanningProgressCard';
 import { useFetchState } from '../hooks/useFetchState';
 import { useAutofocus } from '../hooks/useAutofocus';
@@ -114,11 +114,20 @@ function DayCell({
   );
 }
 
-function MonthGrid({ deadlines, accent, onSelectDate }: { deadlines: Set<string>; accent: string; onSelectDate: (iso: string) => void }) {
-  const today = new Date();
-  const todayIso = isoDate(today);
-  const year = today.getFullYear();
-  const month = today.getMonth();
+function MonthGrid({
+  year,
+  month,
+  deadlines,
+  accent,
+  onSelectDate,
+}: {
+  year: number;
+  month: number; // 0-indexed
+  deadlines: Set<string>;
+  accent: string;
+  onSelectDate: (iso: string) => void;
+}) {
+  const todayIso = isoDate(new Date());
   const firstOfMonth = new Date(year, month, 1);
   const startOffset = (firstOfMonth.getDay() + 6) % 7; // Monday-start
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -199,22 +208,21 @@ async function findCurrentMilestones(owner: GoalOwnerMeta, year: number, month: 
 export default function PlanningMonthlyLevel({
   owners,
   accent,
-  expanded,
-  onToggle,
   onSelectDate,
   refreshSignal,
   onChanged,
 }: {
   owners: GoalOwnerMeta[] | null;
   accent: string;
-  expanded: boolean;
-  onToggle: () => void;
   onSelectDate: (iso: string) => void;
   refreshSignal: number;
   onChanged: () => void;
 }) {
   const L = useL();
-  const today = new Date();
+  // Months away from this one; 0 is the current month.
+  const [offset, setOffset] = useState(0);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth() + offset, 1);
   const year = today.getFullYear();
   const month = today.getMonth() + 1;
 
@@ -236,7 +244,7 @@ export default function PlanningMonthlyLevel({
     if (!title) return;
     const create =
       addingType === 'win'
-        ? planningApi.createWin(row.milestone.id, title, mondayOf(today))
+        ? planningApi.createWin(row.milestone.id, title, mondayOf(offset === 0 ? now : today))
         : addingType === 'milestone'
           ? planningApi.createMilestone(row.milestone.outcome_id, title, month, year)
           : planningApi.createOutcome(row.owner.key, title, year);
@@ -256,20 +264,21 @@ export default function PlanningMonthlyLevel({
   // derived pace chip). Caught in code review: PlanningProgressCard
   // already implemented the whole row, but neither caller passed it.
   const daysInMonth = new Date(year, today.getMonth() + 1, 0).getDate();
-  const dayOfMonth = today.getDate();
-  const pace = { elapsedPct: Math.round((dayOfMonth / daysInMonth) * 100), elapsedLabel: `day ${dayOfMonth} of ${daysInMonth}` };
+  const dayOfMonth = now.getDate();
+  // Pace only means something for the month you are living in.
+  const pace = offset === 0 ? { elapsedPct: Math.round((dayOfMonth / daysInMonth) * 100), elapsedLabel: `day ${dayOfMonth} of ${daysInMonth}` } : undefined;
+  const achieved = rows.filter((r) => r.milestone.progress === 100).length;
 
   return (
-    <AccordionSection
-      glyph={<CalendarRange size={16} />}
-      label={L('MONTHLY', 'মাসিক')}
-      period={monthLabel}
-      done={rows.filter((r) => r.milestone.progress === 100).length}
-      total={loaded ? rows.length : null}
-      accent={accent}
-      expanded={expanded}
-      onToggle={onToggle}
-    >
+    <div>
+      <PlanningPeriodHeader
+        label={monthLabel}
+        summary={loaded && rows.length > 0 ? L(`${achieved} of ${rows.length} milestones achieved`, `${rows.length}টির ${achieved}টি মাইলস্টোন অর্জিত`) : null}
+        isCurrent={offset === 0}
+        resetLabel={L('This month', 'এই মাস')}
+        onStep={(dir) => setOffset((o) => o + dir)}
+        onReset={() => setOffset(0)}
+      />
       {!loaded ? (
         <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>Loading…</div>
       ) : loadError ? (
@@ -279,7 +288,7 @@ export default function PlanningMonthlyLevel({
         </div>
       ) : (
         <>
-          <MonthGrid deadlines={deadlines} accent={accent} onSelectDate={onSelectDate} />
+          <MonthGrid year={year} month={month - 1} deadlines={deadlines} accent={accent} onSelectDate={onSelectDate} />
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
               No Milestone set for this month yet — add one from the Goals panel.
@@ -291,6 +300,7 @@ export default function PlanningMonthlyLevel({
                   key={row.milestone.id}
                   label={`MONTH MILESTONE · ${row.owner.label}`}
                   accent={accent}
+                  ownerColor={row.owner.color}
                   title={row.milestone.title}
                   progress={row.milestone.progress}
                   fixed={row.milestone.fixed}
@@ -371,6 +381,6 @@ export default function PlanningMonthlyLevel({
           )}
         </>
       )}
-    </AccordionSection>
+    </div>
   );
 }

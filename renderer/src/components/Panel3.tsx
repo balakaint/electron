@@ -462,8 +462,6 @@ function HoursAccordion({
         <PlanningWeeklyLevel
           owners={owners}
           accent="var(--goal-yearly)"
-          expanded={level === 'weekly'}
-          onToggle={() => setLevel('weekly')}
           onSelectDate={onSelectDate}
           refreshSignal={refreshSignal}
           onChanged={onChanged}
@@ -473,8 +471,6 @@ function HoursAccordion({
         <PlanningMonthlyLevel
           owners={owners}
           accent="var(--goal-monthly)"
-          expanded={level === 'monthly'}
-          onToggle={() => setLevel('monthly')}
           onSelectDate={onSelectDate}
           refreshSignal={refreshSignal}
           onChanged={onChanged}
@@ -484,8 +480,6 @@ function HoursAccordion({
         <PlanningYearlyLevel
           owners={owners}
           accent="var(--goal-weekly)"
-          expanded={level === 'yearly'}
-          onToggle={() => setLevel('yearly')}
           onSelectDate={onSelectDate}
           refreshSignal={refreshSignal}
           onChanged={onChanged}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Check, Circle, Target } from 'lucide-react';
+import { Check, Circle } from 'lucide-react';
 import { GoalOwnerMeta, Milestone, Outcome, planningApi } from '../services/api';
-import AccordionSection from './AccordionSection';
+import PlanningPeriodHeader from './PlanningPeriodHeader';
 import PlanningProgressCard from './PlanningProgressCard';
 import { useFetchState } from '../hooks/useFetchState';
 import { useAutofocus } from '../hooks/useAutofocus';
@@ -100,10 +100,20 @@ function DayCell({
 // Milestones had no clickable cell). Matches WeekStrip's own
 // always-clickable convention. A month with no Milestone still has a
 // real 1st — `${prefix}-01` — so the jump target always exists.
-function YearStrip({ deadlines, accent, onSelectDate }: { deadlines: Set<string>; accent: string; onSelectDate: (iso: string) => void }) {
+function YearStrip({
+  year,
+  deadlines,
+  accent,
+  onSelectDate,
+}: {
+  year: number;
+  deadlines: Set<string>;
+  accent: string;
+  onSelectDate: (iso: string) => void;
+}) {
   const today = new Date();
-  const year = today.getFullYear();
-  const currentMonth = today.getMonth();
+  // -1 outside the current year: no month is "now" in another year.
+  const currentMonth = today.getFullYear() === year ? today.getMonth() : -1;
   const sortedDeadlines = Array.from(deadlines).sort();
 
   return (
@@ -150,24 +160,23 @@ async function findCurrentOutcomes(owner: GoalOwnerMeta, year: number): Promise<
 export default function PlanningYearlyLevel({
   owners,
   accent,
-  expanded,
-  onToggle,
   onSelectDate,
   refreshSignal,
   onChanged,
 }: {
   owners: GoalOwnerMeta[] | null;
   accent: string;
-  expanded: boolean;
-  onToggle: () => void;
   onSelectDate: (iso: string) => void;
   refreshSignal: number;
   onChanged: () => void;
 }) {
   const L = useL();
+  // Years away from this one; 0 is the current year.
+  const [offset, setOffset] = useState(0);
   const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth() + 1;
+  const year = today.getFullYear() + offset;
+  // A Milestone added from another year's view lands in its January.
+  const month = offset === 0 ? today.getMonth() + 1 : 1;
 
   const { data: rows, loaded, loadError, refresh } = useFetchState<OwnedOutcome[]>(
     owners
@@ -201,17 +210,18 @@ export default function PlanningYearlyLevel({
     rows.flatMap((r) => r.milestones.map((m) => `${m.year}-${String(m.month).padStart(2, '0')}-01`)),
   );
 
+  const achievedCount = rows.filter((r) => r.outcome.progress === 100).length;
+
   return (
-    <AccordionSection
-      glyph={<Target size={16} />}
-      label={L('YEARLY', 'বার্ষিক')}
-      period={String(year)}
-      done={rows.filter((r) => r.outcome.progress === 100).length}
-      total={loaded ? rows.length : null}
-      accent={accent}
-      expanded={expanded}
-      onToggle={onToggle}
-    >
+    <div>
+      <PlanningPeriodHeader
+        label={String(year)}
+        summary={loaded && rows.length > 0 ? L(`${achievedCount} of ${rows.length} outcomes achieved`, `${rows.length}টির ${achievedCount}টি আউটকাম অর্জিত`) : null}
+        isCurrent={offset === 0}
+        resetLabel={L('This year', 'এই বছর')}
+        onStep={(dir) => setOffset((o) => o + dir)}
+        onReset={() => setOffset(0)}
+      />
       {!loaded ? (
         <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>Loading…</div>
       ) : loadError ? (
@@ -221,7 +231,7 @@ export default function PlanningYearlyLevel({
         </div>
       ) : (
         <>
-          <YearStrip deadlines={deadlines} accent={accent} onSelectDate={onSelectDate} />
+          <YearStrip year={year} deadlines={deadlines} accent={accent} onSelectDate={onSelectDate} />
           {rows.length === 0 ? (
             <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: `${SPACE.sm}px 0` }}>
               No Outcome set for this year yet — add one from the Goals panel.
@@ -233,6 +243,7 @@ export default function PlanningYearlyLevel({
                   key={row.outcome.id}
                   label={`YEAR OUTCOME · ${row.owner.label}`}
                   accent={accent}
+                  ownerColor={row.owner.color}
                   title={row.outcome.title}
                   progress={row.outcome.progress}
                   fixed={row.outcome.fixed}
@@ -312,6 +323,6 @@ export default function PlanningYearlyLevel({
           )}
         </>
       )}
-    </AccordionSection>
+    </div>
   );
 }
