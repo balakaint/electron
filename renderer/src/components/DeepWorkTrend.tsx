@@ -171,7 +171,7 @@ export default function DeepWorkTrend() {
           </div>
         </div>
         <div style={{ height: 16, marginBottom: 8 }} />
-        <div style={{ height: isMonth ? 120 : 108, borderRadius: RADIUS.control, background: 'var(--surface-2)', opacity: 0.5 }} />
+        <div style={{ height: isMonth ? 84 : 108, borderRadius: RADIUS.control, background: 'var(--surface-2)', opacity: 0.5 }} />
       </div>
     );
   }
@@ -223,16 +223,16 @@ export default function DeepWorkTrend() {
   // 20% shorter than the first cut (2026-09-24): the card sits above
   // Plan today on PLAN now, and at full height it pushed the checklist
   // below the fold.
-  const H = isMonth ? 120 : 108;
+  const H = isMonth ? 84 : 108;
   const fs = (real: number) => +(real * (W / Math.max(1, paintedW))).toFixed(2);
   // The gutter holds ONE character. The goal label sits INSIDE the plot,
   // above its own line, where no gutter can clip it.
   const x0 = Math.round(Math.max(16, fs(12) * 1.4));
   const x1 = W - 8;
-  const y0 = 20;
+  const y0 = isMonth ? 16 : 20;
   // The month view keeps a band under the axis for the day slots and
   // their sparse labels.
-  const y1 = isMonth ? H - 44 : H - 26;
+  const y1 = isMonth ? H - 34 : H - 26;
 
   // A calendar axis is BANDED, not linear: each day owns a slice of the
   // width and its point sits in the middle of that slice, so the line
@@ -374,20 +374,20 @@ export default function DeepWorkTrend() {
             side they answer "how is this month going" before the chart
             has to. The sentence below keeps the day count and the hover
             readout. */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: '4px 0' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, margin: 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{fmtHM(monthTotal)}</span>
+            <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>{fmtHM(monthTotal)}</span>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L('this month', 'এই মাসে')}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>
+            <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums' }}>
               {monthOnTarget}
               <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text-muted)' }}>/{todayIdx + 1}</span>
             </span>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L(`days on ${fmtHM(goal)} goal`, `দিন ${fmtHM(goal)} লক্ষ্য পূরণ`)}</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.2, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{streak}d</span>
+            <span style={{ fontSize: 16, fontWeight: 700, lineHeight: 1.2, color: 'var(--accent)', fontVariantNumeric: 'tabular-nums' }}>{streak}d</span>
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L('current streak', 'চলতি ধারা')}</span>
           </div>
         </div>
@@ -562,7 +562,7 @@ export default function DeepWorkTrend() {
                     <rect
                       key={days[i]}
                       x={flip(x0 + slotW * (i + 1)) + 0.75}
-                      y={y1 + 10}
+                      y={y1 + 6}
                       width={Math.max(1, slotW - 1.5)}
                       height={9}
                       fill={
@@ -588,7 +588,7 @@ export default function DeepWorkTrend() {
                   x1={todayX}
                   y1={y0}
                   x2={todayX}
-                  y2={y1 + 21}
+                  y2={y1 + 17}
                   stroke="var(--text)"
                   strokeWidth={1}
                   strokeDasharray="2,2"
