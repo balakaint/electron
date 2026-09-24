@@ -96,7 +96,7 @@ def test_logging_and_on_plan():
         setup(f, start_offset=-3)
         day = d(-1)
         blocks = f.engine.state(day)["day"]["workout"]["blocks"]
-        keys = [f"{bi}-{mi}" for bi, b in enumerate(blocks) for mi in range(len(b["moves"]))]
+        keys = [f"{bi}:{m[0]}" for bi, b in enumerate(blocks) for m in b["moves"]]
         for slot in (0, 1, 2):
             s = f.engine.set_meal(day, slot, True)
         check("meals round-trip", s["log"]["meals"] == [0, 1, 2])
@@ -108,7 +108,7 @@ def test_logging_and_on_plan():
         cell = [c for c in s["week"] + s["month"] if c["day"] == day][0]
         check("3 meals + all moves is on plan", cell["on_plan"] or cell["rest"], str(cell))
         try:
-            f.engine.set_move(day, "9-9", True)
+            f.engine.set_move(day, "9:Nope", True)
             check("unknown move refused", False)
         except ValueError:
             check("unknown move refused", True)
@@ -126,8 +126,8 @@ def test_streak():
             for slot in range(4):
                 f.engine.set_meal(day, slot, True)
             for bi, b in enumerate(st["day"]["workout"]["blocks"]):
-                for mi in range(len(b["moves"])):
-                    f.engine.set_move(day, f"{bi}-{mi}", True)
+                for m in b["moves"]:
+                    f.engine.set_move(day, f"{bi}:{m[0]}", True)
 
         complete(d(-2))
         complete(d(-1))
@@ -137,6 +137,87 @@ def test_streak():
               f'{s["month_on_plan"]}/{s["month_elapsed"]}')
         complete(d(0))
         check("finishing today extends the streak", f.engine.state()["streak"] == 3)
+
+
+def _weekday_day(offset_from_today_weekday):
+    """A date in the plan whose weekday is `offset_from_today_weekday`."""
+    return str(TODAY + timedelta(days=(offset_from_today_weekday - TODAY.weekday()) % 7))
+
+
+def test_meal_edit_scopes_and_reset():
+    with FreshDB() as f:
+        setup(f, start_offset=-7)
+        day = d(0)
+        same_wd = d(7)
+        other = d(1)
+        s = f.engine.set_meal_items(day, 1, [{"food": "Rice (cooked)", "qty": 1.5}, {"food": "Chicken curry", "qty": 1}], "day")
+        lunch = s["day"]["meals"][1]
+        check("day edit applies", [p["food"] for p in lunch["parts"]] == ["Rice (cooked)", "Chicken curry"], str(lunch["parts"]))
+        check("portion scales kcal", lunch["parts"][0]["kcal"] == 300)
+        check("edited marks the scope", lunch["edited"] == "day")
+        check("day edit stays on that day", f.engine.state(same_wd)["day"]["meals"][1]["edited"] is None)
+
+        f.engine.set_meal_items(day, 2, [{"food": "Banana", "qty": 1}], "weekday")
+        check("weekday edit reaches the same weekday next week",
+              f.engine.state(same_wd)["day"]["meals"][2]["parts"][0]["food"] == "Banana")
+        check("weekday edit skips other weekdays", f.engine.state(other)["day"]["meals"][2]["edited"] is None)
+
+        f.engine.set_meal_items(other, 0, [{"food": "Oats", "qty": 1}, {"food": "Milk", "qty": 1}], "all")
+        check("all-days edit reaches every day", f.engine.state(same_wd)["day"]["meals"][0]["edited"] == "all")
+        f.engine.set_meal_items(day, 0, [{"food": "Chira (flattened rice)", "qty": 1}], "day")
+        check("most specific edit wins", f.engine.state(day)["day"]["meals"][0]["edited"] == "day")
+
+        s = f.engine.reset(day, "day")
+        check("reset day drops the day edit only", s["day"]["meals"][1]["edited"] is None and s["day"]["meals"][2]["edited"] == "weekday")
+        s = f.engine.reset(day, "all")
+        check("reset all brings the default back", all(m["edited"] is None for m in s["day"]["meals"]))
+        for bad in ([], [{"food": "", "qty": 1}], [{"food": "Rice (cooked)", "qty": 0}]):
+            try:
+                f.engine.set_meal_items(day, 1, bad, "day")
+                check("bad meal refused", False, str(bad))
+            except ValueError:
+                pass
+
+
+def test_block_edit_and_ticks_follow_names():
+    with FreshDB() as f:
+        setup(f, start_offset=-7)
+        day = _weekday_day(0)  # Monday: strength A
+        s = f.engine.state(day)
+        main = s["day"]["workout"]["blocks"][1]
+        first = main["moves"][0][0]
+        f.engine.set_move(day, f"1:{first}", True)
+        moves = [{"name": m[0], "dose": m[1]} for m in main["moves"]][::-1] + [{"name": "Mountain climbers"}]
+        s = f.engine.set_block_moves(day, 1, moves, "day")
+        names = [m[0] for m in s["day"]["workout"]["blocks"][1]["moves"]]
+        check("block edit applies, library dose fills in", names[-1] == "Mountain climbers"
+              and s["day"]["workout"]["blocks"][1]["moves"][-1][1] == "3 × 30 s")
+        check("a tick follows its move after reordering", f"1:{first}" in s["log"]["moves"])
+        try:
+            f.engine.set_block_moves(day, 1, [{"name": "Plank"}, {"name": "Plank"}], "day")
+            check("duplicate move refused", False)
+        except ValueError:
+            check("duplicate move refused", True)
+
+
+def test_diet_dislikes_and_swaps():
+    with FreshDB() as f:
+        setup(f, start_offset=0)
+        day = _weekday_day(0)  # Monday lunch = Rui fish curry
+        s = f.engine.set_diet(["vegetarian", "bogus"])
+        check("unknown diet dropped", s["profile"]["diet"] == ["vegetarian"])
+        lunch = f.engine.state(day)["day"]["meals"][1]
+        check("vegetarian replaces fish in the default", "Rui fish curry" not in lunch["items"], lunch["items"])
+        sw = [x["name"] for x in f.engine.swaps("Egg curry")]
+        check("swaps respect the diet", all("fish" not in n.lower() and "chicken" not in n.lower() for n in sw), str(sw))
+        f.engine.set_dislike("Chickpea (chola) curry", True)
+        sw = [x["name"] for x in f.engine.swaps("Egg curry")]
+        check("disliked foods never suggested", "Chickpea (chola) curry" not in sw, str(sw))
+        lib = f.engine.library()
+        check("library flags disliked", any(x["disliked"] for x in lib["foods"] if x["name"] == "Chickpea (chola) curry"))
+        s = f.engine.set_profile(35, "male", 170, 78, "lose", "low", "home")
+        check("editing the profile keeps diet and dislikes",
+              s["profile"]["diet"] == ["vegetarian"] and s["profile"]["dislikes"] == ["Chickpea (chola) curry"])
 
 
 if __name__ == "__main__":

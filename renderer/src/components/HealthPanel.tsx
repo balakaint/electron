@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Minus, Plus, Settings2 } from 'lucide-react';
+import { ArrowLeft, Check, Minus, Pencil, Plus, Settings2 } from 'lucide-react';
 import {
   HealthActivity,
   HealthCell,
@@ -9,6 +9,7 @@ import {
   healthApi,
 } from '../services/api';
 import { useL, useLang } from '../i18n';
+import HealthEditor from './HealthEditor';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
 
@@ -321,7 +322,17 @@ function Tick({ done, onClick, color, round, label: aria }: { done: boolean; onC
   );
 }
 
-function Plan({ state, setState, onEditProfile }: { state: HealthState; setState: (s: HealthState) => void; onEditProfile: () => void }) {
+function Plan({
+  state,
+  setState,
+  onEditProfile,
+  onEditDay,
+}: {
+  state: HealthState;
+  setState: (s: HealthState) => void;
+  onEditProfile: () => void;
+  onEditDay: () => void;
+}) {
   const L = useL();
   const [range, setRange] = useState(1);
   const WD = useLang() === 'bn' ? WEEKDAYS_BN : WEEKDAYS_EN;
@@ -537,6 +548,10 @@ function Plan({ state, setState, onEditProfile }: { state: HealthState; setState
             {day.workout.name}
             {day.workout.minutes ? ` · ${day.workout.minutes} min` : ''}
           </span>
+          <span style={{ flex: 1 }} />
+          <button onClick={onEditDay} style={ghostBtn}>
+            <Pencil size={12} /> {L('Edit this day', 'এই দিন বদলান')}
+          </button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SPACE.md }}>
           {[
@@ -627,6 +642,11 @@ function Plan({ state, setState, onEditProfile }: { state: HealthState; setState
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: SPACE.sm }}>
                   <span style={{ ...label, letterSpacing: TRACKING.label, color: 'var(--warning)' }}>{m.name.toUpperCase()}</span>
                   <span style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-muted)' }}>{m.time}</span>
+                  {m.edited && (
+                    <span title={L('Edited — Reset in the editor brings the default back', 'বদলানো — এডিটরে রিসেট করলে আগেরটা ফিরবে')} style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-muted)' }}>
+                      ✎
+                    </span>
+                  )}
                   {next && (
                     <span
                       style={{
@@ -747,6 +767,7 @@ export default function HealthPanel({ onBack }: { onBack: () => void }) {
   const L = useL();
   const [state, setStateRaw] = useState<HealthState | null>(null);
   const [editing, setEditing] = useState(false);
+  const [editingDay, setEditingDay] = useState(false);
   // Every change here also tells the Discipline tab's Health card (which
   // stays mounted underneath) to re-read, so it never shows stale ticks.
   const setState = (s: HealthState) => {
@@ -785,7 +806,11 @@ export default function HealthPanel({ onBack }: { onBack: () => void }) {
               onCancel={state.profile ? () => setEditing(false) : undefined}
             />
           ) : (
-            <Plan state={state} setState={setState} onEditProfile={() => setEditing(true)} />
+            editingDay && state.day ? (
+              <HealthEditor state={state as Required<HealthState>} setState={setState} onDone={() => setEditingDay(false)} />
+            ) : (
+              <Plan state={state} setState={setState} onEditProfile={() => setEditing(true)} onEditDay={() => setEditingDay(true)} />
+            )
           ))}
       </div>
     </div>

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from database.models import (
     HealthDayLog,
+    HealthOverride,
     HealthProfile,
     AppState,
     BdpAction,
@@ -1172,3 +1173,27 @@ class HealthRepository:
     def logs_for(self, days: list[str]) -> dict[str, HealthDayLog]:
         rows = self.db.scalars(select(HealthDayLog).where(HealthDayLog.day.in_(days)))
         return {r.day: r for r in rows}
+
+    def overrides(self) -> list[HealthOverride]:
+        return list(self.db.scalars(select(HealthOverride)))
+
+    def set_override(self, kind: str, scope: str, idx: int, data: list) -> None:
+        row = self.db.scalars(
+            select(HealthOverride).where(
+                HealthOverride.kind == kind, HealthOverride.scope == scope, HealthOverride.idx == idx
+            )
+        ).first()
+        if row is None:
+            self.db.add(HealthOverride(kind=kind, scope=scope, idx=idx, data=data))
+        else:
+            row.data = list(data)
+        self.db.commit()
+
+    def delete_overrides(self, scopes: list[str] | None) -> None:
+        """Delete overrides in `scopes`, or every override when None."""
+        stmt = select(HealthOverride)
+        if scopes is not None:
+            stmt = stmt.where(HealthOverride.scope.in_(scopes))
+        for row in self.db.scalars(stmt):
+            self.db.delete(row)
+        self.db.commit()
