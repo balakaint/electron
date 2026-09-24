@@ -140,7 +140,7 @@ export default function ClockCard() {
             size={97}
             stroke={6}
           >
-            <svg width="89" height="89" viewBox="0 0 100 100">
+            <svg width="91" height="91" viewBox="0 0 100 100">
               <circle cx="50" cy="50" r="44" fill="var(--bg)" stroke="var(--border)" strokeWidth={1.5} />
               {Array.from({ length: 12 }).map((_, i) => {
                 const angle = rad(i * 30);
