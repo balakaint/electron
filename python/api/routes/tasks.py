@@ -20,7 +20,7 @@ from api.schemas import (
 )
 from database.connection import get_db
 from database.repository import ProjectRepository, TaskRepository
-from engine.tasks import STRIKE_MAX, StrikeLimitReached, TaskEngine, get_tomorrow_three, set_tomorrow_three, three_week
+from engine.tasks import STRIKE_MAX, StrikeLimitReached, TaskEngine, get_tomorrow_three, picked_last_night, set_tomorrow_three, three_week
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -53,6 +53,12 @@ def write_tomorrow_three(payload: TomorrowThreeSet, engine: TaskEngine = Depends
         raise HTTPException(409, f"At most {STRIKE_MAX} tasks")
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+@router.get("/picked-last-night")
+def read_picked_last_night(engine: TaskEngine = Depends(get_engine)) -> list[int]:
+    """Ids of today's three that came from last night's pick."""
+    return picked_last_night(engine.repo)
 
 
 @router.get("/three-week")

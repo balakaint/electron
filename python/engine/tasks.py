@@ -108,15 +108,18 @@ def reset_strike_if_new_day(repo: TaskRepository) -> None:
     # done; never more than STRIKE_MAX.
     picks = state.tomorrow_three or {}
     if picks.get("day") == today:
-        applied = 0
+        applied: list[int] = []
         for tid in picks.get("ids", []):
             task = repo.get(tid)
-            if task is None or task.list_key != "focus" or task.done or applied >= STRIKE_MAX:
+            if task is None or task.list_key != "focus" or task.done or len(applied) >= STRIKE_MAX:
                 continue
             task.strike = True
             repo.save(task)
-            applied += 1
-        state.tomorrow_three = {}
+            applied.append(tid)
+        # Remember which of today's three were picked last night, so
+        # EXECUTE can say so. Carries no "day" key, so it is never read
+        # as a pending pick.
+        state.tomorrow_three = {"applied": {"day": today, "ids": applied}}
     elif picks.get("day") and picks["day"] < today:
         # Picked for a day that has already passed (the app was closed
         # through it): drop, rather than apply stale picks.
@@ -153,6 +156,11 @@ def set_tomorrow_three(repo: TaskRepository, ids: list[int]) -> list[Task]:
     state.tomorrow_three = {"day": tomorrow_str(), "ids": ids} if ids else {}
     repo.save_app_state(state)
     return get_tomorrow_three(repo)
+
+
+def picked_last_night(repo: TaskRepository) -> list[int]:
+    applied = (repo.get_app_state().tomorrow_three or {}).get("applied") or {}
+    return list(applied.get("ids", [])) if applied.get("day") == str(date.today()) else []
 
 
 def three_week(repo: TaskRepository) -> list[dict]:

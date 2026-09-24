@@ -128,6 +128,7 @@ export const tasksApi = {
     req('POST', `/api/tasks/${id}/toggle-strike`, projectKey ? { project_key: projectKey } : undefined) as Promise<Task>,
   restore: (task: Task) => req('POST', '/api/tasks/restore', task) as Promise<Task>,
   listStrike: () => req('GET', '/api/tasks/strike') as Promise<Task[]>,
+  pickedLastNight: () => req('GET', '/api/tasks/picked-last-night') as Promise<number[]>,
   getTomorrowThree: () => req('GET', '/api/tasks/tomorrow-three') as Promise<Task[]>,
   setTomorrowThree: (ids: number[]) => req('PUT', '/api/tasks/tomorrow-three', { ids }) as Promise<Task[]>,
   threeWeek: () =>

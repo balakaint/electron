@@ -94,7 +94,9 @@ def test_rollover_applies_picks_and_records_history():
         check("picks become today's three", struck == {b.id, c.id}, str(struck))
         state = f.repo.get_app_state()
         check("yesterday recorded as [done, total]", state.three_history.get(YESTERDAY) == [1, 2], str(state.three_history))
-        check("picks cleared once applied", state.tomorrow_three == {})
+        check("pending picks cleared once applied", "day" not in state.tomorrow_three)
+        from engine.tasks import picked_last_night
+        check("applied picks remembered for today", sorted(picked_last_night(f.repo)) == sorted([b.id, c.id]))
 
 
 def test_stale_picks_dropped():

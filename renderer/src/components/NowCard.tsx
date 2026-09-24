@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useL } from '../i18n';
 import { Check } from 'lucide-react';
-import { HourSlot, Project, STRIKE_MAX, Task, hoursApi, nowApi, projectsApi, tasksApi } from '../services/api';
+import { HourSlot, Project, STRIKE_MAX, Settings, Task, hoursApi, nowApi, projectsApi, settingsApi, tasksApi } from '../services/api';
+import { currentPhaseInfo } from './DayPhaseBars';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 
 function todayIso(d = new Date()): string {
@@ -44,9 +45,33 @@ export default function NowCard({
   // What you wrote in the hour you are in, if anything.
   const [thisHour, setThisHour] = useState<HourSlot | null>(null);
   const [hour, setHour] = useState(new Date().getHours());
+  const [settings, setSettings] = useState<Settings | null>(null);
+  // The next thing in today's hour plan after this hour, and the first
+  // open task of today's three — the two answers to "what after this /
+  // what do I start" the card can give without leaving it.
+  const [nextSlot, setNextSlot] = useState<HourSlot | null>(null);
+  const [firstOpen, setFirstOpen] = useState<Task | null>(null);
+  useEffect(() => {
+    settingsApi.get().then(setSettings).catch(() => setSettings(null));
+  }, []);
 
-  const refresh = () =>
-    nowApi.get().then((t) => {
+  const refresh = () => {
+    hoursApi
+      .get(todayIso())
+      .then((plan) => {
+        const h = new Date().getHours();
+        const later = plan.blocks
+          .flatMap((b) => b.hours)
+          .filter((x) => x.hour > h && x.text.trim() && !x.done)
+          .sort((a, b) => a.hour - b.hour);
+        setNextSlot(later[0] ?? null);
+      })
+      .catch(() => setNextSlot(null));
+    tasksApi
+      .listStrike()
+      .then((l) => setFirstOpen([...l].sort((a, b) => Number(b.mit) - Number(a.mit)).find((t) => !t.done) ?? null))
+      .catch(() => setFirstOpen(null));
+    return nowApi.get().then((t) => {
       setTask(t);
       // A task can reach NOW without being one of today's three — press
       // play on an hour and it lands here (commit f9958f5). Correct, and
@@ -77,6 +102,7 @@ export default function NowCard({
         });
       }
     });
+  };
 
   useEffect(() => {
     refresh();
@@ -121,6 +147,11 @@ export default function NowCard({
     refresh();
   }, [hour]);
 
+  const phase = settings ? currentPhaseInfo(settings, new Date()) : null;
+  const phaseColor = phase?.color ?? 'var(--accent)';
+  const fmtHour = (h: number) => `${h % 12 || 12}${h < 12 ? ' AM' : ' PM'}`;
+  const nextLine = nextSlot ? L(`Next: ${nextSlot.text} · ${fmtHour(nextSlot.hour)}`, `পরে: ${nextSlot.text} · ${fmtHour(nextSlot.hour)}`) : null;
+
   const toggleRun = () => nowApi.toggleRun().then(() => { refresh(); onChanged(); });
   const complete = () => nowApi.complete().then(() => { refresh(); onChanged(); });
   const startHour = (h: number) =>
@@ -134,8 +165,8 @@ export default function NowCard({
     <div
       className="card-elevated"
       style={{
-        border: '1px solid var(--border)',
-        borderLeft: '4px solid var(--accent)',
+        border: `${task ? 2 : 1}px solid ${task ? phaseColor : 'var(--border)'}`,
+        borderLeft: `4px solid ${phaseColor}`,
         borderRadius: RADIUS.card,
         padding: SPACE.md,
         marginBottom: SPACE.lg,
@@ -147,11 +178,14 @@ export default function NowCard({
         // a chart. A faint accent wash gives it a distinct ground
         // without introducing a new color (visual redesign pass,
         // 2026-09-20 — architecture/state untouched).
-        background: task ? `color-mix(in srgb, var(--accent) 5%, var(--surface))` : 'var(--surface)',
+        background: task ? `color-mix(in srgb, ${phaseColor} 5%, var(--surface))` : 'var(--surface)',
       }}
     >
       {task && (
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', letterSpacing: 1 }}>{L('NOW', 'এখন')}</div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: SPACE.sm }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: phaseColor, letterSpacing: 1 }}>{L('NOW', 'এখন')}</span>
+          {phase && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{phase.label}</span>}
+        </div>
       )}
       {task ? (
         <>
@@ -228,6 +262,11 @@ export default function NowCard({
               />
             </div>
           )}
+          {nextLine && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: SPACE.sm, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {nextLine}
+            </div>
+          )}
         </>
       ) : (
         // The empty card used to be 61px of instruction with nothing to
@@ -273,12 +312,21 @@ export default function NowCard({
                 whiteSpace: 'nowrap',
               }}
             >
-              {thisHour ? thisHour.text : L("Choose today's three to start", 'শুরু করতে আজকের তিনটি বাছুন')}
+              {thisHour ? thisHour.text : firstOpen ? firstOpen.text : L("Choose today's three to start", 'শুরু করতে আজকের তিনটি বাছুন')}
             </span>
             {thisHour ? (
               <button
                 onClick={() => startHour(thisHour.hour)}
                 title="Start what you planned for this hour"
+                className="btn-primary"
+                style={{ height: 32, padding: `0 ${SPACE.md}px`, flex: 'none' }}
+              >
+                ▶ {L('START', 'শুরু')}
+              </button>
+            ) : firstOpen ? (
+              <button
+                onClick={() => tasksApi.toggleTimer(firstOpen.id).then(() => { refresh(); onChanged(); })}
+                title="Start the first open task of today's three"
                 className="btn-primary"
                 style={{ height: 32, padding: `0 ${SPACE.md}px`, flex: 'none' }}
               >

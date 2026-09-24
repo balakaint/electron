@@ -264,7 +264,17 @@ function FocusTabs({
           >
             {L(en, bn)}
             {counts[key] && (
-              <span style={{ marginLeft: SPACE.xs, fontWeight: 400, color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}>
+              <span
+                style={{
+                  marginLeft: SPACE.xs,
+                  padding: `0 ${SPACE.xs}px`,
+                  borderRadius: RADIUS.pill,
+                  fontWeight: 700,
+                  background: on ? 'var(--accent-light)' : 'var(--surface-2)',
+                  color: on ? 'var(--accent)' : 'var(--text-muted)',
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
                 {counts[key]}
               </span>
             )}
