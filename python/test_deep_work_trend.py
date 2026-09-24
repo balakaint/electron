@@ -50,6 +50,13 @@ class FreshDB:
         self.task_repo = TaskRepository(self.db)
         self.projects = ProjectEngine(self.project_repo)
         self.tasks = TaskEngine(self.task_repo, self.project_repo)
+        # A fresh install seeds all six slots with example names
+        # (f927859). These tests are about what counts once a project IS
+        # named, so start every slot unnamed and let each test name the
+        # ones it needs.
+        for project in self.project_repo.list():
+            project.name = ""
+            self.project_repo.save(project)
         return self
 
     def __exit__(self, *exc):
