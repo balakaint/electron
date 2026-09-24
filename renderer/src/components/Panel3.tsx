@@ -636,13 +636,13 @@ export default function Panel3({
                 more work". Two bold clocks made both read as less
                 trustworthy. */}
             <ClockCard onOpenQuarterly={onOpenQuarterly} />
+            <DeepWorkTrend />
             <PlanTodayCard
               onGoExecute={(t) => {
                 selectTab(t);
                 onSelectView('focus');
               }}
             />
-            <DeepWorkTrend />
             <PlanReview
               onOpenMorningRitual={onOpenMorningRitual}
               onOpenNightClosure={onOpenNightClosure}
