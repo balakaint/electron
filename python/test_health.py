@@ -220,6 +220,84 @@ def test_diet_dislikes_and_swaps():
               s["profile"]["diet"] == ["vegetarian"] and s["profile"]["dislikes"] == ["Chickpea (chola) curry"])
 
 
+def test_progress_counts_past_days():
+    with FreshDB() as f:
+        setup(f, start_offset=-7)
+        # Yesterday: all four meals and the workout -> on plan.
+        y = d(-1)
+        for slot in range(4):
+            f.engine.set_meal(y, slot, True)
+        blocks = f.engine.state(y)["day"]["workout"]["blocks"]
+        for bi, b in enumerate(blocks):
+            for m in b["moves"]:
+                f.engine.set_move(y, f"{bi}:{m[0]}", True)
+        f.engine.set_meal(d(-2), 0, True)
+        pr = f.engine.progress()
+        check("elapsed = days before today", pr["elapsed"] == 7, str(pr["elapsed"]))
+        check("one day on plan", pr["on_plan"] == 1, str(pr["on_plan"]))
+        check("today never counted", all(w["days"] <= 7 for w in pr["weeks"]) and pr["plan_day"] == 8)
+        check("workouts planned excludes rest", pr["workouts_planned"] == 6, str(pr["workouts_planned"]))
+        check("avg kcal only over days with meals", pr["avg_kcal"] is not None and pr["avg_kcal"] > 0)
+        check("week 1 meals pct", pr["weeks"][0]["meals_pct"] == round(100 * 5 / 28), str(pr["weeks"]))
+
+
+def test_progress_slip_weekday():
+    with FreshDB() as f:
+        setup(f, start_offset=-21)
+        pr = f.engine.progress()
+        check("a slipping weekday is named when workouts are missed", pr["slip"] is not None and pr["slip"]["missed"] >= 2,
+              str(pr["slip"]))
+
+
+def test_measures_and_goal():
+    with FreshDB() as f:
+        setup(f)
+        f.engine.log_measure(d(-7), weight_kg=78)
+        pr = f.engine.log_measure(d(0), weight_kg=77.14, waist_cm=88)
+        check("weights kept in order", [w["weight_kg"] for w in pr["weights"]] == [78, 77.1], str(pr["weights"]))
+        check("weight change", pr["weight_change"] == -0.9, str(pr["weight_change"]))
+        check("latest waist", pr["waist_cm"] == 88)
+        pr = f.engine.log_measure(d(0), waist_cm=0)
+        check("0 clears a field, weight stays", pr["waist_cm"] is None and len(pr["weights"]) == 2)
+        pr = f.engine.set_goal_weight(75)
+        check("goal weight saved", pr["goal_weight_kg"] == 75)
+        f.engine.set_profile(35, "male", 170, 77, "lose", "low", "home")
+        check("profile edit keeps goal weight", f.engine.progress()["goal_weight_kg"] == 75)
+        try:
+            f.engine.log_measure(d(0), weight_kg=5)
+            check("out-of-range weight rejected", False)
+        except ValueError:
+            check("out-of-range weight rejected", True)
+
+
+def test_shopping_list():
+    with FreshDB() as f:
+        setup(f)
+        sh = f.engine.shopping()
+        names = {it["name"]: it for g in sh["groups"] for it in g["items"]}
+        check("week starts Monday", date.fromisoformat(sh["week"]).weekday() == 0)
+        check("eggs come from breakfasts", "Eggs" in names and int(names["Eggs"]["qty"]) >= 14, str(names.get("Eggs")))
+        check("atta = 4 ruti x 30 g x 7, rounded up to 50 g", names["Atta"]["qty"] == "850 g", names["Atta"]["qty"])
+        check("nothing bought yet", sh["bought"] == 0 and sh["total"] == len(names))
+        sh = f.engine.set_bought(sh["week"], "Eggs", True)
+        check("tick sticks", sh["bought"] == 1)
+        # Editing a meal changes the list.
+        f.engine.set_diet(["vegetarian"])
+        names = {it["name"] for g in f.engine.shopping()["groups"] for it in g["items"]}
+        check("vegetarian list has no fish or chicken", not any("fish" in n.lower() or n == "Chicken" for n in names), str(names))
+        sh = f.engine.add_shop_item(sh["week"], "Soap", "2")
+        check("custom item added", any(g["group"] == "added" for g in sh["groups"]))
+        try:
+            f.engine.add_shop_item(sh["week"], "Eggs")
+            check("duplicate item rejected", False)
+        except ValueError:
+            check("duplicate item rejected", True)
+        sh = f.engine.remove_shop_item(sh["week"], "Soap")
+        check("custom item removed", not any(g["group"] == "added" for g in sh["groups"]))
+        nxt = f.engine.shopping(str(date.fromisoformat(sh["week"]) + timedelta(days=7)))
+        check("next week has its own ticks", nxt["bought"] == 0)
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

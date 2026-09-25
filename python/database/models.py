@@ -1332,6 +1332,8 @@ class HealthProfile(Base):
     # like" — both steer the edit screen's suggestions and library.
     diet: Mapped[list] = mapped_column(JSON, default=list)
     dislikes: Mapped[list] = mapped_column(JSON, default=list)
+    # Optional target weight, drawn as a line on the Progress graph.
+    goal_weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
 class HealthDayLog(Base):
@@ -1345,6 +1347,34 @@ class HealthDayLog(Base):
     meals: Mapped[list] = mapped_column(JSON, default=list)
     moves: Mapped[list] = mapped_column(JSON, default=list)
     water: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class HealthMeasure(Base):
+    """One optional body check-in for the Progress page: weight and, if
+    the user wants, waist and hip. Keyed by date; any field may be empty
+    (logging only the waist leaves the weight alone)."""
+
+    __tablename__ = "health_measure"
+
+    day: Mapped[str] = mapped_column(String, primary_key=True)
+    weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    waist_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    hip_cm: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class HealthShopItem(Base):
+    """The shopping list's user state for one week (Monday date). The list
+    itself is built from the week's meals on every read; a row here only
+    records a tick on a generated item (custom=False, keyed by its name)
+    or an item the user added themselves (custom=True, with its qty)."""
+
+    __tablename__ = "health_shop_item"
+
+    week: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, primary_key=True)
+    custom: Mapped[bool] = mapped_column(Boolean, default=False)
+    qty: Mapped[str] = mapped_column(String, default="")
+    bought: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class HealthOverride(Base):

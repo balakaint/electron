@@ -1316,6 +1316,54 @@ export interface HealthState {
   month_elapsed?: number;
   streak?: number;
 }
+export interface HealthWeekPct {
+  week: number;
+  days: number;
+  meals_pct: number;
+  workouts_pct: number | null;
+}
+export interface HealthMeasure {
+  day: string;
+  weight_kg: number | null;
+  waist_cm: number | null;
+  hip_cm: number | null;
+}
+export interface HealthProgress {
+  today: string;
+  start_date: string;
+  end_date: string;
+  plan_day: number;
+  plan_days: number;
+  elapsed: number;
+  on_plan: number;
+  workouts_planned: number;
+  workouts_done: number;
+  avg_kcal: number | null;
+  kcal_target: number;
+  meals_pct: number | null;
+  weeks: HealthWeekPct[];
+  slip: { weekday: number; missed: number; of: number } | null;
+  weights: HealthMeasure[];
+  weight_change: number | null;
+  goal_weight_kg: number | null;
+  profile_weight_kg: number;
+  waist_cm: number | null;
+  hip_cm: number | null;
+}
+export interface HealthShopItem {
+  name: string;
+  qty: string;
+  custom: boolean;
+  bought: boolean;
+}
+export interface HealthShopping {
+  week: string;
+  end: string;
+  plan_week: number;
+  groups: { group: string; items: HealthShopItem[] }[];
+  bought: number;
+  total: number;
+}
 export type HealthProfileInput = Omit<HealthProfile, 'start_date' | 'weeks'> & { start_date?: string };
 
 export const healthApi = {
@@ -1335,4 +1383,15 @@ export const healthApi = {
   library: () => req('GET', '/api/health/library') as Promise<{ foods: HealthFood[]; exercises: HealthExercise[] }>,
   swaps: (food: string) =>
     req('GET', `/api/health/swaps?food=${encodeURIComponent(food)}`) as Promise<{ name: string; portion: string; kcal: number; protein_g: number }[]>,
+  progress: () => req('GET', '/api/health/progress') as Promise<HealthProgress>,
+  logMeasure: (m: { day?: string; weight_kg?: number; waist_cm?: number; hip_cm?: number }) =>
+    req('POST', '/api/health/measure', m) as Promise<HealthProgress>,
+  setGoalWeight: (kg: number | null) => req('PUT', '/api/health/goal-weight', { kg }) as Promise<HealthProgress>,
+  shopping: (day?: string) => req('GET', `/api/health/shopping${day ? `?day=${day}` : ''}`) as Promise<HealthShopping>,
+  setBought: (week: string, name: string, bought: boolean) =>
+    req('POST', '/api/health/shopping/bought', { week, name, bought }) as Promise<HealthShopping>,
+  addShopItem: (week: string, name: string, qty: string) =>
+    req('POST', '/api/health/shopping/add', { week, name, qty }) as Promise<HealthShopping>,
+  removeShopItem: (week: string, name: string) =>
+    req('POST', '/api/health/shopping/remove', { week, name }) as Promise<HealthShopping>,
 };
