@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BarChart3, Check, Flag, LayoutGrid, Pause, Play, Square, X } from 'lucide-react';
 import {
   ActivityEntry,
@@ -880,6 +880,16 @@ export default function ProjectDashboard({
 
   useAutoTimer(openProject, order, refresh);
 
+  // Opening a project brings the column back to the top, where it now is.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const openKey = order.find((e) => !e.project.collapsed)?.project.key ?? null;
+  useEffect(() => {
+    if (!openKey) return;
+    let el: HTMLElement | null = rootRef.current?.parentElement ?? null;
+    while (el && el.scrollHeight <= el.clientHeight) el = el.parentElement;
+    el?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [openKey]);
+
   const L = useL();
   const running = order.find((e) => e.project.running_since !== null);
   const named = order.filter((e) => e.project.name.trim());
@@ -887,8 +897,14 @@ export default function ProjectDashboard({
   const totalTarget = named.reduce((n, e) => n + e.project.target_minutes, 0);
   const totalPct = totalTarget ? Math.min(100, Math.round((totalSecs / (totalTarget * 60)) * 100)) : 0;
 
+  // The project you are working on moves to the top and the others
+  // drop below it — on screen only: their numbers and saved order stay
+  // as they are, so collapsing it puts everything back where it was.
+  const openEntries = order.filter((e) => !e.project.collapsed);
+  const restEntries = order.filter((e) => e.project.collapsed);
+
   return (
-    <div>
+    <div ref={rootRef}>
       {order.length > 0 && (
         // Today across every named project — the first thing the column
         // answers, before any one project.
@@ -937,17 +953,25 @@ export default function ProjectDashboard({
           </button>
         </div>
       )}
-      {order.map((entry) => (
-        <ProjectCard
-          key={entry.project.key}
-          entry={entry}
-          focusTasks={focusTasks}
-          onChanged={refresh}
-          onOpenAnalysis={onOpenAnalysis}
-          onOpenJourney={onOpenJourney}
-          onOpenBoard={onOpenBoard}
-          onSelectGoals={onSelectGoals}
-        />
+      {[...openEntries, ...restEntries].map((entry, i) => (
+        <div key={entry.project.key}>
+          {/* The open project sits on top on its own; the rest follow
+              under a quiet heading, so they read as "elsewhere". */}
+          {openEntries.length > 0 && i === openEntries.length && (
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)', margin: `${SPACE.lg}px 0 ${SPACE.sm}px` }}>
+              {L('OTHER PROJECTS', 'অন্য প্রজেক্ট')}
+            </div>
+          )}
+          <ProjectCard
+            entry={entry}
+            focusTasks={focusTasks}
+            onChanged={refresh}
+            onOpenAnalysis={onOpenAnalysis}
+            onOpenJourney={onOpenJourney}
+            onOpenBoard={onOpenBoard}
+            onSelectGoals={onSelectGoals}
+          />
+        </div>
       ))}
     </div>
   );
