@@ -90,20 +90,19 @@ function MindsetTab() {
           the clock above, because RECENT below holds other days and you
           need to know which one you are adding to. Same short form the
           rest of the app uses. */}
-      {/* Zahid's own wording (2026-09-25): a name, the question, and a
-          one-line push. The question moved back up out of the placeholder
-          so it stays on screen while writing. */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-        <span style={{ flex: 1, fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{L('Mindset', 'মাইন্ডসেট')}</span>
+      {/* One title over the box, in Zahid's own words (2026-09-25). The
+          date says which day this box writes into — RECENT below holds
+          other days. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+        <span style={{ flex: 1, fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+          {L(
+            'Think clearly, choose one action that makes today 10× better',
+            'পরিষ্কার ভাবুন, এমন একটা কাজ বেছে নিন যা আজকের দিনটা ১০ গুণ ভালো করবে'
+          )}
+        </span>
         <span style={{ fontSize: 12, color: 'var(--text-faint)', flex: 'none' }}>
           {new Date().toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short' })}
         </span>
-      </div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginTop: 4 }}>
-        {L('How can I make today 10× better?', 'কীভাবে আজকের দিনটা ১০ গুণ ভালো করতে পারি?')}
-      </div>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 8px' }}>
-        {L('Think clearly. Choose one action. Make today count.', 'পরিষ্কার ভাবুন। একটা কাজ বেছে নিন। আজকের দিনটা কাজে লাগান।')}
       </div>
       <textarea
         id="plan-mindset"
