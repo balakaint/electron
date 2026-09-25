@@ -17,22 +17,24 @@ import MorningRitualTrend from './MorningRitualTrend';
 // into Panel 2 (App.tsx's Goals column) — that column is already wider
 // than a fixed-width overlay's chrome left room for, and Panel 1/3
 // stay visible on either side instead of the app disappearing. App.tsx
-// now owns whether this panel is mounted at all; onBack is this
-// panel's own way to ask it to unmount (back to GoalsPanel), replacing
-// the old full-window "← Back" bar this panel relied on entirely.
+// now owns whether this panel is mounted at all — it is panel 2's
+// Morning tab since panel 2 got tabs, so there is no Back to Goals here;
+// the only back left is from the trend to the ritual itself.
 //
 // initialView is always the concrete screen the caller wants; there is
 // no neutral landing state to fall back to.
 type View = 'flow' | 'trend';
 
-export default function MorningRitualPanel({ initialView, onBack }: { initialView: View; onBack: () => void }) {
+export default function MorningRitualPanel({ initialView }: { initialView: View }) {
   const [view, setView] = useState<View>(initialView);
 
   return (
     <div>
-      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, marginBottom: 12 }}>
-        <ArrowLeft size={14} /> Back to Goals
-      </button>
+      {view === 'trend' && (
+        <button onClick={() => setView('flow')} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, marginBottom: 12 }}>
+          <ArrowLeft size={14} /> Back to today's ritual
+        </button>
+      )}
       {view === 'flow' ? (
         <MorningRitualFlow onViewTrend={() => setView('trend')} />
       ) : (
