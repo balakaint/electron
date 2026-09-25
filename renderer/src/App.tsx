@@ -346,9 +346,21 @@ function AppShell() {
     setNightClosureOpen(false);
     setHealthOpen(true);
   };
+  // Morning Ritual's flow, same docking — reached from PLAN's "Plan
+  // today" card ('open-morning-ritual').
+  const openMorningRitualFlow = () => {
+    if (layout !== 'partial') setLayout('partial');
+    setNightClosureOpen(false);
+    setHealthOpen(false);
+    setMorningRitualView('flow');
+  };
   useEffect(() => {
     window.addEventListener('open-health', openHealth);
-    return () => window.removeEventListener('open-health', openHealth);
+    window.addEventListener('open-morning-ritual', openMorningRitualFlow);
+    return () => {
+      window.removeEventListener('open-health', openHealth);
+      window.removeEventListener('open-morning-ritual', openMorningRitualFlow);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [layout]);
 

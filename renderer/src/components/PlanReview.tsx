@@ -3,7 +3,6 @@ import {
   MindsetEntry,
   Project,
   ProjectOrderEntry,
-  designTodayApi,
   mindsetApi,
   projectsApi,
 } from '../services/api';
@@ -61,6 +60,7 @@ function todayIso(): string {
 const TODAY = todayIso();
 
 function MindsetTab() {
+  const L = useL();
   const [saved, setSaved] = useState('');
   const [history, setHistory] = useState<MindsetEntry[]>([]);
   const note = useAutosave(saved, (v: string) => mindsetApi.setMindset(TODAY, v));
@@ -90,11 +90,20 @@ function MindsetTab() {
           the clock above, because RECENT below holds other days and you
           need to know which one you are adding to. Same short form the
           rest of the app uses. */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-        <span style={{ flex: 1, fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)' }}>TODAY'S MINDSET</span>
+      {/* Zahid's own wording (2026-09-25): a name, the question, and a
+          one-line push. The question moved back up out of the placeholder
+          so it stays on screen while writing. */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span style={{ flex: 1, fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{L('Mindset', 'মাইন্ডসেট')}</span>
         <span style={{ fontSize: 12, color: 'var(--text-faint)', flex: 'none' }}>
           {new Date().toLocaleDateString(undefined, { weekday: 'short', day: '2-digit', month: 'short' })}
         </span>
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginTop: 4 }}>
+        {L('How can I make today 10× better?', 'কীভাবে আজকের দিনটা ১০ গুণ ভালো করতে পারি?')}
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 8px' }}>
+        {L('Think clearly. Choose one action. Make today count.', 'পরিষ্কার ভাবুন। একটা কাজ বেছে নিন। আজকের দিনটা কাজে লাগান।')}
       </div>
       <textarea
         id="plan-mindset"
@@ -102,7 +111,7 @@ function MindsetTab() {
         onChange={(e) => note.setValue(e.target.value)}
         onBlur={note.flush}
         rows={6}
-        placeholder="How will you make today 10× better?"
+        placeholder={L('Write it here…', 'এখানে লিখুন…')}
         style={{
           width: '100%',
           fontSize: 13,
@@ -133,44 +142,10 @@ function MindsetTab() {
   );
 }
 
-// A morning brain-dump box (Zahid, 2026-09-18): at 5am the mind is
-// still empty and the day's plan hasn't been written down yet — this is
-// where that goes, before anything else on the Discipline tab. Styled
-// to match MindsetTab's own textarea exactly, plain rather than boxed —
-// Zahid's own call after seeing the accent-tinted card version: "today
-// mindset er text box design ta simple lagte se" (Today's Mindset
-// textbox looks simpler). Saves per day, no history — Zahid was
-// explicit this box doesn't need one, unlike Mindset.
-function DesignTodayBox() {
-  const [saved, setSaved] = useState('');
-  const note = useAutosave(saved, (v: string) => designTodayApi.setDesignToday(TODAY, v));
-
-  useEffect(() => {
-    designTodayApi.getDesignToday(TODAY).then((r) => setSaved(r.text));
-  }, []);
-
-  return (
-    <div style={{ marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
-      <div style={{ fontSize: 12, letterSpacing: 0.5, color: 'var(--text-faint)', marginBottom: 4 }}>DESIGN TODAY</div>
-      <textarea
-        id="plan-design-today"
-        value={note.value}
-        onChange={(e) => note.setValue(e.target.value)}
-        onBlur={note.flush}
-        rows={6}
-        placeholder="Reset your mind — what's the plan for today?"
-        style={{
-          width: '100%',
-          fontSize: 13,
-          padding: 8,
-          resize: 'vertical',
-          boxSizing: 'border-box',
-          ...savedFlashStyle(note.state),
-        }}
-      />
-    </div>
-  );
-}
+// The Discipline tab's DESIGN TODAY box (a morning brain-dump, added
+// 2026-09-18) was removed 2026-09-25 at Zahid's request: the Mindset box
+// is enough on its own. Its backend (daily_intentions.design_today and
+// /api/design-today) is left in place so nothing already written is lost.
 
 // Replaced the old flat Money/Health/Relation/Mindset checklist (Zahid's
 // own call, 2026-09-14): "emon task list mainly regular chek kora hoy
@@ -189,7 +164,6 @@ function DisciplineTab({
 }) {
   return (
     <div>
-      <DesignTodayBox />
       <DisciplineModuleCards
         onStart={() => onOpenMorningRitual('flow')}
         onHistory={() => onOpenMorningRitual('trend')}
