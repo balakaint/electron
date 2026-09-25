@@ -157,6 +157,23 @@ def swaps(food: str, engine: HealthEngine = Depends(get_engine)):
     return _wrap(engine.swaps, food)
 
 
+class RemindersIn(BaseModel):
+    enabled: bool | None = None
+    meals: bool | None = None
+    meal_times: list[str] | None = None
+    water: bool | None = None
+    water_every: int | None = None
+    water_from: str | None = None
+    water_to: str | None = None
+    workout: bool | None = None
+    workout_time: str | None = None
+
+
+@router.put("/reminders")
+def set_reminders(payload: RemindersIn, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.set_reminders, payload.model_dump(exclude_none=True))
+
+
 class MeasureIn(BaseModel):
     day: str | None = None
     weight_kg: float | None = None

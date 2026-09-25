@@ -22,6 +22,10 @@ let mainWindow: BrowserWindow | null = null;
 // window — the standard pattern for apps with no legitimate reason to
 // run twice (VS Code, Slack, Discord all do this silently).
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+// Windows only shows notifications (Health reminders) from an app with
+// an AppUserModelID; this matches appId in electron-builder.yml.
+if (process.platform === 'win32') app.setAppUserModelId('com.yourcompany.habit-os');
 if (!gotSingleInstanceLock) {
   // app.quit() only schedules a quit — it doesn't stop the rest of this
   // module from running, and everything below (spawning the Python

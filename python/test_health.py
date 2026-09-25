@@ -298,6 +298,27 @@ def test_shopping_list():
         check("next week has its own ticks", nxt["bought"] == 0)
 
 
+def test_reminder_settings():
+    with FreshDB() as f:
+        s = setup(f)
+        r = s["reminders"]
+        check("reminders off by default", r["enabled"] is False and r["meal_times"][1] == "13:30")
+        check("plan shows default meal time", s["day"]["meals"][1]["time"] == "1:30 PM", s["day"]["meals"][1]["time"])
+        s = f.engine.set_reminders({"enabled": True, "meal_times": ["7:30", "13:00", "17:00", "21:00"], "water_every": 60})
+        check("settings merged", s["reminders"]["enabled"] and s["reminders"]["water_every"] == 60 and s["reminders"]["water"])
+        check("times zero-padded", s["reminders"]["meal_times"][0] == "07:30")
+        check("plan follows the new meal times", s["day"]["meals"][0]["time"] == "7:30 AM" and s["day"]["meals"][3]["time"] == "9:00 PM")
+        for bad in ({"water_every": 45}, {"meal_times": ["13:00", "08:00", "17:00", "20:00"]}, {"workout_time": "25:00"},
+                    {"water_from": "22:00"}, {"bogus": 1}):
+            try:
+                f.engine.set_reminders(bad)
+                check(f"rejected {bad}", False)
+            except ValueError:
+                check(f"rejected {bad}", True)
+        s = f.engine.set_profile(35, "male", 170, 77, "lose", "low", "home")
+        check("profile edit keeps reminders", s["reminders"]["enabled"] and s["reminders"]["meal_times"][0] == "07:30")
+
+
 if __name__ == "__main__":
     for name, fn in list(globals().items()):
         if name.startswith("test_") and callable(fn):

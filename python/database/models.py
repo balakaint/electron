@@ -1334,6 +1334,9 @@ class HealthProfile(Base):
     dislikes: Mapped[list] = mapped_column(JSON, default=list)
     # Optional target weight, drawn as a line on the Progress graph.
     goal_weight_kg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Reminder settings (engine/health.py REMINDER_DEFAULTS); None means
+    # all defaults, i.e. reminders off until the user turns them on.
+    reminders: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class HealthDayLog(Base):
