@@ -38,6 +38,10 @@ class Task(Base):
     # link for the same reason: finishing it here has to tick it there,
     # or the plan and the work drift apart within a day.
     hour_slot_id: Mapped[int | None] = mapped_column(ForeignKey("hour_slots.id"), nullable=True)
+    # Local date (YYYY-MM-DD) the task was last marked done; None while
+    # open. TASK LIST's Done filter shows the last 7 days by it. Tasks
+    # finished before this column existed fall back to their `day`.
+    done_at: Mapped[str | None] = mapped_column(String, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 

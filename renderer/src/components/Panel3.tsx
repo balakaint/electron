@@ -826,7 +826,7 @@ export default function Panel3({
             {tab === 'list' && (
               <TaskList
                 listKey="focus"
-                dayView="tomorrow"
+                dayView="all"
                 focusVersion={focusVersion}
                 onFocusChanged={() => {
                   onFocusChanged();

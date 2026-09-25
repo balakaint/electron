@@ -75,6 +75,7 @@ class TaskOut(BaseModel):
     psrc: str | None
     hour_slot_id: int | None = None
     sort_order: int
+    done_at: str | None = None
 
 
 class TaskRestore(TaskOut):

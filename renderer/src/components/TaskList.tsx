@@ -54,6 +54,20 @@ function railColor(t: Task): string {
 // search box would be chrome for its own sake.
 const SEARCH_FROM = 8;
 
+type ListChip = 'all' | 'today' | 'later' | 'done';
+
+function tomorrowIso(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// "Tomorrow" or "Sat 27" — the day a TASK LIST "later" row is set for.
+function laterLabel(day: string, L: (en: string, bn: string) => string): string {
+  if (day === tomorrowIso()) return L('Tomorrow', 'আগামীকাল');
+  return new Date(`${day}T00:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' });
+}
+
 function todayIso(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -72,7 +86,9 @@ export default function TaskList({
   // carry its own today/tomorrow switch. Two controls for one piece of
   // state is how they drift apart. Left undefined, the list owns the
   // choice as before (PLAN's classic list still does).
-  dayView?: DayView;
+  // 'all' is EXECUTE's TASK LIST: every open task whatever its day plus
+  // the last 7 days' done ones, narrowed by the All/Today/Later/Done chips.
+  dayView?: DayView | 'all';
   // Bumped by the OTHER panel when it writes to this list; see App.tsx.
   focusVersion?: number;
   // Called when THIS panel writes, so the other one re-fetches.
@@ -90,6 +106,26 @@ export default function TaskList({
   const [flash, setFlash] = useState<string | null>(null);
   const [ownDayView, setDayViewState] = useState<DayView>('today');
   const dayView = dayViewProp ?? ownDayView;
+  const allMode = dayView === 'all';
+  const [chip, setChipState] = useState<ListChip>(() => {
+    try {
+      const v = localStorage.getItem('task-list-chip');
+      return v === 'today' || v === 'later' || v === 'done' ? v : 'all';
+    } catch {
+      return 'all';
+    }
+  });
+  const setChip = (c: ListChip) => {
+    setChipState(c);
+    try {
+      localStorage.setItem('task-list-chip', c);
+    } catch {
+      /* remembered for this session only */
+    }
+  };
+  // A parent-supplied day-view is sent with every fetch, so the tab shows
+  // what it says whatever PLAN's global today/tomorrow toggle is set to.
+  const fetchTasks = () => tasksApi.list(listKey, dayViewProp);
   const [nowBump, setNowBump] = useState(0);
   const [query, setQuery] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -135,7 +171,7 @@ export default function TaskList({
   // because this panel listens to a DIFFERENT counter than the one it
   // bumps — it never re-fetches in response to its own write.
   const refresh = () =>
-    tasksApi.list(listKey).then((next) => {
+    fetchTasks().then((next) => {
       setTasks(next);
       onFocusChanged();
     });
@@ -143,7 +179,7 @@ export default function TaskList({
   // The project cards struck or completed something; our copy is stale.
   useEffect(() => {
     if (focusVersion === 0) return;
-    tasksApi.list(listKey).then(setTasks);
+    fetchTasks().then(setTasks);
     setNowBump((b) => b + 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusVersion]);
@@ -274,7 +310,9 @@ export default function TaskList({
     e.preventDefault();
     const text = input.trim();
     if (!text) return;
-    const created = await tasksApi.create(text, listKey);
+    // TASK LIST adds to today, or to tomorrow while "Later" is showing —
+    // said explicitly, since PLAN's global toggle may point either way.
+    const created = await tasksApi.create(text, listKey, allMode ? (chip === 'later' ? tomorrowIso() : todayIso()) : undefined);
     pushUndo({
       label: `add "${text.slice(0, 30)}"`,
       undo: () => tasksApi.remove(created.id).then(refresh),
@@ -374,14 +412,17 @@ export default function TaskList({
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([tasksApi.list(listKey), tasksApi.getDayView(), tasksApi.getTitle(listKey)])
+    Promise.all([fetchTasks(), tasksApi.getDayView(), tasksApi.getTitle(listKey)])
       .then(([taskList, { view }, { title }]) => {
         setTasks(taskList);
         setDayViewState(view);
         setTitleState(title);
       })
       .finally(() => setLoading(false));
-  }, [listKey]);
+    // fetchTasks is rebuilt every render; what it reads is listKey and
+    // the day-view prop, both listed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listKey, dayViewProp]);
 
   // Retired on Focus, same as legacy: its NOW/strike surface already
   // asks "what matters most" permanently, so a popup over it would
@@ -430,9 +471,18 @@ export default function TaskList({
   // "it is shown above as well" — the card is a control surface with a
   // running clock, the row is an inventory line, and the row says which
   // one it is.
-  const pool = tasks;
+  const today = todayIso();
+  const isLater = (t: Task) => !t.done && t.day > today;
+  const chipOf = (t: Task): ListChip => (t.done ? 'done' : t.day > today ? 'later' : 'today');
+  const chipCounts = { all: tasks.length, today: 0, later: 0, done: 0 } as Record<ListChip, number>;
+  tasks.forEach((t) => chipCounts[chipOf(t)]++);
+  const pool = allMode && chip !== 'all' ? tasks.filter((t) => chipOf(t) === chip) : tasks;
   const sorted = [...pool].sort(
-    (a, b) => Number(a.done) - Number(b.done) || Number(b.strike) - Number(a.strike),
+    (a, b) =>
+      Number(a.done) - Number(b.done) ||
+      // TASK LIST: today's open work above later work, later by date.
+      (allMode ? Number(isLater(a)) - Number(isLater(b)) || (isLater(a) ? a.day.localeCompare(b.day) : 0) : 0) ||
+      Number(b.strike) - Number(a.strike),
   );
   const q = query.trim().toLowerCase();
   const visible = q ? sorted.filter((t) => t.text.toLowerCase().includes(q)) : sorted;
@@ -443,8 +493,28 @@ export default function TaskList({
   // via a few one-click task suggestions, rather than just sitting
   // there blank. Four variants by context — search-empty gets no chips
   // since "add this" doesn't make sense while filtering.
+  // TASK LIST with a chip narrowed to nothing.
+  const chipEmpty: Record<'today' | 'later' | 'done', { icon: string; title: string; subtitle: string }> = {
+    today: {
+      icon: '◇',
+      title: L('Nothing open for today', 'আজকের জন্য কিছু খোলা নেই'),
+      subtitle: L('Add one above, or bring one in from Later with → Today', 'উপরে যোগ করুন, অথবা Later থেকে → আজ দিয়ে আনুন'),
+    },
+    later: {
+      icon: '☾',
+      title: L('Nothing planned ahead', 'সামনের জন্য কিছু পরিকল্পনা নেই'),
+      subtitle: L('While Later is showing, a new task goes to tomorrow', 'Later খোলা থাকলে নতুন কাজ আগামীকালে যায়'),
+    },
+    done: {
+      icon: '✓',
+      title: L('Nothing finished in the last 7 days', 'গত ৭ দিনে কিছু শেষ হয়নি'),
+      subtitle: L('Finished tasks stay here for a week', 'শেষ হওয়া কাজ এক সপ্তাহ এখানে থাকে'),
+    },
+  };
   const emptyState = q
     ? { icon: '⌕', title: 'No matching tasks', subtitle: 'Clear the search box to see them', chips: [] as string[] }
+    : allMode && chip !== 'all'
+      ? { ...chipEmpty[chip], chips: [] as string[] }
     : listKey === 'classic' && dayView === 'tomorrow'
       ? {
           icon: '☾',
@@ -591,7 +661,7 @@ export default function TaskList({
         {/* Tomorrow's list is planned, not worked: the useful number is
             how much time it already asks for, summed from the "~30"
             time-boxes, so an over-full tomorrow shows tonight. */}
-        {dayView === 'tomorrow' && boxedMins > 0 && (
+        {(dayView === 'tomorrow' || allMode) && boxedMins > 0 && (
           <span
             className="tabular"
             title="Sum of the time-boxes on the open tasks"
@@ -609,6 +679,43 @@ export default function TaskList({
           making on the project cards. Once it is on screen it stays,
           even if a filter empties the list — pulling the control out
           from under the query you just typed is worse than the 30px. */}
+      {allMode && (
+        <div role="tablist" aria-label={L('Filter tasks', 'কাজ ফিল্টার')} style={{ display: 'flex', gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+          {(
+            [
+              ['all', L('All', 'সব')],
+              ['today', L('Today', 'আজ')],
+              ['later', L('Later', 'পরে')],
+              ['done', L('Done · 7 days', 'শেষ · ৭ দিন')],
+            ] as [ListChip, string][]
+          ).map(([key, name]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={chip === key}
+              onClick={() => setChip(key)}
+              className={chip === key ? undefined : 'btn-ghost'}
+              style={{
+                fontSize: 12,
+                height: 24,
+                padding: '0 8px',
+                borderRadius: 999,
+                fontWeight: chip === key ? 600 : 400,
+                background: chip === key ? 'var(--accent-light)' : undefined,
+                borderColor: chip === key ? 'var(--accent)' : undefined,
+                color: chip === key ? 'var(--accent)' : undefined,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              {name}
+              <span className="tabular" style={{ opacity: 0.7 }}>{chipCounts[key]}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {(pool.length >= SEARCH_FROM || q) && (
         <input
           aria-label="Search tasks"
@@ -625,7 +732,11 @@ export default function TaskList({
           ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder='Add a task… ("~30" = 30-min time-box)'
+          placeholder={
+            allMode && chip === 'later'
+              ? L('Add a task for tomorrow… ("~30" = 30-min time-box)', 'আগামীকালের কাজ যোগ করুন… ("~30" = ৩০ মিনিট)')
+              : 'Add a task… ("~30" = 30-min time-box)'
+          }
           style={{ flex: 1, padding: 8 }}
         />
         <button type="submit" className="btn-primary" style={{ padding: '0 16px' }}>
@@ -825,9 +936,13 @@ export default function TaskList({
                 )
               )}
 
-              {listKey === 'classic' && dayView === 'tomorrow' && (
+              {allMode && isLater(t) && (
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', flex: 'none' }}>{laterLabel(t.day, L)}</span>
+              )}
+
+              {((listKey === 'classic' && dayView === 'tomorrow') || (allMode && isLater(t))) && (
                 <button onClick={() => sendToToday(t)} title="Move to today" style={{ fontSize: 12, height: 24, flex: 'none' }}>
-                  → Today
+                  → {L('Today', 'আজ')}
                 </button>
               )}
 
@@ -903,7 +1018,7 @@ export default function TaskList({
                   different marks in two different places. Pressed is the
                   state, aria-pressed says so, and the row's rail says it
                   again at a glance. */}
-              {listKey === 'focus' && !t.done && (
+              {listKey === 'focus' && !t.done && !(allMode && isLater(t)) && (
                 <button
                   onClick={() => toggleStrike(t.id)}
                   aria-pressed={t.strike}

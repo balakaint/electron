@@ -72,6 +72,10 @@ def matches_day_view(task_day: str, view: str) -> bool:
     return task_day > today if view == "tomorrow" else task_day <= today
 
 
+# How far back TASK LIST's Done filter reaches (today included).
+DONE_DAYS = 7
+
+
 class StrikeLimitReached(Exception):
     """Raised on an attempt to strike a 4th task — matches the legacy
     _toggle_strike returning False for the caller to "flash the limit"
@@ -229,12 +233,17 @@ class TaskEngine:
         self.repo = repo
         self.project_repo = project_repo
 
-    def list_tasks(self, list_key: str | None = None) -> list[Task]:
-        """Only the currently-selected day-view's tasks — matches
-        _render_tasks filtering _task_list() through _task_matches_day.
-        The view is a single global toggle shared by Plan and Focus
-        (only Plan's UI exposes the switch), not a per-request choice."""
-        view = get_day_view(self.repo)
+    def list_tasks(self, list_key: str | None = None, view: str | None = None) -> list[Task]:
+        """Tasks for a day-view. With no `view`, the currently-selected
+        global one — matches _render_tasks filtering _task_list() through
+        _task_matches_day (Plan's classic list switches it). A caller that
+        knows which view it shows passes it (EXECUTE's MIT = "today").
+        "all" is TASK LIST: every open task, any day, plus what was
+        finished in the last DONE_DAYS days."""
+        view = view or get_day_view(self.repo)
+        if view == "all":
+            since = str(date.today() - timedelta(days=DONE_DAYS - 1))
+            return [t for t in self.repo.list(list_key) if not t.done or (t.done_at or t.day) >= since]
         return [t for t in self.repo.list(list_key) if matches_day_view(t.day, view)]
 
     def get_task(self, task_id: int) -> Task | None:
@@ -367,6 +376,7 @@ class TaskEngine:
         if task is None:
             return None
         task.done = not task.done
+        task.done_at = str(date.today()) if task.done else None
         if task.done:
             stop_task_session(task, idle_limit_secs=self.repo.get_app_state().idle_stop_min * 60)
         sync_project_row(self.project_repo, task)

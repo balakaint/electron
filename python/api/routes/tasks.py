@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -31,8 +33,9 @@ def get_engine(db: Session = Depends(get_db)) -> TaskEngine:
 
 
 @router.get("", response_model=list[TaskOut])
-def list_tasks(list_key: ListKey | None = None, engine: TaskEngine = Depends(get_engine)):
-    return engine.list_tasks(list_key)
+def list_tasks(list_key: ListKey | None = None, view: Literal["today", "tomorrow", "all"] | None = None,
+               engine: TaskEngine = Depends(get_engine)):
+    return engine.list_tasks(list_key, view)
 
 
 class TomorrowThreeSet(BaseModel):
