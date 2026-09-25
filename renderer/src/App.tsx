@@ -96,6 +96,9 @@ function AppShell() {
   // morningRitualView above (see the Panel 2 render below).
   const [nightClosureOpen, setNightClosureOpen] = useState(false);
   const [healthOpen, setHealthOpen] = useState(false);
+  // Bumped by a project card's "This week's goal" tile: GoalsPanel goes
+  // to that project's Weekly Goal (see 'open-week-goal' below).
+  const [weekGoalFocus, setWeekGoalFocus] = useState<{ key: string; n: number } | null>(null);
   // Which project panel 2 is showing. Persisted server-side already
   // (goalsApi.getPanel), so it survives a restart the way legacy's does.
   const [goalsProject, setGoalsProject] = useState<ProjectKey | null>(null);
@@ -355,6 +358,17 @@ function AppShell() {
     setMorningRitualView('flow');
   };
   useEffect(() => {
+    const onWeekGoal = (e: Event) => {
+      const key = (e as CustomEvent<string>).detail;
+      setMorningRitualView(null);
+      setNightClosureOpen(false);
+      setHealthOpen(false);
+      setWeekGoalFocus((f) => ({ key, n: (f?.n ?? 0) + 1 }));
+    };
+    window.addEventListener('open-week-goal', onWeekGoal);
+    return () => window.removeEventListener('open-week-goal', onWeekGoal);
+  }, []);
+  useEffect(() => {
     window.addEventListener('open-health', openHealth);
     window.addEventListener('open-morning-ritual', openMorningRitualFlow);
     return () => {
@@ -559,6 +573,7 @@ function AppShell() {
                         goalsPanelKey && setOverlay({ kind: 'goalBoard', project: goalsPanelKey, goalId })
                       }
                       jumpToGoal={jumpToGoal}
+                      focusWeek={weekGoalFocus}
                     />
                   );
                 })()}

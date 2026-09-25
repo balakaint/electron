@@ -521,6 +521,7 @@ function PlanningLevelSection({
   onEditCriteria,
   onRenameTitle,
   onOpenBoard,
+  focusSignal = 0,
 }: {
   level: PlanningLevel;
   label: string;
@@ -541,8 +542,14 @@ function PlanningLevelSection({
   onEditCriteria?: (id: number, criteria: string) => void;
   onRenameTitle: (title: string) => void;
   onOpenBoard: (legacyGoalId: number) => void;
+  // Bumped to bring this section into view (a project card's "This
+  // week's goal" tile does it for WEEKLY GOAL).
+  focusSignal?: number;
 }) {
   const [title, setTitle] = useState(label);
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const [flash, setFlash] = useState(false);
+  const handledSignal = useRef(0);
   const [composing, setComposing] = useState(false);
   const [newText, setNewText] = useState('');
   const newTextInputRef = useAutofocus<HTMLInputElement>(composing);
@@ -580,6 +587,24 @@ function PlanningLevelSection({
   // milestone — used only for the disabled-composer hint copy below.
   const parentLevelLabel = level === 'milestone' ? 'yearly goal' : level === 'win' ? 'monthly goal' : '';
 
+  // Scroll here, flash the header, and — when there is nothing yet and a
+  // parent exists to attach to — open the add box. Until the tree has
+  // loaded (no nodes, no parents) the signal stays pending and this
+  // re-runs when the data lands.
+  const flashedSignal = useRef(0);
+  useEffect(() => {
+    if (!focusSignal) return;
+    if (focusSignal !== flashedSignal.current) {
+      flashedSignal.current = focusSignal;
+      sectionRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      setFlash(true);
+      setTimeout(() => setFlash(false), 1200);
+    }
+    if (focusSignal === handledSignal.current || (nodes.length === 0 && !canCompose)) return;
+    handledSignal.current = focusSignal;
+    if (nodes.length === 0) setComposing(true);
+  }, [focusSignal, canCompose, nodes.length]);
+
   const submitAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const t = newText.trim();
@@ -610,6 +635,7 @@ function PlanningLevelSection({
     // section(s) still have real content, via their own unchanged
     // weights.
     <div
+      ref={sectionRef}
       style={{
         flex: nodes.length === 0 && !composing ? '0 0 auto' : `${weight} 1 0`,
         display: 'flex',
@@ -629,6 +655,9 @@ function PlanningLevelSection({
           padding: '0 4px 4px',
           borderBottom: '1px solid var(--border)',
           marginBottom: 4,
+          borderRadius: RADIUS.control,
+          background: flash ? 'var(--accent-light)' : 'transparent',
+          transition: 'background 300ms',
         }}
       >
         <span style={{ color: accent, display: 'flex', alignItems: 'center' }}>{glyph}</span>
@@ -882,6 +911,7 @@ export default function GoalsPanel({
   focusVersion: _focusVersion,
   onFocusChanged: _onFocusChanged,
   jumpToGoal,
+  focusWeek = null,
 }: {
   // The reserved "life" key (App.tsx passes it whenever every real
   // project in panel 1 is collapsed) renders this exact same component —
@@ -907,6 +937,9 @@ export default function GoalsPanel({
   // see PlanningMonthlyLevel/PlanningYearlyLevel's own comment on why),
   // kept so that wiring lands on an already-working target.
   jumpToGoal: { id: number; token: number } | null;
+  // A project card's "This week's goal" tile: show this project's Weekly
+  // Goal (Levels view) and bring that section forward. `n` bumps per click.
+  focusWeek?: { key: string; n: number } | null;
 }) {
   const [order, setOrder] = useState<ProjectOrderEntry[]>([]);
   const [panel, setPanel] = useState<GoalPanel | null>(null);
@@ -943,6 +976,13 @@ export default function GoalsPanel({
   // nothing catching the rejection — the panel rendered with no visible
   // signal anything had gone wrong (ui-ux-audit verify pass, 2026-09-22).
   const [loadError, setLoadError] = useState(false);
+
+  // The Weekly Goal lives in the Levels view; switch there for this jump
+  // without changing the remembered choice.
+  const weekSignal = focusWeek && focusWeek.key === projectKey ? focusWeek.n : 0;
+  useEffect(() => {
+    if (weekSignal) setViewRaw('levels');
+  }, [weekSignal]);
 
   // Opens the node and scrolls it into view — `id="node-<id>"` on
   // PlanningNodeRow's own root (both collapsed/expanded) is what this
@@ -1262,6 +1302,7 @@ export default function GoalsPanel({
           return (
             <PlanningLevelSection
               key={key}
+              focusSignal={key === 'win' ? weekSignal : 0}
               level={key}
               label={sectionTitle[legacyHorizon] || label}
               defaultLabel={label}

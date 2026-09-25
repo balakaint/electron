@@ -426,8 +426,14 @@ function ProjectCard({
             tile opens the place it summarises. */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SPACE.sm, marginBottom: SPACE.md }}>
           <button
-            onClick={() => onSelectGoals(key)}
-            title="Open this project's goals in panel 2"
+            onClick={() => {
+              onSelectGoals(key);
+              // Bring Goals to the front of panel 2 (a ritual or Health
+              // may be covering it) and go to the Weekly Goal — opening
+              // its add box when there is none yet.
+              window.dispatchEvent(new CustomEvent('open-week-goal', { detail: key }));
+            }}
+            title="Open this project's weekly goal in panel 2"
             style={{
               textAlign: 'left',
               padding: SPACE.sm,
