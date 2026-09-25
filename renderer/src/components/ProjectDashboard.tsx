@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Check, Pause, Pencil, Play, Square, X } from 'lucide-react';
+import { BarChart3, Check, Flag, Pause, Play, Square, Target, X } from 'lucide-react';
 import {
   ActivityEntry,
   Journey,
@@ -17,7 +17,6 @@ import {
 import { useL } from '../i18n';
 import { useAutoTimer } from '../useAutoTimer';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
-import { useAutofocus } from '../hooks/useAutofocus';
 import { dayNumber, projTimeText } from '../format';
 import { accentText, inkOn } from '../themes';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
@@ -108,10 +107,6 @@ function ProjectCard({
   // Legacy defaults the heading to "QUICK NOTES" and lets it be renamed
   // per project; empty means "use the default", not "no heading".
   const [noteTitle, setNoteTitle] = useState(project.note_title);
-  const [editingNote, setEditingNote] = useState(false);
-  const [addingTask, setAddingTask] = useState(false);
-  const noteFieldRef = useAutofocus<HTMLTextAreaElement>(editingNote);
-  const newSubtaskRef = useAutofocus<HTMLInputElement>(addingTask);
 
   const key = project.key as ProjectKey;
   const noteField = useAutosave(project.note, (v: string) => projectsApi.update(key, { note: v }).then(onChanged));
@@ -126,6 +121,16 @@ function ProjectCard({
     refreshActivity();
     journeyApi.get(key).then(setJourney).catch(() => setJourney(null));
   }, [project.name, project.note, key]);
+
+  // A task added to this project from the Capture box (Ctrl+K).
+  useEffect(() => {
+    const onChange = (e: Event) => {
+      if ((e as CustomEvent).detail === key) refreshSubtasks();
+    };
+    window.addEventListener('project-tasks-changed', onChange);
+    return () => window.removeEventListener('project-tasks-changed', onChange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   // The weekly goal tile only exists on the open card.
   useEffect(() => {
@@ -349,82 +354,166 @@ function ProjectCard({
     );
   }
 
+  // THE OPEN CARD, laid out the way the Projects mockup has it: the
+  // header carries what the collapsed row carries (name, stage, next
+  // task, time against target, start/stop), so opening a project never
+  // moves the controls you already know; then where it stands (weekly
+  // goal, journey), the tasks with an always-open add line, the note,
+  // and the three pages that belong to it along the foot.
+  const nextLine =
+    subtasks.length === 0
+      ? L('No tasks yet', 'এখনো কোনো কাজ নেই')
+      : pending.length === 0
+        ? L('All tasks done', 'সব কাজ শেষ')
+        : `${L('Next', 'পরের')}: ${pending[0].text}`;
+  const full = focusTasks.filter((t) => t.strike && !t.done).length >= STRIKE_MAX;
+  const footBtn = (on: boolean): React.CSSProperties => ({
+    flex: 1,
+    height: 32,
+    fontSize: 12,
+    fontWeight: on ? 700 : 400,
+    borderRadius: RADIUS.control,
+    border: `1px solid ${on ? project.accent_color : 'var(--border)'}`,
+    background: on ? 'var(--accent-light)' : 'var(--surface)',
+    color: on ? accentText(project.accent_color) : 'var(--text)',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACE.xs,
+  });
+
   return (
     <div
       className="card-elevated"
       style={{
-        border: `1px solid ${project.accent_color}55`,
+        border: `1px solid ${project.accent_color}`,
         borderRadius: RADIUS.card,
-        marginBottom: 12,
+        marginBottom: SPACE.md,
         overflow: 'hidden',
         boxShadow: 'var(--shadow-sm)',
-        // See the collapsed row: a dimmed card dims its text too.
+        background: 'var(--surface)',
       }}
     >
-      {/* The 10px top strip is gone. Legacy keeps one because its
-          collapsed card had no other progress indicator; this port's
-          collapsed ROW carries its own bar and count, so the strip was
-          the third representation of subtask completion on one card —
-          strip, foot bar, and the "0/1" in the TASKS heading. The foot
-          bar survives, for legacy's stated reason: on a card with a
-          dozen subtasks the top of the card has scrolled away by the
-          time you are ticking things off at the bottom. */}
-      <div style={{ padding: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: SPACE.sm, padding: SPACE.md }}>
+        <button
+          onClick={() => {
+            toggleCollapsed();
+            onSelectGoals(key);
+          }}
+          title="Collapse this project"
+          aria-label={`Collapse project ${number}`}
+          style={{
+            width: 22,
+            height: 22,
+            flex: 'none',
+            border: 'none',
+            padding: 0,
+            borderRadius: RADIUS.control,
+            background: project.accent_color,
+            color: inkOn(project.accent_color),
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            userSelect: 'none',
+          }}
+        >
+          {project.done_today ? <Check size={13} /> : number}
+        </button>
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: SPACE.hair }}>
+          <span style={{ display: 'flex', alignItems: 'baseline', gap: SPACE.sm, minWidth: 0 }}>
+            <input
+              aria-label="Project name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              placeholder={`PROJECT ${number}`}
+              style={{
+                // As wide as the name, so the stage sits right after it
+                // (Chromium's field-sizing; Electron 33 has it).
+                ...({ fieldSizing: 'content' } as React.CSSProperties),
+                minWidth: 0,
+                maxWidth: '100%',
+                height: 24,
+                padding: 0,
+                fontWeight: 700,
+                fontSize: 16,
+                border: 'none',
+                background: 'transparent',
+                color: accentText(project.accent_color),
+              }}
+            />
+            {journey && (
+              <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', flex: 'none' }}>{stageLabel(journey)}</span>
+            )}
+          </span>
+          <span
+            title={pending[0]?.text}
+            style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          >
+            {nextLine}
+          </span>
+        </div>
+        <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: SPACE.xs, flex: 'none' }}>
+          {/* Elapsed AND target — "a target you set in a different panel
+              is a target you forget you set" (legacy 6759-6766). Clicking
+              cycles the target through the presets. */}
           <button
-            onClick={() => {
-              toggleCollapsed();
-              onSelectGoals(key);
-            }}
-            onDoubleClick={soloThis}
-            title="Click to collapse · double-click to solo this project"
-            aria-label={`Collapse project ${number}`}
+            onClick={() => projectsApi.bumpTarget(key, nextProjectTarget(project.target_minutes) - project.target_minutes).then(onChanged)}
+            title={`Time today / daily target — click to cycle ${PROJ_TARGETS.join('/')} min`}
             style={{
-              width: 22,
-              height: 22,
               border: 'none',
+              background: 'transparent',
               padding: 0,
-              borderRadius: RADIUS.control,
-              background: project.accent_color,
-              color: inkOn(project.accent_color),
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+              height: 'auto',
               fontSize: 12,
               fontWeight: 700,
+              fontVariantNumeric: 'tabular-nums',
+              color: running ? accentText(project.accent_color) : project.secs_today > 0 ? 'var(--text)' : 'var(--text-muted)',
               cursor: 'pointer',
-              userSelect: 'none',
             }}
           >
-            {project.done_today ? <Check size={13} /> : number}
+            {projTimeText(project.secs_today, project.target_minutes)}
           </button>
-          <input
-            aria-label="Project name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={saveName}
-            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-            placeholder={`PROJECT ${number}`}
-            style={{ flex: 1, height: 24, fontWeight: 700, fontSize: 16, border: 'none', background: 'transparent', color: accentText(project.accent_color) }}
-          />
-          <button
-            onClick={toggleCollapsed}
-            title="Collapse"
-            style={{ width: 24, height: 24, border: 'none', background: 'transparent', color: 'var(--text-muted)', cursor: 'pointer' }}
-          >
-            ⌃
-          </button>
-          {/* Nothing else on this row. Legacy is explicit about why
-              (6713-6719): the buttons used to sit here, and sharing the
-              row with a fixed-width cluster "clipped longer project
-              names". It did here too — "SHIP SPARE EXPORT CAN GENER…".
-              The title owns its row; the buttons moved down. */}
-        </div>
+          <WeekDots days={activity} color={project.accent_color} />
+        </span>
+        <button
+          onClick={() => projectsApi.toggleTimer(key).then(onChanged)}
+          title={running ? 'Stop working on this project' : 'Start working on this project'}
+          aria-label={running ? 'Stop working on this project' : 'Start working on this project'}
+          aria-pressed={running}
+          style={{
+            width: 32,
+            minWidth: 32,
+            height: 32,
+            flex: 'none',
+            borderRadius: RADIUS.pill,
+            border: `2px solid ${project.accent_color}`,
+            cursor: 'pointer',
+            background: running ? project.accent_color : 'transparent',
+            color: running ? inkOn(project.accent_color) : accentText(project.accent_color),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 0,
+          }}
+        >
+          {running ? <Square size={12} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
+        </button>
+        {/* Today against the target, as a line under the header. */}
+        <span style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, background: PROGRESS_TRACK_SOFT }}>
+          <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: project.accent_color }} />
+        </span>
+      </div>
 
+      <div style={{ padding: SPACE.md, display: 'flex', flexDirection: 'column', gap: SPACE.md }}>
         {/* Where this project stands, before any detail: this week's
             goal (from the planning ladder) and the Journey stage. Each
             tile opens the place it summarises. */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SPACE.sm, marginBottom: SPACE.md }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SPACE.sm }}>
           <button
             onClick={() => {
               onSelectGoals(key);
@@ -437,22 +526,24 @@ function ProjectCard({
             style={{
               textAlign: 'left',
               padding: SPACE.sm,
+              height: 'auto',
               borderRadius: RADIUS.control,
               border: 'none',
               background: 'var(--bg)',
               color: 'var(--text)',
               display: 'flex',
               flexDirection: 'column',
+              alignItems: 'stretch',
               gap: SPACE.xs,
               minWidth: 0,
               cursor: 'pointer',
             }}
           >
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L("This week's goal", 'এই সপ্তাহের লক্ষ্য')}</span>
-            <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {win ? win.title : L('None set — add one', 'নেই — যোগ করুন')}
             </span>
-            <span style={{ alignSelf: 'stretch', height: 4, borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}>
+            <span style={{ height: 4, borderRadius: RADIUS.pill, background: PROGRESS_TRACK_SOFT, overflow: 'hidden' }}>
               <span style={{ display: 'block', height: '100%', width: `${win ? win.progress : 0}%`, background: project.accent_color }} />
             </span>
           </button>
@@ -462,35 +553,31 @@ function ProjectCard({
             style={{
               textAlign: 'left',
               padding: SPACE.sm,
+              height: 'auto',
               borderRadius: RADIUS.control,
               border: 'none',
               background: 'var(--bg)',
               color: 'var(--text)',
               display: 'flex',
               flexDirection: 'column',
+              alignItems: 'stretch',
               gap: SPACE.xs,
               minWidth: 0,
               cursor: 'pointer',
             }}
           >
-            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-              {L('Journey', 'যাত্রা')} {journey ? `· ${stageLabel(journey)}` : ''}
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L('Journey', 'যাত্রা')}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {journey ? (journey.launched ? L('Launched', 'লঞ্চ হয়েছে') : journey.stages[journey.current_stage]?.name) : '—'}
             </span>
-            <span style={{ alignSelf: 'stretch', display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: SPACE.hair }}>
+            <span style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: SPACE.hair }}>
               {(journey?.stages ?? []).map((st) => (
                 <span
                   key={st.stage_index}
                   style={{
                     height: 4,
                     borderRadius: RADIUS.pill,
-                    background: st.done
-                      ? 'var(--success)'
-                      : st.stage_index === journey?.current_stage
-                        ? project.accent_color
-                        : PROGRESS_TRACK_SOFT,
+                    background: st.done ? 'var(--success)' : st.stage_index === journey?.current_stage ? project.accent_color : PROGRESS_TRACK_SOFT,
                   }}
                 />
               ))}
@@ -498,278 +585,43 @@ function ProjectCard({
           </button>
         </div>
 
-        {/* Notes first. Legacy puts them directly under the header
-            (6634-6696, body row 1) and the timer row below them — the
-            note is what the card is for on a planning screen, and
-            burying it under the task list is what made these cards so
-            tall that only two fit on screen. */}
-        {/* The note is TEXT until you edit it.
-            Measured with all six projects open: 504px of note boxes, of
-            which four of six were empty — a fixed five-row textarea per
-            card whether or not there was anything in it. A note is read
-            far more often than it is written, so at rest it is the words
-            themselves, sized to what you actually wrote. */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-          <input
-            aria-label="Heading for this project’s note"
-            value={noteTitle}
-            onChange={(e) => setNoteTitle(e.target.value)}
-            onBlur={saveNoteTitle}
-            placeholder="QUICK NOTES"
-            title="Rename this note — legacy keeps a per-project heading"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              fontSize: 12,
-              letterSpacing: 0.5,
-              border: 'none',
-              background: 'transparent',
-              color: accentText(project.accent_color),
-              padding: '0',
-              height: 24,
-            }}
-          />
-          {noteField.value.trim() && !editingNote && (
-            <button
-              onClick={() => setEditingNote(true)}
-              title="Edit this note"
-              style={{
-                border: 'none',
-                background: 'transparent',
-                color: 'var(--text-faint)',
-                cursor: 'pointer',
-                padding: '0 8px',
-                height: 24,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 4,
-              }}
-            >
-              <Pencil size={12} /> edit
-            </button>
-          )}
-        </div>
-
-        {editingNote || !noteField.value.trim() ? (
-          <textarea
-            ref={noteFieldRef}
-            value={noteField.value}
-            onChange={(e) => noteField.setValue(e.target.value)}
-            onBlur={() => {
-              noteField.flush();
-              setEditingNote(false);
-            }}
-            // Grows with what is in it, from one line, instead of
-            // reserving five rows for a note that is usually two.
-            rows={Math.min(8, Math.max(1, noteField.value.split('\n').length))}
-            placeholder="Jot something down…"
-            style={{ width: '100%', fontSize: 12, padding: 8, marginBottom: 8, resize: 'vertical', boxSizing: 'border-box', ...savedFlashStyle(noteField.state) }}
-          />
-        ) : (
-          <div
-            onClick={() => setEditingNote(true)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setEditingNote(true);
-              }
-            }}
-            title="Click to edit"
-            style={{
-              fontSize: 13,
-              lineHeight: 1.5,
-              color: 'var(--text-muted)',
-              whiteSpace: 'pre-line',
-              // A note is free text, so it wraps rather than ellipsizes
-              // — but pre-line alone only handles the newlines the user
-              // typed; a pasted URL has none, and without this it stays
-              // one unbroken "word" wider than the card (measured at
-              // 1938px in a 400px column) instead of breaking onto the
-              // next line the way every other long word already does.
-              overflowWrap: 'break-word',
-              cursor: 'text',
-              marginBottom: 8,
-            }}
-          >
-            {noteField.value}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: SPACE.sm }}>
+            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5 }}>{L('TASKS', 'কাজ')}</span>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+              {subtasksDone}/{subtasks.length}
+            </span>
           </div>
-        )}
-
-        {/* Legacy's _actrow (6714-6829), which is a two-sided row and not
-            a progress bar: the timer box on the LEFT, the three page
-            links on the RIGHT. It sits under the notes because legacy
-            moved it out of the header — see the note up there.
-
-            The fill line is short and above the timer, not a full-width
-            bar across the row (6725-6727, width=118). It is the "this
-            one is running" signal for the button directly beneath it, so
-            it is scoped to that button rather than to the whole card. */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 12, fontSize: 12 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ width: 118, height: 3, background: 'var(--border)', overflow: 'hidden', marginBottom: 4 }}>
-              <div style={{ width: `${pct}%`, height: '100%', background: project.accent_color }} />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <button
-                onClick={() => projectsApi.toggleTimer(key).then(onChanged)}
-                title="Start / stop working on this project"
-                aria-label={running ? 'Stop working on this project' : 'Start working on this project'}
-                aria-pressed={running}
-                style={{
-                  background: running ? project.accent_color : 'transparent',
-                  color: running ? inkOn(project.accent_color) : accentText(project.accent_color),
-                  border: 'none',
-                  cursor: 'pointer',
-                  padding: '0 8px',
-                  height: 28,
-                  // Real icons fixed at one size make the old glyph-width
-                  // problem (⏸ narrower than ▶ in most faces, shrinking
-                  // the button below its minimum right when the timer
-                  // starts) moot — both render in the same fixed box now.
-                  minWidth: 28,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {running ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" />}
-              </button>
-              {/* Elapsed AND target, because "a target you set in a
-                  different panel is a target you forget you set"
-                  (6759-6766). Clicking cycles it — the same
-                  click-to-cycle idiom as task urgency and the Circle
-                  cadence chip, so no stepper and no dialog. The −/+
-                  buttons that used to sit here are a control legacy does
-                  not put on the card; the cycle wraps past 120 back to
-                  15, so nothing is unreachable without them. */}
-              <button
-                onClick={() =>
-                  projectsApi
-                    .bumpTarget(key, nextProjectTarget(project.target_minutes) - project.target_minutes)
-                    .then(onChanged)
-                }
-                title={`Time today / daily target — click to cycle ${PROJ_TARGETS.join('/')} min`}
-                style={{
-                  border: 'none',
-                  background: 'transparent',
-                  color: running ? accentText(project.accent_color) : 'inherit',
-                  font: 'inherit',
-                  padding: '0 4px',
-                  height: 24,
-                  cursor: 'pointer',
-                  opacity: running ? 1 : 0.75,
-                }}
-              >
-                {projTimeText(project.secs_today, project.target_minutes)}
-              </button>
-            </div>
-          </div>
-
-          {/* Legacy's _navrow (6800-6828). Named, not glyphs: these open
-              the two pages the app is built around and were once hidden
-              behind ▤ and ❖. "Goals" points PANEL 2 at this project and
-              renders filled while it is doing so, "so the card itself
-              answers whose goals am I looking at". */}
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button
-              onClick={() => onSelectGoals(key)}
-              aria-pressed={goalsProject === key}
-              title="Show this project's short / mid / long term goals in panel 2"
-              style={{
-                fontSize: 12,
-                background: goalsProject === key ? project.accent_color : 'transparent',
-                color: goalsProject === key ? inkOn(project.accent_color) : undefined,
-                border: 'none',
-                cursor: 'pointer',
-                padding: '0 8px',
-                height: 24,
-              }}
-            >
-              Goals
-            </button>
-            <button
-              onClick={() => onOpenAnalysis(key)}
-              title="Business Analysis — idea, numbers, decision"
-              style={{ fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', padding: '0 8px', height: 24 }}
-            >
-              Analysis
-            </button>
-            <button
-              onClick={() => onOpenJourney(key)}
-              title="Product Journey — the dated record of what you tried"
-              style={{ fontSize: 12, background: 'transparent', border: 'none', cursor: 'pointer', padding: '0 8px', height: 24 }}
-            >
-              Journey
-            </button>
-          </div>
-        </div>
-
-        {/* Legacy's TASKS header row: label, done-count, "+ task"
-            (6848-6862). The add field lives behind that button rather
-            than sitting open on every card — six always-visible inputs
-            is most of why this column scrolled. */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 4 }}>
-          <span style={{ color: 'var(--text-faint)', letterSpacing: 0.5 }}>TASKS</span>
-          <span style={{ flex: 1 }} />
-          {/* Muted, not dimmed. --text-muted is chosen to clear 4.5:1
-              on the card surface; multiplying it by 0.6 measured 4.4:1
-              and 4.5:1 on two light themes — a rule failed by a hair is
-              still failed, and the dimming bought nothing the colour was
-              not already saying. */}
-          <span style={{ color: 'var(--text-muted)' }}>
-            {subtasksDone}/{subtasks.length}
-          </span>
-          <button
-            onClick={() => setAddingTask((v) => !v)}
-            title="Add a task to this project"
-            style={{ fontSize: 12, height: 24, padding: '0 8px' }}
-          >
-            + task
-          </button>
-        </div>
-
-        <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 8px 0' }}>
           {subtasks.map((s) => {
             const committed = focusTasks.find((t) => t.psrc === s.pid);
             const onToday = committed !== undefined && committed.strike && !committed.done;
-            const full = focusTasks.filter((t) => t.strike && !t.done).length >= STRIKE_MAX;
             return (
-              <li
-                key={s.pid}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0' }}
-              >
-                {/* Legacy gives every task row a 3px strip in the
-                    project's colour, going muted once it is done
-                    (6999-7002). It is what makes a list of tasks read as
-                    belonging to the card above it. */}
-                <span
-                  style={{
-                    width: 3,
-                    alignSelf: 'stretch',
-                    minHeight: 16,
-                    background: s.done ? 'var(--border)' : project.accent_color,
-                  }}
-                />
+              <div key={s.pid} style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, minHeight: 32, fontSize: 13 }}>
                 <button
                   onClick={() => projectsApi.toggleSubtask(s.pid).then(refreshSubtasks)}
                   title="Toggle done"
                   aria-label={s.done ? 'Mark not done' : 'Mark done'}
-                  style={{ width: 24, height: 24, padding: 0, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  style={{
+                    width: 20,
+                    height: 20,
+                    padding: 0,
+                    flex: 'none',
+                    borderRadius: RADIUS.control,
+                    border: `1.5px solid ${s.done ? project.accent_color : 'var(--text-muted)'}`,
+                    background: s.done ? project.accent_color : 'transparent',
+                    color: inkOn(project.accent_color),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
                 >
-                  {/* A box, not a circle — legacy uses a real checkbox
-                      here, and the STRIKE rows in panel 3 already use
-                      □/✓. One tick idiom across the app. */}
-                  {s.done ? <Check size={15} /> : <Square size={15} />}
+                  {s.done && <Check size={13} />}
                 </button>
-                {/* minWidth: 0 is load-bearing. A flex item defaults to
-                    min-width: auto — its own content's width as a floor —
-                    and an unbroken string like a pasted URL has no space
-                    to wrap on, so without this the task name refuses to
-                    shrink and drags the whole row (measured at 1880px in
-                    a 400px column) past its container instead of eliding. */}
+                {/* minWidth: 0 is load-bearing: without it a pasted URL
+                    refuses to shrink and drags the row past the card. */}
                 <span
+                  title={`${s.text} · ${dayNumber(s.added_date)}`}
                   style={{
                     flex: 1,
                     minWidth: 0,
@@ -777,81 +629,109 @@ function ProjectCard({
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                     textDecoration: s.done ? 'line-through' : 'none',
+                    color: s.done ? 'var(--text-muted)' : 'var(--text)',
                   }}
-                  title={s.text}
                 >
                   {s.text}
                 </span>
-                {/* How long this has been open. Muted, not red: legacy
-                    had it hard-coded in the same colour the app uses for
-                    risk and delete-hover, and "DAY 37" is a neutral fact
-                    that does not get more alarming as it grows. */}
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                  {dayNumber(s.added_date)}
-                </span>
-                {!s.done && (
-                  <button
-                    onClick={() => strikeSubtask(s.pid)}
-                    disabled={onToday || (full && !onToday)}
-                    title={onToday ? 'Already on today’s list' : 'Commit to today’s 3'}
-                    style={{
-                      fontSize: 12,
-                      height: 24,
-                      padding: '0 8px',
-                      flex: 'none',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      opacity: onToday ? 0.7 : 1,
-                      color: onToday ? accentText(project.accent_color) : undefined,
-                    }}
-                  >
-                    {strikeFlash === s.pid ? 'DAY FULL' : onToday ? <><Check size={12} /> ON TODAY</> : '+ STRIKE'}
-                  </button>
-                )}
+                {!s.done &&
+                  (onToday ? (
+                    <span title="On today’s three (MIT)" style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: accentText(project.accent_color) }}>
+                      MIT
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => strikeSubtask(s.pid)}
+                      disabled={full}
+                      title={full ? 'Today’s three are full' : 'Put this in today’s three (MIT)'}
+                     
+                      style={{ fontSize: 12, height: 24, padding: `0 ${SPACE.sm}px`, flex: 'none' }}
+                    >
+                      {strikeFlash === s.pid ? 'DAY FULL' : '+ MIT'}
+                    </button>
+                  ))}
                 <button
                   onClick={() => projectsApi.deleteSubtask(s.pid).then(refreshSubtasks)}
                   title="Delete"
                   aria-label="Delete task"
-                  style={{ width: 28, height: 28, padding: 0, flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                 
+                  style={{ width: 24, height: 24, padding: 0, flex: 'none', border: 'none', background: 'transparent', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <X size={15} />
+                  <X size={14} />
                 </button>
-              </li>
+              </div>
             );
           })}
-        </ul>
-        {/* Legacy's `pb` bar (6883-6899) — subtask completion again, at
-            the foot of the list this time. Legacy keeps both this and
-            the top strip because a card with a dozen subtasks is tall
-            enough that the strip scrolls out of view while you are
-            ticking things off down here. */}
-        {subtasks.length > 0 && (
-          <div
-            title={`${subtasksDone}/${subtasks.length} subtasks done`}
-            style={{ height: 4, background: 'var(--progress-track)', marginBottom: 8 }}
-          >
-            <div style={{ height: '100%', width: `${(subtasksDone / subtasks.length) * 100}%`, background: project.accent_color }} />
-          </div>
-        )}
-        {addingTask && (
-          <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
-            <input
-              ref={newSubtaskRef}
-              aria-label="New task for this project"
-              value={newSubtask}
-              onChange={(e) => setNewSubtask(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') addSubtask();
-                if (e.key === 'Escape') setAddingTask(false);
-              }}
-              placeholder="Add task…"
-              style={{ flex: 1, fontSize: 12, padding: 4 }}
-            />
-            <button onClick={addSubtask} title="Add task">+</button>
-          </div>
-        )}
+          <input
+            aria-label="New task for this project"
+            value={newSubtask}
+            onChange={(e) => setNewSubtask(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addSubtask();
+              if (e.key === 'Escape') setNewSubtask('');
+            }}
+            placeholder={L('+ Add a task, Enter to save', '+ কাজ লিখুন, Enter চাপলে সেভ')}
+            style={{
+              height: 32,
+              marginTop: SPACE.xs,
+              padding: `0 ${SPACE.sm}px`,
+              fontSize: 13,
+              border: '1px dashed var(--border)',
+              borderRadius: RADIUS.control,
+              background: 'transparent',
+              color: 'var(--text)',
+            }}
+          />
+        </div>
 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs }}>
+          <input
+            aria-label="Heading for this project’s note"
+            value={noteTitle}
+            onChange={(e) => setNoteTitle(e.target.value)}
+            onBlur={saveNoteTitle}
+            placeholder={L('QUICK NOTE', 'দ্রুত নোট')}
+            title="Rename this note's heading"
+            style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, border: 'none', background: 'transparent', color: 'var(--text)', padding: 0, height: 24 }}
+          />
+          <textarea
+            value={noteField.value}
+            onChange={(e) => noteField.setValue(e.target.value)}
+            onBlur={() => noteField.flush()}
+            // Grows with what is in it: two lines at rest, up to eight.
+            rows={Math.min(8, Math.max(2, noteField.value.split('\n').length))}
+            placeholder={L('Jot something down…', 'কিছু লিখে রাখুন…')}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              fontSize: 13,
+              lineHeight: 1.5,
+              padding: SPACE.sm,
+              resize: 'vertical',
+              borderRadius: RADIUS.control,
+              border: '1px solid var(--border)',
+              background: 'var(--bg)',
+              color: 'var(--text)',
+              overflowWrap: 'break-word',
+              ...savedFlashStyle(noteField.state),
+            }}
+          />
+        </div>
+
+        {/* The project's three pages. "Goals" is filled while panel 2 is
+            showing this project's goals, so the card answers "whose goals
+            am I looking at" (legacy 6800-6828). */}
+        <div style={{ display: 'flex', gap: SPACE.sm }}>
+          <button onClick={() => onSelectGoals(key)} aria-pressed={goalsProject === key} title="Show this project's goals in panel 2" style={footBtn(goalsProject === key)}>
+            <Target size={13} /> {L('Goals', 'লক্ষ্য')}
+          </button>
+          <button onClick={() => onOpenAnalysis(key)} title="Business Analysis — idea, numbers, decision" style={footBtn(false)}>
+            <BarChart3 size={13} /> {L('Analysis', 'বিশ্লেষণ')}
+          </button>
+          <button onClick={() => onOpenJourney(key)} title="Product Journey — the dated record of what you tried" style={footBtn(false)}>
+            <Flag size={13} /> {L('Journey', 'যাত্রা')}
+          </button>
+        </div>
       </div>
     </div>
   );

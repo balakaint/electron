@@ -656,7 +656,7 @@ export default function Panel3({
           was missing. Measured: the gear ran 1461-1488 and the EXECUTE
           button 1230-1488 — identical right edges, so the gear sat on
           top of the selected button's fill. */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 12, paddingLeft: 32, paddingRight: 32 }}>
+      <div style={{ display: 'flex', gap: 4, marginBottom: 12, paddingLeft: 32, paddingRight: 32, marginRight: 24 }}>
         {(
           [
             ['classic', L('PLAN', 'পরিকল্পনা')],
@@ -755,25 +755,13 @@ export default function Panel3({
           </div>
         ) : (
           <>
-            {/* The date is one line now, with no card around it and no
-                progress bar under it. */}
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>
-                {/* "Tuesday, 8 Sep 2026" — legacy's own order
-                    (f"{dayname}, {now.day} {now.strftime('%b %Y')}",
-                    5020). toLocaleDateString with the default locale
-                    gives "Tuesday, Sep 8, 2026" on a US machine, which
-                    is a different reading order in the one line that
-                    tells you what day it is. Assembled from parts so it
-                    reads the same wherever it runs. */}
-                {(() => {
-                  const d = new Date();
-                  const weekday = d.toLocaleDateString(undefined, { weekday: 'long' });
-                  const month = d.toLocaleDateString(undefined, { month: 'short' });
-                  return `${weekday}, ${d.getDate()} ${month} ${d.getFullYear()}`;
-                })()}
-              </div>
-            </div>
+            {/* The clock is back on EXECUTE, as one slim row. Legacy
+                dropped it here (4996-5045) on the grounds that TODAY
+                EXECUTION prints the live time — but that lives inside
+                the HOURS tab, and on MIT or TASK LIST nothing on this
+                screen said what time it was or how much of the work
+                block was left. */}
+            <ClockCard onOpenQuarterly={onOpenQuarterly} slim />
 
             {/* NOW stays ABOVE the tabs, never inside one. It is the
                 single thing you are doing; hiding it behind a tab would

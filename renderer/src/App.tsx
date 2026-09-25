@@ -4,6 +4,7 @@ import { GoalOwnerKey, ListKey, PanelLayout, ProjectKey, exportApi, goalsApi, se
 import Panel3 from './components/Panel3';
 import BusinessAnalysisCanvas from './components/BusinessAnalysisCanvas';
 import ToolsMenu from './components/ToolsMenu';
+import CaptureDialog from './components/CaptureDialog';
 import TitleBar from './components/TitleBar';
 import ProjectDashboard from './components/ProjectDashboard';
 import GoalsPanel from './components/GoalsPanel';
@@ -81,6 +82,7 @@ function AppShell() {
   // its own write.
   const [panel2Wrote, setPanel2Wrote] = useState(0);
   const [panel3Wrote, setPanel3Wrote] = useState(0);
+  const [captureOpen, setCaptureOpen] = useState(false);
 
   const [status, setStatus] = useState<'checking' | 'ok' | 'error'>('checking');
   const [overlay, setOverlay] = useState<Overlay | null>(null);
@@ -324,7 +326,11 @@ function AppShell() {
       if (!(e.ctrlKey || e.metaKey)) return;
 
       const key = e.key.toLowerCase();
-      if (key === 't') {
+      if (key === 'k') {
+        // Capture works from every screen, even from inside a text box.
+        e.preventDefault();
+        setCaptureOpen(true);
+      } else if (key === 't') {
         e.preventDefault();
         cycleTheme(e.shiftKey ? -1 : 1);
       } else if (key === 'z') {
@@ -587,9 +593,23 @@ function AppShell() {
           {/* Legacy pins the gear to panel 3's top-right corner and has
               no app header bar of its own — the window's own title bar
               is the only chrome above the columns. */}
-          <div style={{ position: 'absolute', top: 0, right: 0, zIndex: 3 }}>
+          <div style={{ position: 'absolute', top: 0, right: 0, zIndex: 3, display: 'flex', gap: 4 }}>
+            <button
+              onClick={() => setCaptureOpen(true)}
+              title="Capture a task or note — Ctrl+K"
+              aria-label="Capture a task or note"
+              style={{ fontSize: 14, fontWeight: 700, width: 24, height: 24, padding: 0 }}
+            >
+              +
+            </button>
       <ToolsMenu
         entries={[
+          {
+            icon: '+',
+            label: 'Capture',
+            desc: 'Write down a task or a note  ·  Ctrl+K',
+            onSelect: () => setCaptureOpen(true),
+          },
           {
             icon: '▤',
             label: 'Income Opportunities',
@@ -777,6 +797,7 @@ function AppShell() {
           onLangChange={setLang}
         />
       )}
+      {captureOpen && <CaptureDialog onClose={() => setCaptureOpen(false)} onSaved={() => setPanel2Wrote((v) => v + 1)} />}
       <UndoToast />
     </div>
     </div>
