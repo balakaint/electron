@@ -396,6 +396,10 @@ class BoardTaskRepository:
         stmt = select(BoardTask).where(BoardTask.goal_id == goal_id).order_by(BoardTask.id)
         return list(self.db.scalars(stmt))
 
+    def list_for_project(self, project_key: str) -> list[BoardTask]:
+        stmt = select(BoardTask).where(BoardTask.project_key == project_key).order_by(BoardTask.id)
+        return list(self.db.scalars(stmt))
+
     def get(self, task_id: int) -> BoardTask | None:
         return self.db.get(BoardTask, task_id)
 

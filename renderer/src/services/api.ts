@@ -471,27 +471,6 @@ export const goalsApi = {
     req('POST', '/api/goals/panel/section-title', { horizon, title }) as Promise<GoalPanel>,
 };
 
-// A goal's own flat task checklist — mirrors Subtask/projectsApi's
-// subtask methods above, scoped to goal_id instead of project_key. Lets
-// GoalsPanel add/check/remove tasks straight from the card, with no need
-// to open the goal's Individual Task Board.
-export interface GoalTask {
-  pid: string;
-  goal_id: number;
-  text: string;
-  done: boolean;
-  added_date: string;
-}
-
-export const goalTasksApi = {
-  list: (goalId: number) => req('GET', `/api/projects/goals/${goalId}/tasks`) as Promise<GoalTask[]>,
-  add: (goalId: number, text: string) =>
-    req('POST', `/api/projects/goals/${goalId}/tasks`, { text }) as Promise<GoalTask>,
-  toggle: (pid: string) => req('POST', `/api/projects/goals/tasks/${pid}/toggle`) as Promise<GoalTask>,
-  remove: (pid: string) => req('DELETE', `/api/projects/goals/tasks/${pid}`) as Promise<{ ok: true }>,
-  strike: (pid: string) => req('POST', `/api/projects/goals/tasks/${pid}/strike`) as Promise<Task>,
-};
-
 // ── Planning hierarchy (Outcome -> Milestone -> Win -> PlanTask) ─────
 // See the Phase A design spec: progress on every non-leaf node is
 // always resolved server-side (never computed here) — `progress` on
@@ -637,7 +616,8 @@ export type BoardPriority = 'low' | 'normal' | 'high';
 
 export interface BoardTask {
   id: number;
-  goal_id: number;
+  goal_id: number | null;
+  project_key: string | null;
   title: string;
   // "Task outcome / Definition of Done" — added after Zahid compared
   // this overlay to the `ele kanban` pilot's own Focus Board header
@@ -670,9 +650,12 @@ export interface BoardCard {
 }
 
 export const boardTaskApi = {
-  list: (goalId: number) => req('GET', `/api/projects/goals/${goalId}/tasks`) as Promise<BoardTask[]>,
-  add: (goalId: number, title: string) =>
-    req('POST', `/api/projects/goals/${goalId}/tasks`, { title }) as Promise<BoardTask>,
+  // Per project since the board moved to the project card. (The old
+  // /goals/{id}/tasks path was the goal checklist's own route, so board
+  // requests never reached the board.)
+  list: (project: ProjectKey) => req('GET', `/api/projects/${project}/board-tasks`) as Promise<BoardTask[]>,
+  add: (project: ProjectKey, title: string) =>
+    req('POST', `/api/projects/${project}/board-tasks`, { title }) as Promise<BoardTask>,
   edit: (id: number, patch: Partial<Pick<BoardTask, 'title' | 'outcome' | 'next_action'>>) =>
     req('PUT', `/api/projects/board-tasks/${id}`, patch) as Promise<BoardTask>,
   remove: (id: number) => req('DELETE', `/api/projects/board-tasks/${id}`) as Promise<{ ok: true }>,

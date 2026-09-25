@@ -8,7 +8,7 @@ import CaptureDialog from './components/CaptureDialog';
 import TitleBar from './components/TitleBar';
 import ProjectDashboard from './components/ProjectDashboard';
 import GoalsPanel from './components/GoalsPanel';
-import GoalBoardOverlay from './components/GoalBoardOverlay';
+import BoardOverlay from './components/BoardOverlay';
 import JourneyPanel from './components/JourneyPanel';
 import BdpPanel from './components/BdpPanel';
 import QuarterlyPlanPanel from './components/QuarterlyPlanPanel';
@@ -37,12 +37,10 @@ type Overlay =
   | { kind: 'journey'; project: ProjectKey }
   | { kind: 'bdp' }
   | { kind: 'quarterly' }
-  // A Goal's "→ BOARD" button (GoalsPanel/GoalRow) opens this — the
-  // Goal -> Task -> Individual Task Board hierarchy the user asked
-  // for, as a full-window overlay per their own explicit choice
-  // ("full-window overlay (Recommended)") over cramming it into
-  // Panel 2's narrow column.
-  | { kind: 'goalBoard'; project: GoalOwnerKey; goalId: number };
+  // A project card's Board button — the project's tasks, each with its
+  // own QUEUED / FOCUS / CLOSED board. It used to open from a goal's
+  // "→ BOARD", which only old goals had (new ones read "BOARD (soon)").
+  | { kind: 'board'; project: ProjectKey };
 
 // This whole overlay container sat outside <main> with no role at all —
 // the original page stays mounted underneath (this is a fixed-position
@@ -57,7 +55,7 @@ const OVERLAY_LABEL: Record<Overlay['kind'], string> = {
   journey: 'Journey',
   bdp: 'Income Opportunities',
   quarterly: '90-Day Plan',
-  goalBoard: 'Goal Board',
+  board: 'Board',
 };
 
 function AppShell() {
@@ -410,10 +408,9 @@ function AppShell() {
       }}
     >
       {/* ── Three columns, legacy's own layout (_build_ui 3105-3150) ──
-          Panel 1 projects · panel 2 the selected project's goals (a
-          goal's "→ BOARD" button opens the Goal -> Task -> Individual
-          Task Board hierarchy as a full-window overlay, not inline
-          here — see the 'goalBoard' Overlay kind below) ·
+          Panel 1 projects (a card's Board button opens that project's
+          task boards as a full-window overlay — the 'board' Overlay
+          kind below) · panel 2 the selected project's goals ·
           panel 3 the clock/PLAN/EXECUTE column, fixed width.
 
           Panel 3 is fixed and the other two are flexible because panel 3
@@ -508,9 +505,9 @@ function AppShell() {
               onFocusChanged={() => setPanel1Wrote((v) => v + 1)}
               onOpenAnalysis={(k) => setOverlay({ kind: 'analysis', project: k })}
               onOpenJourney={(k) => setOverlay({ kind: 'journey', project: k })}
+              onOpenBoard={(k) => setOverlay({ kind: 'board', project: k })}
               onSelectGoals={selectGoalsProject}
-              goalsProject={goalsProject}
-              openProject={overlay && 'project' in overlay && overlay.project !== 'life' ? overlay.project : null}
+              openProject={overlay && 'project' in overlay ? overlay.project : null}
               onAllCollapsedChange={setAllProjectsCollapsed}
             />
           </section>
@@ -575,9 +572,6 @@ function AppShell() {
                       projectKey={goalsPanelKey}
                       focusVersion={panel1Wrote + panel3Wrote}
                       onFocusChanged={() => setPanel2Wrote((v) => v + 1)}
-                      onOpenBoard={(goalId) =>
-                        goalsPanelKey && setOverlay({ kind: 'goalBoard', project: goalsPanelKey, goalId })
-                      }
                       jumpToGoal={jumpToGoal}
                       focusWeek={weekGoalFocus}
                     />
@@ -760,9 +754,7 @@ function AppShell() {
             {overlay.kind === 'journey' && <JourneyPanel key={overlay.project} initialProject={overlay.project} />}
             {overlay.kind === 'bdp' && <BdpPanel />}
             {overlay.kind === 'quarterly' && <QuarterlyPlanPanel />}
-            {overlay.kind === 'goalBoard' && (
-              <GoalBoardOverlay project={overlay.project} goalId={overlay.goalId} />
-            )}
+            {overlay.kind === 'board' && <BoardOverlay project={overlay.project} />}
           </div>
         </div>
       )}

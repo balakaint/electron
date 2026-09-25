@@ -9,6 +9,7 @@ from api.schemas import (
     BoardTaskCreate,
     BoardTaskEdit,
     BoardTaskOut,
+    ProjectKeyT,
 )
 from database.connection import get_db
 from database.repository import BoardCardRepository, BoardTaskRepository
@@ -33,16 +34,21 @@ def get_card_engine(db: Session = Depends(get_db)) -> BoardEngine:
     return BoardEngine(BoardCardRepository(db))
 
 
-# ── Tasks under a Goal ────────────────────────────────────────────────
-@router.get("/goals/{goal_id}/tasks", response_model=list[BoardTaskOut])
-def list_tasks(goal_id: int, engine: BoardTaskEngine = Depends(get_task_engine)):
-    return engine.tasks_in(goal_id)
+# ── Tasks on a project's board ────────────────────────────────────────
+# These used to be /goals/{goal_id}/tasks — the same path goals.py
+# registers first for its own checklist, so every board request was
+# answered by the goal checklist route instead: the list came back as
+# checklist items and adding a task always failed (it wanted `text`,
+# the board sends `title`). The board is per project now, on its own path.
+@router.get("/{key}/board-tasks", response_model=list[BoardTaskOut])
+def list_project_tasks(key: ProjectKeyT, engine: BoardTaskEngine = Depends(get_task_engine)):
+    return engine.tasks_for_project(key)
 
 
-@router.post("/goals/{goal_id}/tasks", response_model=BoardTaskOut)
-def add_task(goal_id: int, payload: BoardTaskCreate, engine: BoardTaskEngine = Depends(get_task_engine)):
+@router.post("/{key}/board-tasks", response_model=BoardTaskOut)
+def add_project_task(key: ProjectKeyT, payload: BoardTaskCreate, engine: BoardTaskEngine = Depends(get_task_engine)):
     try:
-        return engine.add_task(goal_id, payload.title)
+        return engine.add_project_task(key, payload.title)
     except ValueError as e:
         raise HTTPException(400, str(e))
 
