@@ -100,8 +100,9 @@ export default function HealthCard({ onOpen }: { onOpen: () => void }) {
   const { day, log, targets, month } = s;
   const moves = day.workout.blocks.reduce((n, b) => n + b.moves.length, 0);
   const rest = moves === 0;
+  const movesDone = day.workout.blocks.reduce((n, b, bi) => n + b.moves.filter(([name]) => log.moves.includes(`${bi}:${name}`)).length, 0);
   const nextMeal = day.meals.find((m) => !log.meals.includes(m.slot));
-  const done = log.meals.length + (rest ? 0 : log.moves.length);
+  const done = log.meals.length + (rest ? 0 : movesDone);
   const total = 4 + moves;
   const pct = total ? done / total : 0;
 
@@ -161,9 +162,9 @@ export default function HealthCard({ onOpen }: { onOpen: () => void }) {
         <Meter label={L('Meals', 'খাবার')} value={String(log.meals.length)} of="4" pct={log.meals.length / 4} color="var(--warning)" />
         <Meter
           label={L('Workout', 'ব্যায়াম')}
-          value={rest ? L('Rest', 'বিশ্রাম') : String(log.moves.length)}
+          value={rest ? L('Rest', 'বিশ্রাম') : String(movesDone)}
           of={rest ? '—' : String(moves)}
-          pct={rest ? 1 : log.moves.length / moves}
+          pct={rest ? 1 : movesDone / moves}
           color="var(--accent)"
         />
         <Meter

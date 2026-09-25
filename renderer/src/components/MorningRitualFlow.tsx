@@ -11,7 +11,7 @@ import {
   tasksApi,
 } from '../services/api';
 import { RADIUS } from '../spacing';
-import { Check } from 'lucide-react';
+import { Check, Moon, Sun } from 'lucide-react';
 import RitualRing from './RitualRing';
 import { useAutofocus } from '../hooks/useAutofocus';
 import DoDontList from './DoDontList';
@@ -19,20 +19,16 @@ import breatheAudioUrl from '../assets/audio/breath.mp3';
 import { useL } from '../i18n';
 import { morningSteps } from '../ritualSteps';
 
-// Redesigned 2026-09-19 to match Zahid's morning-activation.html sample
-// 1:1 (structure, copy, section order, plain-pill/plain-button visual
-// language — no icon chips, no ring timers) while staying wired to the
-// real backend (see engine/morning_ritual.py) instead of the sample's
-// localStorage. Two deliberate deviations from the sample, both agreed
-// with Zahid beforehand:
-//   - Reset's Breathe/Body Stretch/Sunlight keep their existing 60s/
-//     180s/180s COUNTDOWN TIMERS (a 2026-09-18 addition the sample
-//     doesn't have, which predates and survives this redesign) — only
-//     their ring-shaped rendering is dropped for the sample's plain
-//     button + text countdown.
-//   - The "AI-suggested next action" in Clear Your Mind is wired to the
-//     real (heuristic, not LLM) backend endpoint
-//     engine.morning_ritual.suggest_action, same status quo as before.
+// Morning Ritual. Laid out to Zahid's approved mockup (2026-09-25): a
+// dark card with last night's outcome and first move (Edit in place),
+// a boxed check-in with Sleep always shown, Reset as four tiles, a
+// numbered Clear-your-mind card with its "action today?" question,
+// Prime as four tiles over gratitude and intention, and a Ready bar
+// pinned to the bottom until the day is started. Kept from before, by
+// Zahid's call: the "Worth trying, not proven" list and DO / DON'T.
+// Still wired to the real backend (engine/morning_ritual.py); the
+// Breathe / Stretch / Sunlight / Meditate countdowns and the breath
+// sound work as they did.
 const ACCENT = 'var(--accent)';
 const BREAK_TIMER_SECS = 180;
 const STRETCH_TIMER_SECS = 120;
@@ -56,11 +52,6 @@ const SLEEP_OPTIONS: { value: MorningSleep; label: string }[] = [
 ];
 const INTENTION_OPTIONS: MorningIntention[] = ['Focus', 'Patience', 'Discipline', 'Calm'];
 const SPIRITUAL_OPTIONS: MorningSpiritual[] = ['OFF', 'Prayer', 'Dhikr', 'Quran', 'Meditation', 'Personal Reflection', 'Custom'];
-const URGENCY_DOT: Record<Task['urgency'], string> = {
-  low: 'var(--border)',
-  med: 'var(--warning)',
-  high: 'var(--danger)',
-};
 const MODE_COLOR: Record<string, string> = {
   standard: 'var(--accent)',
   gentle: 'var(--success)',
@@ -94,28 +85,24 @@ function fmtKpi(secs: number | null): string {
   return `${mins}m ${rem}s`;
 }
 
-function MicroLabel({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return (
-    <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--text-faint)', marginBottom: 8, ...style }}>
-      {children}
-    </div>
-  );
-}
-
-function Pill<T extends string>({ label, active, onClick }: { value: T; label: string; active: boolean; onClick: () => void }) {
+// Mockup (2026-09-25) building blocks: boxed segmented choices for the
+// check-in, square tiles for Reset and Prime, and a numbered section
+// head. All read colour from theme tokens.
+function Seg({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       aria-pressed={active}
-      className={active ? undefined : 'btn-ghost'}
       style={{
-        fontSize: 12,
-        padding: '4px 12px',
-        borderRadius: RADIUS.pill,
-        background: active ? 'var(--accent-light)' : undefined,
-        borderColor: active ? ACCENT : undefined,
-        color: active ? ACCENT : undefined,
-        fontWeight: active ? 600 : undefined,
+        height: 32,
+        fontSize: 13,
+        fontWeight: active ? 700 : 400,
+        borderRadius: RADIUS.control,
+        border: `1px solid ${active ? ACCENT : 'var(--border)'}`,
+        background: active ? ACCENT : 'var(--surface)',
+        color: active ? 'var(--on-accent)' : 'var(--text)',
+        cursor: 'pointer',
+        minWidth: 0,
       }}
     >
       {label}
@@ -123,93 +110,78 @@ function Pill<T extends string>({ label, active, onClick }: { value: T; label: s
   );
 }
 
-// One row on the RESET strip — plain name/sub-copy + a right-aligned
-// action, colored left border per item, matching morning-activation
-// .reset-item exactly (Zahid, 2026-09-19: drop the ring visual, keep
-// the row layout).
-function ResetRow({
-  border,
-  name,
-  sub,
-  dotClassName,
-  right,
-}: {
-  border: string;
-  name: string;
-  sub: string;
-  dotClassName?: string;
-  right: React.ReactNode;
-}) {
+function SectionHead({ mark, done, title, note }: { mark: string; done?: boolean; title: string; note?: string }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        border: '1px solid var(--border)',
-        borderLeft: `3px solid ${border}`,
-        borderRadius: RADIUS.card,
-        padding: '8px 12px',
-        background: 'var(--surface)',
-      }}
-    >
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
-          {dotClassName !== undefined && (
-            <span
-              className={dotClassName || undefined}
-              style={{ width: 8, height: 8, borderRadius: RADIUS.pill, background: ACCENT, opacity: dotClassName ? undefined : 0.25, flex: 'none' }}
-            />
-          )}
-          {name}
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>{sub}</div>
-      </div>
-      {right}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+      <span
+        style={{
+          width: 24,
+          height: 24,
+          flex: 'none',
+          boxSizing: 'border-box',
+          borderRadius: RADIUS.pill,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 12,
+          fontWeight: 700,
+          background: done ? 'var(--success)' : 'var(--surface)',
+          color: done ? 'var(--on-accent)' : ACCENT,
+          border: `2px solid ${done ? 'var(--success)' : ACCENT}`,
+        }}
+      >
+        {done ? <Check size={14} strokeWidth={3} /> : mark}
+      </span>
+      <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: 1 }}>{title}</span>
+      {note && <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{note}</span>}
     </div>
   );
 }
 
-function ResetButton({ label, onClick, disabled, done }: { label: React.ReactNode; onClick: () => void; disabled?: boolean; done?: boolean }) {
+function Tile({
+  name,
+  sub,
+  done,
+  active,
+  topColor,
+  onClick,
+  pulse,
+}: {
+  name: string;
+  sub: string;
+  done?: boolean;
+  active?: boolean;
+  topColor?: string;
+  onClick: () => void;
+  pulse?: boolean;
+}) {
   return (
     <button
       onClick={onClick}
-      disabled={disabled}
-      aria-pressed={done}
-      className={done ? undefined : 'btn-ghost'}
+      aria-pressed={done || active}
       style={{
-        fontSize: 12,
-        padding: '4px 12px',
-        flex: 'none',
         display: 'flex',
-        alignItems: 'center',
-        gap: 4,
-        background: done ? 'var(--accent-light)' : undefined,
-        borderColor: done ? 'var(--success)' : undefined,
-        color: done ? 'var(--success)' : undefined,
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-// One card inside the outer Morning Prime <details> — matches
-// morning-activation's .prime-item, all five shown together once
-// opened (not nested per-item details).
-function PrimeItem({ border, name, children }: { border: string; name: string; children: React.ReactNode }) {
-  return (
-    <div
-      style={{
-        border: '1px solid var(--border)',
-        borderLeft: `3px solid ${border}`,
-        borderRadius: RADIUS.card,
+        flexDirection: 'column',
+        alignItems: 'stretch',
+        gap: 2,
+        textAlign: 'left',
         padding: 12,
+        minWidth: 0,
+        borderRadius: RADIUS.card,
+        border: `1px solid ${active ? ACCENT : 'var(--border)'}`,
+        borderTop: topColor ? `3px solid ${topColor}` : undefined,
+        background: done ? 'var(--surface-2)' : 'var(--surface)',
+        color: 'var(--text)',
+        cursor: 'pointer',
       }}
     >
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{name}</div>
-      {children}
-    </div>
+      <span style={{ fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+        {pulse && <span className="ritual-pulse" style={{ width: 8, height: 8, borderRadius: RADIUS.pill, background: ACCENT, flex: 'none' }} />}
+        {name}
+        {done && <Check size={14} color="var(--success)" strokeWidth={3} style={{ flex: 'none' }} />}
+      </span>
+      <span style={{ fontSize: 13, color: 'var(--text-muted)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{sub}</span>
+    </button>
   );
 }
 
@@ -218,10 +190,6 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
 
   const [outcomeDraft, setOutcomeDraft] = useState('');
   const [firstMoveDraft, setFirstMoveDraft] = useState('');
-  const [editingOutcome, setEditingOutcome] = useState(false);
-  const [editingFirstMove, setEditingFirstMove] = useState(false);
-  const outcomeInputRef = useAutofocus<HTMLInputElement>(editingOutcome);
-  const firstMoveInputRef = useAutofocus<HTMLInputElement>(editingFirstMove);
   const [journalDraft, setJournalDraft] = useState('');
   const [journalTouched, setJournalTouched] = useState(false);
   const [gratitudeDraft, setGratitudeDraft] = useState('');
@@ -229,7 +197,6 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
   const [suggestDraft, setSuggestDraft] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
 
-  const [sleepOpen, setSleepOpen] = useState(false);
 
   const [breatheSecs, setBreatheSecs] = useState(60);
   const [breatheRunning, setBreatheRunning] = useState(false);
@@ -270,22 +237,18 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
   const resetSectionRef = useRef<HTMLDivElement>(null);
 
   const checkinSectionRef = useRef<HTMLDivElement>(null);
-  const primeSectionRef = useRef<HTMLDetailsElement>(null);
+  const primeSectionRef = useRef<HTMLDivElement>(null);
   const L = useL();
-  // A finished Reset collapses to one row of ticks; this reopens it.
-  const [resetOpen, setResetOpen] = useState(false);
-  // Whether the Ready card is on screen — the sticky Start bar only
-  // shows while it is not, so the button never appears twice.
-  const [startVisible, setStartVisible] = useState(false);
-  const hasRitual = ritual !== null;
+  const [streak, setStreak] = useState<number | null>(null);
   useEffect(() => {
-    const el = startSectionRef.current;
-    if (!hasRitual || !el || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver(([e]) => setStartVisible(e.isIntersecting), { threshold: 0.1 });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [hasRitual]);
-
+    morningRitualApi
+      .trend()
+      .then((t) => setStreak(t.streak))
+      .catch(() => {});
+  }, []);
+  const [editingCarry, setEditingCarry] = useState(false);
+  const carryInputRef = useAutofocus<HTMLInputElement>(editingCarry);
+  const [primeOpen, setPrimeOpen] = useState<'meditate' | 'visualize' | 'read' | 'ground' | null>(null);
   const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
   useEffect(() => {
     tasksApi.list('focus').then((all) => {
@@ -306,7 +269,6 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
       setJournalTouched(r.journal_text.trim().length > 0);
       setGratitudeDraft(r.prime_gratitude);
       setWakeDraft(r.wake_up_time ?? '');
-      if (r.sleep_quality || r.wake_up_time) setSleepOpen(true);
       if (r.reset_breathe) setBreatheSecs(0);
       if (r.reset_daylight) setSunSecs(0);
       if (r.reset_move) setStretchSecs(0);
@@ -410,7 +372,6 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
 
   const mode = ritual.morning_mode;
   const gentle = mode === 'gentle';
-  const wwwHidden = mode === 'gentle' || mode === 'fast';
   const journalMinHeight = gentle ? 84 : 130;
 
   const scrollTo = (ref: React.RefObject<HTMLDivElement>) => {
@@ -424,819 +385,523 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
 
   const steps = morningSteps(ritual);
   const resetDone = ritual.reset_water && ritual.reset_breathe && ritual.reset_move && (gentle || ritual.reset_daylight);
-  const resetCompact = resetDone && !resetOpen;
   const outcomeText = outcomeDraft.trim() || "Set today's outcome";
-  const firstMoveText = firstMoveDraft.trim() || 'Set your first move';
   const visualizeText = `See yourself completing "${outcomeDraft.trim() || "today's outcome"}." Then see yourself taking the first physical step: ${firstMoveDraft.trim() || 'the first action'}.`;
 
-  return (
-    <div style={{ maxWidth: 560, margin: '0 auto', paddingBottom: 32, position: 'relative' }}>
+  const carried = !!ritual.carried_from_date;
+  const onDark = 'var(--bg)';
+  const onDarkMuted = 'color-mix(in srgb, var(--bg) 70%, var(--text))';
+  const card: React.CSSProperties = {
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: RADIUS.card,
+    padding: 16,
+  };
+  const resetCount = [ritual.reset_water, ritual.reset_breathe, ritual.reset_move, ...(gentle ? [] : [ritual.reset_daylight])].filter(Boolean).length;
+  const resetTotal = gentle ? 3 : 4;
+  const checkinDone = !!ritual.energy && !!ritual.mood;
+  const mmss = (secs: number) => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  const start = () => {
+    dismissNudge();
+    morningRitualApi.startNow().then(setRitual);
+  };
+  const saveCarry = () => {
+    setEditingCarry(false);
+    if (outcomeDraft.trim() !== ritual.today_outcome) morningRitualApi.setOutcome(outcomeDraft).then(setRitual);
+    if (firstMoveDraft.trim() !== ritual.first_move) morningRitualApi.setFirstMove(firstMoveDraft).then(setRitual);
+  };
 
-      {/* ── SEE ──────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-          <div>
-            <h2 style={{ fontSize: 24, fontWeight: 600, margin: '0 0 4px' }}>Good morning</h2>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-              {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-            </div>
+  return (
+    <div style={{ maxWidth: 600, margin: '0 auto', paddingBottom: 16, position: 'relative', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* ── Header ───────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
+            {ritual.wake_up_time ? ` · ${L('woke', 'উঠেছি')} ${ritual.wake_up_time}` : ''}
           </div>
+          <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Sun size={24} color={ACCENT} /> {L('Good morning', 'শুভ সকাল')}
+          </h2>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
           <span
             style={{
               fontSize: 12,
-              fontWeight: 600,
-              letterSpacing: '0.06em',
+              fontWeight: 700,
+              letterSpacing: 1,
               textTransform: 'uppercase',
-              padding: '4px 8px',
+              padding: '2px 8px',
               borderRadius: RADIUS.pill,
-              border: '1px solid var(--border)',
-              borderLeft: `3px solid ${MODE_COLOR[mode]}`,
-              color: 'var(--text-muted)',
-              background: 'var(--surface)',
+              background: MODE_COLOR[mode],
+              color: 'var(--on-accent)',
             }}
           >
-            {mode.charAt(0).toUpperCase() + mode.slice(1)}
+            {mode}
           </span>
-        </div>
-
-        {/* Where the morning stands, as the five steps the Discipline card
-            counts — each one jumps to its section. */}
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`, gap: 4, marginTop: 16 }}>
-          {steps.map((st, i) => (
-            <button
-              key={st.key}
-              onClick={() => {
-                const target = {
-                  checkin: checkinSectionRef,
-                  reset: resetSectionRef,
-                  mind: clearSectionRef,
-                  prime: primeSectionRef,
-                  ready: startSectionRef,
-                }[st.key];
-                target?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
-              className="hover-tint"
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-                minWidth: 0,
-                padding: '4px 0',
-                border: 'none',
-                background: 'transparent',
-                font: 'inherit',
-                textAlign: 'left',
-                cursor: 'pointer',
-                color: 'var(--text)',
-              }}
-            >
-              <span
-                style={{
-                  height: 4,
-                  alignSelf: 'stretch',
-                  borderRadius: RADIUS.pill,
-                  background:
-                    st.state === 'done'
-                      ? ACCENT
-                      : st.state === 'now'
-                        ? `color-mix(in srgb, ${ACCENT} 45%, var(--surface))`
-                        : 'color-mix(in srgb, var(--progress-track) 40%, var(--surface))',
-                }}
-              />
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: st.state === 'now' ? 700 : 400,
-                  color: st.state === 'next' ? 'var(--text-muted)' : 'var(--text)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {st.state === 'done' ? '✓ ' : `${i + 1}. `}
-                {L(st.en, st.bn)}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <div
-          className="card-elevated"
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderLeft: `3px solid ${ACCENT}`,
-            borderRadius: RADIUS.card,
-            padding: 16,
-            marginTop: 12,
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
-              {ritual.carried_from_date ? L('☾ You wrote last night', '☾ গত রাতে লিখেছিলেন') : L('Carried from yesterday', 'গতকাল থেকে')}
-            </span>
-            {ritual.carried_from_date && (
-              <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
-                {L('Night Closure', 'নাইট ক্লোজার')} · {ritual.carried_from_date}
-              </span>
-            )}
-          </div>
-          {ritual.carried_from_date ? (
-            <div style={{ display: 'grid', gap: 4, marginTop: 8 }}>
-              <div style={{ fontSize: 14, color: 'var(--text)' }}>
-                <span style={{ color: 'var(--text-faint)' }}>{L('Outcome', 'ফলাফল')} · </span>
-                {ritual.today_outcome || L('not set', 'সেট করা নেই')}
-              </div>
-              <div style={{ fontSize: 14, color: 'var(--text)' }}>
-                <span style={{ color: 'var(--text-faint)' }}>{L('First move', 'প্রথম পদক্ষেপ')} · </span>
-                {ritual.first_move || L('not set', 'সেট করা নেই')}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
-                {L('Edit below if the morning sees it differently.', 'সকালে অন্যরকম মনে হলে নিচে বদলে নিন।')}
-              </div>
-            </div>
-          ) : (
-            <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 8 }}>
-              {L(
-                'Nothing carried over yet. Close tonight out on Night Closure and it will be waiting here.',
-                'এখনো কিছু আসেনি। আজ রাতে নাইট ক্লোজার করলে কাল সকালে এখানে থাকবে।'
-              )}
-            </div>
+          {streak !== null && streak > 0 && (
+            <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L(`${streak}-day streak`, `${streak} দিনের ধারা`)}</span>
           )}
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 12,
-            marginTop: 12,
-          }}
-        >
-          <div
-            className="card-elevated"
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderTop: '2px solid var(--success)',
-              borderRadius: RADIUS.card,
-              padding: 12,
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
-            <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-faint)', fontWeight: 600 }}>
-              Today
-            </div>
-            {editingOutcome ? (
-              <input
-                ref={outcomeInputRef}
-                value={outcomeDraft}
-                onChange={(e) => setOutcomeDraft(e.target.value)}
-                onBlur={() => {
-                  setEditingOutcome(false);
-                  morningRitualApi.setOutcome(outcomeDraft).then(setRitual);
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                style={{ width: '100%', fontSize: 16, fontWeight: 600, marginTop: 8 }}
-              />
-            ) : (
-              <button
-                onClick={() => setEditingOutcome(true)}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  border: 'none',
-                  background: 'transparent',
-                  font: 'inherit',
-                  padding: 0,
-                  fontSize: 16,
-                  fontWeight: 600,
-                  marginTop: 8,
-                  cursor: 'text',
-                  color: outcomeDraft ? undefined : 'var(--text-faint)',
-                }}
-              >
-                {outcomeText}
-              </button>
-            )}
-          </div>
-          <div
-            className="card-elevated"
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderTop: '2px solid var(--warning)',
-              borderRadius: RADIUS.card,
-              padding: 12,
-              boxShadow: 'var(--shadow-sm)',
-            }}
-          >
-            <div style={{ fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-faint)', fontWeight: 600 }}>
-              First move
-            </div>
-            {editingFirstMove ? (
-              <input
-                ref={firstMoveInputRef}
-                value={firstMoveDraft}
-                onChange={(e) => setFirstMoveDraft(e.target.value)}
-                onBlur={() => {
-                  setEditingFirstMove(false);
-                  morningRitualApi.setFirstMove(firstMoveDraft).then(setRitual);
-                }}
-                onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-                style={{ width: '100%', fontSize: 16, fontWeight: 600, marginTop: 8 }}
-              />
-            ) : (
-              <button
-                onClick={() => setEditingFirstMove(true)}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  textAlign: 'left',
-                  border: 'none',
-                  background: 'transparent',
-                  font: 'inherit',
-                  padding: 0,
-                  fontSize: 16,
-                  fontWeight: 600,
-                  marginTop: 8,
-                  cursor: 'text',
-                  color: firstMoveDraft ? undefined : 'var(--text-faint)',
-                }}
-              >
-                {firstMoveText}
-              </button>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* ── CHECK-IN + RESET ────────────────────────────────────── */}
-      <div ref={checkinSectionRef} style={{ marginBottom: 32 }}>
-        <MicroLabel>CHECK-IN</MicroLabel>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 52, flex: 'none' }}>Energy</span>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {ENERGY_OPTIONS.map((o) => (
-              <Pill
-                key={o.value}
-                value={o.value}
-                label={o.label}
-                active={ritual.energy === o.value}
-                onClick={() => morningRitualApi.setCheckIn(o.value).then(setRitual)}
-              />
-            ))}
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 8 }}>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 52, flex: 'none' }}>Mood</span>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {MOOD_OPTIONS.map((o) => (
-              <Pill
-                key={o.value}
-                value={o.value}
-                label={o.label}
-                active={ritual.mood === o.value}
-                onClick={() => morningRitualApi.setCheckIn(undefined, o.value).then(setRitual)}
-              />
-            ))}
-          </div>
-          {(ritual.mood === 'LOW' || ritual.mood === 'NEUTRAL') && (
-            <button onClick={() => scrollTo(resetSectionRef)} className="link" style={{ fontSize: 12 }}>
-              Break Pattern
-            </button>
-          )}
-        </div>
-
-        <div>
+      {/* Where the morning stands; each step jumps to its section. */}
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))`, gap: 4 }}>
+        {steps.map((st) => (
           <button
-            onClick={() => setSleepOpen((v) => !v)}
-            className="link"
-            style={{ fontSize: 13 }}
-            aria-expanded={sleepOpen}
+            key={st.key}
+            onClick={() => {
+              const target = { checkin: checkinSectionRef, reset: resetSectionRef, mind: clearSectionRef, prime: primeSectionRef, ready: startSectionRef }[st.key];
+              target?.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            className="hover-tint"
+            style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, padding: '4px 0', border: 'none', background: 'transparent', font: 'inherit', textAlign: 'left', cursor: 'pointer', color: 'var(--text)' }}
           >
-            {sleepOpen ? '– Sleep quality' : '+ Sleep quality'}
+            <span
+              style={{
+                height: 4,
+                alignSelf: 'stretch',
+                borderRadius: RADIUS.pill,
+                background:
+                  st.state === 'done'
+                    ? ACCENT
+                    : st.state === 'now'
+                      ? `color-mix(in srgb, ${ACCENT} 45%, var(--surface))`
+                      : 'color-mix(in srgb, var(--progress-track) 40%, var(--surface))',
+              }}
+            />
+            <span style={{ fontSize: 12, fontWeight: st.state === 'now' ? 700 : 400, color: st.state === 'next' ? 'var(--text-muted)' : 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {L(st.en, st.bn)}
+            </span>
           </button>
-          {sleepOpen && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 52, flex: 'none' }}>Sleep</span>
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {SLEEP_OPTIONS.map((o) => (
-                    <Pill
-                      key={o.value}
-                      value={o.value}
-                      label={o.label}
-                      active={ritual.sleep_quality === o.value}
-                      onClick={() => morningRitualApi.setCheckIn(undefined, undefined, o.value).then(setRitual)}
-                    />
-                  ))}
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 52, flex: 'none' }}>Woke at</span>
-                <div style={{ position: 'relative', display: 'inline-flex' }}>
-                  <input
-                    type="time"
-                    value={wakeDraft}
-                    onChange={(e) => setWakeDraft(e.target.value)}
-                    style={{ fontSize: 12, padding: '4px 32px 4px 8px' }}
-                  />
-                  <button
-                    onClick={() => setWakeDraft(nowHHMM())}
-                    style={{
-                      position: 'absolute',
-                      right: 3,
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      padding: '2px 8px',
-                      border: 'none',
-                      borderRadius: RADIUS.control,
-                      background: 'var(--accent-light)',
-                      color: ACCENT,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Now
-                  </button>
-                </div>
-                <button
-                  onClick={() => morningRitualApi.setCheckIn(undefined, undefined, undefined, wakeDraft).then(setRitual)}
-                  className="btn-ghost"
-                  disabled={!wakeDraft}
-                  style={{ fontSize: 12, padding: '4px 8px' }}
-                >
-                  Set
-                </button>
-                <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
-                  Optional — keeping wake time steady has the strongest evidence here.
-                </span>
-              </div>
+        ))}
+      </div>
+
+      {/* ── Last night's closure (dark card) ────────────────────── */}
+      <div style={{ background: 'var(--text)', color: onDark, borderRadius: RADIUS.card, padding: 16, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <Moon size={16} color="var(--warning)" style={{ flex: 'none', marginTop: 2 }} />
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 12, color: onDarkMuted }}>
+            {carried ? `${L('You wrote last night', 'গত রাতে লিখেছিলেন')} · ${L('Night Closure', 'নাইট ক্লোজার')} ${ritual.carried_from_date}` : L("Today's outcome", 'আজকের ফলাফল')}
+          </span>
+          {editingCarry ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <input
+                ref={carryInputRef}
+                value={outcomeDraft}
+                onChange={(e) => setOutcomeDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && saveCarry()}
+                placeholder={L("Today's outcome", 'আজকের ফলাফল')}
+                aria-label={L("Today's outcome", 'আজকের ফলাফল')}
+                style={{ fontSize: 16, fontWeight: 700, padding: '4px 8px' }}
+              />
+              <input
+                value={firstMoveDraft}
+                onChange={(e) => setFirstMoveDraft(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && saveCarry()}
+                placeholder={L('First move', 'প্রথম পদক্ষেপ')}
+                aria-label={L('First move', 'প্রথম পদক্ষেপ')}
+                style={{ fontSize: 13, padding: '4px 8px' }}
+              />
             </div>
+          ) : (
+            <>
+              <span style={{ fontSize: 16, fontWeight: 700, color: outcomeDraft.trim() ? onDark : onDarkMuted }}>{outcomeText}</span>
+              <span style={{ fontSize: 13, color: onDarkMuted }}>
+                {L('First move', 'প্রথম পদক্ষেপ')}: {firstMoveDraft.trim() || L('not set', 'সেট করা নেই')}
+              </span>
+            </>
           )}
         </div>
+        <button
+          onClick={() => (editingCarry ? saveCarry() : setEditingCarry(true))}
+          style={{ flex: 'none', fontSize: 13, padding: '4px 12px', borderRadius: RADIUS.control, border: `1px solid ${onDarkMuted}`, background: 'transparent', color: onDark, cursor: 'pointer' }}
+        >
+          {editingCarry ? L('Save', 'সেভ') : L('Edit', 'বদলান')}
+        </button>
+      </div>
 
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-          <MicroLabel style={{ marginTop: 16 }}>RESET</MicroLabel>
-          {resetDone && (
-            <button onClick={() => setResetOpen((v) => !v)} className="link" style={{ fontSize: 12, marginLeft: 'auto' }}>
-              {resetOpen ? L('Collapse', 'গুটিয়ে নিন') : L('Show', 'দেখুন')}
+      {/* ── Check-in ─────────────────────────────────────────────── */}
+      <div ref={checkinSectionRef} style={card}>
+        <div style={{ display: 'flex', alignItems: 'baseline' }}>
+          <SectionHead mark="1" done={checkinDone} title={L('CHECK-IN', 'চেক-ইন')} />
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>{L("sets today's mode", 'আজকের মোড ঠিক করে')}</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '56px repeat(4, minmax(0, 1fr))', gap: 4, alignItems: 'center' }}>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{L('Energy', 'শক্তি')}</span>
+          {ENERGY_OPTIONS.map((o) => (
+            <Seg key={o.value} label={o.label} active={ritual.energy === o.value} onClick={() => morningRitualApi.setCheckIn(o.value).then(setRitual)} />
+          ))}
+          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{L('Mood', 'মেজাজ')}</span>
+          {MOOD_OPTIONS.map((o) => (
+            <Seg key={o.value} label={o.label} active={ritual.mood === o.value} onClick={() => morningRitualApi.setCheckIn(undefined, o.value).then(setRitual)} />
+          ))}
+          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{L('Sleep', 'ঘুম')}</span>
+          {SLEEP_OPTIONS.map((o) => (
+            <Seg key={o.value} label={o.label} active={ritual.sleep_quality === o.value} onClick={() => morningRitualApi.setCheckIn(undefined, undefined, o.value).then(setRitual)} />
+          ))}
+          <span />
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)', width: 56, flex: 'none' }}>{L('Woke at', 'উঠেছি')}</span>
+          <div style={{ position: 'relative', display: 'inline-flex' }}>
+            <input type="time" value={wakeDraft} onChange={(e) => setWakeDraft(e.target.value)} aria-label={L('Woke at', 'উঠেছি')} style={{ fontSize: 12, padding: '4px 32px 4px 8px' }} />
+            <button
+              onClick={() => setWakeDraft(nowHHMM())}
+              style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', fontSize: 12, fontWeight: 600, padding: '2px 8px', border: 'none', borderRadius: RADIUS.control, background: 'var(--accent-light)', color: ACCENT, cursor: 'pointer' }}
+            >
+              {L('Now', 'এখন')}
+            </button>
+          </div>
+          <button
+            onClick={() => morningRitualApi.setCheckIn(undefined, undefined, undefined, wakeDraft).then(setRitual)}
+            className="btn-ghost"
+            disabled={!wakeDraft}
+            style={{ fontSize: 12, padding: '4px 8px' }}
+          >
+            {L('Set', 'সেট')}
+          </button>
+          {(ritual.mood === 'LOW' || ritual.mood === 'NEUTRAL') && (
+            <button onClick={() => scrollTo(resetSectionRef)} className="link" style={{ fontSize: 12, marginLeft: 'auto' }}>
+              {L('Break the pattern ↓', 'প্যাটার্ন ভাঙুন ↓')}
             </button>
           )}
         </div>
-        {resetCompact && (
-          <div
-            ref={resetSectionRef}
-            style={{ display: 'grid', gridTemplateColumns: `repeat(${gentle ? 3 : 4}, minmax(0, 1fr))`, gap: 8 }}
-          >
-            {[
-              L('Water', 'পানি'),
-              L('Breathe', 'শ্বাস'),
-              L('Stretch', 'স্ট্রেচ'),
-              ...(gentle ? [] : [L('Day Light', 'দিনের আলো')]),
-            ].map((name) => (
-              <div
-                key={name}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  padding: 8,
-                  borderRadius: RADIUS.control,
-                  border: '1px solid var(--border)',
-                  background: 'color-mix(in srgb, var(--success) 12%, var(--surface))',
-                  fontSize: 13,
-                  fontWeight: 600,
-                  minWidth: 0,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                }}
-              >
-                <Check size={12} color="var(--success)" style={{ flex: 'none' }} />
-                {name}
-              </div>
-            ))}
-          </div>
-        )}
-        <div ref={resetCompact ? undefined : resetSectionRef} style={{ display: resetCompact ? 'none' : 'flex', flexDirection: 'column', gap: 8 }}>
-          <ResetRow
-            border="var(--ba-upside)"
-            name="Water"
-            sub={gentle ? "One glass. That's the whole task." : "A glass before coffee — you've gone all night without any."}
-            right={
-              <ResetButton
-                label={ritual.reset_water ? <>Done <Check size={12} /></> : 'Done'}
-                done={ritual.reset_water}
-                onClick={() => morningRitualApi.setResetWater(!ritual.reset_water).then(setRitual)}
-              />
-            }
+      </div>
+
+      {/* ── Reset ────────────────────────────────────────────────── */}
+      <div ref={resetSectionRef}>
+        <SectionHead mark="2" done={resetDone} title={L('RESET', 'রিসেট')} note={`${resetCount} ${L('of', 'এর')} ${resetTotal}`} />
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${resetTotal}, minmax(0, 1fr))`, gap: 8 }}>
+          <Tile
+            name={L('Water', 'পানি')}
+            sub={L('One glass', 'এক গ্লাস')}
+            done={ritual.reset_water}
+            onClick={() => morningRitualApi.setResetWater(!ritual.reset_water).then(setRitual)}
           />
-          <ResetRow
-            border="var(--ba-idea)"
-            name="Breathe"
-            sub={ritual.reset_breathe ? 'Done' : breatheRunning ? `${breatheSecs}s — in through the nose, out slowly` : '60 seconds, slow and comfortable'}
-            dotClassName={breatheRunning ? 'ritual-pulse' : ''}
-            right={
-              <ResetButton
-                label={ritual.reset_breathe ? 'Done' : breatheRunning ? 'Stop' : 'Start'}
-                done={ritual.reset_breathe}
-                disabled={ritual.reset_breathe}
-                onClick={() => {
-                  if (breatheRunning) {
-                    setBreatheRunning(false);
-                    breatheAudio.current?.pause();
-                    return;
-                  }
-                  setBreatheSecs(60);
-                  setBreatheRunning(true);
-                  breatheAudio.current?.play().catch((e) => console.error('breathe audio play failed:', e));
-                }}
-              />
-            }
+          <Tile
+            name={L('Breathe', 'শ্বাস')}
+            sub={ritual.reset_breathe ? L('Done', 'শেষ') : breatheRunning ? `${breatheSecs}s · ${L('tap to stop', 'থামাতে চাপুন')}` : '60 s'}
+            done={ritual.reset_breathe}
+            active={breatheRunning}
+            pulse={breatheRunning}
+            onClick={() => {
+              if (ritual.reset_breathe) return;
+              if (breatheRunning) {
+                setBreatheRunning(false);
+                breatheAudio.current?.pause();
+                return;
+              }
+              setBreatheSecs(60);
+              setBreatheRunning(true);
+              breatheAudio.current?.play().catch((e) => console.error('breathe audio play failed:', e));
+            }}
           />
-          <ResetRow
-            border="var(--ba-money)"
-            name="Body Stretch"
-            sub={ritual.reset_move ? 'Done' : stretchRunning ? `${stretchSecs}s remaining` : 'Rub your hands together, then stand up — 2 minutes'}
-            right={
-              <ResetButton
-                label={ritual.reset_move ? 'Done' : stretchRunning ? 'Stop' : 'Start'}
-                done={ritual.reset_move}
-                disabled={ritual.reset_move}
-                onClick={() => {
-                  if (stretchRunning) {
-                    setStretchRunning(false);
-                    breatheAudio.current?.pause();
-                    return;
-                  }
-                  setStretchSecs(STRETCH_TIMER_SECS);
-                  setStretchRunning(true);
-                  breatheAudio.current?.play().catch((e) => console.error('breathe audio play failed:', e));
-                }}
-              />
-            }
+          <Tile
+            name={L('Stretch', 'স্ট্রেচ')}
+            sub={ritual.reset_move ? L('Done', 'শেষ') : stretchRunning ? `${mmss(stretchSecs)} · ${L('tap to stop', 'থামাতে চাপুন')}` : '2 min'}
+            done={ritual.reset_move}
+            active={stretchRunning}
+            onClick={() => {
+              if (ritual.reset_move) return;
+              if (stretchRunning) {
+                setStretchRunning(false);
+                breatheAudio.current?.pause();
+                return;
+              }
+              setStretchSecs(STRETCH_TIMER_SECS);
+              setStretchRunning(true);
+              breatheAudio.current?.play().catch((e) => console.error('breathe audio play failed:', e));
+            }}
           />
           {!gentle && (
-            <ResetRow
-              border="var(--ba-do)"
-              name="Day Light"
-              sub={ritual.reset_daylight ? 'Done' : sunRunning ? `${sunSecs}s remaining` : 'Win today. Clear vision.'}
-              right={
-                <ResetButton
-                  label={ritual.reset_daylight ? 'Done' : sunRunning ? 'Stop' : 'Start'}
-                  done={ritual.reset_daylight}
-                  disabled={ritual.reset_daylight}
-                  onClick={() => {
-                    if (sunRunning) {
-                      setSunRunning(false);
-                      return;
-                    }
-                    setSunSecs(BREAK_TIMER_SECS);
-                    setSunRunning(true);
-                  }}
-                />
-              }
+            <Tile
+              name={L('Sunlight', 'রোদ')}
+              sub={ritual.reset_daylight ? L('Done', 'শেষ') : sunRunning ? `${mmss(sunSecs)} · ${L('tap to stop', 'থামাতে চাপুন')}` : '3 min'}
+              done={ritual.reset_daylight}
+              active={sunRunning}
+              onClick={() => {
+                if (ritual.reset_daylight) return;
+                if (sunRunning) {
+                  setSunRunning(false);
+                  return;
+                }
+                setSunSecs(BREAK_TIMER_SECS);
+                setSunRunning(true);
+              }}
             />
           )}
         </div>
 
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed var(--border)' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
-            Worth trying, not proven
-          </div>
-          <ul style={{ margin: '8px 0 8px', paddingLeft: 16, display: 'grid', gap: 4 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Worth trying, not proven</div>
+          <ul style={{ margin: '8px 0', paddingLeft: 16, display: 'grid', gap: 4 }}>
             <li style={{ fontSize: 14, color: 'var(--text-muted)' }}>Hold off on coffee for the first hour or so.</li>
             <li style={{ fontSize: 14, color: 'var(--text-muted)' }}>Keep the phone out of the first 30 minutes.</li>
             <li style={{ fontSize: 14, color: 'var(--text-muted)' }}>Cold water on the face if you're still foggy.</li>
           </ul>
-          <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>
-            Evidence for these three is thin. Keep whichever actually helps you, drop the rest.
-          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Evidence for these three is thin. Keep whichever actually helps you, drop the rest.</div>
         </div>
-
-        <button onClick={() => scrollTo(clearSectionRef)} className="link" style={{ fontSize: 13, marginTop: 12, display: 'block' }}>
-          I'm ready →
-        </button>
       </div>
 
-      {/* ── DO'S & DON'TS ────────────────────────────────────────── */}
+      {/* ── Do's & Don'ts ────────────────────────────────────────── */}
       <DoDontList />
 
-      {/* ── CLEAR YOUR MIND ─────────────────────────────────────── */}
-      <div ref={clearSectionRef} style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px' }}>Clear Your Mind</h2>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.5 }}>
-          You don't need to write a journal entry. Just capture what's on your mind.
-        </p>
-
-        {!wwwHidden && (
-          <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--text-muted)', display: 'grid', gap: 4 }}>
-            <div>
-              <strong style={{ color: 'var(--text)' }}>What</strong> — whatever is sitting in your head right now, in any order.
-            </div>
-            <div>
-              <strong style={{ color: 'var(--text)' }}>Why</strong> — unheld thoughts keep taking attention until they're written down.
-            </div>
-            <div>
-              <strong style={{ color: 'var(--text)' }}>How</strong> — one or two minutes, plain sentences, no editing.
-            </div>
-          </div>
-        )}
-
+      {/* ── Clear your mind ─────────────────────────────────────── */}
+      <div ref={clearSectionRef} style={{ ...card, border: `1px solid ${ACCENT}` }}>
+        <div style={{ display: 'flex', alignItems: 'baseline' }}>
+          <SectionHead mark="3" done={journalTouched && journalDraft.trim().length > 0} title={L('CLEAR YOUR MIND', 'মন হালকা করুন')} />
+          <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)' }}>{L('1–2 min · plain sentences', '১–২ মিনিট · সহজ বাক্যে')}</span>
+        </div>
         <textarea
           value={journalDraft}
           onChange={(e) => setJournalDraft(e.target.value)}
           onBlur={() => {
             if (journalDraft.trim().length > 0) setJournalTouched(true);
-            if (journalDraft.trim() !== ritual.journal_text) {
-              morningRitualApi.setJournal(journalDraft).then(setRitual);
-            }
+            if (journalDraft.trim() !== ritual.journal_text) morningRitualApi.setJournal(journalDraft).then(setRitual);
           }}
-          placeholder="What's on your mind?"
-          style={{ width: '100%', minHeight: journalMinHeight, resize: 'vertical', fontSize: 14, padding: 12 }}
+          placeholder={L('Whatever is sitting in your head right now, in any order.', 'এই মুহূর্তে মাথায় যা ঘুরছে, যেকোনো ক্রমে লিখুন।')}
+          aria-label={L('Clear your mind', 'মন হালকা করুন')}
+          style={{ width: '100%', minHeight: journalMinHeight, resize: 'vertical', fontSize: 14, padding: 12, boxSizing: 'border-box' }}
         />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-          <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>1–3 min • Write naturally</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 14, fontWeight: 700, flex: 1 }}>{L('Does this need action today?', 'এর জন্য কি আজ কিছু করতে হবে?')}</span>
           <button
+            className={ritual.journal_action_needed === true ? undefined : 'btn-ghost'}
+            aria-pressed={ritual.journal_action_needed === true}
+            disabled={!journalDraft.trim()}
+            style={{ fontSize: 13, padding: '4px 12px' }}
             onClick={() => {
-              setJournalDraft('');
-              setJournalTouched(false);
-              setSuggestOpen(false);
-              morningRitualApi.setJournal('').then(setRitual);
+              morningRitualApi.setJournalActionNeeded(true).then(setRitual);
+              setSuggestOpen(true);
+              morningRitualApi.suggestAction(journalDraft).then((r) => setSuggestDraft(r.suggestion));
             }}
-            className="link"
-            style={{ fontSize: 13 }}
           >
-            Skip
+            {L('Yes', 'হ্যাঁ')}
+          </button>
+          <button
+            className={ritual.journal_action_needed === false ? undefined : 'btn-ghost'}
+            aria-pressed={ritual.journal_action_needed === false}
+            disabled={!journalDraft.trim()}
+            style={{ fontSize: 13, padding: '4px 12px' }}
+            onClick={() => {
+              setSuggestOpen(false);
+              morningRitualApi.setJournalActionNeeded(false).then(setRitual);
+            }}
+          >
+            {L('No, just noting', 'না, শুধু লিখে রাখছি')}
           </button>
         </div>
-
-        {journalTouched && journalDraft.trim().length > 0 && (
-          <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-            <p style={{ fontSize: 14, fontWeight: 600, margin: 0 }}>Does this need action today?</p>
-            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-              <button
-                className="btn-ghost"
-                style={{ fontSize: 12 }}
-                onClick={() => {
-                  morningRitualApi.setJournalActionNeeded(true).then(setRitual);
-                  setSuggestOpen(true);
-                  morningRitualApi.suggestAction(journalDraft).then((r) => setSuggestDraft(r.suggestion));
-                }}
-              >
-                Make it an action
-              </button>
-              <button
-                className="btn-ghost"
-                style={{ fontSize: 12 }}
-                onClick={() => {
-                  setSuggestOpen(false);
-                  morningRitualApi.setJournalActionNeeded(false).then(setRitual);
-                }}
-              >
-                Release &amp; return
-              </button>
+        {suggestOpen && (
+          <div style={{ marginTop: 12, border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
+              {L('Suggested next action', 'পরের কাজের পরামর্শ')}
             </div>
+            <input value={suggestDraft} onChange={(e) => setSuggestDraft(e.target.value)} style={{ width: '100%', fontSize: 14, marginTop: 8, boxSizing: 'border-box' }} />
+            <button
+              className="btn-ghost"
+              style={{ fontSize: 12, marginTop: 8 }}
+              onClick={() => {
+                const v = suggestDraft.trim();
+                if (!v) return;
+                setFirstMoveDraft(v);
+                morningRitualApi.setFirstMove(v).then(setRitual);
+                setSuggestOpen(false);
+              }}
+            >
+              {L('Use as first move', 'প্রথম পদক্ষেপ করুন')}
+            </button>
+          </div>
+        )}
+        {!suggestOpen && ritual.journal_released && (
+          <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
+            {L("You don't need to solve everything right now — this stays saved.", 'এখনই সব সমাধান করতে হবে না — এটা সেভ থাকল।')}
+          </p>
+        )}
+      </div>
 
-            {suggestOpen && (
-              <div style={{ marginTop: 8, border: '1px solid var(--border)', borderLeft: `3px solid ${MODE_COLOR.fast}`, borderRadius: RADIUS.card, padding: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: 'var(--text-faint)', textTransform: 'uppercase' }}>
-                  Suggested next action
-                </div>
-                <input
-                  value={suggestDraft}
-                  onChange={(e) => setSuggestDraft(e.target.value)}
-                  style={{ width: '100%', fontSize: 14, marginTop: 8 }}
-                />
-                <div style={{ marginTop: 8 }}>
+      {/* ── Prime ────────────────────────────────────────────────── */}
+      <div ref={primeSectionRef}>
+        <SectionHead
+          mark="4"
+          done={ritual.prime_meditation || ritual.prime_visualization || ritual.prime_reading || !!ritual.prime_gratitude.trim()}
+          title={L('PRIME', 'প্রাইম')}
+          note={L('pick any', 'যেকোনোটা')}
+        />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
+          <Tile
+            name={L('Meditate', 'ধ্যান')}
+            sub={ritual.prime_meditation ? L('Done', 'শেষ') : medRunning ? `${medSecs}s` : L('90 s timer', '৯০ সেকেন্ড')}
+            done={ritual.prime_meditation}
+            active={primeOpen === 'meditate'}
+            topColor="var(--habit-mind)"
+            onClick={() => setPrimeOpen(primeOpen === 'meditate' ? null : 'meditate')}
+          />
+          <Tile
+            name={L('Visualize', 'কল্পনা')}
+            sub={L('the day, done', 'দিনটা, শেষ অবস্থায়')}
+            done={ritual.prime_visualization}
+            active={primeOpen === 'visualize'}
+            topColor="var(--success)"
+            onClick={() => {
+              setPrimeOpen(primeOpen === 'visualize' ? null : 'visualize');
+              if (!visualizeMarkedRef.current) {
+                visualizeMarkedRef.current = true;
+                morningRitualApi.markPrimeVisualization().then(setRitual);
+              }
+            }}
+          />
+          <Tile
+            name={L('Read', 'পড়া')}
+            sub={L('one page', 'এক পাতা')}
+            done={ritual.prime_reading}
+            active={primeOpen === 'read'}
+            topColor={ACCENT}
+            onClick={() => setPrimeOpen(primeOpen === 'read' ? null : 'read')}
+          />
+          <Tile
+            name={L('Ground', 'স্থির হওয়া')}
+            sub={L('feet, breath', 'পা, শ্বাস')}
+            active={primeOpen === 'ground'}
+            topColor="var(--warning)"
+            onClick={() => setPrimeOpen(primeOpen === 'ground' ? null : 'ground')}
+          />
+        </div>
+
+        {primeOpen && (
+          <div style={{ ...card, marginTop: 8, padding: 12 }}>
+            {primeOpen === 'meditate' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0, flex: 1 }}>
+                  {ritual.prime_meditation ? L('Done', 'শেষ') : medRunning ? `${medSecs}s ${L('remaining', 'বাকি')}` : L('90 seconds. Sit, eyes closed, let the timer keep time for you.', '৯০ সেকেন্ড। চোখ বন্ধ করে বসুন, সময়ের হিসাব টাইমার রাখবে।')}
+                </p>
+                {!ritual.prime_meditation && (
                   <button
                     className="btn-ghost"
                     style={{ fontSize: 12 }}
                     onClick={() => {
-                      const v = suggestDraft.trim();
-                      if (!v) return;
-                      setFirstMoveDraft(v);
-                      morningRitualApi.setFirstMove(v).then(setRitual);
-                      setSuggestOpen(false);
+                      if (medRunning) {
+                        setMedRunning(false);
+                        return;
+                      }
+                      setMedSecs(90);
+                      setMedRunning(true);
                     }}
                   >
-                    Use this
+                    {medRunning ? L('Stop', 'থামান') : L('Start', 'শুরু')}
                   </button>
-                </div>
+                )}
               </div>
             )}
-
-            {!suggestOpen && ritual.journal_released && (
-              <p style={{ marginTop: 8, fontSize: 13, color: 'var(--text-muted)' }}>
-                You don't need to solve everything right now — this stays saved.
+            {primeOpen === 'visualize' && <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>{visualizeText}</p>}
+            {primeOpen === 'read' && (
+              <div>
+                <p style={{ fontFamily: 'Georgia, "Noto Serif Bengali", serif', fontSize: 16, lineHeight: 1.6, margin: '0 0 8px' }}>{READING_LINES[readingIdx]}</p>
+                <button
+                  className="link"
+                  style={{ fontSize: 12 }}
+                  onClick={() => {
+                    setReadingIdx((i) => (i + 1) % READING_LINES.length);
+                    if (!readingMarkedRef.current) {
+                      readingMarkedRef.current = true;
+                      morningRitualApi.markPrimeReading().then(setRitual);
+                    }
+                  }}
+                >
+                  {L('Next line', 'পরের লাইন')}
+                </button>
+              </div>
+            )}
+            {primeOpen === 'ground' && (
+              <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>
+                {L('Feel both feet on the floor. Three slow breaths. Then write one thing you are grateful for below.', 'দুই পা মেঝেতে অনুভব করুন। তিনবার ধীরে শ্বাস নিন। তারপর নিচে একটা কৃতজ্ঞতার কথা লিখুন।')}
               </p>
             )}
           </div>
         )}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <input
+            value={gratitudeDraft}
+            onChange={(e) => setGratitudeDraft(e.target.value)}
+            onBlur={() => {
+              if (gratitudeDraft.trim() !== ritual.prime_gratitude) morningRitualApi.setPrimeGratitude(gratitudeDraft).then(setRitual);
+            }}
+            placeholder={L("One thing you're grateful for", 'একটা কৃতজ্ঞতার কথা')}
+            aria-label={L("One thing you're grateful for", 'একটা কৃতজ্ঞতার কথা')}
+            style={{ flex: '1 1 200px', fontSize: 14, padding: '8px 12px' }}
+          />
+          <div style={{ display: 'flex', padding: 2, gap: 2, borderRadius: RADIUS.control, background: 'var(--surface-2)' }}>
+            {INTENTION_OPTIONS.map((v) => {
+              const on = ritual.prime_intention === v;
+              return (
+                <button
+                  key={v}
+                  aria-pressed={on}
+                  onClick={() => morningRitualApi.setPrimeIntention(on ? null : v).then(setRitual)}
+                  style={{ fontSize: 13, padding: '4px 8px', border: 'none', borderRadius: RADIUS.control, background: on ? 'var(--surface)' : 'transparent', fontWeight: on ? 700 : 400, color: on ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer' }}
+                >
+                  {v}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L('Spiritual practice', 'আধ্যাত্মিক চর্চা')}</span>
+          <select
+            value={ritual.prime_spiritual}
+            onChange={(e) => morningRitualApi.setPrimeSpiritual(e.target.value as MorningSpiritual).then(setRitual)}
+            style={{ fontSize: 12 }}
+          >
+            {SPIRITUAL_OPTIONS.map((v) => (
+              <option key={v} value={v}>
+                {v === 'OFF' ? 'Off' : v}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      {/* ── MORNING PRIME ───────────────────────────────────────── */}
-      <details
-        ref={primeSectionRef}
-        className="card-elevated"
-        style={{ border: '1px solid var(--border)', borderRadius: RADIUS.card, marginBottom: 32, padding: 0, boxShadow: 'var(--shadow-sm)' }}
-        onToggle={(e) => {
-          if ((e.target as HTMLDetailsElement).open && !visualizeMarkedRef.current) {
-            visualizeMarkedRef.current = true;
-            morningRitualApi.markPrimeVisualization().then(setRitual);
-          }
-        }}
-      >
-        <summary style={{ padding: 12, cursor: 'pointer', listStyle: 'none', fontSize: 12, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: 600 }}>
-          Morning prime · Meditate · Visualize · Read · Ground · Spiritual
-        </summary>
-
-        <div style={{ padding: '0 12px 12px', display: 'grid', gap: 8 }}>
-          <PrimeItem border="var(--ba-idea)" name="Meditate">
-            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>
-              {ritual.prime_meditation ? 'Done' : medRunning ? `${medSecs}s remaining` : '90 seconds. Sit, eyes closed, let the timer keep time for you.'}
-            </p>
-            {!ritual.prime_meditation && (
-              <button
-                className="btn-ghost"
-                style={{ fontSize: 12, marginTop: 8 }}
-                onClick={() => {
-                  if (medRunning) {
-                    setMedRunning(false);
-                    return;
-                  }
-                  setMedSecs(90);
-                  setMedRunning(true);
-                }}
-              >
-                {medRunning ? 'Stop' : 'Start'}
-              </button>
-            )}
-          </PrimeItem>
-
-          <PrimeItem border="var(--ba-decide)" name="Visualize">
-            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>{visualizeText}</p>
-          </PrimeItem>
-
-          <PrimeItem border="var(--ba-upside)" name="Read">
-            <p style={{ fontFamily: 'Georgia, "Noto Serif Bengali", serif', fontSize: 16, lineHeight: 1.6, margin: '0 0 8px' }}>
-              {READING_LINES[readingIdx]}
-            </p>
-            <button
-              className="link"
-              style={{ fontSize: 12 }}
-              onClick={() => {
-                setReadingIdx((i) => (i + 1) % READING_LINES.length);
-                if (!readingMarkedRef.current) {
-                  readingMarkedRef.current = true;
-                  morningRitualApi.markPrimeReading().then(setRitual);
-                }
-              }}
-            >
-              Next line
-            </button>
-          </PrimeItem>
-
-          <PrimeItem border="var(--ba-do)" name="Ground">
-            <input
-              value={gratitudeDraft}
-              onChange={(e) => setGratitudeDraft(e.target.value)}
-              onBlur={() => {
-                if (gratitudeDraft.trim() !== ritual.prime_gratitude) {
-                  morningRitualApi.setPrimeGratitude(gratitudeDraft).then(setRitual);
-                }
-              }}
-              placeholder="One thing you're grateful for"
-              style={{ width: '100%', fontSize: 14 }}
-            />
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-              {INTENTION_OPTIONS.map((v) => (
-                <Pill
-                  key={v}
-                  value={v}
-                  label={v}
-                  active={ritual.prime_intention === v}
-                  onClick={() => morningRitualApi.setPrimeIntention(ritual.prime_intention === v ? null : v).then(setRitual)}
-                />
-              ))}
-            </div>
-          </PrimeItem>
-
-          <PrimeItem border="var(--ba-money)" name="Spiritual practice">
-            <select
-              value={ritual.prime_spiritual}
-              onChange={(e) => morningRitualApi.setPrimeSpiritual(e.target.value as MorningSpiritual).then(setRitual)}
-              style={{ width: '100%', fontSize: 14 }}
-            >
-              {SPIRITUAL_OPTIONS.map((v) => (
-                <option key={v} value={v}>
-                  {v === 'OFF' ? 'Off' : v}
-                </option>
-              ))}
-            </select>
-          </PrimeItem>
-        </div>
-      </details>
-
-      {/* ── START NOW ───────────────────────────────────────────── */}
+      {/* ── In motion (after Start) ─────────────────────────────── */}
       <div ref={startSectionRef}>
-        {ritual.started_first_action_at === null ? (
-          <div
-            className="card-elevated"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderTop: `3px solid ${MODE_COLOR.fast}`, borderRadius: RADIUS.card, padding: 16, boxShadow: 'var(--shadow-sm)' }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-faint)' }}>Ready</div>
-            <div style={{ marginTop: 8, display: 'grid', gap: 8 }}>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Today's outcome</div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>{outcomeText}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>First move</div>
-                <div style={{ fontSize: 16, fontWeight: 600 }}>{firstMoveText}</div>
-              </div>
-            </div>
-
-            {pendingTasks.length > 0 && (
-              <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 12, color: 'var(--text-faint)', fontWeight: 600, letterSpacing: 0.5, marginBottom: 8 }}>
-                  PENDING · EXECUTE
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {pendingTasks.map((t) => (
-                    <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: RADIUS.pill,
-                          background: t.strike ? ACCENT : URGENCY_DOT[t.urgency],
-                          flex: 'none',
-                        }}
-                      />
-                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t.text}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={() => {
-                dismissNudge();
-                morningRitualApi.startNow().then(setRitual);
-              }}
-              style={{ marginTop: 16, width: '100%', padding: '12px 0', background: ACCENT, borderColor: ACCENT, color: 'var(--on-accent)', fontSize: 16, fontWeight: 600 }}
-            >
-              Start now →
-            </button>
-          </div>
-        ) : (
-          <div
-            className="card-elevated"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, padding: 24, textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}
-          >
+        {ritual.started_first_action_at !== null && (
+          <div className="card-elevated" style={{ ...card, padding: 24, textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
               <RitualRing progress={1} size={56} stroke={4} accent={ACCENT}>
                 <Check size={24} color={ACCENT} />
               </RitualRing>
             </div>
             <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, color: ACCENT, marginBottom: 8 }}>IN MOTION</div>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Time to first action: {fmtKpi(ritual.kpi_seconds)}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Ritual complete — carry it into the day.</div>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>
+              {L('Time to first action', 'প্রথম কাজ পর্যন্ত সময়')}: {fmtKpi(ritual.kpi_seconds)}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{L('Ritual complete — carry it into the day.', 'রিচুয়াল শেষ — দিনে নিয়ে চলুন।')}</div>
           </div>
         )}
       </div>
 
-      <p style={{ marginTop: 24, fontSize: 12, color: 'var(--text-faint)', lineHeight: 1.6 }}>
-        This page supports routine and planning. It is not medical or mental-health care. If sleep, mood, or
-        energy problems keep affecting your daily life, talk to a qualified healthcare professional.
+      <p style={{ margin: 0, fontSize: 12, color: 'var(--text-faint)', lineHeight: 1.6 }}>
+        This page supports routine and planning. It is not medical or mental-health care. If sleep, mood, or energy problems keep affecting your daily life, talk to a qualified healthcare professional.
       </p>
-
       {onViewTrend && (
-        <div style={{ textAlign: 'center', marginTop: 12 }}>
+        <div style={{ textAlign: 'center' }}>
           <button onClick={onViewTrend} className="btn-ghost" style={{ fontSize: 12 }}>
-            View trends
+            {L('View trends', 'ট্রেন্ড দেখুন')}
           </button>
         </div>
       )}
 
-      {/* Start is the one action this page exists for, and it sits at the
-          very bottom — keep it reachable from anywhere while it is owed. */}
-      {ritual.started_first_action_at === null && !startVisible && !nudgeShown && (
+      {/* ── Ready bar: always at the bottom until the day is started ─ */}
+      {ritual.started_first_action_at === null && (
         <div
           style={{
             position: 'sticky',
             bottom: 8,
-            marginTop: 16,
             display: 'flex',
             alignItems: 'center',
             gap: 12,
-            padding: '8px 12px',
+            padding: '12px 16px',
             background: 'var(--surface)',
             border: '1px solid var(--border)',
             borderRadius: RADIUS.card,
@@ -1245,19 +910,16 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           }}
         >
           <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>{L("Today's outcome", 'আজকের ফলাফল')}</div>
-            <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {outcomeText}
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{L("Ready · today's outcome", "তৈরি · আজকের ফলাফল")}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{outcomeText}</div>
+            {pendingTasks.length > 0 && (
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {L('Waiting in EXECUTE', 'EXECUTE-এ অপেক্ষায়')}: {pendingTasks.map((t) => t.text).join(' · ')}
+              </div>
+            )}
           </div>
-          <button
-            onClick={() => {
-              dismissNudge();
-              morningRitualApi.startNow().then(setRitual);
-            }}
-            style={{ background: ACCENT, borderColor: ACCENT, color: 'var(--on-accent)', fontSize: 14, fontWeight: 600, padding: '8px 16px', flex: 'none' }}
-          >
-            {L('Start now →', 'এখন শুরু →')}
+          <button onClick={start} style={{ background: ACCENT, borderColor: ACCENT, color: 'var(--on-accent)', fontSize: 16, fontWeight: 700, padding: '12px 16px', flex: 'none', borderRadius: RADIUS.card }}>
+            {L('Start the day →', 'দিন শুরু করুন →')}
           </button>
         </div>
       )}
@@ -1282,15 +944,9 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
             maxWidth: '90vw',
           }}
         >
-          <span>You have enough clarity. Start the day.</span>
-          <button
-            onClick={() => {
-              dismissNudge();
-              scrollTo(startSectionRef);
-            }}
-            style={{ background: ACCENT, borderColor: ACCENT, color: 'var(--on-accent)', fontSize: 12, padding: '4px 12px', flex: 'none' }}
-          >
-            Start now
+          <span>{L('You have enough clarity. Start the day.', 'যথেষ্ট পরিষ্কার। দিন শুরু করুন।')}</span>
+          <button onClick={start} style={{ background: ACCENT, borderColor: ACCENT, color: 'var(--on-accent)', fontSize: 12, padding: '4px 12px', flex: 'none' }}>
+            {L('Start now', 'এখন শুরু')}
           </button>
         </div>
       )}

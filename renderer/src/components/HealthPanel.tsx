@@ -350,6 +350,9 @@ function Plan({
   const protein = eaten.reduce((n, m) => n + m.protein_g, 0);
   const nextMeal = day.day === today ? day.meals.find((m) => !log.meals.includes(m.slot)) : undefined;
   const moveTotal = day.workout.blocks.reduce((n, b) => n + b.moves.length, 0);
+  // Only ticks for moves still in today's plan count (an edit can drop a
+  // move that was already ticked).
+  const movesDone = day.workout.blocks.reduce((n, b, bi) => n + b.moves.filter(([name]) => log.moves.includes(`${bi}:${name}`)).length, 0);
   const dayName = new Date(`${day.day}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'short' });
 
   const weeks = Array.from({ length: Math.min(range, Math.ceil(month.length / 7)) }, (_, w) => month.slice(w * 7, w * 7 + 7));
@@ -706,7 +709,7 @@ function Plan({
       <div style={{ display: 'flex', alignItems: 'baseline', gap: SPACE.sm }}>
         <span style={label}>{L('WORKOUT', 'ব্যায়াম')}</span>
         <span style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-muted)' }}>
-          {moveTotal ? `${log.moves.length}/${moveTotal} · ` : ''}
+          {moveTotal ? `${movesDone}/${moveTotal} · ` : ''}
           {day.workout.name}
         </span>
       </div>
@@ -731,8 +734,11 @@ function Plan({
                 <span style={{ ...label, letterSpacing: TRACKING.label, color: 'var(--accent)' }}>{b.name.toUpperCase()}</span>
                 <span style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-muted)' }}>{b.minutes} min</span>
               </div>
-              {b.moves.map(([name, dose, kit], mi) => {
-                const key = `${bi}-${mi}`;
+              {b.moves.map(([name, dose, kit]) => {
+                // Same key the engine uses (engine/health.py _move_keys):
+                // block index + move NAME, so an edited block never moves
+                // a tick onto the wrong exercise.
+                const key = `${bi}:${name}`;
                 const done = log.moves.includes(key);
                 return (
                   <div key={key} style={{ display: 'flex', alignItems: 'center', gap: SPACE.md }}>
