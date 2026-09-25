@@ -72,7 +72,18 @@ function AnalogDial({ now, progress, color }: { now: Date; progress: number; col
   );
 }
 
-export default function ClockCard({ onOpenQuarterly, compact = false }: { onOpenQuarterly: () => void; compact?: boolean }) {
+export default function ClockCard({
+  onOpenQuarterly,
+  compact = false,
+  slim = false,
+}: {
+  onOpenQuarterly: () => void;
+  compact?: boolean;
+  // EXECUTE's one-row version: time, date, phase and what is left of it,
+  // over the day strip without its labels. No horizon tiles — those are
+  // PLAN's — but the clock itself, because the work happens on EXECUTE.
+  slim?: boolean;
+}) {
   const lang = useLang();
   const L = useL();
   const [now, setNow] = useState(new Date());
@@ -133,6 +144,57 @@ export default function ClockCard({ onOpenQuarterly, compact = false }: { onOpen
       </span>
     </div>
   );
+
+  if (slim) {
+    return (
+      <div
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+          borderRadius: RADIUS.card,
+          padding: `${SPACE.sm}px ${SPACE.md}px`,
+          marginBottom: SPACE.md,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: SPACE.sm,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, minWidth: 0 }}>
+          <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+            {time}
+          </span>
+          <span style={{ flex: 1, minWidth: 0, fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {dateLine}
+          </span>
+          {phase && (
+            <>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: 0.5,
+                  color: 'var(--surface)',
+                  background: phase.color,
+                  padding: `${SPACE.hair}px ${SPACE.sm}px`,
+                  borderRadius: RADIUS.pill,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {(lang === 'bn' ? PHASE_LABELS_BN[phase.key] : phase.label).toUpperCase()}
+              </span>
+              <span style={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text)' }}>
+                  {Math.floor(totalMin / 60)}h {String(totalMin % 60).padStart(2, '0')}m
+                </span>
+                <span style={{ color: 'var(--text-faint)' }}> {L('left', 'বাকি')}</span>
+              </span>
+            </>
+          )}
+        </div>
+        {settings && <DayPhaseStrip settings={settings} now={now} compact />}
+      </div>
+    );
+  }
 
   return (
     <div

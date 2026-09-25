@@ -336,6 +336,9 @@ export default function NotesTab() {
   };
   useEffect(() => {
     refresh();
+    // A note written in the Capture box (Ctrl+K) lands here too.
+    window.addEventListener('notes-changed', refresh);
+    return () => window.removeEventListener('notes-changed', refresh);
   }, []);
 
   const currentHead = typeof filter === 'number' ? heads.find((h) => h.id === filter) ?? null : null;
