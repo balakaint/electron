@@ -229,7 +229,6 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
   const [suggestDraft, setSuggestDraft] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
 
-  const [sleepOpen, setSleepOpen] = useState(false);
 
   const [breatheSecs, setBreatheSecs] = useState(60);
   const [breatheRunning, setBreatheRunning] = useState(false);
@@ -306,7 +305,6 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
       setJournalTouched(r.journal_text.trim().length > 0);
       setGratitudeDraft(r.prime_gratitude);
       setWakeDraft(r.wake_up_time ?? '');
-      if (r.sleep_quality || r.wake_up_time) setSleepOpen(true);
       if (r.reset_breathe) setBreatheSecs(0);
       if (r.reset_daylight) setSunSecs(0);
       if (r.reset_move) setStretchSecs(0);
@@ -710,17 +708,11 @@ export default function MorningRitualFlow({ onViewTrend }: { onViewTrend?: () =>
           )}
         </div>
 
+        {/* Sleep and wake time sit with Energy and Mood, always shown
+            (Zahid, 2026-09-25) — no "+ Sleep quality" link to open first. */}
         <div>
-          <button
-            onClick={() => setSleepOpen((v) => !v)}
-            className="link"
-            style={{ fontSize: 13 }}
-            aria-expanded={sleepOpen}
-          >
-            {sleepOpen ? '– Sleep quality' : '+ Sleep quality'}
-          </button>
-          {sleepOpen && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+          {(
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 52, flex: 'none' }}>Sleep</span>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
