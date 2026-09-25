@@ -506,136 +506,272 @@ function PlanPage({
   );
 }
 
+// ── Shared row bits ─────────────────────────────────────────────────
+// What a plan's "next action" cell says: the first open action, or why
+// there isn't one — finished plans say so, the rest invite adding one.
+function nextAction(plan: BdpPlan): { text: string; color: string } {
+  const open = plan.next_actions.find((a) => !a.done);
+  if (open) return { text: open.text, color: 'var(--text)' };
+  if (plan.status === 'DONE') return { text: 'Finished ✓', color: 'var(--success)' };
+  if (plan.next_actions.length > 0) return { text: 'All actions done ✓', color: 'var(--success)' };
+  return { text: '+ Add a next action', color: 'var(--accent)' };
+}
+
+function ActionBar({ plan }: { plan: BdpPlan }) {
+  const acts = plan.next_actions;
+  const pct = acts.length ? (100 * acts.filter((a) => a.done).length) / acts.length : 0;
+  return (
+    <div style={{ height: 4, borderRadius: RADIUS.pill, background: 'var(--surface-2)', overflow: 'hidden' }}>
+      <div style={{ height: 4, width: `${pct}%`, background: STATUS_COLOR[plan.status] }} />
+    </div>
+  );
+}
+
+const rowKeys = (onOpen: () => void) => ({
+  onClick: onOpen,
+  role: 'button' as const,
+  tabIndex: 0,
+  onKeyDown: (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      onOpen();
+    }
+  },
+  title: 'Open this plan',
+});
+
+const ellipsis = { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } as const;
+
 // ── Table view ──────────────────────────────────────────────────────
-// Legacy's dense per-project summary row (13256-13624). Its three
-// columns are PROJECT NAME / SUPPLIER / ROADMAP, weighted 56/24/20 —
-// kept here, because the point of this view is scanning many plans at
-// once and a column set chosen per-view would defeat the comparison.
-const TBL_COLS: [string, number][] = [
-  ['PROJECT NAME', 56],
-  ['SUPPLIER', 24],
-  ['ROADMAP', 20],
-];
+// Legacy's dense summary row (13256-13624), widened: stage and priority
+// get their own column as chips, the roadmap carries the action
+// progress, and NEXT ACTION says what to do without opening the plan.
+const TBL_GRID = '24px 3fr 1.3fr 1.4fr 1.6fr 2.2fr 16px';
 
 function TableHeader() {
   return (
     <div
       style={{
         display: 'grid',
-        gridTemplateColumns: TBL_COLS.map(([, w]) => `${w}fr`).join(' '),
-        // Legacy: 2px rules above and below the header, 1px between
-        // rows — "the weight difference is what makes the header read as
-        // a header without needing a fill colour behind it."
-        borderTop: '2px solid var(--text)',
-        borderBottom: '2px solid var(--text)',
+        gridTemplateColumns: TBL_GRID,
+        gap: 8,
+        padding: '8px 12px',
+        borderBottom: '1px solid var(--border)',
+        fontSize: 12,
+        fontWeight: 700,
+        letterSpacing: 0.5,
+        color: 'var(--text-faint)',
       }}
     >
-      {TBL_COLS.map(([label], i) => (
-        <div
-          key={label}
-          style={{
-            // Muted, not full strength: a column header is read once to
-            // learn the layout and should never again compete with the
-            // plan titles under it.
-            fontSize: 12,
-            letterSpacing: 0.5,
-            color: 'var(--text-faint)',
-            padding: '4px 8px',
-            borderLeft: i ? '1px solid var(--border)' : undefined,
-          }}
-        >
-          {label}
-        </div>
-      ))}
+      <span />
+      <span>PLAN</span>
+      <span>STAGE</span>
+      <span>SUPPLIER</span>
+      <span>ROADMAP</span>
+      <span>NEXT ACTION</span>
+      <span />
     </div>
   );
 }
 
-function TableRow({ plan, onOpen }: { plan: BdpPlan; onOpen: () => void }) {
+function TableRow({ plan, draggable, onOpen }: { plan: BdpPlan; draggable: boolean; onOpen: () => void }) {
   const acts = plan.next_actions;
   const done = acts.filter((a) => a.done).length;
+  const next = nextAction(plan);
+  const faint = { color: 'var(--text-faint)' };
   return (
     <div
-      onClick={onOpen}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
-      title="Open this plan"
+      {...rowKeys(onOpen)}
       style={{
         display: 'grid',
-        gridTemplateColumns: TBL_COLS.map(([, w]) => `${w}fr`).join(' '),
+        gridTemplateColumns: TBL_GRID,
+        gap: 8,
+        alignItems: 'center',
+        padding: 12,
         borderBottom: '1px solid var(--border)',
-        borderLeft: `3px solid ${STATUS_COLOR[plan.status]}`,
+        boxShadow: `inset 3px 0 0 ${STATUS_COLOR[plan.status]}`,
         cursor: 'pointer',
         fontSize: 12,
       }}
     >
-      <div style={{ padding: '8px 8px', minWidth: 0 }}>
-        <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {plan.title}
-        </div>
-        <div style={{ color: 'var(--text-faint)', fontSize: 12 }}>
-          {plan.status} · {plan.priority}
-          {plan.market ? ` · ${plan.market}` : ''}
-        </div>
+      <span aria-hidden style={{ color: 'var(--text-faint)', cursor: draggable ? 'grab' : 'pointer', opacity: draggable ? 1 : 0.25 }}>
+        ⋮⋮
+      </span>
+      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, ...ellipsis }}>{plan.title}</span>
+        <span style={{ ...faint, ...ellipsis }}>
+          {plan.market || 'No market'}
+          {plan.timeline ? ` · ${plan.timeline}` : ''}
+        </span>
       </div>
-      <div style={{ padding: '8px 8px', borderLeft: '1px solid var(--border)', opacity: plan.supplier ? 1 : 0.4, minWidth: 0 }}>
-        {plan.supplier || '—'}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 4, minWidth: 0 }}>
+        <Chip label={plan.status} color={STATUS_COLOR[plan.status]} />
+        <span style={{ fontWeight: 700, color: PRIORITY_COLOR[plan.priority] }}>{plan.priority}</span>
       </div>
-      <div style={{ padding: '8px 8px', borderLeft: '1px solid var(--border)', minWidth: 0 }}>
-        <span style={{ opacity: plan.timeline ? 1 : 0.4 }}>{plan.timeline || '—'}</span>
-        {acts.length > 0 && (
-          <span style={{ opacity: 0.6 }}>
-            {' '}· {done}/{acts.length}
-          </span>
-        )}
+      <span style={{ ...ellipsis, ...(plan.supplier ? {} : faint) }}>{plan.supplier || 'No supplier yet'}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+        <span style={{ ...ellipsis, ...(plan.timeline ? {} : faint) }}>{plan.timeline || 'No timeline'}</span>
+        <ActionBar plan={plan} />
+        <span style={faint}>{acts.length ? `${done} of ${acts.length} actions done` : 'No actions yet'}</span>
       </div>
+      <span style={{ ...ellipsis, color: next.color }}>{next.text}</span>
+      <span aria-hidden style={{ fontSize: 16, color: 'var(--text-faint)' }}>
+        ›
+      </span>
     </div>
   );
 }
 
 // ── List view ───────────────────────────────────────────────────────
-// Legacy's compact one-line row (13668-13723): index and title on the
-// left, then market | status | priority | timeline | actions on the
-// right, with the status colour as a 3px stripe.
+// Legacy's compact one-line row (13668-13723): index and title, then
+// stage, priority, market and action count, with the status stripe.
 function ListRow({ plan, index, onOpen }: { plan: BdpPlan; index: number; onOpen: () => void }) {
   const acts = plan.next_actions;
-  const bits = [plan.market || '—', plan.status, plan.priority, plan.timeline || '—'];
-  if (acts.length > 0) bits.push(`${acts.filter((a) => a.done).length}/${acts.length}`);
+  const muted = { fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap' } as const;
   return (
     <div
-      onClick={onOpen}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
-      title="Open this plan"
+      {...rowKeys(onOpen)}
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
+        gap: 12,
+        height: 40,
+        padding: '0 12px',
         border: '1px solid var(--border)',
-        borderLeft: `3px solid ${STATUS_COLOR[plan.status]}`,
+        borderRadius: RADIUS.control,
+        boxShadow: `inset 3px 0 0 ${STATUS_COLOR[plan.status]}`,
         background: 'var(--surface)',
-        padding: '4px 8px',
         marginBottom: 4,
         cursor: 'pointer',
         fontSize: 12,
       }}
     >
-      <span style={{ fontWeight: 700, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {index}. {plan.title}
+      <span style={{ color: 'var(--text-faint)', width: 16 }}>{index}</span>
+      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 700, ...ellipsis }}>{plan.title}</span>
+      <Chip label={plan.status} color={STATUS_COLOR[plan.status]} />
+      <span style={{ fontWeight: 700, color: PRIORITY_COLOR[plan.priority], width: 64 }}>{plan.priority}</span>
+      <span style={{ ...muted, width: 96, overflow: 'hidden', textOverflow: 'ellipsis' }}>{plan.market || '—'}</span>
+      <span style={{ ...muted, width: 40, textAlign: 'right' }}>
+        {acts.length ? `${acts.filter((a) => a.done).length}/${acts.length}` : '—'}
       </span>
-      <span style={{ color: 'var(--text-faint)', fontSize: 12, whiteSpace: 'nowrap' }}>{bits.join('   |   ')}</span>
+    </div>
+  );
+}
+
+// ── Toolbar bits ────────────────────────────────────────────────────
+// The pipeline strip: every stage with its count, doubling as the
+// status filter. Counts ignore the stage filter itself (a count of 0
+// under every other stage would say nothing) but honour the rest.
+function StageStrip({
+  plans,
+  value,
+  onChange,
+}: {
+  plans: BdpPlan[];
+  value: BdpStatus | 'All';
+  onChange: (v: BdpStatus | 'All') => void;
+}) {
+  const items: [BdpStatus | 'All', string][] = [['All', 'var(--text)'], ...STATUSES.map((s) => [s, STATUS_COLOR[s]] as [BdpStatus, string])];
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Stage"
+      style={{
+        display: 'flex',
+        gap: 4,
+        padding: 4,
+        marginBottom: 12,
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: RADIUS.card,
+      }}
+    >
+      {items.map(([s, color]) => {
+        const n = s === 'All' ? plans.length : plans.filter((p) => p.status === s).length;
+        const on = value === s;
+        return (
+          <button
+            key={s}
+            role="radio"
+            aria-checked={on}
+            onClick={() => onChange(on && s !== 'All' ? 'All' : s)}
+            title={s === 'All' ? 'Show every stage' : `Show only ${s} — click again to show all`}
+            style={{
+              flex: s === 'OPPORTUNITY' ? 1.5 : 1,
+              minWidth: 0,
+              height: 44,
+              padding: '0 8px',
+              border: 'none',
+              borderRadius: RADIUS.control,
+              background: on ? 'var(--accent-light)' : 'transparent',
+              color: on ? 'var(--accent)' : 'var(--text)',
+              opacity: n || on ? 1 : 0.45,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              justifyContent: 'center',
+              gap: 2,
+              cursor: 'pointer',
+            }}
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, letterSpacing: 0.5, ...ellipsis, maxWidth: '100%' }}>
+              <span style={{ width: 8, height: 8, flexShrink: 0, borderRadius: RADIUS.pill, background: color }} />
+              {s === 'All' ? 'ALL' : s}
+            </span>
+            <span style={{ fontSize: 16, fontWeight: 700 }}>{n}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+  label,
+}: {
+  options: [T, React.ReactNode, string?][];
+  value: T;
+  onChange: (v: T) => void;
+  label: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: RADIUS.control, overflow: 'hidden', background: 'var(--surface)' }}
+    >
+      {options.map(([v, text, title], i) => {
+        const on = value === v;
+        return (
+          <button
+            key={v}
+            role="radio"
+            aria-checked={on}
+            title={title}
+            onClick={() => onChange(v)}
+            style={{
+              height: 30,
+              padding: '0 12px',
+              border: 'none',
+              borderLeft: i ? '1px solid var(--border)' : 'none',
+              borderRadius: 0,
+              background: on ? 'var(--accent)' : 'var(--surface)',
+              color: on ? 'var(--on-accent)' : 'var(--text)',
+              fontSize: 12,
+              fontWeight: on ? 700 : 400,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              cursor: 'pointer',
+            }}
+          >
+            {text}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -657,7 +793,9 @@ export default function BdpPanel() {
   const [newTitle, setNewTitle] = useState('');
   const [loaded, setLoaded] = useState(false);
 
-  const refresh = () => bdpApi.list({ status: fStatus, priority: fPriority, market: fMarket, q, sort }).then(setPlans);
+  // The stage filter is applied here rather than by the engine, so the
+  // stage strip can count every stage from the same fetch.
+  const refresh = () => bdpApi.list({ status: 'All', priority: fPriority, market: fMarket, q, sort }).then(setPlans);
 
   useEffect(() => {
     bdpApi.getSort().then((s) => setSort(s.sort));
@@ -667,7 +805,7 @@ export default function BdpPanel() {
   useEffect(() => {
     refresh().then(() => setLoaded(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fStatus, fPriority, fMarket, q, sort]);
+  }, [fPriority, fMarket, q, sort]);
 
   const changeSort = (v: BdpSort) => {
     setSort(v);
@@ -677,6 +815,15 @@ export default function BdpPanel() {
   const changeView = (v: BdpView) => {
     setView(v);
     bdpApi.setView(v);
+  };
+
+  const shown = fStatus === 'All' ? plans : plans.filter((p) => p.status === fStatus);
+  const filtered = fStatus !== 'All' || fPriority !== 'All' || fMarket !== 'All' || q.trim() !== '';
+  const clearFilters = () => {
+    setFStatus('All');
+    setFPriority('All');
+    setFMarket('All');
+    setQ('');
   };
 
   // Handlers a plan needs wherever it is rendered — the card's inline
@@ -689,13 +836,14 @@ export default function BdpPanel() {
     onDeleteAction: (id: number) => bdpApi.deleteAction(id).then(refresh),
   });
 
-  // Drag-to-reorder, manual sort only. The dragged row is not moved on
-  // screen; the position it would land in is marked instead and the list
-  // re-renders once on drop — legacy's own reasoning (13280-13300), and
-  // it holds here too: reordering live under the cursor fights the
-  // scroll position for no extra clarity.
+  // Drag-to-reorder: manual sort, and only while nothing is filtered —
+  // the engine's to_index counts the whole list, so a drop position in
+  // a filtered subset would land the plan somewhere else. The dragged
+  // row is not moved on screen; the position it would land in is marked
+  // instead and the list re-renders once on drop (legacy 13280-13300).
+  const canDrag = sort === 'manual' && !filtered;
   const dragProps = (p: BdpPlan, i: number) =>
-    sort !== 'manual'
+    !canDrag
       ? {}
       : {
           draggable: true,
@@ -717,8 +865,8 @@ export default function BdpPanel() {
             const id = dragId;
             setDragId(null);
             setDropIndex(null);
-            if (id !== null && plans.findIndex((x) => x.id === id) !== i) {
-              bdpApi.reorder(id, i).then(setPlans);
+            if (id !== null && shown.findIndex((x) => x.id === id) !== i) {
+              bdpApi.reorder(id, i).then(refresh);
             }
           },
           style: {
@@ -741,16 +889,16 @@ export default function BdpPanel() {
 
   if (!loaded) return <div>Loading…</div>;
 
-  const openPlan = openId === null ? null : plans.find((p) => p.id === openId) ?? null;
+  const openPlan = openId === null ? null : shown.find((p) => p.id === openId) ?? null;
   if (openPlan) {
-    const idx = plans.findIndex((p) => p.id === openPlan.id);
+    const idx = shown.findIndex((p) => p.id === openPlan.id);
     return (
       <PlanPage
         plan={openPlan}
         index={idx}
-        total={plans.length}
+        total={shown.length}
         // Wraps, matching legacy's modulo in _sibling.
-        onGo={(step) => setOpenId(plans[(idx + step + plans.length) % plans.length].id)}
+        onGo={(step) => setOpenId(shown[(idx + step + shown.length) % shown.length].id)}
         onClose={() => setOpenId(null)}
         {...handlersFor(openPlan)}
       />
@@ -760,32 +908,57 @@ export default function BdpPanel() {
   // leaves openId pointing at nothing; fall through to the list rather
   // than rendering a blank panel.
 
+  const high = plans.filter((p) => p.priority === 'HIGH').length;
+  const openActs = plans.reduce((n, p) => n + p.next_actions.filter((a) => !a.done).length, 0);
+  const control = {
+    height: 32,
+    padding: '0 12px',
+    fontSize: 12,
+    border: '1px solid var(--border)',
+    borderRadius: RADIUS.control,
+    background: 'var(--surface)',
+    color: 'var(--text)',
+  } as const;
+
   return (
-    <div style={{ maxWidth: view === 'card' ? 820 : 980 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+    <div style={{ maxWidth: 980 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.15 }}>Business Plans</span>
+          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+            {plans.length} {plans.length === 1 ? 'plan' : 'plans'} · {high} high priority · {openActs} next{' '}
+            {openActs === 1 ? 'action' : 'actions'} open
+          </span>
+        </div>
+        <Segmented<BdpView>
+          label="View"
+          value={view}
+          onChange={changeView}
+          options={[
+            ['table', <><Table2 size={14} /> Table</>, 'Table view — dense summary rows'],
+            ['list', <><List size={14} /> List</>, 'List view — one line per plan'],
+            ['card', <><LayoutGrid size={14} /> Cards</>, 'Card view — one plan at a time, editable in place'],
+          ]}
+        />
+      </div>
+
+      <StageStrip plans={plans} value={fStatus} onChange={setFStatus} />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="⌕ Search plans…"
-          style={{ fontSize: 12, padding: 4, minWidth: 160 }}
+          placeholder="Search plans, suppliers, notes…"
+          aria-label="Search plans"
+          style={{ ...control, flex: 1, minWidth: 160, fontSize: 13 }}
         />
-        <select value={fStatus} onChange={(e) => setFStatus(e.target.value as BdpStatus | 'All')} style={{ fontSize: 12 }}>
-          <option value="All">All statuses</option>
-          {STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-        <select value={fPriority} onChange={(e) => setFPriority(e.target.value as BdpPriority | 'All')} style={{ fontSize: 12 }}>
-          <option value="All">All priorities</option>
-          {PRIORITIES.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-        <select value={fMarket} onChange={(e) => setFMarket(e.target.value)} style={{ fontSize: 12 }}>
+        <Segmented<BdpPriority | 'All'>
+          label="Priority"
+          value={fPriority}
+          onChange={setFPriority}
+          options={[['All', 'All'], ['HIGH', 'High'], ['MEDIUM', 'Medium'], ['LOW', 'Low']]}
+        />
+        <select value={fMarket} onChange={(e) => setFMarket(e.target.value)} aria-label="Market" style={control}>
           <option value="All">All markets</option>
           {MARKETS.map((m) => (
             <option key={m} value={m}>
@@ -793,77 +966,117 @@ export default function BdpPanel() {
             </option>
           ))}
         </select>
-        <button onClick={() => changeSort(sort === 'manual' ? 'priority' : 'manual')} style={{ fontSize: 12 }}>
-          ⇅ {sort === 'manual' ? 'Manual' : 'Priority'}
+        <button
+          onClick={() => changeSort(sort === 'manual' ? 'priority' : 'manual')}
+          title="Switch between your own order and priority order"
+          style={{ ...control, cursor: 'pointer' }}
+        >
+          ⇅ {sort === 'manual' ? 'Manual order' : 'By priority'}
         </button>
-        <div role="radiogroup" aria-label="View" style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-          {(['card', 'table', 'list'] as BdpView[]).map((v) => (
-            <button
-              key={v}
-              role="radio"
-              aria-checked={view === v}
-              onClick={() => changeView(v)}
-              title={
-                v === 'card'
-                  ? 'Card view — one plan at a time, editable in place'
-                  : v === 'table'
-                    ? 'Table view — dense summary rows'
-                    : 'List view — one line per plan'
-              }
-              aria-label={`${v === 'card' ? 'Card' : v === 'table' ? 'Table' : 'List'} view`}
-              style={{
-                fontWeight: view === v ? 700 : 400,
-                background: view === v ? 'var(--accent-light)' : undefined,
-                borderColor: view === v ? 'var(--accent)' : undefined,
-                display: 'flex',
-                padding: 4,
-              }}
-            >
-              {v === 'card' ? <LayoutGrid size={14} /> : v === 'table' ? <Table2 size={14} /> : <List size={14} />}
-            </button>
-          ))}
-        </div>
       </div>
 
       <form onSubmit={submitNew} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
-          placeholder="+ New plan — business name…"
-          style={{ flex: 1, fontSize: 13, padding: 8 }}
+          placeholder="+ New plan — type a business name and press Enter"
+          aria-label="New plan name"
+          style={{ ...control, flex: 1, height: 40, fontSize: 13, border: '1px dashed var(--border)', borderRadius: RADIUS.card }}
         />
-        <button type="submit">Add</button>
+        <button
+          type="submit"
+          disabled={!newTitle.trim()}
+          style={{
+            height: 40,
+            padding: '0 16px',
+            border: 'none',
+            borderRadius: RADIUS.card,
+            background: 'var(--accent)',
+            color: 'var(--on-accent)',
+            fontSize: 13,
+            fontWeight: 700,
+            opacity: newTitle.trim() ? 1 : 0.5,
+            cursor: newTitle.trim() ? 'pointer' : 'default',
+          }}
+        >
+          Add plan
+        </button>
       </form>
 
-      {plans.length === 0 && <p style={{ color: 'var(--text-faint)', fontSize: 13 }}>No plans match — try clearing filters.</p>}
+      {shown.length === 0 && (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 8,
+            padding: 32,
+            background: 'var(--surface)',
+            border: '1px dashed var(--border)',
+            borderRadius: RADIUS.card,
+          }}
+        >
+          <span style={{ fontSize: 14, fontWeight: 700 }}>{filtered ? 'No plans match' : 'No plans yet'}</span>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+            {filtered ? 'Nothing fits these filters.' : 'Type a business name above to add your first plan.'}
+          </span>
+          {filtered && (
+            <button onClick={clearFilters} style={{ ...control, height: 28, cursor: 'pointer' }}>
+              Clear filters
+            </button>
+          )}
+        </div>
+      )}
 
-      {view === 'table' && plans.length > 0 && <TableHeader />}
+      {view === 'table' && shown.length > 0 && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: RADIUS.card, overflow: 'hidden' }}>
+          <TableHeader />
+          {shown.map((p, i) => (
+            <div key={p.id} {...dragProps(p, i)}>
+              <TableRow plan={p} draggable={canDrag} onOpen={() => setOpenId(p.id)} />
+            </div>
+          ))}
+        </div>
+      )}
 
-      {plans.map((p, i) =>
-        view === 'card' ? (
-          <div key={p.id} {...dragProps(p, i)}>
-            <PlanCard
-              plan={p}
-              isFirst={i === 0}
-              isLast={i === plans.length - 1}
-              sort={sort}
-              onOpen={() => setOpenId(p.id)}
-              onMove={(direction) => bdpApi.move(p.id, direction).then(setPlans)}
-              onDuplicate={() => bdpApi.duplicate(p.id).then(refresh)}
-              onArchive={() => bdpApi.archive(p.id).then(refresh)}
-              onDelete={() => bdpApi.remove(p.id).then(refresh)}
-              {...handlersFor(p)}
-            />
-          </div>
-        ) : view === 'table' ? (
-          <div key={p.id} {...dragProps(p, i)}>
-            <TableRow plan={p} onOpen={() => setOpenId(p.id)} />
-          </div>
-        ) : (
+      {view === 'list' &&
+        shown.map((p, i) => (
           <div key={p.id} {...dragProps(p, i)}>
             <ListRow plan={p} index={i + 1} onOpen={() => setOpenId(p.id)} />
           </div>
-        ),
+        ))}
+
+      {view === 'card' &&
+        shown.map((p, i) => (
+          // Cards keep their narrower reading width under the wider toolbar.
+          <div key={p.id} {...dragProps(p, i)}>
+            <div style={{ maxWidth: 820 }}>
+              <PlanCard
+                plan={p}
+                isFirst={i === 0}
+                isLast={i === shown.length - 1}
+                // Up/down swaps with the neighbour in the whole list, so it
+                // is only offered where that neighbour is the one on screen.
+                sort={canDrag ? sort : 'priority'}
+                onOpen={() => setOpenId(p.id)}
+                onMove={(direction) => bdpApi.move(p.id, direction).then(refresh)}
+                onDuplicate={() => bdpApi.duplicate(p.id).then(refresh)}
+                onArchive={() => bdpApi.archive(p.id).then(refresh)}
+                onDelete={() => bdpApi.remove(p.id).then(refresh)}
+                {...handlersFor(p)}
+              />
+            </div>
+          </div>
+        ))}
+
+      {shown.length > 0 && view !== 'card' && (
+        <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 8 }}>
+          {canDrag
+            ? 'Drag ⋮⋮ to reorder · click a row to open the plan · click a stage above to filter'
+            : sort !== 'manual'
+              ? 'Sorted by priority — switch to Manual order to drag rows'
+              : 'Clear the filters to drag rows into a new order'}
+        </div>
       )}
     </div>
   );

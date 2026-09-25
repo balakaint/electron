@@ -13,51 +13,81 @@ function formatPhase(hour: number): string {
   return `${h12}:00 ${hour < 12 ? 'AM' : 'PM'}`;
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+type Tab = 'look' | 'time' | 'day' | 'system' | 'about';
+
+const TABS: [Tab, string, string][] = [
+  ['look', '◐', 'Appearance'],
+  ['time', '⏱', 'Time & goal'],
+  ['day', '☀', 'Your day'],
+  ['system', '⚙', 'Data & system'],
+  ['about', 'ⓘ', 'About'],
+];
+
+const sub: React.CSSProperties = { fontSize: 12, color: 'var(--text-faint)' };
+const heading: React.CSSProperties = {
+  fontSize: 12,
+  fontWeight: 700,
+  letterSpacing: 0.5,
+  color: 'var(--text-faint)',
+};
+const plainBtn: React.CSSProperties = {
+  height: 28,
+  padding: '0 12px',
+  fontSize: 12,
+  border: '1px solid var(--border)',
+  borderRadius: RADIUS.control,
+  background: 'var(--surface)',
+  color: 'var(--text)',
+  cursor: 'pointer',
+};
+
+// A setting's name with one line on what it does, and its control on
+// the right — every row in the dialog reads the same way.
+function Row({ label, hint, children, dim }: { label: React.ReactNode; hint?: string; children: React.ReactNode; dim?: boolean }) {
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        opacity: dim ? 0.6 : 1,
+      }}
+    >
       <div
         style={{
-          fontSize: 12,
-          fontWeight: 700,
-          letterSpacing: 0.5,
-          color: 'var(--text-faint)',
-          borderBottom: '1px solid var(--border)',
-          paddingBottom: 4,
-          marginBottom: 8,
+          flex: 1,
+          minWidth: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
         }}
       >
-        {title.toUpperCase()}
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
+        {hint && <span style={sub}>{hint}</span>}
       </div>
       {children}
     </div>
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '8px 0' }}>
-      <span style={{ fontSize: 13 }}>{label}</span>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
+function Toggle({ on, onClick, label, disabled }: { on: boolean; onClick: () => void; label: string; disabled?: boolean }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
+      aria-pressed={on}
+      aria-label={label}
       style={{
         width: 40,
         height: 22,
-        borderRadius: RADIUS.card,
+        flexShrink: 0,
+        borderRadius: RADIUS.pill,
         border: '1px solid var(--border)',
         background: on ? 'var(--accent)' : 'transparent',
         position: 'relative',
-        cursor: 'pointer',
+        cursor: disabled ? 'default' : 'pointer',
         padding: 0,
       }}
-      aria-pressed={on}
     >
       <span
         style={{
@@ -81,38 +111,65 @@ function Stepper({
   max,
   onChange,
   format,
+  label,
 }: {
   value: number;
   min: number;
   max: number;
   onChange: (v: number) => void;
-  format?: (v: number) => string;
+  format: (v: number) => string;
+  label: string;
 }) {
+  const step: React.CSSProperties = {
+    ...plainBtn,
+    width: 28,
+    padding: 0,
+    fontSize: 14,
+  };
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <button onClick={() => onChange(Math.max(min, value - 1))} title="Decrease" style={{ width: 24 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      <button
+        onClick={() => onChange(Math.max(min, value - 1))}
+        disabled={value <= min}
+        aria-label={`Earlier / less: ${label}`}
+        style={step}
+      >
         −
       </button>
-      <span style={{ fontSize: 13, minWidth: 56, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
-        {format ? format(value) : value}
+      <span
+        style={{
+          fontSize: 13,
+          fontWeight: 700,
+          minWidth: 72,
+          textAlign: 'center',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {format(value)}
       </span>
-      <button onClick={() => onChange(Math.min(max, value + 1))} title="Increase" style={{ width: 24 }}>
+      <button onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label={`Later / more: ${label}`} style={step}>
         +
       </button>
     </div>
   );
 }
 
-// Radio row per theme with a live swatch strip, mirroring legacy's own
-// picker (task_tracker_v3_THEMES.py 15398-15440): a selection dot, the
-// theme's label, then four rectangles showing BG / CARD_BG / GREEN /
-// TEXT. Showing the palette matters because the point of the control is
-// judging a theme BEFORE applying it — a name alone tells you nothing.
+// Each theme as a small picture of itself — page, card, accent and text
+// in its own colours — so the choice is made by eye, not by name.
 function ThemePicker({ value, onSelect }: { value: Theme; onSelect: (t: Theme) => void }) {
   return (
-    <div role="radiogroup" aria-label="Theme" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div
+      role="radiogroup"
+      aria-label="Theme"
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gap: 8,
+      }}
+    >
       {THEME_ORDER.map((t) => {
         const on = t === value;
+        const [bg, surface, accent, text] = themeSwatch(t);
         return (
           <button
             key={t}
@@ -121,52 +178,116 @@ function ThemePicker({ value, onSelect }: { value: Theme; onSelect: (t: Theme) =
             onClick={() => onSelect(t)}
             style={{
               display: 'flex',
-              alignItems: 'center',
+              flexDirection: 'column',
               gap: 8,
-              padding: '4px 4px',
-              background: on ? 'var(--accent-light)' : 'transparent',
-              border: '1px solid transparent',
-              borderRadius: RADIUS.control,
-              cursor: 'pointer',
+              padding: 8,
+              border: `2px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+              borderRadius: RADIUS.card,
+              background: 'var(--surface)',
               color: 'var(--text)',
+              cursor: 'pointer',
               font: 'inherit',
+              textAlign: 'left',
             }}
           >
+            {/* The border keeps a near-white page visible on a light dialog
+                and a near-black one on a dark dialog. */}
             <span
               aria-hidden
               style={{
-                width: 12,
-                height: 12,
-                borderRadius: RADIUS.pill,
-                flex: '0 0 auto',
-                border: `2px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                background: on
-                  ? 'radial-gradient(circle, var(--accent) 0 3px, transparent 3px)'
-                  : 'transparent',
+                width: '100%',
+                height: 56,
+                boxSizing: 'border-box',
+                padding: 8,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+                background: bg,
+                border: '1px solid var(--border)',
+                borderRadius: RADIUS.control,
               }}
-            />
-            <span style={{ fontSize: 12, width: 68, textAlign: 'left' }}>{THEME_LABELS[t]}</span>
-            {/* The border on each swatch keeps a near-white BG or a
-                near-black TEXT visible against whichever surface the
-                CURRENT theme is painting this dialog with — legacy hit
-                the same problem and solved it the same way. */}
-            <span style={{ display: 'flex', flex: '0 0 auto' }}>
-              {themeSwatch(t).map((c, i) => (
+            >
+              <span
+                style={{
+                  display: 'block',
+                  height: 8,
+                  width: '60%',
+                  borderRadius: RADIUS.pill,
+                  background: text,
+                }}
+              />
+              <span
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  padding: 4,
+                  background: surface,
+                  borderRadius: RADIUS.control,
+                }}
+              >
                 <span
-                  key={i}
                   style={{
-                    width: 15,
-                    height: 12,
-                    background: c,
-                    border: '1px solid var(--border)',
-                    marginLeft: i ? -1 : 0,
+                    display: 'block',
+                    height: 6,
+                    width: '40%',
+                    borderRadius: RADIUS.pill,
+                    background: accent,
                   }}
                 />
-              ))}
+              </span>
+            </span>
+            <span style={{ fontSize: 12, fontWeight: on ? 700 : 400 }}>
+              {on ? '●' : '○'} {THEME_LABELS[t]}
             </span>
           </button>
         );
       })}
+    </div>
+  );
+}
+
+const PHASES = [
+  ['phase_morning_start', 'Morning', 'var(--phase-morning)'],
+  ['phase_work_start', 'Work', 'var(--phase-work)'],
+  ['phase_evening_start', 'Evening', 'var(--phase-evening)'],
+  ['phase_sleep_start', 'Sleep', 'var(--phase-sleep)'],
+] as const;
+
+// The day as one 24-hour bar, so moving a start time shows what it
+// takes from the part of the day before it.
+function DayBar({ starts }: { starts: number[] }) {
+  const [m, w, e, s] = starts;
+  const parts: [number, string][] = [
+    [m, 'var(--phase-sleep)'],
+    [w - m, 'var(--phase-morning)'],
+    [e - w, 'var(--phase-work)'],
+    [s - e, 'var(--phase-evening)'],
+    [24 - s, 'var(--phase-sleep)'],
+  ];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div
+        aria-hidden
+        style={{
+          display: 'flex',
+          height: 24,
+          borderRadius: RADIUS.control,
+          overflow: 'hidden',
+          border: '1px solid var(--border)',
+        }}
+      >
+        {parts.map(([len, c], i) => (
+          <span key={i} style={{ flex: Math.max(0, len), background: c }} />
+        ))}
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', ...sub }}>
+        <span>12 AM</span>
+        <span>6 AM</span>
+        <span>12 PM</span>
+        <span>6 PM</span>
+        <span>12 AM</span>
+      </div>
     </div>
   );
 }
@@ -191,6 +312,7 @@ export default function SettingsDialog({
   const [settings, setSettings] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<React.ReactNode | null>(null);
+  const [tab, setTab] = useState<Tab>('look');
   const dialogRef = useFocusTrap<HTMLDivElement>(true);
 
   useEffect(() => {
@@ -211,6 +333,10 @@ export default function SettingsDialog({
   };
 
   if (!settings) return null;
+
+  const starts = PHASES.map(([k]) => settings[k]);
+  const inOrder = starts.every((h, i) => i === 0 || h > starts[i - 1]);
+  const IDLE = [5, 10, 15, 30, 60];
 
   return (
     // Mouse-only close-on-backdrop-click convenience — Escape (this
@@ -247,164 +373,445 @@ export default function SettingsDialog({
           color: 'var(--text)',
           border: '1px solid var(--border)',
           borderRadius: RADIUS.card,
-          padding: 24,
-          width: 380,
+          width: 712,
+          maxWidth: 'calc(100vw - 32px)',
+          height: 592,
           maxHeight: '85vh',
-          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
           boxShadow: 'var(--shadow-md)',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <h2 id="settings-title" style={{ margin: 0, fontSize: 16 }}>Settings</h2>
-          <button onClick={onClose} title="Close" aria-label="Close" style={{ display: 'flex', padding: 4 }}><X size={15} /></button>
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 12 }}>
-          {saving ? 'Saving…' : 'Every change is saved automatically'}
-        </div>
-
-        <Section title="Appearance">
-          <Row label="Theme">
-            <ThemePicker value={theme} onSelect={onSelectTheme} />
-          </Row>
-          <Row label="Language">
-            <div style={{ display: 'flex', gap: 4 }}>
-              {(['en', 'bn'] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => {
-                    patch({ lang: v });
-                    onLangChange(v);
-                  }}
-                  disabled={settings.lang === v}
-                  style={{ fontSize: 12, padding: '4px 8px' }}
-                >
-                  {v === 'en' ? 'English' : 'বাংলা'}
-                </button>
-              ))}
-            </div>
-          </Row>
-          <Row label="Analog clock face">
-            <Toggle on={settings.analog_clock} onClick={() => patch({ analog_clock: !settings.analog_clock })} />
-          </Row>
-          <Row label="PLAN follows the time of day">
-            <Toggle on={settings.plan_adaptive} onClick={() => patch({ plan_adaptive: !settings.plan_adaptive })} />
-          </Row>
-        </Section>
-
-        <Section title="Time tracking">
-          <Row label="Start timer when I open a project">
-            <Toggle
-              on={settings.auto_timer_on_open}
-              onClick={() => patch({ auto_timer_on_open: !settings.auto_timer_on_open })}
-            />
-          </Row>
-          <Row label="Stop after idle">
-            <Stepper
-              value={settings.idle_stop_min}
-              min={2}
-              max={120}
-              onChange={(v) => patch({ idle_stop_min: v })}
-              format={(v) => `${v} min`}
-            />
-          </Row>
-        </Section>
-
-        <Section title="Schedule">
-          <Row label="Morning starts">
-            <Stepper
-              value={settings.phase_morning_start}
-              min={0}
-              max={23}
-              onChange={(v) => patch({ phase_morning_start: v })}
-              format={formatPhase}
-            />
-          </Row>
-          <Row label="Work starts">
-            <Stepper
-              value={settings.phase_work_start}
-              min={0}
-              max={23}
-              onChange={(v) => patch({ phase_work_start: v })}
-              format={formatPhase}
-            />
-          </Row>
-          <Row label="Evening starts">
-            <Stepper
-              value={settings.phase_evening_start}
-              min={0}
-              max={23}
-              onChange={(v) => patch({ phase_evening_start: v })}
-              format={formatPhase}
-            />
-          </Row>
-          <Row label="Sleep starts">
-            <Stepper
-              value={settings.phase_sleep_start}
-              min={0}
-              max={23}
-              onChange={(v) => patch({ phase_sleep_start: v })}
-              format={formatPhase}
-            />
-          </Row>
-        </Section>
-
-        <Section title="Productivity">
-          <Row label="Daily goal">
-            <Stepper
-              value={settings.goal_hours}
-              min={1}
-              max={12}
-              onChange={(v) => patch({ goal_hours: v })}
-              format={(v) => `${v} h`}
-            />
-          </Row>
-        </Section>
-
-        <Section title="System">
-          <Row label="Currency symbol">
-            <input
-              value={settings.currency}
-              onChange={(e) => setSettings({ ...settings, currency: e.target.value })}
-              onBlur={(e) => patch({ currency: e.target.value })}
-              maxLength={4}
-              style={{ width: 48, fontSize: 13, padding: 4, textAlign: 'center' }}
-            />
-          </Row>
-          <Row label="Start with Windows">
-            <Toggle
-              on={settings.start_with_windows}
-              onClick={() => patch({ start_with_windows: !settings.start_with_windows })}
-            />
-          </Row>
-          <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 4 }}>
-            Saved as a preference only — not yet wired to actually register the app with Windows startup.
-          </div>
-        </Section>
-
-        <Section title="More">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <button onClick={() => { onClose(); onOpenShortcuts(); }} style={{ textAlign: 'left', fontSize: 13 }}>
-              ⌨ Keyboard Shortcuts
-            </button>
-            <button onClick={() => { onClose(); onExport(); }} style={{ textAlign: 'left', fontSize: 13 }}>
-              ⬇ Export Data
-            </button>
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 12 }}>
-            Task Tracker · Version {APP_VERSION}
-            <br />
-            Contact: {APP_CONTACT}
-          </div>
-          {/* Placeholder, same as the legacy dialog's own — always reports
-              latest, no real update service wired up on either side. */}
-          <button
-            onClick={() => setUpdateStatus(<><Check size={12} /> You're on the latest version ({APP_VERSION})</>)}
-            style={{ fontSize: 12, marginTop: 8 }}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            padding: '16px 16px 12px 24px',
+            borderBottom: '1px solid var(--border)',
+          }}
+        >
+          <h2 id="settings-title" style={{ margin: 0, fontSize: 16 }}>
+            Settings
+          </h2>
+          <span
+            style={{
+              fontSize: 12,
+              color: saving ? 'var(--text-faint)' : 'var(--success)',
+            }}
           >
-            Check for Updates
+            {saving ? 'Saving…' : '✓ Saved automatically'}
+          </span>
+          <span style={{ flex: 1 }} />
+          <button
+            onClick={onClose}
+            title="Close"
+            aria-label="Close"
+            style={{
+              ...plainBtn,
+              width: 28,
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <X size={15} />
           </button>
-          {updateStatus && <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{updateStatus}</div>}
-        </Section>
+        </div>
+
+        <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+          <div
+            role="tablist"
+            aria-orientation="vertical"
+            style={{
+              width: 176,
+              flexShrink: 0,
+              padding: '12px 8px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+              background: 'var(--bg)',
+              borderRight: '1px solid var(--border)',
+            }}
+          >
+            {TABS.map(([id, icon, label]) => {
+              const on = tab === id;
+              return (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => setTab(id)}
+                  style={{
+                    height: 36,
+                    padding: '0 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    border: 'none',
+                    borderRadius: RADIUS.control,
+                    background: on ? 'var(--surface)' : 'transparent',
+                    color: on ? 'var(--accent)' : 'var(--text)',
+                    fontSize: 13,
+                    fontWeight: on ? 700 : 400,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span aria-hidden style={{ width: 16, textAlign: 'center' }}>
+                    {icon}
+                  </span>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            role="tabpanel"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              padding: '16px 24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 16,
+              overflowY: 'auto',
+            }}
+          >
+            {tab === 'look' && (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <span style={heading}>THEME</span>
+                  <ThemePicker value={theme} onSelect={onSelectTheme} />
+                </div>
+                <Row label="Language" hint="Menus and labels across the app">
+                  <div
+                    role="radiogroup"
+                    aria-label="Language"
+                    style={{
+                      display: 'flex',
+                      border: '1px solid var(--border)',
+                      borderRadius: RADIUS.control,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {(['en', 'bn'] as const).map((v, i) => {
+                      const on = settings.lang === v;
+                      return (
+                        <button
+                          key={v}
+                          role="radio"
+                          aria-checked={on}
+                          onClick={() => {
+                            if (on) return;
+                            patch({ lang: v });
+                            onLangChange(v);
+                          }}
+                          style={{
+                            height: 28,
+                            padding: '0 12px',
+                            border: 'none',
+                            borderLeft: i ? '1px solid var(--border)' : 'none',
+                            borderRadius: 0,
+                            background: on ? 'var(--accent)' : 'var(--surface)',
+                            color: on ? 'var(--on-accent)' : 'var(--text)',
+                            fontSize: 12,
+                            fontWeight: on ? 700 : 400,
+                            cursor: on ? 'default' : 'pointer',
+                          }}
+                        >
+                          {v === 'en' ? 'English' : 'বাংলা'}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Row>
+                <Row label="Analog clock face" hint="Show clock hands instead of digits on the clock card">
+                  <Toggle
+                    label="Analog clock face"
+                    on={settings.analog_clock}
+                    onClick={() => patch({ analog_clock: !settings.analog_clock })}
+                  />
+                </Row>
+                <Row label="PLAN follows the time of day" hint="Morning, work and evening each open their own PLAN view">
+                  <Toggle
+                    label="PLAN follows the time of day"
+                    on={settings.plan_adaptive}
+                    onClick={() => patch({ plan_adaptive: !settings.plan_adaptive })}
+                  />
+                </Row>
+              </>
+            )}
+
+            {tab === 'time' && (
+              <>
+                <Row label="Start the timer when I open a project" hint="Opening a project starts tracking its time right away">
+                  <Toggle
+                    label="Start the timer when I open a project"
+                    on={settings.auto_timer_on_open}
+                    onClick={() =>
+                      patch({
+                        auto_timer_on_open: !settings.auto_timer_on_open,
+                      })
+                    }
+                  />
+                </Row>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <Row label="Stop the timer after idle" hint="No mouse or keyboard for this long stops the running timer">
+                    <span />
+                  </Row>
+                  <div role="radiogroup" aria-label="Stop after idle" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {(IDLE.includes(settings.idle_stop_min) ? IDLE : [...IDLE, settings.idle_stop_min].sort((a, b) => a - b)).map((m) => {
+                      const on = settings.idle_stop_min === m;
+                      return (
+                        <button
+                          key={m}
+                          role="radio"
+                          aria-checked={on}
+                          onClick={() => patch({ idle_stop_min: m })}
+                          style={{
+                            ...plainBtn,
+                            height: 32,
+                            minWidth: 56,
+                            borderColor: on ? 'var(--accent)' : 'var(--border)',
+                            background: on ? 'var(--accent-light)' : 'var(--surface)',
+                            color: on ? 'var(--accent)' : 'var(--text)',
+                            fontWeight: on ? 700 : 400,
+                          }}
+                        >
+                          {m} min
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{ height: 1, background: 'var(--border)' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <Row label="Daily goal" hint="Used only while your projects have no daily targets of their own">
+                    <Stepper
+                      label="Daily goal"
+                      value={settings.goal_hours}
+                      min={1}
+                      max={12}
+                      onChange={(v) => patch({ goal_hours: v })}
+                      format={(v) => `${v} h`}
+                    />
+                  </Row>
+                  <div
+                    aria-hidden
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
+                      gap: 2,
+                    }}
+                  >
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <span
+                        key={i}
+                        style={{
+                          height: 8,
+                          borderRadius: RADIUS.control,
+                          background: i < settings.goal_hours ? 'var(--accent)' : 'var(--surface-2)',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {tab === 'day' && (
+              <>
+                <Row label="Your day" hint="PLAN and the clock switch views when each part of the day starts">
+                  <span />
+                </Row>
+                <DayBar starts={starts} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {PHASES.map(([key, name, color], i) => {
+                    const next = i < 3 ? starts[i + 1] : starts[0] + 24;
+                    const len = next - starts[i];
+                    return (
+                      <div
+                        key={key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                        }}
+                      >
+                        <span
+                          aria-hidden
+                          style={{
+                            width: 12,
+                            height: 12,
+                            flexShrink: 0,
+                            borderRadius: RADIUS.pill,
+                            background: color,
+                          }}
+                        />
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{name} starts</span>
+                        <span style={{ ...sub, width: 40, textAlign: 'right' }}>{len > 0 ? `${len} h` : '—'}</span>
+                        <Stepper
+                          label={`${name} starts`}
+                          value={starts[i]}
+                          min={0}
+                          max={23}
+                          onChange={(v) => patch({ [key]: v })}
+                          format={formatPhase}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                {!inOrder && (
+                  <span role="alert" style={{ fontSize: 12, color: 'var(--danger)' }}>
+                    Each part of the day should start after the one before it.
+                  </span>
+                )}
+              </>
+            )}
+
+            {tab === 'system' && (
+              <>
+                <Row
+                  dim
+                  label={
+                    <>
+                      Start with Windows{' '}
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          marginLeft: 4,
+                          borderRadius: RADIUS.pill,
+                          background: 'var(--surface-2)',
+                          color: 'var(--text-muted)',
+                        }}
+                      >
+                        Coming soon
+                      </span>
+                    </>
+                  }
+                  hint="Saved as a preference only — not connected to Windows startup yet"
+                >
+                  <Toggle
+                    label="Start with Windows"
+                    on={settings.start_with_windows}
+                    onClick={() =>
+                      patch({
+                        start_with_windows: !settings.start_with_windows,
+                      })
+                    }
+                  />
+                </Row>
+                <div style={{ height: 1, background: 'var(--border)' }} />
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 8,
+                  }}
+                >
+                  {[
+                    ['⬇ Export data', 'Save a copy of everything', onExport],
+                    ['⌨ Keyboard shortcuts', 'See every shortcut', onOpenShortcuts],
+                  ].map(([title, hint, go]) => (
+                    <button
+                      key={title as string}
+                      onClick={() => {
+                        onClose();
+                        (go as () => void)();
+                      }}
+                      style={{
+                        ...plainBtn,
+                        height: 56,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        justifyContent: 'center',
+                        gap: 2,
+                        borderRadius: RADIUS.card,
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{title as string}</span>
+                      <span style={sub}>{hint as string}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {tab === 'about' && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span
+                    aria-hidden
+                    style={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: RADIUS.card,
+                      background: 'var(--accent)',
+                      color: 'var(--on-accent)',
+                      fontSize: 16,
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    H
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>Habit OS</span>
+                    <span style={sub}>Version {APP_VERSION}</span>
+                  </div>
+                </div>
+                {/* Placeholder, same as the legacy dialog's own — always reports
+                    latest, no real update service wired up on either side. */}
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <button
+                    onClick={() =>
+                      setUpdateStatus(
+                        <>
+                          <Check size={12} /> You're on the latest version ({APP_VERSION})
+                        </>,
+                      )
+                    }
+                    style={{ ...plainBtn, height: 32 }}
+                  >
+                    Check for updates
+                  </button>
+                  {updateStatus && (
+                    <span
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        fontSize: 12,
+                        color: 'var(--success)',
+                      }}
+                    >
+                      {updateStatus}
+                    </span>
+                  )}
+                </div>
+                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Contact: {APP_CONTACT}</span>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
