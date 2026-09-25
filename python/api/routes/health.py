@@ -155,3 +155,66 @@ def library(engine: HealthEngine = Depends(get_engine)):
 @router.get("/swaps")
 def swaps(food: str, engine: HealthEngine = Depends(get_engine)):
     return _wrap(engine.swaps, food)
+
+
+class MeasureIn(BaseModel):
+    day: str | None = None
+    weight_kg: float | None = None
+    waist_cm: float | None = None
+    hip_cm: float | None = None
+
+
+class GoalWeightIn(BaseModel):
+    kg: float | None = None
+
+
+class ShopBoughtIn(BaseModel):
+    week: str
+    name: str
+    bought: bool
+
+
+class ShopAddIn(BaseModel):
+    week: str
+    name: str
+    qty: str = ""
+
+
+class ShopRemoveIn(BaseModel):
+    week: str
+    name: str
+
+
+@router.get("/progress")
+def progress(engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.progress)
+
+
+@router.post("/measure")
+def log_measure(payload: MeasureIn, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.log_measure, payload.day, payload.weight_kg, payload.waist_cm, payload.hip_cm)
+
+
+@router.put("/goal-weight")
+def set_goal_weight(payload: GoalWeightIn, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.set_goal_weight, payload.kg)
+
+
+@router.get("/shopping")
+def shopping(day: str | None = None, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.shopping, day)
+
+
+@router.post("/shopping/bought")
+def shop_bought(payload: ShopBoughtIn, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.set_bought, payload.week, payload.name, payload.bought)
+
+
+@router.post("/shopping/add")
+def shop_add(payload: ShopAddIn, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.add_shop_item, payload.week, payload.name, payload.qty)
+
+
+@router.post("/shopping/remove")
+def shop_remove(payload: ShopRemoveIn, engine: HealthEngine = Depends(get_engine)):
+    return _wrap(engine.remove_shop_item, payload.week, payload.name)

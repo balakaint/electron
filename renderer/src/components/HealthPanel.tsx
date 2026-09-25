@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Minus, Pencil, Plus, Settings2 } from 'lucide-react';
+import { ArrowLeft, Check, Minus, Pencil, Plus, Settings2, ShoppingCart, TrendingUp } from 'lucide-react';
 import {
   HealthActivity,
   HealthCell,
@@ -10,6 +10,8 @@ import {
 } from '../services/api';
 import { useL, useLang } from '../i18n';
 import HealthEditor from './HealthEditor';
+import HealthProgress from './HealthProgress';
+import HealthShopping from './HealthShopping';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
 
@@ -327,11 +329,13 @@ function Plan({
   setState,
   onEditProfile,
   onEditDay,
+  onOpen,
 }: {
   state: HealthState;
   setState: (s: HealthState) => void;
   onEditProfile: () => void;
   onEditDay: () => void;
+  onOpen: (v: 'progress' | 'shopping') => void;
 }) {
   const L = useL();
   const [range, setRange] = useState(1);
@@ -416,6 +420,15 @@ function Plan({
             </span>
           ))}
         </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: SPACE.sm }}>
+        <button onClick={() => onOpen('progress')} style={ghostBtn}>
+          <TrendingUp size={12} /> {L('Progress', 'অগ্রগতি')}
+        </button>
+        <button onClick={() => onOpen('shopping')} style={ghostBtn}>
+          <ShoppingCart size={12} /> {L('Shopping list', 'বাজারের তালিকা')}
+        </button>
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, flexWrap: 'wrap' }}>
@@ -768,6 +781,7 @@ export default function HealthPanel({ onBack }: { onBack: () => void }) {
   const [state, setStateRaw] = useState<HealthState | null>(null);
   const [editing, setEditing] = useState(false);
   const [editingDay, setEditingDay] = useState(false);
+  const [view, setView] = useState<'plan' | 'progress' | 'shopping'>('plan');
   // Every change here also tells the Discipline tab's Health card (which
   // stays mounted underneath) to re-read, so it never shows stale ticks.
   const setState = (s: HealthState) => {
@@ -808,8 +822,18 @@ export default function HealthPanel({ onBack }: { onBack: () => void }) {
           ) : (
             editingDay && state.day ? (
               <HealthEditor state={state as Required<HealthState>} setState={setState} onDone={() => setEditingDay(false)} />
+            ) : view === 'progress' ? (
+              <HealthProgress onBack={() => setView('plan')} />
+            ) : view === 'shopping' ? (
+              <HealthShopping onBack={() => setView('plan')} />
             ) : (
-              <Plan state={state} setState={setState} onEditProfile={() => setEditing(true)} onEditDay={() => setEditingDay(true)} />
+              <Plan
+                state={state}
+                setState={setState}
+                onEditProfile={() => setEditing(true)}
+                onEditDay={() => setEditingDay(true)}
+                onOpen={setView}
+              />
             )
           ))}
       </div>

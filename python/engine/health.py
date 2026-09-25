@@ -4,8 +4,11 @@ The plan itself is a built-in default template (this module), not rows:
 a weekday decides the workout type and the day's protein, and the plan
 week (1-4: Foundation, Build, Push, Lock in) turns the workout dose up a
 little. Only what the user DID is stored (HealthDayLog), plus their
-profile (HealthProfile) — so the default can always be restored by
-simply not having edits. Per-day editing is the next phase.
+profile (HealthProfile) and edits (HealthOverride) — so the default can
+always be restored by deleting edits. Progress reads the day logs plus
+optional body check-ins (HealthMeasure); the shopping list is rebuilt
+from the week's meals on every read (HealthShopItem only keeps ticks and
+hand-added items).
 
 Numbers are estimates and are labelled that way in the UI:
 - targets use the Mifflin-St Jeor equation for resting energy, times a
@@ -17,7 +20,9 @@ Numbers are estimates and are labelled that way in the UI:
 
 from datetime import date, timedelta
 
-from database.models import HealthDayLog, HealthProfile
+import math
+
+from database.models import HealthDayLog, HealthProfile, HealthShopItem
 from database.repository import HealthRepository
 
 SEXES = ("male", "female")
@@ -231,6 +236,62 @@ def _move_keys(blocks: list[dict]) -> list[str]:
     return [f"{bi}:{m[0]}" for bi, b in enumerate(blocks) for m in b["moves"]]
 
 
+# ── Shopping ─────────────────────────────────────────────────────────
+# What one portion of each library food takes to cook, as (item, group,
+# amount, unit). Rough, like the calories: "1 cup cooked rice" is about
+# 75 g raw. The list rounds totals UP so a week is never short.
+SHOP_GROUPS = ("protein", "grains", "vegetables", "fruit_nuts", "other")
+SHOP = {
+    "Rice (cooked)": [("Rice", "grains", 75, "g")],
+    "Atta ruti": [("Atta", "grains", 30, "g")],
+    "Brown bread": [("Brown bread", "grains", 1, "slices")],
+    "Oats": [("Oats", "grains", 40, "g")],
+    "Chira (flattened rice)": [("Chira", "grains", 40, "g")],
+    "Mug dal khichuri": [("Rice", "grains", 50, "g"), ("Mug dal", "protein", 30, "g")],
+    "Boiled egg": [("Eggs", "protein", 1, "pcs")],
+    "Egg curry": [("Eggs", "protein", 2, "pcs")],
+    "Rui fish curry": [("Rui fish", "protein", 120, "g")],
+    "Pangas fish curry": [("Pangas fish", "protein", 120, "g")],
+    "Chicken curry": [("Chicken", "protein", 150, "g")],
+    "Chicken bhuna": [("Chicken", "protein", 150, "g")],
+    "Beef curry": [("Beef", "protein", 150, "g")],
+    "Chickpea (chola) curry": [("Chickpeas (chola, dry)", "protein", 60, "g")],
+    "Masoor dal": [("Masoor dal", "protein", 40, "g")],
+    "Mug dal": [("Mug dal", "protein", 40, "g")],
+    "Doi (yogurt)": [("Doi (yogurt)", "protein", 250, "g")],
+    "Milk": [("Milk", "protein", 250, "ml")],
+    "Mixed vegetables": [("Mixed shobji", "vegetables", 150, "g")],
+    "Lau shobji": [("Lau (bottle gourd)", "vegetables", 200, "g")],
+    "Shak (leafy greens)": [("Shak (leafy greens)", "vegetables", 150, "g")],
+    "Begun bhaji": [("Begun (eggplant)", "vegetables", 100, "g")],
+    "Salad": [("Cucumber, tomato", "vegetables", 100, "g")],
+    "Guava": [("Guava", "fruit_nuts", 1, "pcs")],
+    "Banana": [("Bananas", "fruit_nuts", 1, "pcs")],
+    "Apple": [("Apples", "fruit_nuts", 1, "pcs")],
+    "Papaya": [("Papaya", "fruit_nuts", 150, "g")],
+    "Peanuts": [("Peanuts", "fruit_nuts", 20, "g")],
+    "Almonds": [("Almonds", "fruit_nuts", 12, "g")],
+}
+
+
+def _fmt_amount(total: float, unit: str) -> str:
+    if unit == "g":
+        if total >= 1000:
+            return f"{math.ceil(total / 100) / 10:g} kg"
+        return f"{max(50, math.ceil(total / 50) * 50)} g"
+    if unit == "ml":
+        if total >= 1000:
+            return f"{math.ceil(total / 500) / 2:g} L"
+        return f"{max(50, math.ceil(total / 50) * 50)} ml"
+    n = math.ceil(total - 1e-9)
+    return str(n) if unit == "pcs" else f"{n} {unit}"
+
+
+def _monday(day: str) -> date:
+    d = date.fromisoformat(day)
+    return d - timedelta(days=d.weekday())
+
+
 class HealthEngine:
     def __init__(self, repo: HealthRepository):
         self.repo = repo
@@ -250,6 +311,7 @@ class HealthEngine:
             goal=goal, activity=activity, place=place, start_date=start, weeks=4,
             diet=list(existing.diet or []) if existing else [],
             dislikes=list(existing.dislikes or []) if existing else [],
+            goal_weight_kg=existing.goal_weight_kg if existing else None,
         ))
         return self.state()
 
@@ -524,3 +586,179 @@ class HealthEngine:
         row.water = max(0, min(cap, row.water + delta))
         self.repo.save_log(row)
         return self.state(day)
+
+    # ── progress ─────────────────────────────────────────────────────
+    def progress(self) -> dict:
+        """Everything the Progress page shows, over the plan's days up to
+        yesterday (today is still going, so it never counts against)."""
+        p = self._require()
+        today = _today()
+        start = date.fromisoformat(p.start_date)
+        days = [str(start + timedelta(days=i)) for i in range(p.weeks * 7)]
+        past = [x for x in days if x < today]
+        logs = self.repo.logs_for(past)
+        cells = []
+        for x in past:
+            st = self._status(p, x, logs.get(x))
+            plan = self.plan_for(p, x)
+            log = logs.get(x)
+            eaten = set(log.meals) if log else set()
+            st["kcal"] = sum(m["kcal"] for m in plan["meals"] if m["slot"] in eaten)
+            st["weekday"] = date.fromisoformat(x).weekday()
+            st["week"] = (date.fromisoformat(x) - start).days // 7 + 1
+            cells.append(st)
+
+        work = [c for c in cells if not c["rest"]]
+        ate = [c for c in cells if c["meals"] > 0]
+        weeks = []
+        for w in range(1, p.weeks + 1):
+            wc = [c for c in cells if c["week"] == w]
+            if not wc:
+                continue
+            ww = [c for c in wc if not c["rest"]]
+            weeks.append({
+                "week": w,
+                "days": len(wc),
+                "meals_pct": round(100 * sum(c["meals"] for c in wc) / (len(wc) * MEAL_SLOTS)),
+                "workouts_pct": round(100 * sum(1 for c in ww if c["workout_done"]) / len(ww)) if ww else None,
+            })
+
+        # One pattern worth naming: the weekday whose workouts slip most
+        # (at least two misses, at least half of that weekday's sessions).
+        slip = None
+        for wd in range(7):
+            planned = [c for c in work if c["weekday"] == wd]
+            missed = sum(1 for c in planned if not c["workout_done"])
+            if missed >= 2 and missed * 2 >= len(planned) and (slip is None or missed > slip["missed"]):
+                slip = {"weekday": wd, "missed": missed, "of": len(planned)}
+        meals_pct = round(100 * sum(c["meals"] for c in cells) / (len(cells) * MEAL_SLOTS)) if cells else None
+
+        measures = [{"day": m.day, "weight_kg": m.weight_kg, "waist_cm": m.waist_cm, "hip_cm": m.hip_cm}
+                    for m in self.repo.measures()]
+        weights = [m for m in measures if m["weight_kg"] is not None]
+
+        def last(k: str) -> float | None:
+            return next((m[k] for m in reversed(measures) if m[k] is not None), None)
+
+        return {
+            "today": today,
+            "start_date": p.start_date,
+            "end_date": days[-1],
+            "plan_day": (date.fromisoformat(today) - start).days + 1,
+            "plan_days": len(days),
+            "elapsed": len(cells),
+            "on_plan": sum(1 for c in cells if c["on_plan"]),
+            "workouts_planned": len(work),
+            "workouts_done": sum(1 for c in work if c["workout_done"]),
+            "avg_kcal": round(sum(c["kcal"] for c in ate) / len(ate)) if ate else None,
+            "kcal_target": targets(p)["kcal"],
+            "meals_pct": meals_pct,
+            "weeks": weeks,
+            "slip": slip,
+            "weights": weights,
+            "weight_change": round(weights[-1]["weight_kg"] - weights[0]["weight_kg"], 1) if len(weights) > 1 else None,
+            "goal_weight_kg": p.goal_weight_kg,
+            "profile_weight_kg": p.weight_kg,
+            "waist_cm": last("waist_cm"),
+            "hip_cm": last("hip_cm"),
+        }
+
+    def log_measure(self, day: str | None, weight_kg: float | None = None,
+                    waist_cm: float | None = None, hip_cm: float | None = None) -> dict:
+        """Record a check-in. Only the fields given are touched; 0 clears one."""
+        self._require()
+        day = day or _today()
+        date.fromisoformat(day)
+        fields = {}
+        for key, val, lo, hi in (("weight_kg", weight_kg, 25, 300), ("waist_cm", waist_cm, 30, 250),
+                                 ("hip_cm", hip_cm, 30, 250)):
+            if val is None:
+                continue
+            if val == 0:
+                fields[key] = None
+            elif lo <= val <= hi:
+                fields[key] = round(float(val), 1)
+            else:
+                raise ValueError(f"{key} out of range")
+        if fields:
+            self.repo.set_measure(day, fields)
+        return self.progress()
+
+    def set_goal_weight(self, kg: float | None) -> dict:
+        p = self._require()
+        if kg is not None and not 25 <= kg <= 300:
+            raise ValueError("Goal weight out of range")
+        p.goal_weight_kg = round(kg, 1) if kg is not None else None
+        self.repo.save_profile(p)
+        return self.progress()
+
+    # ── shopping ─────────────────────────────────────────────────────
+    def shopping(self, day: str | None = None) -> dict:
+        """The week's (Mon-Sun around `day`) list, built from its meals as
+        planned now — so an edited meal changes the list on the next read."""
+        p = self._require()
+        monday = _monday(day or _today())
+        week = str(monday)
+        totals: dict[tuple[str, str], list] = {}
+        order: list[tuple[str, str]] = []
+        for i in range(7):
+            for meal in self.plan_for(p, str(monday + timedelta(days=i)))["meals"]:
+                for part in meal["parts"]:
+                    lines = SHOP.get(part["food"]) or [(part["food"], "other", 1, "portions")]
+                    for item, group, amount, unit in lines:
+                        k = (item, unit)
+                        if k not in totals:
+                            totals[k] = [group, 0.0]
+                            order.append(k)
+                        totals[k][1] += amount * part["qty"]
+        state = {r.name: r for r in self.repo.shop_items(week)}
+        groups = {g: [] for g in SHOP_GROUPS}
+        for item, unit in order:
+            group, total = totals[(item, unit)]
+            row = state.get(item)
+            groups[group].append({"name": item, "qty": _fmt_amount(total, unit), "custom": False,
+                                  "bought": bool(row and row.bought)})
+        added = [{"name": r.name, "qty": r.qty, "custom": True, "bought": r.bought}
+                 for r in state.values() if r.custom]
+        out = [{"group": g, "items": groups[g]} for g in SHOP_GROUPS if groups[g]]
+        if added:
+            out.append({"group": "added", "items": added})
+        every = [it for g in out for it in g["items"]]
+        return {
+            "week": week,
+            "end": str(monday + timedelta(days=6)),
+            "plan_week": min(max((monday - date.fromisoformat(p.start_date)).days // 7 + 1, 1), p.weeks),
+            "groups": out,
+            "bought": sum(1 for it in every if it["bought"]),
+            "total": len(every),
+        }
+
+    def set_bought(self, week: str, name: str, bought: bool) -> dict:
+        self._require()
+        wk = str(_monday(week))
+        row = self.repo.get_shop_item(wk, name)
+        if row is None:
+            row = HealthShopItem(week=wk, name=name, custom=False, qty="", bought=bought)
+        row.bought = bought
+        self.repo.save_shop_item(row)
+        return self.shopping(wk)
+
+    def add_shop_item(self, week: str, name: str, qty: str = "") -> dict:
+        self._require()
+        wk = str(_monday(week))
+        name = name.strip()
+        if not name or len(name) > 80:
+            raise ValueError("Give the item a name (up to 80 characters)")
+        if any(it["name"] == name for g in self.shopping(wk)["groups"] for it in g["items"]):
+            raise ValueError("That item is already on the list")
+        self.repo.save_shop_item(HealthShopItem(week=wk, name=name, custom=True, qty=qty.strip()[:40], bought=False))
+        return self.shopping(wk)
+
+    def remove_shop_item(self, week: str, name: str) -> dict:
+        self._require()
+        wk = str(_monday(week))
+        row = self.repo.get_shop_item(wk, name)
+        if row is None or not row.custom:
+            raise ValueError("Only items you added can be removed")
+        self.repo.delete_shop_item(wk, name)
+        return self.shopping(wk)

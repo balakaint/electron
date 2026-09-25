@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session
 
 from database.models import (
     HealthDayLog,
+    HealthMeasure,
     HealthOverride,
+    HealthShopItem,
     HealthProfile,
     AppState,
     BdpAction,
@@ -1188,6 +1190,37 @@ class HealthRepository:
         else:
             row.data = list(data)
         self.db.commit()
+
+    # ── progress / shopping ──
+    def measures(self) -> list[HealthMeasure]:
+        return list(self.db.scalars(select(HealthMeasure).order_by(HealthMeasure.day)))
+
+    def set_measure(self, day: str, fields: dict) -> None:
+        row = self.db.get(HealthMeasure, day)
+        if row is None:
+            row = HealthMeasure(day=day)
+            self.db.add(row)
+        for k, v in fields.items():
+            setattr(row, k, v)
+        if row.weight_kg is None and row.waist_cm is None and row.hip_cm is None:
+            self.db.delete(row)
+        self.db.commit()
+
+    def shop_items(self, week: str) -> list[HealthShopItem]:
+        return list(self.db.scalars(select(HealthShopItem).where(HealthShopItem.week == week)))
+
+    def get_shop_item(self, week: str, name: str) -> HealthShopItem | None:
+        return self.db.get(HealthShopItem, (week, name))
+
+    def save_shop_item(self, row: HealthShopItem) -> None:
+        self.db.merge(row)
+        self.db.commit()
+
+    def delete_shop_item(self, week: str, name: str) -> None:
+        row = self.db.get(HealthShopItem, (week, name))
+        if row is not None:
+            self.db.delete(row)
+            self.db.commit()
 
     def delete_overrides(self, scopes: list[str] | None) -> None:
         """Delete overrides in `scopes`, or every override when None."""
