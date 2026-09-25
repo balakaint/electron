@@ -20,6 +20,7 @@ import { useL } from '../i18n';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
 import { nightWritten } from '../ritualSteps';
+import { useReveal } from '../useReveal';
 
 // PLAN by time of day (2026-09-25, from the "Panel 3 · PLAN" final
 // mockups). Morning leads with setting the day up, work hours with the
@@ -91,6 +92,9 @@ export function Folded({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  // Opening by a click lifts the panel just enough to show what opened
+  // (useReveal). An openEvent opening does its own scrolling to a box.
+  const { ref, reveal } = useReveal<HTMLDivElement>();
   useEffect(() => {
     if (!openEvent) return undefined;
     const h = () => setOpen(true);
@@ -98,9 +102,12 @@ export function Folded({
     return () => window.removeEventListener(openEvent, h);
   }, [openEvent]);
   return (
-    <div style={{ marginBottom: open ? 0 : SPACE.sm }}>
+    <div ref={ref} style={{ marginBottom: open ? 0 : SPACE.sm }}>
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          if (!open) reveal();
+          setOpen((v) => !v);
+        }}
         aria-expanded={open}
         style={{
           width: '100%',

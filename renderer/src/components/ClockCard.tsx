@@ -168,7 +168,9 @@ export default function ClockCard({ onOpenQuarterly, compact = false }: { onOpen
         )}
       </div>
 
-      {settings && <DayPhaseStrip settings={settings} now={now} compact={compact} />}
+      {/* The phase names and start times under the bar stay in the
+          compact card too — they say when each part of the day begins. */}
+      {settings && <DayPhaseStrip settings={settings} now={now} />}
 
       <ScopeStats now={now} onOpenQuarterly={onOpenQuarterly} compact={compact} />
     </div>
