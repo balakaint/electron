@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from api.schemas import (
+    Q90FocusSet,
+    Q90WeekCheckSet,
     Q90AchievedSet,
     Q90AreaMetaSet,
     Q90AreaReorder,
@@ -91,5 +93,21 @@ def write_reorder_areas(payload: Q90AreaReorder, repo: QuarterlyRepository = Dep
 def write_cycle(payload: Q90CycleSet, repo: QuarterlyRepository = Depends(get_repo)):
     try:
         return quarterly.set_cycle(repo, payload.start, payload.days)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/focus", response_model=Q90PanelOut)
+def write_focus(payload: Q90FocusSet, repo: QuarterlyRepository = Depends(get_repo)):
+    try:
+        return quarterly.set_focus(repo, payload.area)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@router.post("/week-check", response_model=Q90PanelOut)
+def write_week_check(payload: Q90WeekCheckSet, repo: QuarterlyRepository = Depends(get_repo)):
+    try:
+        return quarterly.set_week_check(repo, payload.area, payload.week, payload.done)
     except ValueError as e:
         raise HTTPException(400, str(e))

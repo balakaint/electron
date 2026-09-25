@@ -963,10 +963,15 @@ export interface Q90Area {
   response_then: string;
   goal_version: number;
   goal_history: Q90GoalHistoryEntry[];
+  // Week numbers (1-based) of this cycle in which the weekly routine happened.
+  week_checks: number[];
   status: Q90Status;
 }
 
 export interface Q90Panel {
+  focus_area: Q90AreaKey | null;
+  weeks_total: number;
+  current_week: number; // 0 before the cycle starts
   cycle_start: string;
   cycle_end: string;
   cycle_days: number;
@@ -1000,6 +1005,9 @@ export const quarterlyApi = {
     req('POST', '/api/quarterly/cycle', { start, days }) as Promise<Q90Panel>,
   reorderAreas: (order: Q90AreaKey[]) =>
     req('POST', '/api/quarterly/reorder-areas', { order }) as Promise<Q90Panel>,
+  setFocus: (area: Q90AreaKey | null) => req('POST', '/api/quarterly/focus', { area }) as Promise<Q90Panel>,
+  setWeekCheck: (area: Q90AreaKey, week: number, done: boolean) =>
+    req('POST', '/api/quarterly/week-check', { area, week, done }) as Promise<Q90Panel>,
 };
 
 // ── Daily Do's / Don'ts ──────────────────────────────────────────────

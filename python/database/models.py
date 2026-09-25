@@ -580,6 +580,9 @@ class AppState(Base):
     focus_tab: Mapped[str] = mapped_column(String, default="hours")
     q90_cycle_start: Mapped[str | None] = mapped_column(String, nullable=True)
     q90_cycle_days: Mapped[int] = mapped_column(Integer, default=90)
+    # The one Transformation area this cycle is about (a Q90 area key),
+    # or None when none has been starred yet.
+    q90_focus_area: Mapped[str | None] = mapped_column(String, nullable=True)
     task_title_classic_today: Mapped[str | None] = mapped_column(String, nullable=True)
     task_title_classic_tomorrow: Mapped[str | None] = mapped_column(String, nullable=True)
     task_title_focus_today: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -991,6 +994,10 @@ class QuarterlyAnswer(Base):
     # the explicit change_destination() action does.
     goal_version: Mapped[int] = mapped_column(Integer, default=1)
     goal_history: Mapped[list] = mapped_column(JSON, default=list)
+    # Weekly check: the cycle's week numbers (1-based) in which the
+    # weekly lead behavior actually happened. Ticked by hand, only for
+    # weeks that have started.
+    week_checks: Mapped[list] = mapped_column(JSON, default=list)
 
 
 class Q90AreaMeta(Base):

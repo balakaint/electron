@@ -154,6 +154,7 @@ def _area_dict(area_key: str, label: str, glyph: str, description: str, row: Qua
         "response_then": row.response_then if row else "",
         "goal_version": row.goal_version if row else 1,
         "goal_history": row.goal_history if row else [],
+        "week_checks": sorted(set(row.week_checks or [])) if row else [],
         "status": compute_status(row),
     }
 
@@ -193,7 +194,12 @@ def get_panel(repo: QuarterlyRepository, d: date | None = None) -> dict:
     # precedence above and keeps the top-level AREAS progress indicator
     # honest about actual outcomes rather than form completion.
     done = sum(1 for a in areas if a["status"] == "proven")
+    focus = repo.get_app_state().q90_focus_area
     return {
+        "focus_area": focus if focus in AREA_KEYS else None,
+        "weeks_total": -(-total // 7),
+        # 0 before the cycle starts; the week that holds today otherwise.
+        "current_week": 0 if day == 0 else -(-day // 7),
         "cycle_start": key,
         "cycle_end": str(end),
         "cycle_days": total,
@@ -389,3 +395,30 @@ def set_cycle(repo: QuarterlyRepository, start: str, days: int) -> dict:
     if new_key != old_key:
         repo.rename_cycle(old_key, new_key)
     return get_panel(repo)
+
+
+def set_focus(repo: QuarterlyRepository, area: str | None) -> dict:
+    """Star one area as this cycle's focus (None clears it)."""
+    if area is not None and area not in AREA_KEYS:
+        raise ValueError(f"area must be one of {AREA_KEYS}")
+    state = repo.get_app_state()
+    state.q90_focus_area = area
+    repo.save_app_state(state)
+    return get_panel(repo)
+
+
+def set_week_check(repo: QuarterlyRepository, area: str, week: int, done: bool, d: date | None = None) -> dict:
+    """Tick (or untick) week `week` (1-based) of the current cycle for an
+    area's weekly routine. Weeks that haven't started can't be ticked —
+    a check says the routine happened, not that it will."""
+    panel = get_panel(repo, d)
+    if not 1 <= week <= panel["weeks_total"]:
+        raise ValueError("week is outside this cycle")
+    if week > panel["current_week"]:
+        raise ValueError("that week hasn't started yet")
+    row = _get_or_create_row(repo, area, d)
+    weeks = set(row.week_checks or [])
+    weeks.add(week) if done else weeks.discard(week)
+    row.week_checks = sorted(weeks)
+    repo.save_answer(row)
+    return get_panel(repo, d)
