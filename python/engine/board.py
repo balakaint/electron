@@ -31,14 +31,17 @@ class BoardTaskEngine:
     def __init__(self, repo: BoardTaskRepository):
         self.repo = repo
 
-    def tasks_in(self, goal_id: int) -> list[dict]:
-        return [self._task_out(t) for t in self.repo.list(goal_id)]
+    # The board lives on the project card now (d8f0b2c4e6a7): a project's
+    # board shows every task with its project_key — the ones added there
+    # and the ones that came from its goals before the move.
+    def tasks_for_project(self, project_key: str) -> list[dict]:
+        return [self._task_out(t) for t in self.repo.list_for_project(project_key)]
 
-    def add_task(self, goal_id: int, title: str) -> dict:
+    def add_project_task(self, project_key: str, title: str) -> dict:
         title = title.strip()
         if not title:
             raise ValueError("Task title cannot be empty")
-        task = BoardTask(id=int(time.time() * 1000), goal_id=goal_id, title=title)
+        task = BoardTask(id=int(time.time() * 1000), goal_id=None, project_key=project_key, title=title)
         return self._task_out(self.repo.add(task))
 
     def edit_task(
@@ -71,6 +74,7 @@ class BoardTaskEngine:
         return {
             "id": task.id,
             "goal_id": task.goal_id,
+            "project_key": task.project_key,
             "title": task.title,
             "outcome": task.outcome,
             "next_action": task.next_action,

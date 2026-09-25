@@ -114,7 +114,6 @@ function PlanningNodeRow({
   onDelete,
   onEditText,
   onEditCriteria,
-  onOpenBoard,
 }: {
   node: PlanningNode;
   level: PlanningLevel;
@@ -126,7 +125,6 @@ function PlanningNodeRow({
   onDelete: () => void;
   onEditText: (text: string) => void;
   onEditCriteria?: (criteria: string) => void;
-  onOpenBoard: (legacyGoalId: number) => void;
 }) {
   const [text, setText] = useState(node.title);
   const textInputRef = useAutofocus<HTMLInputElement>(open);
@@ -388,33 +386,7 @@ function PlanningNodeRow({
             >
               <span style={{ display: 'block', width: `${pct}%`, height: '100%', background: barColor, transition: 'width 300ms ease' }} />
             </span>
-            {/* Count/percent and the BOARD button are grouped tighter
-                (8px) than their gap from the bar (12px) — they read as
-                one status cluster, not three equally-spaced items
-                fighting for attention on one crowded line. */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 'none' }}>
-              <span style={{ fontSize: 12, color: 'var(--text-faint)', flex: 'none' }}>{Math.round(pct)}%</span>
-              {/* Board (Phase B) isn't remapped to this hierarchy yet —
-                  only nodes forward-copied from an old Goal
-                  (legacy_goal_id set) can still open their Board. A
-                  node created after this migration ships has no Board
-                  to open, honestly labeled rather than silently hidden
-                  or pointing at nothing. */}
-              {node.legacy_goal_id != null ? (
-                <button
-                  onClick={() => onOpenBoard(node.legacy_goal_id as number)}
-                  title="Break this into tasks, each with its own board"
-                  className="btn-primary"
-                  style={{ fontSize: 12, padding: '4px 8px', flex: 'none' }}
-                >
-                  → BOARD
-                </button>
-              ) : (
-                <span title="Board support for new goals ships in a later update" style={{ fontSize: 12, color: 'var(--text-faint)' }}>
-                  BOARD (soon)
-                </span>
-              )}
-            </div>
+            <span style={{ fontSize: 12, color: 'var(--text-faint)', flex: 'none' }}>{Math.round(pct)}%</span>
           </div>
         </div>
       </div>
@@ -520,7 +492,6 @@ function PlanningLevelSection({
   onEditText,
   onEditCriteria,
   onRenameTitle,
-  onOpenBoard,
   focusSignal = 0,
 }: {
   level: PlanningLevel;
@@ -541,7 +512,6 @@ function PlanningLevelSection({
   onEditText: (id: number, text: string) => void;
   onEditCriteria?: (id: number, criteria: string) => void;
   onRenameTitle: (title: string) => void;
-  onOpenBoard: (legacyGoalId: number) => void;
   // Bumped to bring this section into view (a project card's "This
   // week's goal" tile does it for WEEKLY GOAL).
   focusSignal?: number;
@@ -776,7 +746,6 @@ function PlanningLevelSection({
             onDelete={() => onDelete(n.id)}
             onEditText={(text) => onEditText(n.id, text)}
             onEditCriteria={onEditCriteria ? (criteria) => onEditCriteria(n.id, criteria) : undefined}
-            onOpenBoard={onOpenBoard}
           />
         ))}
       </div>
@@ -907,7 +876,6 @@ function weekLabel(mondayIso: string): string {
 
 export default function GoalsPanel({
   projectKey,
-  onOpenBoard,
   focusVersion: _focusVersion,
   onFocusChanged: _onFocusChanged,
   jumpToGoal,
@@ -919,12 +887,6 @@ export default function GoalsPanel({
   // changed to "LIFE PLAN" instead of a project name. See GoalOwnerKey's
   // own comment in services/api.ts.
   projectKey: GoalOwnerKey | null;
-  // Fires when a node's "→ BOARD" button is pressed, carrying its
-  // legacy_goal_id (only migrated nodes have one — see PlanningNodeRow's
-  // own conditional). App.tsx wires this to open the full-window
-  // Goal -> Task -> Board overlay — unchanged, Board is still keyed off
-  // the old Goal id until Phase B remaps it.
-  onOpenBoard: (goalId: number) => void;
   // Kept for prop-signature compatibility with App.tsx — the STRIKE
   // wiring these used to drive (Goal checklist item -> today's Focus
   // list, via Task.gsrc) has no equivalent for the new generic
@@ -1131,7 +1093,6 @@ export default function GoalsPanel({
         }}
         onEditText={(title) => edit({ title })}
         onEditCriteria={level === 'win' ? (criteria) => planningApi.editWin(n.id, { criteria }).then(refetch) : undefined}
-        onOpenBoard={onOpenBoard}
       />
     );
   };
@@ -1350,7 +1311,6 @@ export default function GoalsPanel({
               }}
               onEditCriteria={key === 'win' ? (id, criteria) => planningApi.editWin(id, { criteria }).then(() => refreshTree(shownKey)) : undefined}
               onRenameTitle={(title) => goalsApi.setSectionTitle(legacyHorizon, title).then(setPanel)}
-              onOpenBoard={onOpenBoard}
             />
           );
         })}

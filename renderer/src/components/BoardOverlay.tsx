@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import { BoardTask, Goal, GoalOwnerKey, boardTaskApi, goalsApi } from '../services/api';
+import { BoardTask, ProjectKey, boardTaskApi, projectsApi } from '../services/api';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { RADIUS } from '../spacing';
 import IndividualTaskBoard from './IndividualTaskBoard';
 
-// GOAL -> TASK -> INDIVIDUAL TASK BOARD — the full-window overlay
-// reached from a Goal's "→ BOARD" button (GoalsPanel/GoalRow).
+// PROJECT -> TASK -> INDIVIDUAL TASK BOARD — the full-window overlay
+// reached from a project card's Board button (panel 1).
+//
+// It used to hang off a goal ("PROJECT → BOARD", from GoalsPanel), which
+// only goals carried over from the old goal list could open — every
+// goal made on the planning ladder read "BOARD (soon)". It moved to the
+// project card; the tasks already on a goal's board were kept and now
+// show on that goal's project board (migration d8f0b2c4e6a7). The
+// history below is from the goal-based version.
 //
 // Supersedes two earlier, narrower designs in the same direction:
 //   1. a flat per-project Focus Board (Panel2's GOALS|BOARD tab)
@@ -121,7 +128,7 @@ function CalloutField({
 // Used to also repeat "FOCUS BOARD" (an eyebrow label) and "Goal: X"
 // (the goal's own name, again) above task.title — Zahid's own call,
 // 2026-09-16: with the overlay's own top header already showing
-// "GOAL → BOARD" + the goal's name in large type, restating the goal
+// "PROJECT → BOARD" + the goal's name in large type, restating the goal
 // name again here just read as noise, not useful breadcrumb context.
 // Dropped both; task.title alone is enough to say which task's board
 // this is (it already matches the highlighted row in the left rail).
@@ -166,77 +173,6 @@ function TaskHeader({
   );
 }
 
-// Goal / Plans / Actions / Results — 2026-09-16, straight from Zahid's
-// attached design spec ("Virtual Card for AI — Kanban Style Design"),
-// which this overlay's structure already matched everywhere except this
-// one piece. "Update based on goal state / task completion" is the
-// spec's own wording for the trigger rule, without naming the exact
-// rule — this is one reasonable reading, not the only one: Goal is
-// always reached; Plans once the goal has been broken into at least one
-// Task; Actions once any of those tasks' cards has reached FOCUS
-// (board_focus, not just board_total — a goal with everything still
-// queued hasn't started acting on it yet); Results once any card has
-// reached CLOSED. Worth Zahid's own sign-off if he wants a different
-// trigger.
-const STEP_LABELS = ['Goal', 'Plans', 'Actions', 'Results'];
-
-function progressStep(goal: Goal | null, taskCount: number): number {
-  if (!goal) return 1;
-  if (goal.board_done > 0) return 4;
-  if (goal.board_focus > 0) return 3;
-  if (taskCount > 0) return 2;
-  return 1;
-}
-
-function ProgressSteps({ goal, taskCount }: { goal: Goal | null; taskCount: number }) {
-  const step = progressStep(goal, taskCount);
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', flex: 'none' }}>
-      {STEP_LABELS.map((label, i) => {
-        const n = i + 1;
-        const done = n < step;
-        const current = n === step;
-        return (
-          <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <span
-                style={{
-                  width: 18,
-                  height: 18,
-                  flex: 'none',
-                  borderRadius: RADIUS.pill,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  background: done || current ? 'var(--accent)' : 'var(--surface)',
-                  border: `1px solid ${done || current ? 'var(--accent)' : 'var(--border)'}`,
-                  color: done || current ? 'var(--on-accent)' : 'var(--text-faint)',
-                }}
-              >
-                {n}
-              </span>
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: current ? 700 : 400,
-                  color: current ? 'var(--accent)' : done ? 'var(--text)' : 'var(--text-faint)',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {label}
-              </span>
-            </div>
-            {n < STEP_LABELS.length && (
-              <div style={{ width: 28, height: 1, margin: '0 8px', background: done ? 'var(--accent)' : 'var(--border)', flex: 'none' }} />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 function EmptyState({ icon, title, note }: { icon: string; title: string; note: string }) {
   return (
@@ -262,8 +198,8 @@ function EmptyState({ icon, title, note }: { icon: string; title: string; note: 
   );
 }
 
-export default function GoalBoardOverlay({ project, goalId }: { project: GoalOwnerKey; goalId: number }) {
-  const [goal, setGoal] = useState<Goal | null>(null);
+export default function BoardOverlay({ project }: { project: ProjectKey }) {
+  const [projectName, setProjectName] = useState('');
   const [tasks, setTasks] = useState<BoardTask[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState('');
@@ -279,25 +215,22 @@ export default function GoalBoardOverlay({ project, goalId }: { project: GoalOwn
   }, [renamingId]);
 
   const refreshTasks = () =>
-    boardTaskApi.list(goalId).then((ts) => {
+    boardTaskApi.list(project).then((ts) => {
       setTasks(ts);
       setSelectedTaskId((cur) => (cur && ts.some((t) => t.id === cur) ? cur : ts[0]?.id ?? null));
     });
 
   useEffect(() => {
-    // No get-by-id endpoint for a single goal (same as every other
-    // resource in this app — goalsApi only lists per-project), so the
-    // header pulls the goal's own text out of that project's list.
-    goalsApi.list(project).then((gs) => setGoal(gs.find((g) => g.id === goalId) ?? null));
+    projectsApi.order().then((o) => setProjectName(o.find((e) => e.project.key === project)?.project.name ?? ''));
     refreshTasks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, goalId]);
+  }, [project]);
 
   const submitAdd = (e: React.FormEvent) => {
     e.preventDefault();
     const t = newTitle.trim();
     if (!t) return;
-    boardTaskApi.add(goalId, t).then((task) => {
+    boardTaskApi.add(project, t).then((task) => {
       setNewTitle('');
       setTasks((ts) => [...ts, task]);
       setSelectedTaskId(task.id);
@@ -369,7 +302,7 @@ export default function GoalBoardOverlay({ project, goalId }: { project: GoalOwn
               marginBottom: 4,
             }}
           >
-            GOAL → BOARD
+            PROJECT → BOARD
           </div>
           <h2
             style={{
@@ -382,20 +315,17 @@ export default function GoalBoardOverlay({ project, goalId }: { project: GoalOwn
               whiteSpace: 'nowrap',
             }}
           >
-            {goal ? goal.text : 'Loading…'}
+            {projectName || 'Board'}
           </h2>
         </div>
-        <div style={{ marginLeft: 'auto' }}>
-          <ProgressSteps goal={goal} taskCount={tasks.length} />
-        </div>
-        <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+        <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-faint)' }}>
           {tasks.length} {tasks.length === 1 ? 'task' : 'tasks'}
         </span>
       </div>
 
       <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0, maxHeight: 'calc(100vh - 220px)' }}>
-        {/* Left rail: this goal's tasks. Each one owns its own board —
-            this list is the "break the goal into parts" step itself. */}
+        {/* Left rail: this project's tasks. Each one owns its own board —
+            this list is the "break the project into parts" step itself. */}
         <div className="card-elevated" style={{ width: 260, flex: 'none', display: 'flex', flexDirection: 'column', minHeight: 0, ...CARD_STYLE, padding: 12 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-muted)' }}>TASKS</span>
@@ -404,7 +334,7 @@ export default function GoalBoardOverlay({ project, goalId }: { project: GoalOwn
 
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             {tasks.length === 0 ? (
-              <EmptyState icon="◇" title="No tasks yet" note="Break this goal into parts below — each one gets its own board." />
+              <EmptyState icon="◇" title="No tasks yet" note="Break this project into parts below — each one gets its own board." />
             ) : (
               tasks.map((task) => {
                 const active = task.id === selectedTaskId;
@@ -504,7 +434,7 @@ export default function GoalBoardOverlay({ project, goalId }: { project: GoalOwn
 
         {/* Right: the selected task's own Individual Task Board, sunk
             into a slightly recessed panel so the three kanban columns
-            read as content sitting inside this goal's workspace rather
+            read as content sitting inside this project's workspace rather
             than floating loose in the window. */}
         <div
           style={{

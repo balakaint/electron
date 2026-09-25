@@ -365,7 +365,12 @@ class BoardTask(Base):
 
     # ms-timestamp id, matching Task/Goal/CirclePerson's convention.
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
-    goal_id: Mapped[int] = mapped_column(ForeignKey("goals.id", ondelete="CASCADE"))
+    # Optional since the board moved to the project card (d8f0b2c4e6a7):
+    # a task added there has no goal. Tasks that came from a goal keep it.
+    goal_id: Mapped[int | None] = mapped_column(ForeignKey("goals.id", ondelete="CASCADE"), nullable=True)
+    # The project whose board this task is on — backfilled from the goal
+    # for tasks that predate the move.
+    project_key: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     title: Mapped[str] = mapped_column(String)
     outcome: Mapped[str] = mapped_column(String, default="")
     # The task-scoped twin of Goal.next_action — see that column's

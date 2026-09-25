@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, Check, Flag, Pause, Play, Square, Target, X } from 'lucide-react';
+import { BarChart3, Check, Flag, LayoutGrid, Pause, Play, Square, X } from 'lucide-react';
 import {
   ActivityEntry,
   Journey,
@@ -84,16 +84,16 @@ function ProjectCard({
   onChanged,
   onOpenAnalysis,
   onOpenJourney,
+  onOpenBoard,
   onSelectGoals,
-  goalsProject,
 }: {
   entry: ProjectOrderEntry;
   focusTasks: Task[];
   onChanged: () => void;
   onOpenAnalysis: (key: ProjectKey) => void;
   onOpenJourney: (key: ProjectKey) => void;
+  onOpenBoard: (key: ProjectKey) => void;
   onSelectGoals: (key: ProjectKey) => void;
-  goalsProject: ProjectKey | null;
 }) {
   const { number, project } = entry;
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
@@ -367,21 +367,20 @@ function ProjectCard({
         ? L('All tasks done', 'সব কাজ শেষ')
         : `${L('Next', 'পরের')}: ${pending[0].text}`;
   const full = focusTasks.filter((t) => t.strike && !t.done).length >= STRIKE_MAX;
-  const footBtn = (on: boolean): React.CSSProperties => ({
+  const footBtn: React.CSSProperties = {
     flex: 1,
     height: 32,
     fontSize: 12,
-    fontWeight: on ? 700 : 400,
     borderRadius: RADIUS.control,
-    border: `1px solid ${on ? project.accent_color : 'var(--border)'}`,
-    background: on ? 'var(--accent-light)' : 'var(--surface)',
-    color: on ? accentText(project.accent_color) : 'var(--text)',
+    border: '1px solid var(--border)',
+    background: 'var(--surface)',
+    color: 'var(--text)',
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACE.xs,
-  });
+  };
 
   return (
     <div
@@ -718,17 +717,18 @@ function ProjectCard({
           />
         </div>
 
-        {/* The project's three pages. "Goals" is filled while panel 2 is
-            showing this project's goals, so the card answers "whose goals
-            am I looking at" (legacy 6800-6828). */}
+        {/* The project's three pages. Board replaced Goals here: goals
+            already open in panel 2 whenever this card opens (and the
+            weekly goal tile above goes straight to them), while the
+            board had no way in except from old goals. */}
         <div style={{ display: 'flex', gap: SPACE.sm }}>
-          <button onClick={() => onSelectGoals(key)} aria-pressed={goalsProject === key} title="Show this project's goals in panel 2" style={footBtn(goalsProject === key)}>
-            <Target size={13} /> {L('Goals', 'লক্ষ্য')}
+          <button onClick={() => onOpenBoard(key)} title="This project's tasks, each with its own QUEUED / FOCUS / CLOSED board" style={footBtn}>
+            <LayoutGrid size={13} /> {L('Board', 'বোর্ড')}
           </button>
-          <button onClick={() => onOpenAnalysis(key)} title="Business Analysis — idea, numbers, decision" style={footBtn(false)}>
+          <button onClick={() => onOpenAnalysis(key)} title="Business Analysis — idea, numbers, decision" style={footBtn}>
             <BarChart3 size={13} /> {L('Analysis', 'বিশ্লেষণ')}
           </button>
-          <button onClick={() => onOpenJourney(key)} title="Product Journey — the dated record of what you tried" style={footBtn(false)}>
+          <button onClick={() => onOpenJourney(key)} title="Product Journey — the dated record of what you tried" style={footBtn}>
             <Flag size={13} /> {L('Journey', 'যাত্রা')}
           </button>
         </div>
@@ -807,8 +807,8 @@ export default function ProjectDashboard({
   onFocusChanged,
   onOpenAnalysis,
   onOpenJourney,
+  onOpenBoard,
   onSelectGoals,
-  goalsProject,
   openProject,
   onAllCollapsedChange,
 }: {
@@ -818,8 +818,8 @@ export default function ProjectDashboard({
   onFocusChanged: () => void;
   onOpenAnalysis: (key: ProjectKey) => void;
   onOpenJourney: (key: ProjectKey) => void;
+  onOpenBoard: (key: ProjectKey) => void;
   onSelectGoals: (key: ProjectKey) => void;
-  goalsProject: ProjectKey | null;
   // Whichever project has a full-window overlay open, so the auto-timer
   // still starts for it — that behaviour moved to the shell with the
   // overlays and would otherwise have been silently dropped.
@@ -945,8 +945,8 @@ export default function ProjectDashboard({
           onChanged={refresh}
           onOpenAnalysis={onOpenAnalysis}
           onOpenJourney={onOpenJourney}
+          onOpenBoard={onOpenBoard}
           onSelectGoals={onSelectGoals}
-          goalsProject={goalsProject}
         />
       ))}
     </div>

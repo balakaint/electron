@@ -700,7 +700,8 @@ class BoardTaskEdit(BaseModel):
 
 class BoardTaskOut(BaseModel):
     id: int
-    goal_id: int
+    goal_id: int | None
+    project_key: str | None
     title: str
     outcome: str
     next_action: str
