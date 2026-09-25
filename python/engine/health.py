@@ -114,7 +114,48 @@ VEG_SWAP = {"Rui fish curry": "Egg curry", "Pangas fish curry": "Chickpea (chola
             "Chicken curry": "Egg curry", "Chicken bhuna": "Chickpea (chola) curry",
             "Beef curry": "Chickpea (chola) curry"}
 
-MEAL_META = (("Breakfast", "8:00 AM"), ("Lunch", "1:30 PM"), ("Snack", "5:00 PM"), ("Dinner", "8:30 PM"))
+MEAL_NAMES = ("Breakfast", "Lunch", "Snack", "Dinner")
+
+# Reminders are shown by the app (renderer/src/healthReminders.ts) while
+# it is running; the engine only keeps the settings. Off until the user
+# turns them on — a notification nobody asked for is noise. Meal times
+# live here too because the plan page shows them and the reminders fire
+# on them, so the two can never disagree.
+REMINDER_DEFAULTS = {
+    "enabled": False,
+    "meals": True,
+    "meal_times": ["08:00", "13:30", "17:00", "20:30"],
+    "water": True,
+    "water_every": 90,
+    "water_from": "09:00",
+    "water_to": "21:00",
+    "workout": True,
+    "workout_time": "18:00",
+}
+WATER_EVERY = (60, 90, 120, 180)
+
+
+def _hhmm(v) -> str:
+    """Validate "HH:MM" (24 h) and return it zero-padded."""
+    try:
+        h, m = str(v).split(":")
+        h, m = int(h), int(m)
+    except ValueError:
+        raise ValueError(f"Time must be HH:MM, got {v!r}")
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        raise ValueError(f"Time must be HH:MM, got {v!r}")
+    return f"{h:02d}:{m:02d}"
+
+
+def _12h(hhmm: str) -> str:
+    h, m = (int(x) for x in hhmm.split(":"))
+    return f"{(h % 12) or 12}:{m:02d} {'AM' if h < 12 else 'PM'}"
+
+
+def reminder_settings(p: HealthProfile) -> dict:
+    out = {**REMINDER_DEFAULTS, **(p.reminders or {})}
+    out["meal_times"] = list(out["meal_times"])
+    return out
 
 
 def _default_meal_items(weekday: int, slot: int) -> list[dict]:
@@ -140,7 +181,7 @@ def _allowed(name: str, diet: list[str]) -> bool:
     return True
 
 
-def _meal(slot: int, items: list[dict], diet: list[str], edited: str | None) -> dict:
+def _meal(slot: int, items: list[dict], diet: list[str], edited: str | None, time: str) -> dict:
     parts = []
     for it in items:
         name = it["food"]
@@ -153,7 +194,7 @@ def _meal(slot: int, items: list[dict], diet: list[str], edited: str | None) -> 
         parts.append({"food": name, "qty": qty, "portion": f[1] if f else "", "kcal": kcal, "protein_g": prot,
                       "known": f is not None})
     label = " · ".join((f"{p['qty']:g} × " if p["qty"] != 1 else "") + p["food"] for p in parts)
-    return {"slot": slot, "name": MEAL_META[slot][0], "time": MEAL_META[slot][1], "items": label,
+    return {"slot": slot, "name": MEAL_NAMES[slot], "time": _12h(time), "hhmm": time, "items": label,
             "kcal": sum(p["kcal"] for p in parts), "protein_g": sum(p["protein_g"] for p in parts),
             "parts": parts, "edited": edited}
 
@@ -312,6 +353,7 @@ class HealthEngine:
             diet=list(existing.diet or []) if existing else [],
             dislikes=list(existing.dislikes or []) if existing else [],
             goal_weight_kg=existing.goal_weight_kg if existing else None,
+            reminders=dict(existing.reminders) if existing and existing.reminders else None,
         ))
         return self.state()
 
@@ -353,10 +395,12 @@ class HealthEngine:
             pairs = [[m["name"], m["dose"]] for m in data] if data is not None else b["moves"]
             blocks.append({"name": b["name"], "minutes": b["minutes"], "moves": _moves(pairs), "edited": edited})
         diet = list(p.diet or [])
+        times = reminder_settings(p)["meal_times"]
         meals = []
         for slot in range(MEAL_SLOTS):
             data, edited = self._resolve("meal", day, slot)
-            meals.append(_meal(slot, data if data is not None else _default_meal_items(wd, slot), diet, edited))
+            meals.append(_meal(slot, data if data is not None else _default_meal_items(wd, slot), diet, edited,
+                               times[slot]))
         return {
             "day": day,
             "plan_day": pos + 1,
@@ -538,6 +582,7 @@ class HealthEngine:
                 "start_date": p.start_date, "weeks": p.weeks,
                 "diet": list(p.diet or []), "dislikes": list(p.dislikes or []),
             },
+            "reminders": reminder_settings(p),
             "targets": targets(p),
             "today": today,
             "day": self.plan_for(p, day),
@@ -586,6 +631,35 @@ class HealthEngine:
         row.water = max(0, min(cap, row.water + delta))
         self.repo.save_log(row)
         return self.state(day)
+
+    # ── reminders ────────────────────────────────────────────────────
+    def set_reminders(self, patch: dict) -> dict:
+        """Merge `patch` into the reminder settings, validating each field."""
+        p = self._require()
+        cur = reminder_settings(p)
+        for k, v in patch.items():
+            if k not in REMINDER_DEFAULTS:
+                raise ValueError(f"Unknown reminder setting {k!r}")
+            if k in ("enabled", "meals", "water", "workout"):
+                cur[k] = bool(v)
+            elif k == "meal_times":
+                if not isinstance(v, list) or len(v) != MEAL_SLOTS:
+                    raise ValueError("meal_times needs four times")
+                times = [_hhmm(t) for t in v]
+                if times != sorted(times):
+                    raise ValueError("Meal times must be in order: breakfast, lunch, snack, dinner")
+                cur[k] = times
+            elif k == "water_every":
+                if int(v) not in WATER_EVERY:
+                    raise ValueError(f"water_every must be one of {WATER_EVERY}")
+                cur[k] = int(v)
+            else:
+                cur[k] = _hhmm(v)
+        if cur["water_from"] >= cur["water_to"]:
+            raise ValueError("Water reminders must start before they end")
+        p.reminders = cur
+        self.repo.save_profile(p)
+        return self.state()
 
     # ── progress ─────────────────────────────────────────────────────
     def progress(self) -> dict:

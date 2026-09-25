@@ -1256,6 +1256,7 @@ export interface HealthMeal {
   slot: number;
   name: string;
   time: string;
+  hhmm: string;
   items: string;
   kcal: number;
   protein_g: number;
@@ -1304,8 +1305,20 @@ export interface HealthCell {
   water: number;
   future: boolean;
 }
+export interface HealthReminders {
+  enabled: boolean;
+  meals: boolean;
+  meal_times: string[]; // four "HH:MM", breakfast..dinner
+  water: boolean;
+  water_every: number; // minutes
+  water_from: string;
+  water_to: string;
+  workout: boolean;
+  workout_time: string;
+}
 export interface HealthState {
   profile: HealthProfile | null;
+  reminders?: HealthReminders;
   targets?: { kcal: number; protein_g: number; water_glasses: number };
   today?: string;
   day?: HealthDayPlan;
@@ -1383,6 +1396,7 @@ export const healthApi = {
   library: () => req('GET', '/api/health/library') as Promise<{ foods: HealthFood[]; exercises: HealthExercise[] }>,
   swaps: (food: string) =>
     req('GET', `/api/health/swaps?food=${encodeURIComponent(food)}`) as Promise<{ name: string; portion: string; kcal: number; protein_g: number }[]>,
+  setReminders: (patch: Partial<HealthReminders>) => req('PUT', '/api/health/reminders', patch) as Promise<HealthState>,
   progress: () => req('GET', '/api/health/progress') as Promise<HealthProgress>,
   logMeasure: (m: { day?: string; weight_kg?: number; waist_cm?: number; hip_cm?: number }) =>
     req('POST', '/api/health/measure', m) as Promise<HealthProgress>,

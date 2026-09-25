@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Minus, Pencil, Plus, Settings2, ShoppingCart, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Bell, BellOff, Check, Minus, Pencil, Plus, Settings2, ShoppingCart, TrendingUp } from 'lucide-react';
 import {
   HealthActivity,
   HealthCell,
@@ -11,6 +11,7 @@ import {
 import { useL, useLang } from '../i18n';
 import HealthEditor from './HealthEditor';
 import HealthProgress from './HealthProgress';
+import HealthRemindersPanel from './HealthRemindersPanel';
 import HealthShopping from './HealthShopping';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 import { TRACKING, TYPE_SIZE, TYPE_WEIGHT } from '../typography';
@@ -335,7 +336,7 @@ function Plan({
   setState: (s: HealthState) => void;
   onEditProfile: () => void;
   onEditDay: () => void;
-  onOpen: (v: 'progress' | 'shopping') => void;
+  onOpen: (v: 'progress' | 'shopping' | 'reminders') => void;
 }) {
   const L = useL();
   const [range, setRange] = useState(1);
@@ -375,6 +376,14 @@ function Plan({
           <span style={{ fontSize: TYPE_SIZE.lg, fontWeight: TYPE_WEIGHT.bold, color: 'var(--success)' }}>🔥 {state.streak}</span>
           <span style={{ fontSize: TYPE_SIZE.xs, color: 'var(--text-muted)' }}>{L('day streak', 'দিনের ধারা')}</span>
         </div>
+        <button
+          onClick={() => onOpen('reminders')}
+          aria-label={L('Reminders', 'রিমাইন্ডার')}
+          title={state.reminders?.enabled ? L('Reminders on', 'রিমাইন্ডার চালু') : L('Reminders off', 'রিমাইন্ডার বন্ধ')}
+          style={{ ...ghostBtn, width: 28, padding: 0, justifyContent: 'center', color: state.reminders?.enabled ? 'var(--success)' : 'var(--text-muted)' }}
+        >
+          {state.reminders?.enabled ? <Bell size={14} /> : <BellOff size={14} />}
+        </button>
         <button onClick={onEditProfile} aria-label={L('Profile and goal', 'প্রোফাইল ও লক্ষ্য')} style={{ ...ghostBtn, width: 28, padding: 0, justifyContent: 'center' }}>
           <Settings2 size={14} />
         </button>
@@ -781,7 +790,7 @@ export default function HealthPanel({ onBack }: { onBack: () => void }) {
   const [state, setStateRaw] = useState<HealthState | null>(null);
   const [editing, setEditing] = useState(false);
   const [editingDay, setEditingDay] = useState(false);
-  const [view, setView] = useState<'plan' | 'progress' | 'shopping'>('plan');
+  const [view, setView] = useState<'plan' | 'progress' | 'shopping' | 'reminders'>('plan');
   // Every change here also tells the Discipline tab's Health card (which
   // stays mounted underneath) to re-read, so it never shows stale ticks.
   const setState = (s: HealthState) => {
@@ -826,6 +835,8 @@ export default function HealthPanel({ onBack }: { onBack: () => void }) {
               <HealthProgress onBack={() => setView('plan')} />
             ) : view === 'shopping' ? (
               <HealthShopping onBack={() => setView('plan')} />
+            ) : view === 'reminders' && state.reminders ? (
+              <HealthRemindersPanel state={state} setState={setState} onBack={() => setView('plan')} />
             ) : (
               <Plan
                 state={state}

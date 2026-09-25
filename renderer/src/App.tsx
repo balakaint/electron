@@ -14,6 +14,7 @@ import QuarterlyPlanPanel from './components/QuarterlyPlanPanel';
 import MorningRitualPanel from './components/MorningRitualPanel';
 import NightClosurePanel from './components/NightClosurePanel';
 import HealthPanel from './components/HealthPanel';
+import HealthReminderRunner from './components/HealthReminderRunner';
 import OnboardingModal from './components/OnboardingModal';
 import SettingsDialog from './components/SettingsDialog';
 import ShortcutsHelp from './components/ShortcutsHelp';
@@ -337,8 +338,23 @@ function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme, shortcutsOpen, settingsOpen, dialogStack.length, layout]);
 
+  // Health — same docking as the two rituals. Also reached from a
+  // clicked Health reminder notification ('open-health').
+  const openHealth = () => {
+    if (layout !== 'partial') setLayout('partial');
+    setMorningRitualView(null);
+    setNightClosureOpen(false);
+    setHealthOpen(true);
+  };
+  useEffect(() => {
+    window.addEventListener('open-health', openHealth);
+    return () => window.removeEventListener('open-health', openHealth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout]);
+
   return (
     <LangProvider lang={lang}>
+    <HealthReminderRunner />
     {/* The title bar is OUTSIDE the padded shell, flush to the window's
         own edges — an inset title bar is a strip of chrome floating in a
         margin, which reads as a widget rather than as the top of the
@@ -650,13 +666,7 @@ function AppShell() {
               setHealthOpen(false);
               setNightClosureOpen(true);
             }}
-            onOpenHealth={() => {
-              // Same docking as the two rituals above.
-              if (layout !== 'partial') setLayout('partial');
-              setMorningRitualView(null);
-              setNightClosureOpen(false);
-              setHealthOpen(true);
-            }}
+            onOpenHealth={openHealth}
           />
         </section>
       </main>
