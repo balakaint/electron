@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   MindsetEntry,
   Project,
@@ -12,6 +12,7 @@ import { RADIUS, SPACE } from '../spacing';
 import { segmentedKeyDown } from '../segmentedKeys';
 import { useL } from '../i18n';
 import DisciplineModuleCards from './DisciplineModuleCards';
+import { useReveal } from '../useReveal';
 
 // Legacy's PLAN review card (task_tracker_v3_THEMES.py 3585-3955): a
 // Mindset / Discipline / Consistency tri-tab that lives on the PLAN
@@ -263,39 +264,12 @@ export default function PlanReview({
 }) {
   const L = useL();
   const [tab, setTabState] = useState<Tab>('mindset');
-  const cardRef = useRef<HTMLDivElement>(null);
   // Choosing a tab scrolls the panel up just enough to show the card's
-  // bottom — only as far as needed, never past the card's own top
-  // (Zahid, 2026-09-25). A tab's content loads after the click and the
-  // card grows when it lands, so for a moment after each click the card
-  // is watched and the reveal re-run as it grows.
-  const revealUntil = useRef(0);
-  const reveal = () => {
-    const card = cardRef.current;
-    if (!card) return;
-    let box: HTMLElement | null = card.parentElement;
-    while (box && !(box.scrollHeight > box.clientHeight && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) {
-      box = box.parentElement;
-    }
-    if (!box) return;
-    const c = card.getBoundingClientRect();
-    const b = box.getBoundingClientRect();
-    const by = Math.min(c.bottom - b.bottom + SPACE.sm, c.top - b.top - SPACE.sm);
-    if (by > 1) box.scrollBy({ top: by });
-  };
-  useEffect(() => {
-    const card = cardRef.current;
-    if (!card || typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(() => {
-      if (Date.now() < revealUntil.current) reveal();
-    });
-    ro.observe(card);
-    return () => ro.disconnect();
-  }, []);
+  // bottom — only as far as needed (see useReveal).
+  const { ref: cardRef, reveal } = useReveal<HTMLDivElement>();
   const setTab = (t: Tab) => {
     setTabState(t);
-    revealUntil.current = Date.now() + 1500;
-    requestAnimationFrame(reveal);
+    reveal();
   };
 
   return (
