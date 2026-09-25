@@ -967,10 +967,14 @@ class Q90AreaOut(BaseModel):
     response_then: str
     goal_version: int
     goal_history: list[Q90GoalHistoryEntryOut]
+    week_checks: list[int] = []
     status: Q90StatusT
 
 
 class Q90PanelOut(BaseModel):
+    focus_area: Q90AreaKeyT | None = None
+    weeks_total: int = 0
+    current_week: int = 0
     cycle_start: str
     cycle_end: str
     cycle_days: int
@@ -979,6 +983,16 @@ class Q90PanelOut(BaseModel):
     areas_done: int
     areas_total: int
     areas: list[Q90AreaOut]
+
+
+class Q90FocusSet(BaseModel):
+    area: Q90AreaKeyT | None = None
+
+
+class Q90WeekCheckSet(BaseModel):
+    area: Q90AreaKeyT
+    week: int
+    done: bool
 
 
 class Q90FieldSet(BaseModel):

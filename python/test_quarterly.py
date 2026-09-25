@@ -271,8 +271,47 @@ def test_invalid_cycle_start_string_rejected():
         check("a non-ISO start date raises ValueError", raised)
 
 
+def test_focus_area_and_week_checks():
+    with FreshDB() as f:
+        import engine.quarterly as q
+        from datetime import timedelta
+        # A 30-day cycle that started 9 days ago: day 10, week 2 of 5.
+        q.set_cycle(f.repo, str(date.today() - timedelta(days=9)), 30)
+        panel = q.get_panel(f.repo)
+        check("no focus by default", panel["focus_area"] is None)
+        check("weeks_total = ceil(30/7)", panel["weeks_total"] == 5, str(panel["weeks_total"]))
+        check("current_week = week holding today", panel["current_week"] == 2, str(panel["current_week"]))
+        panel = q.set_focus(f.repo, "money")
+        check("focus saved", panel["focus_area"] == "money")
+        try:
+            q.set_focus(f.repo, "bogus")
+            check("unknown focus rejected", False)
+        except ValueError:
+            check("unknown focus rejected", True)
+        panel = q.set_week_check(f.repo, "money", 1, True)
+        panel = q.set_week_check(f.repo, "money", 2, True)
+        money = next(a for a in panel["areas"] if a["key"] == "money")
+        check("weeks ticked", money["week_checks"] == [1, 2], str(money["week_checks"]))
+        panel = q.set_week_check(f.repo, "money", 1, False)
+        money = next(a for a in panel["areas"] if a["key"] == "money")
+        check("week unticked", money["week_checks"] == [2])
+        for bad in (3, 0, 6):
+            try:
+                q.set_week_check(f.repo, "money", bad, True)
+                check(f"week {bad} rejected", False)
+            except ValueError:
+                check(f"week {bad} rejected", True)
+        panel = q.set_focus(f.repo, None)
+        check("focus cleared", panel["focus_area"] is None)
+        # Moving the cycle carries the checks along with the answers.
+        panel = q.set_cycle(f.repo, str(date.today() - timedelta(days=9)), 45)
+        money = next(a for a in panel["areas"] if a["key"] == "money")
+        check("checks survive a cycle length change", money["week_checks"] == [2], str(money["week_checks"]))
+
+
 def run_all():
     tests = [
+        test_focus_area_and_week_checks,
         test_default_panel_falls_back_to_calendar_quarter,
         test_status_progression_through_the_7_steps,
         test_set_field_rejects_invalid_area_or_field,
