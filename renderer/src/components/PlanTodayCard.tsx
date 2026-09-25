@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Check } from 'lucide-react';
-import { FocusTab, STRIKE_MAX, designTodayApi, hoursApi, mindsetApi, tasksApi } from '../services/api';
+import { FocusTab, STRIKE_MAX, hoursApi, mindsetApi, morningRitualApi, tasksApi } from '../services/api';
 import { useL } from '../i18n';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
 
@@ -10,29 +10,31 @@ function todayIso(): string {
 }
 
 interface Status {
+  ritual: 'done' | 'started' | 'not';
   mindset: boolean;
-  design: boolean;
   struck: number;
   hours: number;
 }
 
 async function load(): Promise<Status> {
   const day = todayIso();
-  const [m, d, strike, plan] = await Promise.all([
+  const [r, m, strike, plan] = await Promise.all([
+    morningRitualApi.today(),
     mindsetApi.getMindset(day),
-    designTodayApi.getDesignToday(day),
     tasksApi.listStrike(),
     hoursApi.get(day),
   ]);
   return {
+    ritual: r.completed ? 'done' : r.started_at ? 'started' : 'not',
     mindset: m.mindset.trim().length > 0,
-    design: d.text.trim().length > 0,
     struck: strike.length,
     hours: plan.total_planned,
   };
 }
 
-// PLAN TODAY — the four things PLAN asks of you each morning, as one
+// PLAN TODAY — the four things PLAN asks of you each morning. Morning
+// ritual took the slot Design today had until its box was removed
+// (2026-09-25), as one
 // checklist that knows which of them you have already done. Each step
 // was already in the app, in four different places (two text boxes in
 // the review card below, the three on EXECUTE › MIT, the hour plan on
@@ -77,18 +79,23 @@ export default function PlanTodayCard({ onGoExecute }: { onGoExecute: (tab: Focu
 
   const steps: { key: string; title: string; done: boolean; sub: string; go: () => void }[] = [
     {
+      key: 'ritual',
+      title: L('Morning ritual', 'মর্নিং রিচুয়াল'),
+      done: status.ritual === 'done',
+      sub:
+        status.ritual === 'done'
+          ? L('Done', 'শেষ হয়েছে')
+          : status.ritual === 'started'
+            ? L('In progress · Resume ›', 'চলছে · আবার শুরু ›')
+            : L('Start it ›', 'শুরু করুন ›'),
+      go: () => window.dispatchEvent(new Event('open-morning-ritual')),
+    },
+    {
       key: 'mindset',
       title: L('Mindset', 'মাইন্ডসেট'),
       done: status.mindset,
       sub: status.mindset ? L('Written', 'লেখা হয়েছে') : L('Write it below ›', 'নিচে লিখুন ›'),
       go: () => focusBox('plan-mindset'),
-    },
-    {
-      key: 'design',
-      title: L('Design today', 'আজকের ডিজাইন'),
-      done: status.design,
-      sub: status.design ? L('Written', 'লেখা হয়েছে') : L('Write it below ›', 'নিচে লিখুন ›'),
-      go: () => focusBox('plan-design-today'),
     },
     {
       key: 'mit',
@@ -193,9 +200,9 @@ export default function PlanTodayCard({ onGoExecute }: { onGoExecute: (tab: Focu
                   fontSize: 12,
                   fontWeight: 600,
                   color: s.done ? 'var(--success)' : 'var(--text-muted)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                  // Three to a row is narrow: let the hint wrap rather
+                  // than cut off the "MIT ›" / "HOURS ›" it ends with.
+                  lineHeight: 1.3,
                 }}
               >
                 {s.sub}
