@@ -1244,11 +1244,23 @@ class HabitReorder(BaseModel):
 # either; NoteOut's `title` is derived server-side, not stored.
 class NoteCreate(BaseModel):
     body: str = ""
+    head_id: int | None = None
 
 
 class NoteEdit(BaseModel):
     body: str | None = None
     pinned: bool | None = None
+    # Sent = change it (null = no head); left out = unchanged.
+    head_id: int | None = None
+
+
+class NoteHeadIn(BaseModel):
+    name: str
+
+
+class NoteHeadOut(BaseModel):
+    id: int
+    name: str
 
 
 class NoteOut(BaseModel):
@@ -1256,5 +1268,6 @@ class NoteOut(BaseModel):
     title: str
     body: str
     pinned: bool
+    head_id: int | None = None
     created_at: float
     updated_at: float

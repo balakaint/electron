@@ -1312,6 +1312,21 @@ class Note(Base):
     created_at: Mapped[float] = mapped_column(Float)
     updated_at: Mapped[float] = mapped_column(Float)
     deleted_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # The user-made head (NoteHead) this note is filed under; None = no
+    # head (it still shows under All). No FK: deleting a head clears
+    # this in the engine, so notes simply fall back to All.
+    head_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class NoteHead(Base):
+    """A user-made heading in the NOTES tab, shown beside All and Pinned
+    (e.g. "Ideas", "Meetings"). A note belongs to at most one."""
+
+    __tablename__ = "note_heads"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    name: Mapped[str] = mapped_column(String)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class HealthProfile(Base):

@@ -1221,15 +1221,25 @@ export interface Note {
   title: string;
   body: string;
   pinned: boolean;
+  head_id: number | null;
   created_at: number;
   updated_at: number;
+}
+// A user-made heading in NOTES, beside All and Pinned.
+export interface NoteHead {
+  id: number;
+  name: string;
 }
 
 export const notesApi = {
   list: () => req('GET', '/api/notes') as Promise<Note[]>,
-  create: (body = '') => req('POST', '/api/notes', { body }) as Promise<Note>,
-  edit: (id: number, patch: Partial<Pick<Note, 'body' | 'pinned'>>) =>
+  create: (body = '', head_id: number | null = null) => req('POST', '/api/notes', { body, head_id }) as Promise<Note>,
+  edit: (id: number, patch: Partial<Pick<Note, 'body' | 'pinned' | 'head_id'>>) =>
     req('PUT', `/api/notes/${id}`, patch) as Promise<Note>,
+  heads: () => req('GET', '/api/notes/heads') as Promise<NoteHead[]>,
+  createHead: (name: string) => req('POST', '/api/notes/heads', { name }) as Promise<NoteHead>,
+  renameHead: (id: number, name: string) => req('PUT', `/api/notes/heads/${id}`, { name }) as Promise<NoteHead>,
+  removeHead: (id: number) => req('DELETE', `/api/notes/heads/${id}`) as Promise<{ ok: true }>,
   remove: (id: number) => req('DELETE', `/api/notes/${id}`) as Promise<{ ok: true }>,
   restore: (id: number) => req('POST', `/api/notes/${id}/restore`) as Promise<Note>,
 };
