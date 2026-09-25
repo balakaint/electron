@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Bell, BellOff, Check, Minus, Pencil, Plus, Settings2, ShoppingCart, TrendingUp } from 'lucide-react';
+import { Bell, BellOff, Check, Minus, Pencil, Plus, Settings2, ShoppingCart, TrendingUp } from 'lucide-react';
 import {
   HealthActivity,
   HealthCell,
@@ -791,7 +791,7 @@ function Plan({
   );
 }
 
-export default function HealthPanel({ onBack }: { onBack: () => void }) {
+export default function HealthPanel() {
   const L = useL();
   const [state, setStateRaw] = useState<HealthState | null>(null);
   const [editing, setEditing] = useState(false);
@@ -815,9 +815,6 @@ export default function HealthPanel({ onBack }: { onBack: () => void }) {
   return (
     <div style={{ padding: SPACE.xl, boxSizing: 'border-box', width: '100%' }}>
       <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: SPACE.lg }}>
-        <button onClick={onBack} style={{ ...ghostBtn, alignSelf: 'flex-start' }}>
-          <ArrowLeft size={14} /> {L('Back to Goals', 'লক্ষ্যে ফিরুন')}
-        </button>
         {error && (
           <span style={{ fontSize: TYPE_SIZE.xs, color: 'var(--danger)' }}>
             {L("Couldn't load the plan — check the app is connected.", 'প্ল্যান লোড হয়নি — অ্যাপ সংযুক্ত আছে কিনা দেখুন।')}

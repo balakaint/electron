@@ -5,6 +5,7 @@ import Panel3 from './components/Panel3';
 import BusinessAnalysisCanvas from './components/BusinessAnalysisCanvas';
 import ToolsMenu from './components/ToolsMenu';
 import CaptureDialog from './components/CaptureDialog';
+import Panel2Tabs, { type Panel2Tab } from './components/Panel2Tabs';
 import TitleBar from './components/TitleBar';
 import ProjectDashboard from './components/ProjectDashboard';
 import GoalsPanel from './components/GoalsPanel';
@@ -91,11 +92,28 @@ function AppShell() {
   // flexible panels, with Panel 1/Panel 3 staying visible on either
   // side (Zahid, 2026-09-18: wanted it findable in context, not a
   // screen that blanks the rest of the app).
-  const [morningRitualView, setMorningRitualView] = useState<'flow' | 'trend' | null>(null);
-  // Night Closure — same slot, same reasoning, mutually exclusive with
-  // morningRitualView above (see the Panel 2 render below).
-  const [nightClosureOpen, setNightClosureOpen] = useState(false);
-  const [healthOpen, setHealthOpen] = useState(false);
+  //
+  // Panel 2 is tabbed now — Goals, Health, Morning, Night — instead of
+  // one page at a time covering the others (see Panel2Tabs). The tab in
+  // use is remembered; morningView says which Morning page to show
+  // (the flow, or the trend when PLAN's "History" asked for it).
+  const [p2Tab, setP2TabRaw] = useState<Panel2Tab>(() => {
+    try {
+      const v = localStorage.getItem('panel2-tab');
+      return v === 'health' || v === 'morning' || v === 'night' ? v : 'goals';
+    } catch {
+      return 'goals';
+    }
+  });
+  const setP2Tab = (t: Panel2Tab) => {
+    setP2TabRaw(t);
+    try {
+      localStorage.setItem('panel2-tab', t);
+    } catch {
+      /* remembering the tab is a convenience only */
+    }
+  };
+  const [morningView, setMorningView] = useState<{ view: 'flow' | 'trend'; n: number }>({ view: 'flow', n: 0 });
   // Bumped by a project card's "This week's goal" tile: GoalsPanel goes
   // to that project's Weekly Goal (see 'open-week-goal' below).
   const [weekGoalFocus, setWeekGoalFocus] = useState<{ key: string; n: number } | null>(null);
@@ -270,10 +288,18 @@ function AppShell() {
   // Unknown counts as hidden, so nothing mounts on a guess.
   const showP1 = layout === 'full';
   const showP2 = layout === 'full' || layout === 'partial';
+  // Whose goals panel 2 shows. All of panel 1 collapsed = nothing
+  // specific is open, so it falls back to the reserved "life" virtual
+  // project instead of whichever project's goals were open last (see
+  // allProjectsCollapsed, and GoalOwnerKey in services/api.ts); a goal
+  // jumped to from PLAN can name its own owner (jumpOwnerOverride).
+  const goalsPanelKey: GoalOwnerKey | null = jumpOwnerOverride ?? (allProjectsCollapsed ? 'life' : goalsProject);
 
   const selectGoalsProject = (key: ProjectKey) => {
     setGoalsProject(key);
     goalsApi.setPanelProject(key);
+    // Picking a project in panel 1 is asking for its goals.
+    setP2Tab('goals');
     // A real project pick always wins over a pending life-owner jump —
     // otherwise picking a project in Panel 1 right after clicking a life
     // goal's deadline dot would silently do nothing, since the override
@@ -345,28 +371,25 @@ function AppShell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme, shortcutsOpen, settingsOpen, dialogStack.length, layout]);
 
-  // Health — same docking as the two rituals. Also reached from a
-  // clicked Health reminder notification ('open-health').
-  const openHealth = () => {
-    if (layout !== 'partial') setLayout('partial');
-    setMorningRitualView(null);
-    setNightClosureOpen(false);
-    setHealthOpen(true);
+  // Opening one of panel 2's pages from elsewhere (PLAN's cards, a
+  // Health reminder notification) selects its tab. Panel 1 is left as it
+  // is — these used to force the 'partial' layout and hide it; now the
+  // layout only changes when panel 2 is hidden altogether (compact),
+  // since a tab nobody can see would silently do nothing.
+  const showPanel2Tab = (t: Panel2Tab) => {
+    if (layout === 'compact') setLayout('partial');
+    setP2Tab(t);
   };
-  // Morning Ritual's flow, same docking — reached from PLAN's "Plan
-  // today" card ('open-morning-ritual').
-  const openMorningRitualFlow = () => {
-    if (layout !== 'partial') setLayout('partial');
-    setNightClosureOpen(false);
-    setHealthOpen(false);
-    setMorningRitualView('flow');
+  const openHealth = () => showPanel2Tab('health');
+  const openMorning = (view: 'flow' | 'trend') => {
+    setMorningView((m) => ({ view, n: m.n + 1 }));
+    showPanel2Tab('morning');
   };
+  const openMorningRitualFlow = () => openMorning('flow');
   useEffect(() => {
     const onWeekGoal = (e: Event) => {
       const key = (e as CustomEvent<string>).detail;
-      setMorningRitualView(null);
-      setNightClosureOpen(false);
-      setHealthOpen(false);
+      setP2Tab('goals');
       setWeekGoalFocus((f) => ({ key, n: (f?.n ?? 0) + 1 }));
     };
     window.addEventListener('open-week-goal', onWeekGoal);
@@ -516,69 +539,46 @@ function AppShell() {
 
         {showP2 && (
           <section aria-label="Goals" style={{ overflowY: 'auto', minHeight: 0, minWidth: 0, position: 'relative' }}>
-            {morningRitualView ? (
-              <MorningRitualPanel initialView={morningRitualView} onBack={() => setMorningRitualView(null)} />
-            ) : nightClosureOpen ? (
-              <NightClosurePanel onBack={() => setNightClosureOpen(false)} />
-            ) : healthOpen ? (
-              <HealthPanel onBack={() => setHealthOpen(false)} />
-            ) : (
-              <>
-                {/* Panel 2's chevron hides panel 1 only — legacy's
-                    _toggle_panel1, the middle rung of the ladder. */}
-                <button
-                  onClick={() => setLayout(layout === 'full' ? 'partial' : 'full')}
-                  title={layout === 'full' ? 'Hide the projects panel' : 'Show the projects panel'}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    zIndex: 2,
-                    padding: 0,
-                    width: 24,
-                    height: 24,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {/* Same direction rule as panel 3's: the panel this hides
-                      is to the LEFT, so this points away when hiding and
-                      back when restoring. */}
-                  {layout === 'full' ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-                </button>
-                {/* GoalsPanel used to also take onGoalOpenChange, feeding a
-                    goalOpenProject state that ProjectDashboard's openProject
-                    fell back to — but GoalsPanel never actually called it
-                    (its own signature never declared the prop), so
-                    goalOpenProject was always null and this fallback was
-                    dead from the day GoalsPanel grew its OWN useAutoTimer
-                    call (see that hook's comment there), which independently
-                    starts/stops the project's clock when a goal opens. Wiring
-                    the prop up for real would have meant two hooks racing to
-                    toggle the same timer. */}
-                {/* All of panel 1 collapsed = nothing specific is open, so
-                    this falls back to the reserved "life" virtual project
-                    instead of whichever real project's goals happened to be
-                    open last — see allProjectsCollapsed's own comment above
-                    and GoalOwnerKey's comment in services/api.ts. Same
-                    GoalsPanel either way; only which key it's pointed at
-                    changes. */}
-                {(() => {
-                  const goalsPanelKey: GoalOwnerKey | null =
-                    jumpOwnerOverride ?? (allProjectsCollapsed ? 'life' : goalsProject);
-                  return (
-                    <GoalsPanel
-                      projectKey={goalsPanelKey}
-                      focusVersion={panel1Wrote + panel3Wrote}
-                      onFocusChanged={() => setPanel2Wrote((v) => v + 1)}
-                      jumpToGoal={jumpToGoal}
-                      focusWeek={weekGoalFocus}
-                    />
-                  );
-                })()}
-              </>
+            {/* Panel 2's chevron hides panel 1 only — legacy's
+                _toggle_panel1, the middle rung of the ladder. */}
+            <button
+              onClick={() => setLayout(layout === 'full' ? 'partial' : 'full')}
+              title={layout === 'full' ? 'Hide the projects panel' : 'Show the projects panel'}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                zIndex: 2,
+                padding: 0,
+                width: 24,
+                height: 24,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {/* Same direction rule as panel 3's: the panel this hides
+                  is to the LEFT, so this points away when hiding and
+                  back when restoring. */}
+              {layout === 'full' ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            </button>
+            {/* Pinned while the page under it scrolls, so the tabs are
+                always there to switch with. */}
+            <div style={{ paddingLeft: 32, position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg)' }}>
+              <Panel2Tabs tab={p2Tab} onSelect={setP2Tab} goalsKey={goalsPanelKey} refreshSignal={panel1Wrote + panel3Wrote} />
+            </div>
+            {p2Tab === 'goals' && (
+              <GoalsPanel
+                projectKey={goalsPanelKey}
+                focusVersion={panel1Wrote + panel3Wrote}
+                onFocusChanged={() => setPanel2Wrote((v) => v + 1)}
+                jumpToGoal={jumpToGoal}
+                focusWeek={weekGoalFocus}
+              />
             )}
+            {p2Tab === 'health' && <HealthPanel />}
+            {p2Tab === 'morning' && <MorningRitualPanel key={morningView.n} initialView={morningView.view} />}
+            {p2Tab === 'night' && <NightClosurePanel />}
           </section>
         )}
         {showP2 && <div style={{ background: 'var(--border)' }} />}
@@ -657,6 +657,7 @@ function AppShell() {
                 selectGoalsProject(owner);
               }
               setJumpToGoal({ id: goalId, token: Date.now() });
+              setP2Tab('goals');
             }}
             // Panel 2 already follows whichever project Panel 1 has open
             // (same fallback: all collapsed reads as none open, not
@@ -680,33 +681,8 @@ function AppShell() {
             stepTitle={compact ? 'Show all panels (Ctrl+F)' : 'Focus mode — this panel only (Ctrl+F)'}
             onToggleLayout={togglePanels}
             onOpenQuarterly={() => setOverlay({ kind: 'quarterly' })}
-            onOpenMorningRitual={(view) => {
-              // Morning Ritual lives in Panel 2 now, not a full-window
-              // overlay — 'compact' hides Panel 2 entirely, so
-              // Resume/History would silently do nothing without also
-              // bringing it back. Forced to 'partial' rather than
-              // 'full' (Zahid, 2026-09-18: "make panel 1 collups when
-              // morning ritual review press") — Panel 1's project list
-              // isn't needed while the ritual is open, and hiding it
-              // gives Panel 2 the extra room.
-              if (layout !== 'partial') setLayout('partial');
-              setNightClosureOpen(false);
-              setHealthOpen(false);
-              setMorningRitualView(view);
-            }}
-            onOpenNightClosure={() => {
-              // Docks to 'partial' same as Morning Ritual above — Zahid's
-              // own reversal (2026-09-20): keeping Panel 1 visible at
-              // 'full' didn't fix the cramped read, since
-              // NightClosureFlow's own content column was capped
-              // narrower than the space it had either way. Panel 1 isn't
-              // needed while Night Closure is open, so it collapses and
-              // Panel 2 gets the room.
-              if (layout !== 'partial') setLayout('partial');
-              setMorningRitualView(null);
-              setHealthOpen(false);
-              setNightClosureOpen(true);
-            }}
+            onOpenMorningRitual={openMorning}
+            onOpenNightClosure={() => showPanel2Tab('night')}
             onOpenHealth={openHealth}
           />
         </section>
