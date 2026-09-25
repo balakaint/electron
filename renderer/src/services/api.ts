@@ -39,6 +39,9 @@ export interface Task {
   // finishing it can tick that hour back.
   hour_slot_id: number | null;
   sort_order: number;
+  // Local date the task was finished; null while open (or finished
+  // before the column existed).
+  done_at?: string | null;
 }
 
 export interface ExportFile {
@@ -109,10 +112,14 @@ async function req(method: string, path: string, body?: unknown): Promise<unknow
 }
 
 export const tasksApi = {
-  list: (listKey?: ListKey) =>
-    req('GET', listKey ? `/api/tasks?list_key=${listKey}` : '/api/tasks') as Promise<Task[]>,
-  create: (text: string, listKey: ListKey) =>
-    req('POST', '/api/tasks', { text, list_key: listKey }) as Promise<Task>,
+  // `view` pins the day-view for this call; omitted, the server uses the
+  // global toggle (PLAN's classic list). 'all' = TASK LIST.
+  list: (listKey?: ListKey, view?: DayView | 'all') => {
+    const q = [listKey && `list_key=${listKey}`, view && `view=${view}`].filter(Boolean).join('&');
+    return req('GET', `/api/tasks${q ? `?${q}` : ''}`) as Promise<Task[]>;
+  },
+  create: (text: string, listKey: ListKey, day?: string) =>
+    req('POST', '/api/tasks', { text, list_key: listKey, ...(day ? { day } : {}) }) as Promise<Task>,
   edit: (id: number, text: string) => req('PUT', `/api/tasks/${id}`, { text }) as Promise<Task>,
   remove: (id: number) => req('DELETE', `/api/tasks/${id}`) as Promise<{ ok: true }>,
   toggleDone: (id: number) => req('POST', `/api/tasks/${id}/toggle-done`) as Promise<Task>,
@@ -1214,15 +1221,25 @@ export interface Note {
   title: string;
   body: string;
   pinned: boolean;
+  head_id: number | null;
   created_at: number;
   updated_at: number;
+}
+// A user-made heading in NOTES, beside All and Pinned.
+export interface NoteHead {
+  id: number;
+  name: string;
 }
 
 export const notesApi = {
   list: () => req('GET', '/api/notes') as Promise<Note[]>,
-  create: (body = '') => req('POST', '/api/notes', { body }) as Promise<Note>,
-  edit: (id: number, patch: Partial<Pick<Note, 'body' | 'pinned'>>) =>
+  create: (body = '', head_id: number | null = null) => req('POST', '/api/notes', { body, head_id }) as Promise<Note>,
+  edit: (id: number, patch: Partial<Pick<Note, 'body' | 'pinned' | 'head_id'>>) =>
     req('PUT', `/api/notes/${id}`, patch) as Promise<Note>,
+  heads: () => req('GET', '/api/notes/heads') as Promise<NoteHead[]>,
+  createHead: (name: string) => req('POST', '/api/notes/heads', { name }) as Promise<NoteHead>,
+  renameHead: (id: number, name: string) => req('PUT', `/api/notes/heads/${id}`, { name }) as Promise<NoteHead>,
+  removeHead: (id: number) => req('DELETE', `/api/notes/heads/${id}`) as Promise<{ ok: true }>,
   remove: (id: number) => req('DELETE', `/api/notes/${id}`) as Promise<{ ok: true }>,
   restore: (id: number) => req('POST', `/api/notes/${id}/restore`) as Promise<Note>,
 };

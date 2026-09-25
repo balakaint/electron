@@ -38,6 +38,10 @@ class Task(Base):
     # link for the same reason: finishing it here has to tick it there,
     # or the plan and the work drift apart within a day.
     hour_slot_id: Mapped[int | None] = mapped_column(ForeignKey("hour_slots.id"), nullable=True)
+    # Local date (YYYY-MM-DD) the task was last marked done; None while
+    # open. TASK LIST's Done filter shows the last 7 days by it. Tasks
+    # finished before this column existed fall back to their `day`.
+    done_at: Mapped[str | None] = mapped_column(String, nullable=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
@@ -1308,6 +1312,21 @@ class Note(Base):
     created_at: Mapped[float] = mapped_column(Float)
     updated_at: Mapped[float] = mapped_column(Float)
     deleted_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # The user-made head (NoteHead) this note is filed under; None = no
+    # head (it still shows under All). No FK: deleting a head clears
+    # this in the engine, so notes simply fall back to All.
+    head_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class NoteHead(Base):
+    """A user-made heading in the NOTES tab, shown beside All and Pinned
+    (e.g. "Ideas", "Meetings"). A note belongs to at most one."""
+
+    __tablename__ = "note_heads"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+    name: Mapped[str] = mapped_column(String)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class HealthProfile(Base):

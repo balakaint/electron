@@ -32,6 +32,7 @@ from database.models import (
     MorningRitual,
     NightClosure,
     Note,
+    NoteHead,
     Outcome,
     PlanTask,
     Project,
@@ -983,6 +984,26 @@ class NoteRepository:
         self.db.commit()
         self.db.refresh(note)
         return note
+
+    # ── heads ──
+    def heads(self) -> list[NoteHead]:
+        return list(self.db.scalars(select(NoteHead).order_by(NoteHead.sort_order, NoteHead.id)))
+
+    def get_head(self, head_id: int) -> NoteHead | None:
+        return self.db.get(NoteHead, head_id)
+
+    def add_head(self, head: NoteHead) -> NoteHead:
+        self.db.add(head)
+        self.db.commit()
+        self.db.refresh(head)
+        return head
+
+    def delete_head(self, head: NoteHead) -> None:
+        """Delete a head; its notes (deleted ones too) fall back to no head."""
+        for n in self.db.scalars(select(Note).where(Note.head_id == head.id)):
+            n.head_id = None
+        self.db.delete(head)
+        self.db.commit()
 
 
 class PlanningRepository:

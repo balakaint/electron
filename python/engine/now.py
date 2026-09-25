@@ -129,6 +129,7 @@ class NowEngine:
             return None
         stop_task_and_project(self.tasks, self.projects, t)
         t.done = True
+        t.done_at = str(date.today())
         self.tasks.save(t)
         sync_project_row(self.projects, t)
         # Finishing here ticks the hour it came from. Without this the

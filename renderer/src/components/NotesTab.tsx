@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pin, Search, X } from 'lucide-react';
-import { Note, notesApi } from '../services/api';
+import { Check, Pencil, Pin, Plus, Search, Trash2, X } from 'lucide-react';
+import { Note, NoteHead, notesApi } from '../services/api';
 import { savedFlashStyle, useAutosave } from '../useAutosave';
 import { useAutofocus } from '../hooks/useAutofocus';
 import { useUndo } from '../undo';
@@ -60,6 +60,9 @@ function NoteCard({
   onSaveBody,
   onTogglePin,
   onDelete,
+  heads,
+  onMoveHead,
+  showHead,
 }: {
   note: Note;
   expanded: boolean;
@@ -67,7 +70,14 @@ function NoteCard({
   onSaveBody: (body: string) => void;
   onTogglePin: () => void;
   onDelete: () => void;
+  heads: NoteHead[];
+  onMoveHead: (headId: number | null) => void;
+  // Name the note's head on the collapsed card (All/Pinned only — under
+  // its own head it would just repeat the tab).
+  showHead: boolean;
 }) {
+  const L = useL();
+  const headName = heads.find((h) => h.id === note.head_id)?.name;
   const bodyField = useAutosave(note.body, onSaveBody);
   const textRef = useAutofocus<HTMLTextAreaElement>(expanded);
   useAutosizeTextarea(textRef, bodyField.value, 16);
@@ -152,8 +162,24 @@ function NoteCard({
                 {preview}
               </div>
             )}
-            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: SPACE.xs }}>
+            <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: SPACE.xs, display: 'flex', gap: SPACE.sm, alignItems: 'center' }}>
               {relativeTime(note.updated_at)}
+              {showHead && headName && (
+                <span
+                  style={{
+                    border: '1px solid var(--border)',
+                    borderRadius: 999,
+                    padding: '0 8px',
+                    color: 'var(--text-muted)',
+                    maxWidth: 160,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {headName}
+                </span>
+              )}
             </div>
           </button>
           <div className="note-actions" style={{ display: 'flex', gap: 2, flex: 'none' }}>
@@ -187,6 +213,14 @@ function NoteCard({
             value={bodyField.value}
             onChange={(e) => bodyField.setValue(e.target.value)}
             onBlur={bodyField.flush}
+            onKeyDown={(e) => {
+              // Ctrl/Cmd+Enter = Done, same as the button.
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                bodyField.flush();
+                onToggle();
+              }
+            }}
             aria-label="Note text"
             style={{
               width: '100%',
@@ -200,10 +234,36 @@ function NoteCard({
               ...savedFlashStyle(bodyField.state),
             }}
           />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: SPACE.xs }}>
-            <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{relativeTime(note.updated_at)}</span>
-            <button onClick={onToggle} className="btn-ghost" style={{ fontSize: 12, height: 28, padding: '0 8px' }}>
-              Done
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginTop: SPACE.xs }}>
+            <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>
+              {bodyField.state === 'pending' ? L('Saving…', 'সেভ হচ্ছে…') : L('Saved', 'সেভ হয়েছে')} · {relativeTime(note.updated_at)}
+            </span>
+            <span style={{ flex: 1 }} />
+            {heads.length > 0 && (
+              <select
+                value={note.head_id ?? ''}
+                onChange={(e) => onMoveHead(e.target.value ? Number(e.target.value) : null)}
+                aria-label={L('Head', 'হেড')}
+                style={{ fontSize: 12, height: 28, maxWidth: 140 }}
+              >
+                <option value="">{L('No head', 'হেড নেই')}</option>
+                {heads.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <button
+              onClick={() => {
+                bodyField.flush();
+                onToggle();
+              }}
+              className="btn-primary"
+              title="Ctrl+Enter"
+              style={{ fontSize: 12, height: 28, padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: SPACE.xs }}
+            >
+              <Check size={12} /> {L('Done', 'শেষ')}
             </button>
           </div>
         </div>
@@ -212,14 +272,37 @@ function NoteCard({
   );
 }
 
-type Filter = 'all' | 'pinned';
+// All and Pinned are fixed; a number is one of the user's own heads.
+type Filter = 'all' | 'pinned' | number;
+const FILTER_KEY = 'notes-filter';
+
+function loadFilter(): Filter {
+  try {
+    const v = localStorage.getItem(FILTER_KEY);
+    if (v === 'pinned') return 'pinned';
+    if (v && /^\d+$/.test(v)) return Number(v);
+  } catch {
+    /* storage unavailable */
+  }
+  return 'all';
+}
 
 export default function NotesTab() {
   const L = useL();
   const [notes, setNotes] = useState<Note[]>([]);
+  const [heads, setHeads] = useState<NoteHead[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilterState] = useState<Filter>(loadFilter);
+  const setFilter = (f: Filter) => {
+    setFilterState(f);
+    setHeadEdit(null);
+    try {
+      localStorage.setItem(FILTER_KEY, String(f));
+    } catch {
+      /* remembered for this session only */
+    }
+  };
   const [searchOpen, setSearchOpen] = useState(false);
   const [search, setSearch] = useState('');
   // ONE expanded note at a time — same reasoning GoalsPanel's own
@@ -228,14 +311,23 @@ export default function NotesTab() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const { push: pushUndo } = useUndo();
   const searchRef = useAutofocus<HTMLInputElement>(searchOpen);
+  // Head editing: null, typing a new head's name, renaming the selected
+  // head, or asking before deleting it.
+  const [headEdit, setHeadEdit] = useState<null | 'new' | 'rename' | 'delete'>(null);
+  const [headName, setHeadName] = useState('');
+  const [headError, setHeadError] = useState('');
+  const headInputRef = useAutofocus<HTMLInputElement>(headEdit === 'new' || headEdit === 'rename');
+  const [justSaved, setJustSaved] = useState(false);
 
   const refresh = () => {
     setLoadError(false);
-    notesApi
-      .list()
-      .then((ns) => {
+    Promise.all([notesApi.list(), notesApi.heads()])
+      .then(([ns, hs]) => {
         setNotes(ns);
+        setHeads(hs);
         setLoaded(true);
+        // A remembered head that no longer exists falls back to All.
+        setFilterState((f) => (typeof f === 'number' && !hs.some((h) => h.id === f) ? 'all' : f));
       })
       .catch(() => {
         setLoadError(true);
@@ -246,29 +338,54 @@ export default function NotesTab() {
     refresh();
   }, []);
 
-  // Quick-capture: the FIRST keystroke creates a note in the background
-  // (via useAutosave's own debounce, so rapid typing still coalesces
-  // into one create call, not one per character); every keystroke after
-  // that edits the same note. "+ New" flushes and resets both the ref
-  // and the field, ready to capture the next note.
+  const currentHead = typeof filter === 'number' ? heads.find((h) => h.id === filter) ?? null : null;
+
+  // Quick-capture: the FIRST save creates a note in the background (via
+  // useAutosave's own debounce, so rapid typing still coalesces into one
+  // create call), every save after that edits the same note. Saves are
+  // chained one after another: without that, a second save could start
+  // while the first create was still in flight and create a duplicate.
+  // A note written while a head is open is filed under that head.
   const draftIdRef = useRef<number | null>(null);
+  const draftHeadRef = useRef<number | null>(null);
+  draftHeadRef.current = currentHead?.id ?? null;
+  const chainRef = useRef<Promise<unknown>>(Promise.resolve());
   const draft = useAutosave<string>('', (v) => {
-    if (!v.trim()) return Promise.resolve();
-    if (draftIdRef.current === null) {
-      return notesApi.create(v).then((n) => {
-        draftIdRef.current = n.id;
-        refresh();
-      });
-    }
-    return notesApi.edit(draftIdRef.current, { body: v }).then(() => refresh());
+    const run = () => {
+      if (!v.trim()) return Promise.resolve();
+      if (draftIdRef.current === null) {
+        return notesApi.create(v, draftHeadRef.current).then((n) => {
+          draftIdRef.current = n.id;
+          refresh();
+        });
+      }
+      return notesApi.edit(draftIdRef.current, { body: v }).then(() => refresh());
+    };
+    chainRef.current = chainRef.current.then(run, run);
+    return chainRef.current;
   });
   const draftRef = useRef<HTMLTextAreaElement>(null);
   useAutosizeTextarea(draftRef, draft.value, 6);
 
-  const startNewDraft = () => {
+  // Save: commit now, wait for it to land, then clear the box for the
+  // next note — the "done with this one" step, one click or Ctrl+Enter.
+  const saveDraft = () => {
+    if (!draft.value.trim()) return;
     draft.flush();
-    draftIdRef.current = null;
-    draft.setValue('');
+    chainRef.current.then(() => {
+      draftIdRef.current = null;
+      draft.setValue('');
+      draftRef.current?.focus();
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 1500);
+    });
+  };
+
+  const startNewDraft = () => {
+    if (draft.value.trim()) {
+      saveDraft();
+      return;
+    }
     draftRef.current?.focus();
   };
 
@@ -286,16 +403,52 @@ export default function NotesTab() {
     });
   };
 
-  const visible = notes.filter((n) => {
-    if (filter === 'pinned' && !n.pinned) return false;
-    if (!search.trim()) return true;
-    const q = search.trim().toLowerCase();
-    return n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q);
-  });
+  const submitHead = () => {
+    const name = headName.trim();
+    if (!name) {
+      setHeadEdit(null);
+      return;
+    }
+    const p = headEdit === 'rename' && currentHead ? notesApi.renameHead(currentHead.id, name) : notesApi.createHead(name);
+    p.then((h) => {
+      setHeadEdit(null);
+      setHeadName('');
+      setHeadError('');
+      refresh();
+      setFilter(h.id);
+    }).catch((e) => setHeadError(String(e?.message ?? e)));
+  };
+
+  const deleteHead = () => {
+    if (!currentHead) return;
+    notesApi.removeHead(currentHead.id).then(() => {
+      setFilter('all');
+      refresh();
+    });
+  };
+
+  // Pinned notes are set apart only on the Pinned page. Everywhere else
+  // it is one list, newest first; the pin icon still marks them.
+  const visible = notes
+    .filter((n) => {
+      if (filter === 'pinned' && !n.pinned) return false;
+      if (typeof filter === 'number' && n.head_id !== filter) return false;
+      if (!search.trim()) return true;
+      const q = search.trim().toLowerCase();
+      return n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q);
+    })
+    .sort((a, b) => b.updated_at - a.updated_at);
+
+  const tabs: { key: Filter; label: string; n: number }[] = [
+    { key: 'all', label: L('All', 'সব'), n: notes.length },
+    { key: 'pinned', label: L('Pinned', 'পিন করা'), n: notes.filter((x) => x.pinned).length },
+    ...heads.map((h) => ({ key: h.id as Filter, label: h.name, n: notes.filter((x) => x.head_id === h.id).length })),
+  ];
+  const smallBtn: React.CSSProperties = { fontSize: 12, height: 28, padding: '0 8px', display: 'inline-flex', alignItems: 'center', gap: SPACE.xs };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {/* Header: count, search toggle, All/Pinned chips, + New. */}
+      {/* Header: count, search toggle, + New. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginBottom: SPACE.sm }}>
         <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, color: 'var(--text-faint)' }}>NOTES</span>
         <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>({notes.length})</span>
@@ -332,70 +485,180 @@ export default function NotesTab() {
         />
       )}
 
-      {/* The same segmented control the other EXECUTE views use, with
-          each option's count in it — "Pinned 2" says whether switching
-          is worth it before you switch. */}
-      <div
-        style={{
-          display: 'flex',
-          alignSelf: 'flex-start',
-          padding: SPACE.hair,
-          marginBottom: SPACE.md,
-          background: 'var(--surface-2, var(--surface))',
-          borderRadius: RADIUS.card,
-        }}
-      >
-        {(['all', 'pinned'] as Filter[]).map((f) => {
-          const on = filter === f;
-          const n = f === 'all' ? notes.length : notes.filter((x) => x.pinned).length;
-          return (
-            <button
-              key={f}
-              aria-pressed={on}
-              onClick={() => setFilter(f)}
-              onKeyDown={(e) => segmentedKeyDown(e, ['all', 'pinned'] as Filter[], filter, setFilter)}
-              style={{
-                height: 32,
-                padding: `0 ${SPACE.md}px`,
-                fontSize: 12,
-                fontWeight: on ? 700 : 400,
-                border: 'none',
-                borderRadius: RADIUS.control,
-                background: on ? 'var(--surface)' : 'transparent',
-                color: on ? 'var(--text)' : 'var(--text-muted)',
-                boxShadow: on ? 'var(--shadow-sm)' : 'none',
-                cursor: 'pointer',
-              }}
-            >
-              {f === 'all' ? L('All', 'সব') : L('Pinned', 'পিন করা')}
-              <span style={{ marginLeft: SPACE.xs, fontWeight: 400, color: 'var(--text-muted)' }}>{n}</span>
-            </button>
-          );
-        })}
+      {/* Heads: All and Pinned always, then the user's own, then + Head.
+          Each shows its count, so "Ideas 4" says whether it is worth
+          opening before you open it. Wraps when there are many. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: SPACE.xs, marginBottom: SPACE.sm }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            padding: SPACE.hair,
+            gap: SPACE.hair,
+            background: 'var(--surface-2, var(--surface))',
+            borderRadius: RADIUS.card,
+          }}
+        >
+          {tabs.map((t) => {
+            const on = filter === t.key;
+            return (
+              <button
+                key={String(t.key)}
+                aria-pressed={on}
+                onClick={() => setFilter(t.key)}
+                onKeyDown={(e) => segmentedKeyDown(e, tabs.map((x) => x.key), filter, setFilter)}
+                style={{
+                  height: 32,
+                  padding: `0 ${SPACE.md}px`,
+                  fontSize: 12,
+                  fontWeight: on ? 700 : 400,
+                  border: 'none',
+                  borderRadius: RADIUS.control,
+                  background: on ? 'var(--surface)' : 'transparent',
+                  color: on ? 'var(--text)' : 'var(--text-muted)',
+                  boxShadow: on ? 'var(--shadow-sm)' : 'none',
+                  cursor: 'pointer',
+                  maxWidth: 180,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {t.label}
+                <span style={{ marginLeft: SPACE.xs, fontWeight: 400, color: 'var(--text-muted)' }}>{t.n}</span>
+              </button>
+            );
+          })}
+        </div>
+        {headEdit !== 'new' && (
+          <button
+            onClick={() => {
+              setHeadEdit('new');
+              setHeadName('');
+              setHeadError('');
+            }}
+            className="btn-ghost"
+            title={L('Add a head', 'হেড যোগ করুন')}
+            style={smallBtn}
+          >
+            <Plus size={12} /> {L('Head', 'হেড')}
+          </button>
+        )}
       </div>
 
-      {/* Quick-capture — pinned at the top, always visible, always the
-          fastest way to a new note. */}
-      <textarea
-        ref={draftRef}
-        value={draft.value}
-        onChange={(e) => draft.setValue(e.target.value)}
-        onBlur={draft.flush}
-        placeholder="Write a note…"
-        aria-label="New note"
-        rows={1}
-        style={{
-          width: '100%',
-          fontSize: 14,
-          lineHeight: 1.6,
-          padding: SPACE.sm,
-          borderRadius: RADIUS.control,
-          resize: 'none',
-          marginBottom: SPACE.md,
-          boxSizing: 'border-box',
-          ...savedFlashStyle(draft.state),
-        }}
-      />
+      {/* New head / rename: type, Enter to save, Esc to cancel. */}
+      {(headEdit === 'new' || headEdit === 'rename') && (
+        <div style={{ display: 'flex', gap: SPACE.sm, marginBottom: SPACE.sm }}>
+          <input
+            ref={headInputRef}
+            value={headName}
+            maxLength={30}
+            onChange={(e) => setHeadName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submitHead();
+              if (e.key === 'Escape') setHeadEdit(null);
+            }}
+            placeholder={headEdit === 'new' ? L('New head, e.g. Ideas', 'নতুন হেড, যেমন Ideas') : L('New name', 'নতুন নাম')}
+            aria-label={L('Head name', 'হেডের নাম')}
+            style={{ flex: 1, fontSize: 13, padding: '4px 8px' }}
+          />
+          <button onClick={submitHead} className="btn-primary" style={smallBtn}>
+            <Check size={12} /> {L('Save', 'সেভ')}
+          </button>
+          <button onClick={() => setHeadEdit(null)} className="btn-ghost" style={smallBtn}>
+            {L('Cancel', 'বাতিল')}
+          </button>
+        </div>
+      )}
+      {headError && <div style={{ fontSize: 12, color: 'var(--danger)', marginBottom: SPACE.sm }}>{headError}</div>}
+
+      {/* The open head's own controls. Deleting a head keeps its notes —
+          they go back to All — and says so before doing it. */}
+      {currentHead && headEdit !== 'new' && headEdit !== 'rename' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.xs, marginBottom: SPACE.sm, fontSize: 12, color: 'var(--text-muted)' }}>
+          {headEdit === 'delete' ? (
+            <>
+              <span style={{ flex: 1 }}>
+                {L(`Delete “${currentHead.name}”? Its notes stay, under All.`, `“${currentHead.name}” মুছবেন? নোটগুলো থাকবে, All-এ।`)}
+              </span>
+              <button onClick={deleteHead} className="btn-ghost" style={{ ...smallBtn, color: 'var(--danger)' }}>
+                {L('Delete', 'মুছুন')}
+              </button>
+              <button onClick={() => setHeadEdit(null)} className="btn-ghost" style={smallBtn}>
+                {L('Cancel', 'বাতিল')}
+              </button>
+            </>
+          ) : (
+            <>
+              <span style={{ flex: 1 }}>{L('New notes here go under this head.', 'এখানে লেখা নতুন নোট এই হেডে যাবে।')}</span>
+              <button
+                onClick={() => {
+                  setHeadEdit('rename');
+                  setHeadName(currentHead.name);
+                  setHeadError('');
+                }}
+                className="btn-ghost"
+                style={smallBtn}
+              >
+                <Pencil size={12} /> {L('Rename', 'নাম বদল')}
+              </button>
+              <button onClick={() => setHeadEdit('delete')} className="btn-ghost" style={smallBtn}>
+                <Trash2 size={12} /> {L('Delete head', 'হেড মুছুন')}
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Quick-capture, always the fastest way to a new note. It saves
+          as you type; Save (or Ctrl+Enter) finishes it and clears the box
+          for the next one. */}
+      <div style={{ marginBottom: SPACE.md }}>
+        <textarea
+          ref={draftRef}
+          value={draft.value}
+          onChange={(e) => draft.setValue(e.target.value)}
+          onBlur={draft.flush}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              saveDraft();
+            }
+          }}
+          placeholder={
+            currentHead ? L(`Write a note in ${currentHead.name}…`, `${currentHead.name}-এ নোট লিখুন…`) : L('Write a note…', 'নোট লিখুন…')
+          }
+          aria-label="New note"
+          rows={1}
+          style={{
+            width: '100%',
+            fontSize: 14,
+            lineHeight: 1.6,
+            padding: SPACE.sm,
+            borderRadius: RADIUS.control,
+            resize: 'none',
+            boxSizing: 'border-box',
+            ...savedFlashStyle(draft.state),
+          }}
+        />
+        {(draft.value.trim() || justSaved) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginTop: SPACE.xs }}>
+            <span style={{ fontSize: 12, color: justSaved ? 'var(--success)' : 'var(--text-faint)' }}>
+              {justSaved
+                ? L('✓ Saved', '✓ সেভ হয়েছে')
+                : draft.state === 'pending'
+                  ? L('Saving as you type… · Ctrl+Enter to finish', 'লেখার সাথে সেভ হচ্ছে… · শেষ করতে Ctrl+Enter')
+                  : L('Saved as you type · Ctrl+Enter to finish', 'লেখার সাথে সেভ হয়েছে · শেষ করতে Ctrl+Enter')}
+            </span>
+            <span style={{ flex: 1 }} />
+            {draft.value.trim() && (
+              <button onClick={saveDraft} className="btn-primary" style={smallBtn}>
+                <Check size={12} /> {L('Save', 'সেভ')}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {!loaded ? (
         <div style={{ fontSize: 12, color: 'var(--text-faint)' }}>Loading…</div>
@@ -423,15 +686,14 @@ export default function NotesTab() {
           {search.trim()
             ? `No notes match "${search.trim()}".`
             : filter === 'pinned'
-              ? 'Nothing pinned yet.'
-              : 'Nothing here yet — write your first note above.'}
+              ? L('Nothing pinned yet.', 'এখনো কিছু পিন করা নেই।')
+              : currentHead
+                ? L(`Nothing in ${currentHead.name} yet — write one above.`, `${currentHead.name}-এ এখনো কিছু নেই — উপরে লিখুন।`)
+                : L('Nothing here yet — write your first note above.', 'এখনো কিছু নেই — উপরে প্রথম নোট লিখুন।')}
         </div>
       ) : (
-        // Pinned notes sit on top as a two-column board (the ones you
-        // keep coming back to), the rest as the list below. On the
-        // Pinned filter, or when nothing is pinned, it is one list.
-        (() => {
-          const card = (n: Note) => (
+        <div>
+          {visible.map((n) => (
             <NoteCard
               key={n.id}
               note={n}
@@ -440,29 +702,12 @@ export default function NotesTab() {
               onSaveBody={(body) => notesApi.edit(n.id, { body }).then(refresh)}
               onTogglePin={() => togglePin(n)}
               onDelete={() => deleteNote(n)}
+              heads={heads}
+              onMoveHead={(headId) => notesApi.edit(n.id, { head_id: headId }).then(refresh)}
+              showHead={typeof filter !== 'number'}
             />
-          );
-          const pinned = visible.filter((n) => n.pinned);
-          const rest = visible.filter((n) => !n.pinned);
-          if (filter === 'pinned' || pinned.length === 0) return <div>{visible.map(card)}</div>;
-          const heading: React.CSSProperties = {
-            fontSize: 12,
-            fontWeight: 700,
-            letterSpacing: 0.5,
-            color: 'var(--text-faint)',
-            margin: `${SPACE.sm}px 0 ${SPACE.xs}px`,
-          };
-          return (
-            <div>
-              <div style={heading}>PINNED</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: SPACE.sm, alignItems: 'start' }}>
-                {pinned.map(card)}
-              </div>
-              {rest.length > 0 && <div style={heading}>RECENT</div>}
-              {rest.map(card)}
-            </div>
-          );
-        })()
+          ))}
+        </div>
       )}
     </div>
   );
