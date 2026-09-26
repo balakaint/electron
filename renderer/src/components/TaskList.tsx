@@ -145,8 +145,9 @@ export default function TaskList({
   // own list — the default, and what you get back by pressing the
   // project again or the "today's list" link in the heading.
   const [projectKey, setProjectKey] = useState<ProjectKey | null>(null);
-  // One-way: Panel 1 opening/closing a project re-points DEEP WORK at
-  // it. Not a dependency on projectKey itself — that would fight a
+  // Panel 1 opening/closing a project re-points DEEP WORK at it (and a
+  // pick in DEEP WORK reaches back — see its onSelect below). Not a
+  // dependency on projectKey itself — that would fight a
   // click on a different DEEP WORK row the instant it happened, since
   // this effect would see its own prior write and re-run.
   useEffect(() => {
@@ -566,7 +567,17 @@ export default function TaskList({
           onto the rows themselves, and the box became DEEP WORK, which
           answers the question this screen is actually opened with. */}
       {listKey === 'focus' && dayView === 'today' && (
-        <DeepWorkCard onChanged={onFocusChanged} selectedKey={projectKey} onSelect={setProjectKey} />
+        <DeepWorkCard
+          onChanged={onFocusChanged}
+          selectedKey={projectKey}
+          onSelect={(k) => {
+            setProjectKey(k);
+            // And the other way: picking a project here opens it in
+            // panel 1 (and its goals in panel 2); going back to today's
+            // list closes it there too. See ProjectDashboard.
+            window.dispatchEvent(new CustomEvent('select-project', { detail: k }));
+          }}
+        />
       )}
 
       {/* Hidden while DEEP WORK is narrowed to one project: that mode is
