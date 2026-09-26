@@ -159,6 +159,20 @@ class ProjectOrderEntry(BaseModel):
     project: ProjectOut
 
 
+class TimeSpan(BaseModel):
+    start: float
+    end: float
+
+
+class DeepWorkCurveOut(BaseModel):
+    now: float
+    day_start: float
+    goal_secs: float
+    total_secs: float
+    spans: list[TimeSpan]
+    running: TimeSpan | None
+
+
 class TodayProgressOut(BaseModel):
     secs: float
     target_secs: float

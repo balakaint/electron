@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from api.schemas import (
     ActivityEntry,
+    DeepWorkCurveOut,
     ManualMarkSet,
     PersonCreate,
     PersonOut,
@@ -50,6 +51,11 @@ def project_order(engine: ProjectEngine = Depends(get_engine)):
 @router.get("/today-progress", response_model=TodayProgressOut)
 def today_progress(engine: ProjectEngine = Depends(get_engine)):
     return engine.today_progress()
+
+
+@router.get("/deep-work-curve", response_model=DeepWorkCurveOut)
+def deep_work_curve(engine: ProjectEngine = Depends(get_engine)):
+    return engine.deep_work_curve()
 
 
 @router.get("/trend", response_model=TrendOut)

@@ -244,6 +244,41 @@ class ProjectEngine:
             for e in numbered
         ]
 
+    def deep_work_curve(self, now: float | None = None) -> dict:
+        """Today's deep work as timed spans, for PLAN's curve: every
+        credited stretch on a named project (ProjectSpan), clipped to
+        today, plus the running project's stretch since its last
+        checkpoint — credited only when the timer next ticks or stops,
+        so it is added here, capped at the idle limit the same way.
+
+        `total_secs` is the day's real total (ProjectActivity). Spans
+        only exist from the migration that added them, so on that first
+        day the spans can add up to less; the curve shows the difference
+        as time worked before timing began, rather than losing it."""
+        now = time.time() if now is None else now
+        today = date.today()
+        day_start = time.mktime(today.timetuple())
+        day_end = day_start + 86400
+        named = {p.key for p in self.named_projects()}
+        spans = [
+            {"start": max(s.start, day_start), "end": min(s.end, day_end)}
+            for s in self.repo.list_spans(day_start, day_end)
+            if s.project_key in named
+        ]
+        running = None
+        idle_limit = self.repo.get_app_state().idle_stop_min * 60
+        for p in self.repo.list_running_projects():
+            if p.key in named and p.running_since is not None and p.running_since < now:
+                running = {"start": max(p.running_since, day_start), "end": min(now, p.running_since + idle_limit)}
+        return {
+            "now": now,
+            "day_start": day_start,
+            "goal_secs": self.goal_secs(),
+            "total_secs": sum(self.secs_today(k) for k in named),
+            "spans": spans,
+            "running": running,
+        }
+
     def today_progress(self) -> dict:
         named = self.named_projects()
         total_target = sum(p.target_minutes * 60.0 for p in named)

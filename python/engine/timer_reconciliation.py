@@ -72,6 +72,9 @@ def _credit_project_span(repo: ProjectRepository, key: str, start_ts: float, end
         chunk_end = min(end_ts, next_midnight)
         row = repo.get_or_create_activity(key, str(day))
         row.secs = max(0.0, row.secs + (chunk_end - cur))
+        # Also kept as a timed span, for PLAN's deep work curve (see
+        # ProjectSpan) — logged before the save so both commit together.
+        repo.log_span(key, cur, chunk_end)
         repo.save_activity(row)
         cur = chunk_end
 
