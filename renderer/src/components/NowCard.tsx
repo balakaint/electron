@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useL } from '../i18n';
-import { Check } from 'lucide-react';
+import { Check, SkipForward, Undo2 } from 'lucide-react';
 import { HourSlot, Project, STRIKE_MAX, Settings, Task, hoursApi, nowApi, projectsApi, settingsApi, tasksApi } from '../services/api';
 import { currentPhaseInfo } from './DayPhaseBars';
 import { PROGRESS_TRACK_SOFT, RADIUS, SPACE } from '../spacing';
@@ -23,6 +23,25 @@ function fmtEst(mins: number): string {
   const m = mins % 60;
   return m ? `${h}h ${m}m` : `${h}h`;
 }
+
+// One thing NEXT can switch to: a task of today's three, or an hour of
+// today's plan that has not been turned into a task yet.
+type NextItem = { kind: 'task'; task: Task } | { kind: 'hour'; slot: HourSlot };
+
+// NEXT's order — today's three first (MIT at the top), then the hour
+// plan from the hour you are in onward, then the hours already behind
+// you that are still open. An hour whose task is already one of the
+// three is listed once, as the task.
+function buildQueue(struck: Task[], slots: HourSlot[], hourNow: number): NextItem[] {
+  const three = [...struck].filter((t) => !t.done).sort((a, b) => Number(b.mit) - Number(a.mit));
+  const taken = new Set(three.map((t) => t.hour_slot_id).filter((x) => x !== null));
+  const open = slots.filter((x) => x.text.trim() && !x.done && !(x.id !== null && taken.has(x.id)));
+  const ahead = open.filter((x) => x.hour >= hourNow).sort((a, b) => a.hour - b.hour);
+  const behind = open.filter((x) => x.hour < hourNow).sort((a, b) => a.hour - b.hour);
+  return [...three.map((task) => ({ kind: 'task' as const, task })), ...[...ahead, ...behind].map((slot) => ({ kind: 'hour' as const, slot }))];
+}
+
+const PAUSED_KEY = 'now-paused';
 
 function isRunning(task: Task): boolean {
   return task.sessions.length > 0 && task.sessions[task.sessions.length - 1].end === null;
@@ -51,26 +70,54 @@ export default function NowCard({
   // what do I start" the card can give without leaving it.
   const [nextSlot, setNextSlot] = useState<HourSlot | null>(null);
   const [firstOpen, setFirstOpen] = useState<Task | null>(null);
+  const [queue, setQueue] = useState<NextItem[]>([]);
+  // The task NEXT switched away from, so it can be picked up again.
+  const [paused, setPaused] = useState<{ id: number; text: string } | null>(() => {
+    try {
+      const v = localStorage.getItem(PAUSED_KEY);
+      return v ? JSON.parse(v) : null;
+    } catch {
+      return null;
+    }
+  });
+  // Read through a ref inside refresh(), which the effects below call
+  // without re-running whenever this changes.
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+  const rememberPaused = (p: { id: number; text: string } | null) => {
+    setPaused(p);
+    try {
+      if (p) localStorage.setItem(PAUSED_KEY, JSON.stringify(p));
+      else localStorage.removeItem(PAUSED_KEY);
+    } catch {
+      /* remembering it is a convenience only */
+    }
+  };
   useEffect(() => {
     settingsApi.get().then(setSettings).catch(() => setSettings(null));
   }, []);
 
   const refresh = () => {
-    hoursApi
-      .get(todayIso())
-      .then((plan) => {
-        const h = new Date().getHours();
-        const later = plan.blocks
-          .flatMap((b) => b.hours)
-          .filter((x) => x.hour > h && x.text.trim() && !x.done)
-          .sort((a, b) => a.hour - b.hour);
-        setNextSlot(later[0] ?? null);
-      })
-      .catch(() => setNextSlot(null));
-    tasksApi
-      .listStrike()
-      .then((l) => setFirstOpen([...l].sort((a, b) => Number(b.mit) - Number(a.mit)).find((t) => !t.done) ?? null))
-      .catch(() => setFirstOpen(null));
+    Promise.all([hoursApi.get(todayIso()).catch(() => null), tasksApi.listStrike().catch(() => [] as Task[])]).then(([plan, struck]) => {
+      const h = new Date().getHours();
+      const slots = plan ? plan.blocks.flatMap((b) => b.hours) : [];
+      const later = slots.filter((x) => x.hour > h && x.text.trim() && !x.done).sort((a, b) => a.hour - b.hour);
+      setNextSlot(later[0] ?? null);
+      setFirstOpen([...struck].sort((a, b) => Number(b.mit) - Number(a.mit)).find((t) => !t.done) ?? null);
+      setQueue(buildQueue(struck, slots, h));
+    });
+    // A paused task that has since been finished (or deleted) has
+    // nothing left to resume.
+    const p = pausedRef.current;
+    if (p) {
+      tasksApi
+        .list('focus', 'all')
+        .then((all) => {
+          const t = all.find((x) => x.id === p.id);
+          if (!t || t.done) rememberPaused(null);
+        })
+        .catch(() => {});
+    }
     return nowApi.get().then((t) => {
       setTask(t);
       // A task can reach NOW without being one of today's three — press
@@ -106,6 +153,7 @@ export default function NowCard({
 
   useEffect(() => {
     refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshSignal]);
 
   useEffect(() => {
@@ -145,17 +193,61 @@ export default function NowCard({
   }, []);
   useEffect(() => {
     refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hour]);
 
   const phase = settings ? currentPhaseInfo(settings, new Date()) : null;
   const phaseColor = phase?.color ?? 'var(--accent)';
   const fmtHour = (h: number) => `${h % 12 || 12}${h < 12 ? ' AM' : ' PM'}`;
-  const nextLine = nextSlot ? L(`Next: ${nextSlot.text} · ${fmtHour(nextSlot.hour)}`, `পরে: ${nextSlot.text} · ${fmtHour(nextSlot.hour)}`) : null;
+  // What NEXT would switch to: the item after the current one in the
+  // queue, wrapping round, so pressing it repeatedly walks the whole day
+  // and comes back to where you started.
+  const here = task
+    ? queue.findIndex((it) => (it.kind === 'task' ? it.task.id === task.id : it.slot.id !== null && it.slot.id === task.hour_slot_id))
+    : -1;
+  const others = queue.filter((_, i) => i !== here);
+  const upNext: NextItem | null = others.length ? (here >= 0 ? queue[(here + 1) % queue.length] : others[0]) : null;
+  const itemText = (it: NextItem) => (it.kind === 'task' ? it.task.text : it.slot.text);
+  const itemTag = (it: NextItem) => (it.kind === 'task' ? (it.task.mit ? 'MIT' : L("today's 3", 'আজকের ৩')) : fmtHour(it.slot.hour));
+  const nextLine = upNext
+    ? L(`Next: ${itemText(upNext)} · ${itemTag(upNext)}`, `পরে: ${itemText(upNext)} · ${itemTag(upNext)}`)
+    : nextSlot
+      ? L(`Next: ${nextSlot.text} · ${fmtHour(nextSlot.hour)}`, `পরে: ${nextSlot.text} · ${fmtHour(nextSlot.hour)}`)
+      : null;
+  const showPaused = paused && (!task || task.id !== paused.id) ? paused : null;
 
   const toggleRun = () => nowApi.toggleRun().then(() => { refresh(); onChanged(); });
   const complete = () => nowApi.complete().then(() => { refresh(); onChanged(); });
   const startHour = (h: number) =>
     nowApi.startHour(todayIso(), h).then(() => { refresh(); onChanged(); });
+  // NEXT: leave this task as it is (paused, not done) and start the
+  // next one. The one left behind is remembered so it can be resumed.
+  const goNext = () => {
+    if (!upNext) return;
+    if (task) rememberPaused({ id: task.id, text: task.text });
+    const go =
+      upNext.kind === 'task'
+        ? nowApi.setNow(upNext.task.id).then(() => nowApi.toggleRun())
+        : nowApi.startHour(todayIso(), upNext.slot.hour);
+    go.then(() => {
+      refresh();
+      onChanged();
+    });
+  };
+  // RESUME swaps back: the paused task becomes NOW again and runs, and
+  // the one it replaces is remembered in its place.
+  const resume = () => {
+    if (!showPaused) return;
+    const back = showPaused.id;
+    rememberPaused(task ? { id: task.id, text: task.text } : null);
+    nowApi
+      .setNow(back)
+      .then(() => nowApi.toggleRun())
+      .then(() => {
+        refresh();
+        onChanged();
+      });
+  };
   const commit = () => {
     if (!task) return;
     tasksApi.toggleStrike(task.id).then(() => { refresh(); onChanged(); });
@@ -237,6 +329,15 @@ export default function NowCard({
             <button onClick={toggleRun} className="btn-primary" style={{ height: 32, padding: `0 ${SPACE.md}px`, flex: 'none' }}>
               {running ? `⏸ ${L('PAUSE', 'বিরতি')}` : `▶ ${L('START', 'শুরু')}`}
             </button>
+            {upNext && (
+              <button
+                onClick={goNext}
+                title={L(`Leave this for now and start: ${itemText(upNext)}`, `এটা রেখে শুরু করুন: ${itemText(upNext)}`)}
+                style={{ height: 32, padding: `0 ${SPACE.md}px`, display: 'flex', alignItems: 'center', gap: SPACE.xs, flex: 'none' }}
+              >
+                <SkipForward size={14} /> {L('NEXT', 'পরেরটা')}
+              </button>
+            )}
             <button
               onClick={complete}
               style={{ height: 32, padding: `0 ${SPACE.md}px`, display: 'flex', alignItems: 'center', gap: SPACE.xs, flex: 'none' }}
@@ -265,6 +366,16 @@ export default function NowCard({
           {nextLine && (
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: SPACE.sm, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {nextLine}
+            </div>
+          )}
+          {showPaused && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginTop: SPACE.xs, fontSize: 12, color: 'var(--text-muted)' }}>
+              <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {L('Paused', 'থামানো')}: {showPaused.text}
+              </span>
+              <button onClick={resume} title={L('Go back to this task', 'এই কাজে ফিরে যান')} style={{ fontSize: 12, height: 24, padding: `0 ${SPACE.sm}px`, flex: 'none', display: 'flex', alignItems: 'center', gap: SPACE.xs }}>
+                <Undo2 size={12} /> {L('Resume', 'ফিরে যান')}
+              </button>
             </div>
           )}
         </>
