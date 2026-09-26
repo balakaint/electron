@@ -880,6 +880,29 @@ export default function ProjectDashboard({
 
   useAutoTimer(openProject, order, refresh);
 
+  // A project picked in EXECUTE › MIT's DEEP WORK opens here too, and
+  // its goals in panel 2 — the same as opening it from this column.
+  // Going back to today's list there closes whatever is open here.
+  useEffect(() => {
+    const onPick = (e: Event) => {
+      const key = (e as CustomEvent<ProjectKey | null>).detail;
+      if (key) {
+        projectsApi.solo(key).then(() => {
+          refresh();
+          onSelectGoals(key);
+        });
+      } else {
+        projectsApi
+          .order()
+          .then((o) => Promise.all(o.filter((x) => !x.project.collapsed).map((x) => projectsApi.update(x.project.key as ProjectKey, { collapsed: true }))))
+          .then(refresh);
+      }
+    };
+    window.addEventListener('select-project', onPick);
+    return () => window.removeEventListener('select-project', onPick);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Opening a project brings the column back to the top, where it now is.
   const rootRef = useRef<HTMLDivElement>(null);
   const openKey = order.find((e) => !e.project.collapsed)?.project.key ?? null;

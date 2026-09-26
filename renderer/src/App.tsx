@@ -662,10 +662,9 @@ function AppShell() {
             // Panel 2 already follows whichever project Panel 1 has open
             // (same fallback: all collapsed reads as none open, not
             // stuck on the last one). DEEP WORK's own selection now
-            // follows it one-way too — Panel 1 drives it, but picking a
-            // different row inside DEEP WORK itself doesn't reach back
-            // and move Panel 1/2 (2026-09-20, Zahid: less clutter when a
-            // project is open, without losing MIT's own quick-switch).
+            // follows it, and since 2026-09-26 a pick inside DEEP WORK
+            // reaches back too, opening that project in Panel 1 and its
+            // goals in Panel 2 ('select-project', see ProjectDashboard).
             activeProjectKey={allProjectsCollapsed ? null : goalsProject}
             view={tab}
             onSelectView={setTab}
