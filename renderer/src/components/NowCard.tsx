@@ -257,8 +257,17 @@ export default function NowCard({
     <div
       className="card-elevated"
       style={{
-        border: `${task ? 2 : 1}px solid ${task ? phaseColor : 'var(--border)'}`,
-        borderLeft: `4px solid ${phaseColor}`,
+        // Longhands only: the shorthand plus a borderLeft override made
+        // React warn on every re-render that switches between them.
+        borderStyle: 'solid',
+        borderTopColor: task ? phaseColor : 'var(--border)',
+        borderRightColor: task ? phaseColor : 'var(--border)',
+        borderBottomColor: task ? phaseColor : 'var(--border)',
+        borderLeftColor: phaseColor,
+        borderTopWidth: task ? 2 : 1,
+        borderRightWidth: task ? 2 : 1,
+        borderBottomWidth: task ? 2 : 1,
+        borderLeftWidth: 4,
         borderRadius: RADIUS.card,
         padding: SPACE.md,
         marginBottom: SPACE.lg,
@@ -329,21 +338,25 @@ export default function NowCard({
             <button onClick={toggleRun} className="btn-primary" style={{ height: 32, padding: `0 ${SPACE.md}px`, flex: 'none' }}>
               {running ? `⏸ ${L('PAUSE', 'বিরতি')}` : `▶ ${L('START', 'শুরু')}`}
             </button>
-            {upNext && (
-              <button
-                onClick={goNext}
-                title={L(`Leave this for now and start: ${itemText(upNext)}`, `এটা রেখে শুরু করুন: ${itemText(upNext)}`)}
-                style={{ height: 32, padding: `0 ${SPACE.md}px`, display: 'flex', alignItems: 'center', gap: SPACE.xs, flex: 'none' }}
-              >
-                <SkipForward size={14} /> {L('NEXT', 'পরেরটা')}
-              </button>
-            )}
             <button
               onClick={complete}
               style={{ height: 32, padding: `0 ${SPACE.md}px`, display: 'flex', alignItems: 'center', gap: SPACE.xs, flex: 'none' }}
             >
               <Check size={14} /> {L('COMPLETE', 'সম্পন্ন')}
             </button>
+            {/* NEXT is a quiet icon, not a third labelled button: the
+                row keeps START and COMPLETE as its two words, and the
+                line underneath says what NEXT would start. */}
+            {upNext && (
+              <button
+                onClick={goNext}
+                title={L(`Next — leave this for now and start: ${itemText(upNext)}`, `পরেরটা — এটা রেখে শুরু করুন: ${itemText(upNext)}`)}
+                aria-label={L('Next task', 'পরের কাজ')}
+                style={{ width: 32, height: 32, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}
+              >
+                <SkipForward size={14} />
+              </button>
+            )}
           </div>
           {task.est > 0 && (
             <div
@@ -363,19 +376,34 @@ export default function NowCard({
               />
             </div>
           )}
-          {nextLine && (
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: SPACE.sm, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {nextLine}
-            </div>
-          )}
-          {showPaused && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginTop: SPACE.xs, fontSize: 12, color: 'var(--text-muted)' }}>
-              <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {L('Paused', 'থামানো')}: {showPaused.text}
-              </span>
-              <button onClick={resume} title={L('Go back to this task', 'এই কাজে ফিরে যান')} style={{ fontSize: 12, height: 24, padding: `0 ${SPACE.sm}px`, flex: 'none', display: 'flex', alignItems: 'center', gap: SPACE.xs }}>
-                <Undo2 size={12} /> {L('Resume', 'ফিরে যান')}
-              </button>
+          {/* One quiet line under the timer: what NEXT would start, and
+              — after a NEXT — the task left paused, as a link back. */}
+          {(nextLine || showPaused) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.sm, marginTop: SPACE.sm, fontSize: 12, color: 'var(--text-muted)', minWidth: 0 }}>
+              <span style={{ flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nextLine}</span>
+              {showPaused && (
+                <button
+                  onClick={resume}
+                  title={L(`Resume: ${showPaused.text}`, `ফিরে যান: ${showPaused.text}`)}
+                  style={{
+                    maxWidth: '50%',
+                    height: 24,
+                    padding: `0 ${SPACE.sm}px`,
+                    border: 'none',
+                    background: 'transparent',
+                    color: 'var(--accent)',
+                    fontSize: 12,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: SPACE.xs,
+                    flex: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Undo2 size={12} style={{ flex: 'none' }} />
+                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{showPaused.text}</span>
+                </button>
+              )}
             </div>
           )}
         </>
