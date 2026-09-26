@@ -271,24 +271,6 @@ function useProjects(signal: number) {
   return { secs, target };
 }
 
-export function DeepWorkToday({ refreshSignal }: { refreshSignal: number }) {
-  const L = useL();
-  const { secs, target } = useProjects(refreshSignal);
-  return (
-    <div style={{ ...card, flexDirection: 'row', alignItems: 'center', gap: SPACE.md }}>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: SPACE.hair }}>
-        <span style={label}>{L('DEEP WORK TODAY', 'আজকের ডিপ ওয়ার্ক')}</span>
-        <span style={{ fontSize: TYPE_SIZE.md, fontWeight: TYPE_WEIGHT.bold }}>
-          {hm(secs)} <span style={{ fontSize: TYPE_SIZE.sm, fontWeight: TYPE_WEIGHT.normal, color: 'var(--text-muted)' }}>{L('of', '/')} {hm(target)}</span>
-        </span>
-      </div>
-      <div style={{ width: 150 }}>
-        <Bar pct={target ? (secs / target) * 100 : 0} color="var(--accent)" />
-      </div>
-    </div>
-  );
-}
-
 // The rest of today's hour plan from the current hour on.
 export function UpNext() {
   const L = useL();

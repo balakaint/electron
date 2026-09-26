@@ -9,7 +9,6 @@ import PlanReview from './PlanReview';
 import PlanTodayCard from './PlanTodayCard';
 import {
   CarriedCard,
-  DeepWorkToday,
   Folded,
   HowTodayWent,
   ThisWeek,
@@ -733,11 +732,10 @@ export default function Panel3({
                   <>
                     <NowCard refreshSignal={nowBump} onChanged={() => setNowBump((b) => b + 1)} onGoToMit={() => goExecute('mit')} />
                     <WorkThree refreshSignal={nowBump} onChanged={() => setNowBump((b) => b + 1)} />
-                    <DeepWorkToday refreshSignal={nowBump} />
+                    {/* Deep work today lives in the clock card's curve now.
+                        The day's plan checklist stays open, not folded. */}
                     <UpNext />
-                    <Folded title={L('Set up the day', 'দিন সাজানো')} summary={L('Plan today checklist', 'আজকের প্ল্যানের তালিকা')}>
-                      <PlanTodayCard onGoExecute={goExecute} />
-                    </Folded>
+                    <PlanTodayCard onGoExecute={goExecute} />
                     {foldedReview}
                   </>
                 )}
