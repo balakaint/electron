@@ -255,10 +255,23 @@ export interface CirclePerson {
   overdue: boolean;
 }
 
+// Today's deep work as timed spans (unix seconds), for PLAN's curve.
+// total_secs is the day's real total; spans exist only from the day
+// they began being recorded, so they can add up to less.
+export interface DeepWorkCurve {
+  now: number;
+  day_start: number;
+  goal_secs: number;
+  total_secs: number;
+  spans: { start: number; end: number }[];
+  running: { start: number; end: number } | null;
+}
+
 export const projectsApi = {
   order: () => req('GET', '/api/projects/order') as Promise<ProjectOrderEntry[]>,
   get: (key: ProjectKey) => req('GET', `/api/projects/${key}`) as Promise<Project>,
   todayProgress: () => req('GET', '/api/projects/today-progress') as Promise<TodayProgress>,
+  deepWorkCurve: () => req('GET', '/api/projects/deep-work-curve') as Promise<DeepWorkCurve>,
   update: (key: ProjectKey, patch: Partial<Pick<Project, 'name' | 'note' | 'detail_note' | 'note_title' | 'collapsed'>>) =>
     req('PUT', `/api/projects/${key}`, patch) as Promise<Project>,
   solo: (key: ProjectKey) => req('POST', `/api/projects/${key}/solo`) as Promise<Project[]>,

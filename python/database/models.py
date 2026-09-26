@@ -112,6 +112,27 @@ class Project(Base):
     collapsed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class ProjectSpan(Base):
+    """One stretch of credited project time, with its real start and end.
+
+    ProjectActivity keeps only a per-day total, so nothing could say WHEN
+    in the day the work happened — which PLAN's deep work curve needs.
+    Every span the timer credits (engine/timer_reconciliation's
+    _credit_project_span, the one writer of ProjectActivity.secs) is
+    logged here too, joined onto the previous span when it carries
+    straight on, so a steady hour is one row rather than sixty
+    one-minute checkpoints. Idle time refunded by the timer is never
+    credited, so it never appears here either.
+    """
+
+    __tablename__ = "project_spans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_key: Mapped[str] = mapped_column(ForeignKey("projects.key"), index=True)
+    start: Mapped[float] = mapped_column(Float, index=True)
+    end: Mapped[float] = mapped_column(Float)
+
+
 class ProjectSubtask(Base):
     __tablename__ = "project_subtasks"
 

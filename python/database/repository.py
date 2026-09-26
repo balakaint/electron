@@ -37,6 +37,7 @@ from database.models import (
     PlanTask,
     Project,
     ProjectActivity,
+    ProjectSpan,
     ProjectJourney,
     ProjectSubtask,
     Q90AreaMeta,
@@ -295,6 +296,22 @@ class ProjectRepository:
             self.db.add(row)
             self.db.flush()
         return row
+
+    def log_span(self, project_key: str, start: float, end: float) -> None:
+        """Record a credited span, extending the project's last one when
+        this carries straight on from it (a checkpoint tick)."""
+        last = self.db.scalars(
+            select(ProjectSpan).where(ProjectSpan.project_key == project_key).order_by(ProjectSpan.end.desc()).limit(1)
+        ).first()
+        if last is not None and abs(last.end - start) < 1.0 and end > last.end:
+            last.end = end
+        else:
+            self.db.add(ProjectSpan(project_key=project_key, start=start, end=end))
+        self.db.flush()
+
+    def list_spans(self, start: float, end: float) -> list[ProjectSpan]:
+        stmt = select(ProjectSpan).where(ProjectSpan.end > start, ProjectSpan.start < end).order_by(ProjectSpan.start)
+        return list(self.db.scalars(stmt))
 
     def save_activity(self, activity: ProjectActivity) -> ProjectActivity:
         self.db.commit()

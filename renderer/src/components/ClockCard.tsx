@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Settings, settingsApi } from '../services/api';
 import DayPhaseStrip, { currentPhaseInfo } from './DayPhaseBars';
 import ScopeStats from './ScopeStats';
+import DeepWorkCurve from './DeepWorkCurve';
 import RitualRing from './RitualRing';
 import { PHASE_LABELS_BN, useL, useLang } from '../i18n';
 import { RADIUS, SPACE } from '../spacing';
@@ -113,14 +114,14 @@ export default function ClockCard({
   if (live) lastPhaseRef.current = live;
   const phase = live ?? lastPhaseRef.current;
 
-  const weekday = now.toLocaleDateString(undefined, { weekday: 'long' });
+  const weekday = now.toLocaleDateString(undefined, { weekday: 'short' });
   const month = now.toLocaleDateString(undefined, { month: 'short' });
   const dateLine = `${weekday}, ${now.getDate()} ${month} ${now.getFullYear()}`;
   const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   const totalMin = phase ? Math.max(0, Math.round(phase.remainingHours * 60)) : 0;
 
   const phaseBlock = phase && (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: analog ? 'flex-start' : 'flex-end', gap: SPACE.xs }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: SPACE.xs }}>
       <span
         style={{
           fontSize: 12,
@@ -211,23 +212,25 @@ export default function ClockCard({
         gap: compact ? SPACE.sm : SPACE.md,
       }}
     >
-      <div style={{ display: 'flex', alignItems: analog ? 'center' : 'flex-end', gap: SPACE.md }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs, minWidth: 0 }}>
+      {/* Time on the left, today's deep work curve in the space that
+          used to sit empty beside it, and the dial (when it is on) at
+          the right. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: SPACE.md }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: SPACE.xs, flex: 'none', width: analog ? 112 : 144 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>{dateLine}</span>
           {analog ? (
             phaseBlock
           ) : (
-            <span style={{ fontSize: 30, fontWeight: 700, lineHeight: 1, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
-              {time}
-            </span>
+            <>
+              <span style={{ fontSize: 30, fontWeight: 700, lineHeight: 1, color: 'var(--text)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                {time}
+              </span>
+              {phaseBlock}
+            </>
           )}
         </div>
-        <span style={{ flex: 1 }} />
-        {analog ? (
-          <AnalogDial now={now} progress={phase?.progress ?? 0} color={phase?.color ?? 'var(--border)'} />
-        ) : (
-          phaseBlock
-        )}
+        {settings && <DeepWorkCurve settings={settings} />}
+        {analog && <AnalogDial now={now} progress={phase?.progress ?? 0} color={phase?.color ?? 'var(--border)'} />}
       </div>
 
       {/* The phase names and start times under the bar stay in the
